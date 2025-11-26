@@ -1,0 +1,200 @@
+import 'dart:io';
+import 'package:riverpod_annotation/riverpod_annotation.dart';
+import 'package:ropacalapp/core/services/api_service.dart';
+import 'package:ropacalapp/models/user.dart';
+import 'package:ropacalapp/services/fcm_service.dart';
+import 'package:ropacalapp/services/shift_service.dart';
+import 'package:ropacalapp/services/websocket_service.dart';
+import 'package:ropacalapp/providers/shift_provider.dart';
+import 'package:ropacalapp/providers/here_route_provider.dart';
+import 'package:ropacalapp/providers/simulation_provider.dart';
+import 'package:ropacalapp/core/utils/app_logger.dart';
+
+part 'auth_provider.g.dart';
+
+/// Global singleton ApiService (keepAlive ensures single instance)
+@Riverpod(keepAlive: true)
+ApiService apiService(ApiServiceRef ref) {
+  return ApiService();
+}
+
+/// WebSocket service provider (global singleton)
+@Riverpod(keepAlive: true)
+class WebSocketManager extends _$WebSocketManager {
+  WebSocketService? _service;
+
+  @override
+  WebSocketService? build() {
+    return null;
+  }
+
+  void connect(String token) {
+    if (_service != null) {
+      AppLogger.general('WebSocket already connected');
+      return;
+    }
+
+    _service = WebSocketService();
+
+    // Set up callbacks
+    _service!.onRouteAssigned = (data) {
+      AppLogger.general('📨 Route assigned via WebSocket: ${data['route_id']}');
+      ref.read(shiftNotifierProvider.notifier).refreshShift();
+    };
+
+    _service!.onShiftUpdate = (data) {
+      AppLogger.general('📨 Shift updated via WebSocket');
+      ref.read(shiftNotifierProvider.notifier).refreshShift();
+    };
+
+    _service!.onShiftDeleted = (data) {
+      AppLogger.general(
+        '🗑️  Shift deleted via WebSocket: ${data['shift_id']}',
+      );
+      ref.read(shiftNotifierProvider.notifier).refreshShift();
+    };
+
+    _service!.onConnected = () {
+      AppLogger.general('✅ WebSocket connected');
+    };
+
+    _service!.onDisconnected = () {
+      AppLogger.general('🔌 WebSocket disconnected');
+    };
+
+    _service!.connect(token);
+    state = _service;
+  }
+
+  void disconnect() {
+    _service?.disconnect();
+    _service = null;
+    state = null;
+  }
+}
+
+@riverpod
+class AuthNotifier extends _$AuthNotifier {
+  @override
+  Future<User?> build() async {
+    AppLogger.general('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    AppLogger.general('🚀 AUTH PROVIDER BUILD - APP STARTUP');
+
+    // Load saved auth token from secure storage
+    final apiService = ref.read(apiServiceProvider);
+    AppLogger.general('   📂 Loading token from secure storage...');
+    await apiService.loadAuthToken();
+
+    // Check if user is already logged in with the loaded token
+    AppLogger.general('   🔍 Checking if token exists...');
+    AppLogger.general('   💾 hasToken: ${apiService.hasToken}');
+
+    if (apiService.hasToken) {
+      AppLogger.general('   ✅ Token found! Validating with backend...');
+      try {
+        final user = await apiService.getAuthStatus();
+        if (user != null) {
+          AppLogger.general('   ✅ User auto-logged in from saved token');
+          AppLogger.general('   👤 User: ${user.email} (${user.role})');
+
+          // Reconnect WebSocket with saved token
+          final token = apiService.authToken;
+          if (token != null) {
+            AppLogger.general('   🔌 Reconnecting WebSocket...');
+            ref.read(webSocketManagerProvider.notifier).connect(token);
+          }
+
+          AppLogger.general('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+          return user;
+        }
+      } catch (e) {
+        AppLogger.general('   ⚠️  Saved token invalid or expired: $e');
+        await apiService.clearAuthToken();
+      }
+    } else {
+      AppLogger.general('   ℹ️  No token found - user needs to login');
+    }
+
+    AppLogger.general('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    return null;
+  }
+
+  Future<void> login(String email, String password) async {
+    state = const AsyncValue.loading();
+
+    final apiService = ref.read(apiServiceProvider);
+
+    state = await AsyncValue.guard(() async {
+      final response = await apiService.login(email: email, password: password);
+
+      // Extract token from response
+      final token = response['token'] as String?;
+      if (token != null) {
+        AppLogger.general('🔑 Setting auth token...');
+        await apiService.setAuthToken(token);
+        AppLogger.general('✅ Auth token set successfully');
+
+        // Connect WebSocket with JWT token
+        AppLogger.general('🔌 Connecting WebSocket...');
+        ref.read(webSocketManagerProvider.notifier).connect(token);
+
+        // Register FCM token with backend
+        AppLogger.general('📱 Registering FCM token...');
+        await _registerFCMToken();
+
+        // NOTE: Shift pre-loading is now handled in login_page.dart
+        // This ensures shift data, location, and HERE Maps route are all
+        // ready before navigating to the map screen
+      }
+
+      // Extract user from response
+      final userData = response['user'] as Map<String, dynamic>?;
+      if (userData != null) {
+        return User.fromJson(userData);
+      }
+
+      throw 'Invalid login response';
+    });
+  }
+
+  Future<void> _registerFCMToken() async {
+    final fcmToken = FCMService.token;
+    if (fcmToken == null) {
+      AppLogger.general('No FCM token available', level: AppLogger.warning);
+      return;
+    }
+
+    try {
+      final deviceType = Platform.isIOS ? 'ios' : 'android';
+      final shiftService = ref.read(shiftServiceProvider);
+
+      await shiftService.registerFCMToken(fcmToken, deviceType);
+      AppLogger.general('✅ FCM token registered with backend');
+    } catch (e) {
+      AppLogger.general(
+        '⚠️  Failed to register FCM token: $e',
+        level: AppLogger.warning,
+      );
+    }
+  }
+
+  Future<void> logout() async {
+    state = const AsyncValue.loading();
+
+    final apiService = ref.read(apiServiceProvider);
+    await apiService.clearAuthToken();
+
+    // Disconnect WebSocket
+    ref.read(webSocketManagerProvider.notifier).disconnect();
+
+    // Clear stale HERE route data (DEPRECATED - using Mapbox now)
+    // ref.read(hereRouteMetadataProvider.notifier).clearRouteData();
+    // AppLogger.general('🗑️  Cleared HERE route data on logout');
+
+    // Reset simulation state
+    ref.read(simulationNotifierProvider.notifier).reset();
+    AppLogger.general('🗑️  Reset simulation state on logout');
+
+    state = const AsyncValue.data(null);
+  }
+}

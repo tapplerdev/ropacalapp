@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.1" creator="RopacalApp Test">
+  <trk>
+    <name>San Francisco to San Jose Test Route</name>
+    <trkseg>
+      <!-- Starting point: San Francisco -->
+      <trkpt lat="37.785834" lon="-122.406417">
+        <time>2024-01-01T00:00:00Z</time>
+      </trkpt>
+      <!-- Point 2: Moving south on 280 -->
+      <trkpt lat="37.765" lon="-122.420">
+        <time>2024-01-01T00:01:00Z</time>
+      </trkpt>
+      <!-- Point 3: Continuing on 280 -->
+      <trkpt lat="37.740" lon="-122.435">
+        <time>2024-01-01T00:02:00Z</time>
+      </trkpt>
+      <!-- Point 4: Further south -->
+      <trkpt lat="37.710" lon="-122.445">
+        <time>2024-01-01T00:03:00Z</time>
+      </trkpt>
+      <!-- Point 5: Approaching Daly City -->
+      <trkpt lat="37.680" lon="-122.455">
+        <time>2024-01-01T00:04:00Z</time>
+      </trkpt>
+      <!-- Point 6: Past Daly City -->
+      <trkpt lat="37.650" lon="-122.460">
+        <time>2024-01-01T00:05:00Z</time>
+      </trkpt>
+      <!-- Point 7: San Bruno area -->
+      <trkpt lat="37.620" lon="-122.430">
+        <time>2024-01-01T00:06:00Z</time>
+      </trkpt>
+      <!-- Point 8: Heading towards San Mateo -->
+      <trkpt lat="37.580" lon="-122.360">
+        <time>2024-01-01T00:07:00Z</time>
+      </trkpt>
+      <!-- Point 9: San Mateo area -->
+      <trkpt lat="37.540" lon="-122.310">
+        <time>2024-01-01T00:08:00Z</time>
+      </trkpt>
+      <!-- Point 10: Redwood City area -->
+      <trkpt lat="37.490" lon="-122.240">
+        <time>2024-01-01T00:09:00Z</time>
+      </trkpt>
+      <!-- Point 11: Palo Alto area -->
+      <trkpt lat="37.440" lon="-122.150">
+        <time>2024-01-01T00:10:00Z</time>
+      </trkpt>
+      <!-- Point 12: Mountain View area -->
+      <trkpt lat="37.400" lon="-122.080">
+        <time>2024-01-01T00:11:00Z</time>
+      </trkpt>
+      <!-- Point 13: Sunnyvale area -->
+      <trkpt lat="37.370" lon="-122.030">
+        <time>2024-01-01T00:12:00Z</time>
+      </trkpt>
+      <!-- Point 14: Santa Clara area -->
+      <trkpt lat="37.350" lon="-121.950">
+        <time>2024-01-01T00:13:00Z</time>
+      </trkpt>
+      <!-- Final point: San Jose destination -->
+      <trkpt lat="37.3351" lon="-121.8894">
+        <time>2024-01-01T00:14:00Z</time>
+      </trkpt>
+    </trkseg>
+  </trk>
+</gpx>

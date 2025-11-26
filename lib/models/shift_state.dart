@@ -1,0 +1,75 @@
+import 'package:freezed_annotation/freezed_annotation.dart';
+import 'package:ropacalapp/models/route_bin.dart';
+import 'package:ropacalapp/core/utils/unix_timestamp_converter.dart';
+
+part 'shift_state.freezed.dart';
+part 'shift_state.g.dart';
+
+/// Represents the driver's current shift status
+@freezed
+class ShiftState with _$ShiftState {
+  const factory ShiftState({
+    /// Current shift status
+    required ShiftStatus status,
+
+    /// When the shift started (clock in time)
+    @JsonKey(name: 'start_time') @UnixTimestampConverter() DateTime? startTime,
+
+    /// Total pause time in seconds
+    @JsonKey(name: 'total_pause_seconds') @Default(0) int totalPauseSeconds,
+
+    /// Current pause start time (null if not paused)
+    @JsonKey(name: 'pause_start_time')
+    @UnixTimestampConverter()
+    DateTime? pauseStartTime,
+
+    /// Assigned route ID
+    @JsonKey(name: 'route_id') String? assignedRouteId,
+
+    /// Total bins in assigned route
+    @JsonKey(name: 'total_bins') @Default(0) int totalBins,
+
+    /// Completed bins count
+    @JsonKey(name: 'completed_bins') @Default(0) int completedBins,
+
+    /// List of bins in the route with their details
+    @JsonKey(name: 'bins') @Default([]) List<RouteBin> routeBins,
+  }) = _ShiftState;
+
+  const ShiftState._();
+
+  factory ShiftState.fromJson(Map<String, dynamic> json) =>
+      _$ShiftStateFromJson(json);
+
+  /// Get only incomplete bins for active navigation
+  List<RouteBin> get remainingBins {
+    return routeBins.where((bin) => bin.isCompleted == 0).toList();
+  }
+}
+
+/// Shift status enum
+enum ShiftStatus {
+  /// No route assigned, cannot start shift (deprecated - use ended/cancelled)
+  @JsonValue('inactive')
+  inactive,
+
+  /// Route assigned, ready to start shift
+  @JsonValue('ready')
+  ready,
+
+  /// Shift in progress, timer running
+  @JsonValue('active')
+  active,
+
+  /// Shift paused (break time)
+  @JsonValue('paused')
+  paused,
+
+  /// Shift completed or manually ended by driver
+  @JsonValue('ended')
+  ended,
+
+  /// Shift cancelled by manager
+  @JsonValue('cancelled')
+  cancelled,
+}

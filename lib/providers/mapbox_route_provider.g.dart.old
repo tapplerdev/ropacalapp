@@ -1,0 +1,30 @@
+// GENERATED CODE - DO NOT MODIFY BY HAND
+
+part of 'mapbox_route_provider.dart';
+
+// **************************************************************************
+// RiverpodGenerator
+// **************************************************************************
+
+String _$mapboxRouteMetadataHash() =>
+    r'1d1d8f47747c0614cdc9808fbce1fa4dacce7c41';
+
+/// Provider to store Mapbox Directions API route metadata
+/// Includes traffic-aware durations, voice instructions, and banner instructions
+///
+/// Copied from [MapboxRouteMetadata].
+@ProviderFor(MapboxRouteMetadata)
+final mapboxRouteMetadataProvider =
+    NotifierProvider<MapboxRouteMetadata, MapboxRouteData?>.internal(
+      MapboxRouteMetadata.new,
+      name: r'mapboxRouteMetadataProvider',
+      debugGetCreateSourceHash: const bool.fromEnvironment('dart.vm.product')
+          ? null
+          : _$mapboxRouteMetadataHash,
+      dependencies: null,
+      allTransitiveDependencies: null,
+    );
+
+typedef _$MapboxRouteMetadata = Notifier<MapboxRouteData?>;
+// ignore_for_file: type=lint
+// ignore_for_file: subtype_of_sealed_class, invalid_use_of_internal_member, invalid_use_of_visible_for_testing_member, deprecated_member_use_from_same_package

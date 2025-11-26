@@ -1,0 +1,160 @@
+import 'package:riverpod_annotation/riverpod_annotation.dart';
+import 'package:ropacalapp/core/utils/app_logger.dart';
+import 'package:latlong2/latlong.dart' as latlong;
+import 'package:ropacalapp/models/route_step.dart';
+
+part 'mapbox_route_provider.g.dart';
+
+/// Provider to store Mapbox Directions API route metadata
+/// Includes traffic-aware durations, voice instructions, and banner instructions
+@Riverpod(keepAlive: true)
+class MapboxRouteMetadata extends _$MapboxRouteMetadata {
+  @override
+  MapboxRouteData? build() {
+    AppLogger.routing(
+      '🔔 DEBUG - MapboxRouteMetadata provider build() called (initializing to null)',
+    );
+    // Initially null, no Mapbox route data
+    return null;
+  }
+
+  /// Store Mapbox Directions API route response data
+  void setRouteData({
+    required List<double> legDurations,
+    required List<double> legDistances,
+    required double totalDuration,
+    required double totalDistance,
+    required List<latlong.LatLng> polyline,
+    required List<RouteStep> steps,
+    List<Map<String, dynamic>>? voiceInstructions,
+    List<Map<String, dynamic>>? bannerInstructions,
+  }) {
+    AppLogger.routing(
+      '🔔 DEBUG - setRouteData() called in MapboxRouteMetadata provider',
+    );
+    AppLogger.routing(
+      '   Total duration: ${totalDuration}s (${(totalDuration / 60).toStringAsFixed(1)} min)',
+    );
+    AppLogger.routing(
+      '   Total distance: ${totalDistance}m (${(totalDistance / 1000).toStringAsFixed(2)} km)',
+    );
+    AppLogger.routing('   Number of legs: ${legDurations.length}');
+    AppLogger.routing('   Polyline points: ${polyline.length}');
+    AppLogger.routing('   Turn instructions: ${steps.length}');
+    if (voiceInstructions != null) {
+      AppLogger.routing('   Voice instructions: ${voiceInstructions.length}');
+    }
+    if (bannerInstructions != null) {
+      AppLogger.routing('   Banner instructions: ${bannerInstructions.length}');
+    }
+
+    state = MapboxRouteData(
+      legDurations: legDurations,
+      legDistances: legDistances,
+      totalDuration: totalDuration,
+      totalDistance: totalDistance,
+      polyline: polyline,
+      steps: steps,
+      voiceInstructions: voiceInstructions,
+      bannerInstructions: bannerInstructions,
+    );
+
+    AppLogger.routing('✅ DEBUG - state updated, listeners should be notified');
+  }
+
+  /// Clear route data
+  void clearRouteData() {
+    AppLogger.routing(
+      '🔔 DEBUG - clearRouteData() called in MapboxRouteMetadata provider',
+    );
+    state = null;
+    AppLogger.routing('✅ DEBUG - state cleared (set to null)');
+  }
+}
+
+/// Data class to hold Mapbox Directions API route metadata
+class MapboxRouteData {
+  final List<double> legDurations; // Duration for each leg in seconds
+  final List<double> legDistances; // Distance for each leg in meters
+  final double totalDuration; // Total duration in seconds
+  final double totalDistance; // Total distance in meters
+  final List<latlong.LatLng> polyline; // Route polyline coordinates
+  final List<RouteStep> steps; // Turn-by-turn navigation instructions
+  final List<Map<String, dynamic>>? voiceInstructions; // Mapbox voice guidance
+  final List<Map<String, dynamic>>? bannerInstructions; // Mapbox banner UI
+
+  const MapboxRouteData({
+    required this.legDurations,
+    required this.legDistances,
+    required this.totalDuration,
+    required this.totalDistance,
+    required this.polyline,
+    required this.steps,
+    this.voiceInstructions,
+    this.bannerInstructions,
+  });
+
+  /// Get ETA to a specific bin index (in seconds)
+  /// binIndex 0 = first bin, 1 = second bin, etc.
+  double? getEtaToBin(int binIndex) {
+    if (binIndex < 0 || binIndex >= legDurations.length) {
+      return null;
+    }
+
+    // Sum up durations from current location to target bin
+    // binIndex 0 means we want duration of leg 0 (current location -> first bin)
+    // binIndex 1 means we want legs 0 + 1 (current location -> first bin -> second bin)
+    double totalDuration = 0.0;
+    for (int i = 0; i <= binIndex; i++) {
+      totalDuration += legDurations[i];
+    }
+
+    return totalDuration;
+  }
+
+  /// Get distance to a specific bin index (in meters)
+  double? getDistanceToBin(int binIndex) {
+    if (binIndex < 0 || binIndex >= legDistances.length) return null;
+
+    // Sum up distances from current location to target bin
+    double totalDistance = 0.0;
+    for (int i = 0; i <= binIndex; i++) {
+      totalDistance += legDistances[i];
+    }
+
+    return totalDistance;
+  }
+
+  /// Get next voice instruction based on distance from current location
+  /// Returns null if no upcoming voice instruction
+  Map<String, dynamic>? getNextVoiceInstruction(double distanceAlongRoute) {
+    if (voiceInstructions == null || voiceInstructions!.isEmpty) return null;
+
+    // Find the next voice instruction ahead of current position
+    for (final instruction in voiceInstructions!) {
+      final distanceFromStart = instruction['distanceFromStart'] as double?;
+      if (distanceFromStart != null && distanceFromStart > distanceAlongRoute) {
+        return instruction;
+      }
+    }
+
+    return null; // No more instructions
+  }
+
+  /// Get next banner instruction based on distance from current location
+  /// Returns null if no upcoming banner instruction
+  Map<String, dynamic>? getNextBannerInstruction(double distanceAlongRoute) {
+    if (bannerInstructions == null || bannerInstructions!.isEmpty) return null;
+
+    // Find the next banner instruction ahead of current position
+    for (final instruction in bannerInstructions!) {
+      final distanceFromStart = instruction['distanceFromStart'] as double?;
+      if (distanceFromStart != null &&
+          distanceFromStart > distanceAlongRoute) {
+        return instruction;
+      }
+    }
+
+    return null; // No more instructions
+  }
+}

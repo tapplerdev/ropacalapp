@@ -44,7 +44,7 @@ mixin _$SimulationState {
   /// Smoothed bearing to reduce jitter
   double? get smoothedBearing => throw _privateConstructorUsedError;
 
-  /// Full OSRM route polyline for map rendering (detailed road path)
+  /// Full route polyline for map rendering (detailed road path)
   List<LatLng> get routePolyline => throw _privateConstructorUsedError;
 
   /// Create a copy of SimulationState
@@ -303,10 +303,10 @@ class _$SimulationStateImpl implements _SimulationState {
   @override
   final double? smoothedBearing;
 
-  /// Full OSRM route polyline for map rendering (detailed road path)
+  /// Full route polyline for map rendering (detailed road path)
   final List<LatLng> _routePolyline;
 
-  /// Full OSRM route polyline for map rendering (detailed road path)
+  /// Full route polyline for map rendering (detailed road path)
   @override
   @JsonKey()
   List<LatLng> get routePolyline {
@@ -425,7 +425,7 @@ abstract class _SimulationState implements SimulationState {
   @override
   double? get smoothedBearing;
 
-  /// Full OSRM route polyline for map rendering (detailed road path)
+  /// Full route polyline for map rendering (detailed road path)
   @override
   List<LatLng> get routePolyline;
 

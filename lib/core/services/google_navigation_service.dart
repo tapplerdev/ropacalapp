@@ -77,9 +77,9 @@ class GoogleNavigationService {
   }
 
   /// Toggle audio guidance on/off
-  static void toggleAudio(ValueNotifier<bool> isAudioMuted) {
-    final newMutedState = !isAudioMuted.value;
-    isAudioMuted.value = newMutedState;
+  static void toggleAudio(bool currentMutedState, Function(bool) setMuted) {
+    final newMutedState = !currentMutedState;
+    setMuted(newMutedState);
 
     if (newMutedState) {
       GoogleMapsNavigator.setAudioGuidance(

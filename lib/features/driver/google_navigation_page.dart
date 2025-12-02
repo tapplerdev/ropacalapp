@@ -32,25 +32,13 @@ class GoogleNavigationPage extends HookConsumerWidget {
     // Local UI-only state (keep as hooks)
     final navigationController = useState<GoogleNavigationViewController?>(null);
     final userLocation = useState<LatLng?>(null);
-    final isExpanded = useState(false); // Expandable bottom panel state
     final isDarkMode = useState(false); // UNUSED - Dark mode toggle (custom map style disabled)
     final navigatorInitialized = useState(false);
     final initializationError = useState<String?>(null);
     final isHandlingShiftEnd = useRef(false); // Prevent duplicate cleanup calls
     final hasReceivedFirstNavInfo = useRef(false); // Keep as ref for listener
 
-    // Temporary: Keep these as hooks until full migration (will be migrated in full migration)
-    final isAudioMuted = useState(false);
-    final markerToBinMap = useState<Map<String, RouteBin>>({});
-    final currentStep = useState<RouteStep?>(null);
-    final distanceToNextManeuver = useState<double>(0.0);
-    final remainingTime = useState<Duration?>(null);
-    final totalDistanceRemaining = useState<double?>(null);
-    final navigationLocation = useState<LatLng?>(null);
-    final geofenceCircles = useState<List<CircleOptions>>([]);
-    final completedRoutePolyline = useState<PolylineOptions?>(null);
-
-    // Navigation state from provider (migrated: isNavigationReady, isNavigating, currentBinIndex)
+    // Navigation state from provider (all navigation state now managed by provider)
     final navState = ref.watch(navigationPageNotifierProvider);
     final navNotifier = ref.read(navigationPageNotifierProvider.notifier);
     final shift = ref.watch(shiftNotifierProvider);
@@ -83,8 +71,6 @@ class GoogleNavigationPage extends HookConsumerWidget {
           ref,
           next,
           navNotifier,
-          geofenceCircles,
-          completedRoutePolyline,
         );
       }
 
@@ -100,8 +86,7 @@ class GoogleNavigationPage extends HookConsumerWidget {
           context,
           navigationController.value,
           next,
-          geofenceCircles,
-          completedRoutePolyline,
+          navNotifier,
         );
       }
 
@@ -119,8 +104,7 @@ class GoogleNavigationPage extends HookConsumerWidget {
           context,
           navigationController.value,
           previous, // Use previous shift data to show stats
-          geofenceCircles,
-          completedRoutePolyline,
+          navNotifier,
           isDeleted: true, // Auto-pop without dialog for deleted shifts
         );
       }
@@ -263,7 +247,7 @@ class GoogleNavigationPage extends HookConsumerWidget {
                 ),
                 onMarkerClicked: (String markerId) {
                 AppLogger.general('🎯 Marker clicked: $markerId');
-                final bin = markerToBinMap.value[markerId];
+                final bin = navState.markerToBinMap[markerId];
                 if (bin != null) {
                   AppLogger.general('   Bin #${bin.binNumber} at ${bin.currentStreet}');
                   // TODO: Show bin details dialog (needs RouteBin support)
@@ -297,15 +281,6 @@ class GoogleNavigationPage extends HookConsumerWidget {
                     ref,
                     shift,
                     navNotifier,
-                    markerToBinMap,
-                    currentStep,
-                    distanceToNextManeuver,
-                    remainingTime,
-                    totalDistanceRemaining,
-                    navigationLocation,
-                    geofenceCircles,
-                    completedRoutePolyline,
-                    hasReceivedFirstNavInfo,
                     isDarkMode.value,
                   );
                 } catch (e) {
@@ -316,7 +291,7 @@ class GoogleNavigationPage extends HookConsumerWidget {
                 // This follows Google's official example pattern (navigation.dart:269-283)
                 if (Platform.isIOS) {
                   Future.delayed(const Duration(milliseconds: 1500), () async {
-                    if (navigationLocation.value == null) {
+                    if (navState.navigationLocation == null) {
                       AppLogger.general('⚠️  [iOS] GPS location unavailable after 1.5s timeout');
 
                       // Try to get location from map controller first
@@ -352,16 +327,16 @@ class GoogleNavigationPage extends HookConsumerWidget {
             ),
 
           // Turn-by-turn navigation card
-          if (navState.isNavigating && currentStep.value != null)
+          if (navState.isNavigating && navState.currentStep != null)
             Positioned(
               top: 80,
               left: 16,
               right: 16,
               child: TurnByTurnNavigationCard(
-                currentStep: currentStep.value!,
-                distanceToNextManeuver: distanceToNextManeuver.value,
-                estimatedTimeRemaining: remainingTime.value,
-                totalDistanceRemaining: totalDistanceRemaining.value,
+                currentStep: navState.currentStep!,
+                distanceToNextManeuver: navState.distanceToNextManeuver,
+                estimatedTimeRemaining: navState.remainingTime,
+                totalDistanceRemaining: navState.totalDistanceRemaining,
               ),
             ),
 
@@ -389,8 +364,11 @@ class GoogleNavigationPage extends HookConsumerWidget {
             bottom: 400,
             right: 16,
             child: _buildCircularButton(
-              icon: isAudioMuted.value ? Icons.volume_off : Icons.volume_up,
-              onTap: () => GoogleNavigationService.toggleAudio(isAudioMuted),
+              icon: navState.isAudioMuted ? Icons.volume_off : Icons.volume_up,
+              onTap: () => GoogleNavigationService.toggleAudio(
+                navState.isAudioMuted,
+                navNotifier.setAudioMuted,
+              ),
             ),
           ),
 
@@ -420,10 +398,11 @@ class GoogleNavigationPage extends HookConsumerWidget {
               ref,
               shift,
               navState.currentBinIndex,
-              isExpanded,
-              remainingTime.value,
-              totalDistanceRemaining.value,
-              navigationLocation.value,
+              navState.isBottomPanelExpanded,
+              navNotifier,
+              navState.remainingTime,
+              navState.totalDistanceRemaining,
+              navState.navigationLocation,
             ),
         ],
       ),
@@ -688,8 +667,6 @@ class GoogleNavigationPage extends HookConsumerWidget {
     WidgetRef ref,
     ShiftState shift,
     NavigationPageNotifier navNotifier,
-    ValueNotifier<List<CircleOptions>> geofenceCircles,
-    ValueNotifier<PolylineOptions?> completedRoutePolyline,
   ) async {
     if (controller == null) {
       AppLogger.general('⚠️  Cannot recalculate: controller is null');
@@ -749,13 +726,14 @@ class GoogleNavigationPage extends HookConsumerWidget {
           final tempMarkerMap = <String, RouteBin>{};
           final markers = await GoogleNavigationMarkerService.createCustomBinMarkers(shift.remainingBins, tempMarkerMap);
           await controller.addMarkers(markers);
+          navNotifier.updateMarkerToBinMap(tempMarkerMap);
           AppLogger.general('📍 Added ${markers.length} custom markers');
 
           // Add geofence circles
           final circles = await GoogleNavigationMarkerService.createGeofenceCircles(shift.remainingBins);
           await controller.clearCircles();
           await controller.addCircles(circles);
-          geofenceCircles.value = circles;
+          navNotifier.updateGeofenceCircles(circles);
           AppLogger.general('⭕ Added ${circles.length} geofence circles');
 
           // Update completed route polyline
@@ -764,7 +742,7 @@ class GoogleNavigationPage extends HookConsumerWidget {
           await controller.clearPolylines();
           if (polyline != null) {
             await controller.addPolylines([polyline]);
-            completedRoutePolyline.value = polyline;
+            navNotifier.updateCompletedRoutePolyline(polyline);
             AppLogger.general('📏 Added completed route polyline');
           }
 
@@ -813,8 +791,7 @@ class GoogleNavigationPage extends HookConsumerWidget {
     BuildContext context,
     GoogleNavigationViewController? controller,
     ShiftState shift,
-    ValueNotifier<List<CircleOptions>> geofenceCircles,
-    ValueNotifier<PolylineOptions?> completedRoutePolyline, {
+    NavigationPageNotifier navNotifier, {
     bool isDeleted = false, // True when shift was deleted/nuked
   }) async {
     try {
@@ -858,7 +835,7 @@ class GoogleNavigationPage extends HookConsumerWidget {
 
       // 5. Clear geofence circles
       try {
-        geofenceCircles.value = [];
+        navNotifier.updateGeofenceCircles([]);
         AppLogger.general('   ✅ Cleared geofence circles');
       } catch (e) {
         AppLogger.general('   ⚠️  Error clearing geofence circles (likely disposed): $e');
@@ -866,7 +843,7 @@ class GoogleNavigationPage extends HookConsumerWidget {
 
       // 6. Clear completed route polyline
       try {
-        completedRoutePolyline.value = null;
+        navNotifier.updateCompletedRoutePolyline(null);
         AppLogger.general('   ✅ Cleared completed route');
       } catch (e) {
         AppLogger.general('   ⚠️  Error clearing completed route (likely disposed): $e');
@@ -1057,15 +1034,6 @@ class GoogleNavigationPage extends HookConsumerWidget {
     WidgetRef ref,
     ShiftState shift,
     NavigationPageNotifier navNotifier,
-    ValueNotifier<Map<String, RouteBin>> markerToBinMap,
-    ValueNotifier<RouteStep?> currentStep,
-    ValueNotifier<double> distanceToNextManeuver,
-    ValueNotifier<Duration?> remainingTime,
-    ValueNotifier<double?> totalDistanceRemaining,
-    ValueNotifier<LatLng?> navigationLocation,
-    ValueNotifier<List<CircleOptions>> geofenceCircles,
-    ValueNotifier<PolylineOptions?> completedRoutePolyline,
-    ObjectRef<bool> hasReceivedFirstNavInfo,
     bool isDark,
   ) async {
     AppLogger.general('🚀 [SETUP] Starting 6-step navigation setup...');
@@ -1093,19 +1061,11 @@ class GoogleNavigationPage extends HookConsumerWidget {
 
       // STEP 3: Setup navigation listeners (for location updates, turn-by-turn, etc.)
       AppLogger.general('👂 [STEP 3/6] Setting up navigation listeners...');
-      // Note: currentBinIndex is not used in listeners, passing dummy ValueNotifier for now
-      final dummyCurrentBinIndex = ValueNotifier<int>(navNotifier.state.currentBinIndex);
       _setupNavigationListeners(
         context,
         ref,
         shift,
-        dummyCurrentBinIndex,
-        currentStep,
-        distanceToNextManeuver,
-        remainingTime,
-        totalDistanceRemaining,
-        navigationLocation,
-        hasReceivedFirstNavInfo,
+        navNotifier,
       );
       AppLogger.general('✅ [STEP 3/6] Listeners configured');
 
@@ -1116,15 +1076,17 @@ class GoogleNavigationPage extends HookConsumerWidget {
 
       // STEP 5: Add custom markers
       AppLogger.general('📍 [STEP 5/6] Creating and adding custom bin markers...');
-      final markers = await GoogleNavigationMarkerService.createCustomBinMarkers(shift.remainingBins, markerToBinMap.value);
+      final tempMarkerMap = <String, RouteBin>{};
+      final markers = await GoogleNavigationMarkerService.createCustomBinMarkers(shift.remainingBins, tempMarkerMap);
       await controller.addMarkers(markers);
+      navNotifier.updateMarkerToBinMap(tempMarkerMap);
       AppLogger.general('✅ [STEP 5/6] Added ${markers.length} custom markers');
 
       // STEP 6: Create geofence circles and completed route polyline
       AppLogger.general('⭕ [STEP 6/6] Adding geofence circles and polylines...');
       final circles = await GoogleNavigationMarkerService.createGeofenceCircles(shift.remainingBins);
       await controller.addCircles(circles);
-      geofenceCircles.value = circles;
+      navNotifier.updateGeofenceCircles(circles);
       AppLogger.general('   Added ${circles.length} geofence circles');
 
       // Add completed route polyline if there are completed bins
@@ -1133,7 +1095,7 @@ class GoogleNavigationPage extends HookConsumerWidget {
         final polyline = await GoogleNavigationMarkerService.createCompletedRoutePolyline(completedBinsList);
         if (polyline != null) {
           await controller.addPolylines([polyline]);
-          completedRoutePolyline.value = polyline;
+          navNotifier.updateCompletedRoutePolyline(polyline);
           AppLogger.general('   Added completed route polyline');
         }
       }
@@ -1155,21 +1117,15 @@ class GoogleNavigationPage extends HookConsumerWidget {
     BuildContext context,
     WidgetRef ref,
     ShiftState shift,
-    ValueNotifier<int> currentBinIndex,
-    ValueNotifier<RouteStep?> currentStep,
-    ValueNotifier<double> distanceToNextManeuver,
-    ValueNotifier<Duration?> remainingTime,
-    ValueNotifier<double?> totalDistanceRemaining,
-    ValueNotifier<LatLng?> navigationLocation,
-    ObjectRef<bool> hasReceivedFirstNavInfo,
+    NavigationPageNotifier navNotifier,
   ) {
     AppLogger.general('👂 Setting up navigation listeners...');
 
     // Listen to NavInfo updates (turn-by-turn data)
     GoogleMapsNavigator.setNavInfoListener((navInfoEvent) {
-      if (!hasReceivedFirstNavInfo.value) {
+      if (!navNotifier.state.hasReceivedFirstNavInfo) {
         AppLogger.general('📍 First NavInfo received');
-        hasReceivedFirstNavInfo.value = true;
+        navNotifier.setHasReceivedFirstNavInfo(true);
       }
 
       final navInfo = navInfoEvent.navInfo;
@@ -1177,30 +1133,30 @@ class GoogleNavigationPage extends HookConsumerWidget {
       // Update current step
       if (navInfo.currentStep != null) {
         final step = navInfo.currentStep!;
-        currentStep.value = RouteStep(
+        navNotifier.updateCurrentStep(RouteStep(
           maneuverType: GoogleNavigationHelpers.convertManeuverType(step.maneuver),
           instruction: step.fullInstructions,
           distance: step.distanceFromPrevStepMeters.toDouble(),
           duration: navInfo.timeToCurrentStepSeconds?.toDouble() ?? 0.0,
           location: latlong.LatLng(0, 0), // Location not available in StepInfo
           modifier: GoogleNavigationHelpers.extractModifier(step.fullInstructions),
-        );
+        ));
       }
 
       // Update distance to next maneuver
-      distanceToNextManeuver.value = navInfo.distanceToCurrentStepMeters?.toDouble() ?? 0;
+      navNotifier.updateDistanceToNextManeuver(navInfo.distanceToCurrentStepMeters?.toDouble() ?? 0);
 
       // Update remaining time and distance to final destination
-      remainingTime.value = navInfo.timeToFinalDestinationSeconds != null
+      navNotifier.updateRemainingTime(navInfo.timeToFinalDestinationSeconds != null
           ? Duration(seconds: navInfo.timeToFinalDestinationSeconds!)
-          : null;
+          : null);
 
-      totalDistanceRemaining.value = navInfo.distanceToFinalDestinationMeters?.toDouble();
+      navNotifier.updateTotalDistanceRemaining(navInfo.distanceToFinalDestinationMeters?.toDouble());
     });
 
     // Listen to location updates (for display purposes only)
     GoogleMapsNavigator.setRoadSnappedLocationUpdatedListener((location) {
-      navigationLocation.value = location.location;
+      navNotifier.updateNavigationLocation(location.location);
     });
 
     // Listen to arrival events
@@ -1346,7 +1302,8 @@ class GoogleNavigationPage extends HookConsumerWidget {
     WidgetRef ref,
     ShiftState shift,
     int currentIndex,
-    ValueNotifier<bool> isExpanded,
+    bool isExpanded,
+    NavigationPageNotifier navNotifier,
     Duration? remainingTime,
     double? totalDistanceRemaining,
     LatLng? driverLocation,
@@ -1365,12 +1322,12 @@ class GoogleNavigationPage extends HookConsumerWidget {
       right: 0,
       child: GestureDetector(
         onTap: () {
-          isExpanded.value = !isExpanded.value;
+          navNotifier.toggleBottomPanel();
         },
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 300),
           curve: Curves.easeInOut,
-          height: isExpanded.value ? 320 : 85,
+          height: isExpanded ? 320 : 85,
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
@@ -1397,7 +1354,7 @@ class GoogleNavigationPage extends HookConsumerWidget {
 
               // Content
               Expanded(
-                child: isExpanded.value
+                child: isExpanded
                     ? _buildExpandedContent(context, ref, shift, currentBin, currentIndex, remainingTime, totalDistanceRemaining, driverLocation)
                     : _buildCollapsedContent(currentBin, shift.completedBins, shift.totalBins, remainingTime),
               ),

@@ -18,6 +18,9 @@ import 'package:ropacalapp/providers/navigation_page_provider.dart';
 import 'package:ropacalapp/features/driver/widgets/turn_by_turn_navigation_card.dart';
 import 'package:ropacalapp/features/driver/widgets/navigation_bottom_panel.dart';
 import 'package:ropacalapp/features/driver/widgets/check_in_dialog_v2.dart';
+import 'package:ropacalapp/features/driver/widgets/circular_map_button.dart';
+import 'package:ropacalapp/features/driver/widgets/dialogs/shift_summary_dialog.dart';
+import 'package:ropacalapp/features/driver/widgets/dialogs/shift_cancellation_dialog.dart';
 import 'package:ropacalapp/features/driver/notifications_page.dart';
 import 'package:ropacalapp/models/route_bin.dart';
 import 'package:ropacalapp/models/route_step.dart';
@@ -346,7 +349,7 @@ class GoogleNavigationPage extends HookConsumerWidget {
             top: 16,
             left: 16,
             child: SafeArea(
-              child: _buildCircularButton(
+              child: CircularMapButton(
                 icon: Icons.notifications_outlined,
                 onTap: () {
                   Navigator.push(
@@ -364,7 +367,7 @@ class GoogleNavigationPage extends HookConsumerWidget {
           Positioned(
             bottom: 400,
             right: 16,
-            child: _buildCircularButton(
+            child: CircularMapButton(
               icon: navState.isAudioMuted ? Icons.volume_off : Icons.volume_up,
               onTap: () => GoogleNavigationService.toggleAudio(
                 navState.isAudioMuted,
@@ -377,7 +380,7 @@ class GoogleNavigationPage extends HookConsumerWidget {
           Positioned(
             bottom: 340,
             right: 16,
-            child: _buildCircularButton(
+            child: CircularMapButton(
               icon: Icons.my_location,
               onTap: () async {
                 if (navigationController.value != null) {
@@ -870,11 +873,11 @@ class GoogleNavigationPage extends HookConsumerWidget {
       } else if (shift.status == ShiftStatus.cancelled) {
         // Scenario 2: Cancelled → Show brief dialog, auto-dismiss, then pop
         AppLogger.general('   📤 Showing cancellation notice (auto-dismiss)');
-        await _showCancellationNotice(context, shift);
+        await showShiftCancellationDialog(context, shift);
       } else {
         // Scenario 1: Normal end → Show dialog, wait for user to click
         AppLogger.general('   📤 Showing shift summary dialog (user interaction)');
-        await _showShiftSummaryDialog(context, shift);
+        await showShiftSummaryDialog(context, shift);
       }
     } catch (e) {
       AppLogger.general('❌ Error during shift end cleanup: $e');
@@ -887,139 +890,6 @@ class GoogleNavigationPage extends HookConsumerWidget {
     }
   }
 
-  /// Show brief cancellation notice that auto-dismisses
-  static Future<void> _showCancellationNotice(
-    BuildContext context,
-    ShiftState shift,
-  ) async {
-    // Show dialog and capture the context
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (dialogContext) => AlertDialog(
-        title: Row(
-          children: [
-            Icon(
-              Icons.cancel,
-              color: Colors.red,
-              size: 32,
-            ),
-            const SizedBox(width: 12),
-            const Text('Shift Cancelled'),
-          ],
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'This shift has been cancelled by your manager.',
-              style: TextStyle(
-                fontSize: 14,
-                color: Colors.grey.shade700,
-              ),
-            ),
-            if (shift.completedBins > 0) ...[
-              const SizedBox(height: 12),
-              Text(
-                'You completed ${shift.completedBins} of ${shift.totalBins} bins.',
-                style: TextStyle(
-                  fontSize: 13,
-                  color: Colors.grey.shade600,
-                ),
-              ),
-            ],
-          ],
-        ),
-      ),
-    );
-
-    // Auto-dismiss after 2.5 seconds and pop back to home
-    await Future.delayed(const Duration(milliseconds: 2500));
-    if (context.mounted) {
-      Navigator.of(context).pop(); // Close dialog
-      if (context.mounted) {
-        Navigator.of(context).pop(); // Pop navigation page with animation
-      }
-    }
-  }
-
-  /// Show shift summary dialog with stats (for normal end only)
-  static Future<void> _showShiftSummaryDialog(
-    BuildContext context,
-    ShiftState shift,
-  ) async {
-    final isCompleted = shift.completedBins >= shift.totalBins;
-
-    await showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (dialogContext) => AlertDialog(
-        title: Row(
-          children: [
-            Icon(
-              Icons.check_circle,
-              color: Colors.green,
-              size: 32,
-            ),
-            const SizedBox(width: 12),
-            Text(
-              isCompleted ? 'Shift Completed!' : 'Shift Ended',
-            ),
-          ],
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Bins Completed',
-              style: TextStyle(
-                fontSize: 14,
-                color: Colors.grey.shade600,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              '${shift.completedBins} of ${shift.totalBins}',
-              style: const TextStyle(
-                fontSize: 24,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 16),
-            if (shift.completedBins > 0)
-              Text(
-                isCompleted
-                    ? '🎉 Great job! All bins collected!'
-                    : '👍 Good work today!',
-                style: TextStyle(
-                  fontSize: 14,
-                  color: Colors.grey.shade700,
-                ),
-              ),
-          ],
-        ),
-        actions: [
-          ElevatedButton(
-            onPressed: () {
-              Navigator.of(dialogContext).pop();
-              // Navigate back to driver home with reverse slide animation
-              if (context.mounted) {
-                Navigator.of(context).pop();
-              }
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.green,
-              foregroundColor: Colors.white,
-            ),
-            child: const Text('Back to Home'),
-          ),
-        ],
-      ),
-    );
-  }
 
   /// Setup navigation after view is created (6-step process)
   static Future<void> _setupNavigationAfterViewCreated(
@@ -1189,47 +1059,5 @@ class GoogleNavigationPage extends HookConsumerWidget {
   //   }
   // }
 
-  /// Build circular map control button
-  static Widget _buildCircularButton({
-    required IconData icon,
-    required VoidCallback onTap,
-    Color? backgroundColor,
-    Color? iconColor,
-  }) {
-    final bgColor = backgroundColor ?? Colors.white;
-    final isWhiteBg = bgColor == Colors.white;
-
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: 42,
-        height: 42,
-        decoration: BoxDecoration(
-          color: bgColor,
-          shape: BoxShape.circle,
-          boxShadow: [
-            BoxShadow(
-              color: isWhiteBg
-                  ? Colors.black.withOpacity(0.12)
-                  : bgColor.withOpacity(0.2),
-              blurRadius: 12,
-              offset: const Offset(0, 4),
-              spreadRadius: 0,
-            ),
-            BoxShadow(
-              color: Colors.black.withOpacity(0.05),
-              blurRadius: 4,
-              offset: const Offset(0, 2),
-            ),
-          ],
-        ),
-        child: Icon(
-          icon,
-          color: iconColor ?? (isWhiteBg ? AppColors.primaryBlue : Colors.white),
-          size: 22,
-        ),
-      ),
-    );
-  }
 
 }

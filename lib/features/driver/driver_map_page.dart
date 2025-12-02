@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
-import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:google_navigation_flutter/google_navigation_flutter.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:latlong2/latlong.dart' as latlong;
 import 'package:flutter_compass/flutter_compass.dart';
@@ -21,7 +21,6 @@ import 'package:ropacalapp/providers/location_provider.dart';
 import 'package:ropacalapp/providers/bin_marker_cache_provider.dart';
 import 'package:ropacalapp/providers/shift_provider.dart';
 import 'package:ropacalapp/providers/simulation_provider.dart';
-import 'package:ropacalapp/providers/here_route_provider.dart';
 import 'package:ropacalapp/providers/auth_provider.dart';
 import 'package:ropacalapp/core/enums/user_role.dart';
 import 'package:ropacalapp/models/shift_state.dart';
@@ -33,9 +32,13 @@ import 'package:ropacalapp/features/driver/widgets/active_shift_bottom_sheet.dar
 import 'package:ropacalapp/features/driver/widgets/pre_shift_overview_card.dart';
 import 'package:ropacalapp/features/driver/widgets/navigation_blue_dot_overlay.dart';
 import 'package:ropacalapp/features/driver/widgets/positioned_blue_dot_overlay.dart';
+import 'package:ropacalapp/features/driver/widgets/no_shift_empty_state.dart';
+import 'package:ropacalapp/features/driver/widgets/animated_shift_transition.dart';
 import 'package:ropacalapp/features/driver/google_navigation_page.dart';
+import 'package:ropacalapp/features/driver/notifications_page.dart';
 import 'package:ropacalapp/models/shift_overview.dart';
-import 'package:ropacalapp/features/driver/navigation_page.dart';
+// DEPRECATED: NavigationPage uses old google_maps_flutter - replaced by GoogleNavigationPage
+// import 'package:ropacalapp/features/driver/navigation_page.dart';
 import 'package:ropacalapp/core/utils/navigation_arrow_marker_painter.dart';
 
 class DriverMapPage extends HookConsumerWidget {
@@ -65,14 +68,14 @@ class DriverMapPage extends HookConsumerWidget {
     // DEPRECATED: Using Mapbox instead of HERE - setting to null to avoid compilation errors
     final hereRouteData = null; // ref.watch(hereRouteMetadataProvider);
     final user = ref.watch(authNotifierProvider).value;
-    final mapController = useState<GoogleMapController?>(null);
+    final mapController = useState<GoogleMapViewController?>(null);
     final markers = useState<Set<Marker>>({});
     final polylines = useState<Set<Polyline>>({});
     final cameraPosition = useMemoized(
       () => ValueNotifier<CameraPosition?>(null),
       [],
     );
-    final navigationArrowIcon = useState<BitmapDescriptor?>(null);
+    final navigationArrowIcon = useState<ImageDescriptor?>(null);
     final compassHeading = useState<double?>(null);
     final previousPosition = useState<Position?>(
       null,
@@ -91,26 +94,21 @@ class DriverMapPage extends HookConsumerWidget {
     final initialCenter = useMemoized(
       () => locationState.value != null
           ? LatLng(
-              locationState.value!.latitude,
-              locationState.value!.longitude,
+              latitude: locationState.value!.latitude,
+              longitude: locationState.value!.longitude,
             )
-          : const LatLng(37.3382, -121.8863), // San Jose, CA
+          : const LatLng(latitude: 37.3382, longitude: -121.8863), // San Jose, CA
       [locationState.value],
     );
 
     // Load navigation arrow icon on mount
     useEffect(() {
-      AppLogger.map('🔍 DEBUG - Loading navigation arrow marker...');
       NavigationArrowMarkerPainter.createNavigationArrow(size: 96.0)
           .then((icon) {
             navigationArrowIcon.value = icon;
-            AppLogger.map(
-              '✅ DEBUG - Navigation arrow marker loaded successfully',
-            );
-            AppLogger.map('   Icon: ${icon.toString()}');
           })
           .catchError((error) {
-            AppLogger.map('❌ DEBUG - Failed to load navigation arrow: $error');
+            AppLogger.map('❌ Failed to load navigation arrow: $error');
           });
       return null;
     }, []);
@@ -236,26 +234,12 @@ class DriverMapPage extends HookConsumerWidget {
         final location = locationState.value;
 
         // DEBUG: Check data availability
-        AppLogger.map('🔍 DEBUG - Data availability check:');
-        // DEPRECATED: HERE Maps - commented out during Mapbox migration
-        // AppLogger.map(
-        //   '   hereRouteData: ${hereRouteData != null ? "EXISTS (${hereRouteData!.polyline.length} points)" : "NULL"}',
-        // );
-        AppLogger.map(
-          '   shiftState.routeBins: ${shiftState.routeBins.isNotEmpty ? "${shiftState.routeBins.length} bins" : "EMPTY"}',
-        );
-        AppLogger.map(
-          '   routeState.value: ${routeBins != null ? "${routeBins.length} bins" : "NULL"}',
-        );
-        AppLogger.map('   shift status: ${shiftState.status}');
-
         // Use marker cache for instant marker rendering
         final newMarkers = <Marker>{};
 
         // ✅ ONLY show markers for bins in the assigned shift
         // When no shift → routeBins is empty → clean map with just blue dot
         if (shiftState.routeBins.isNotEmpty && bins != null) {
-          AppLogger.map('📍 Creating markers for ${shiftState.routeBins.length} bins from shift');
 
           for (var i = 0; i < shiftState.routeBins.length; i++) {
             final routeBin = shiftState.routeBins[i];
@@ -274,32 +258,21 @@ class DriverMapPage extends HookConsumerWidget {
 
               newMarkers.add(
                 Marker(
-                  markerId: MarkerId('route_bin_${routeBin.id}'),
-                  position: LatLng(routeBin.latitude, routeBin.longitude),
-                  icon: routeIcon ?? BitmapDescriptor.defaultMarker,
-                  anchor: const Offset(0.5, 0.5),
-                  consumeTapEvents: true,
-                  onTap: () => showModalBottomSheet(
-                    context: context,
-                    isScrollControlled: true,
-                    backgroundColor: Colors.transparent,
-                    builder: (context) => BinDetailsBottomSheet(bin: binForSheet),
+                  markerId: 'route_bin_${routeBin.id}',
+                  options: MarkerOptions(
+                    position: LatLng(latitude: routeBin.latitude, longitude: routeBin.longitude),
+                    icon: routeIcon ?? ImageDescriptor.defaultImage,
+                    anchor: const MarkerAnchor(u: 0.5, v: 0.5),
+                    consumeTapEvents: true,
                   ),
                 ),
               );
             }
           }
-        } else {
-          AppLogger.map('📍 No shift bins - showing clean map (no markers)');
         }
 
         // Add route polyline (priority: simulation > HERE Maps > simple lines)
         final routePoints = <LatLng>[];
-
-        AppLogger.map('🔍 DEBUG - Polyline decision:');
-        AppLogger.map('   isSimulating: ${simulationState.isSimulating}');
-        AppLogger.map('   shift has bins: ${shiftState.routeBins.isNotEmpty}');
-        AppLogger.map('   routeBins != null: ${routeBins != null}');
 
         // ✅ ONLY show polylines if there's a shift with bins
         // When no shift → clean map (no route lines)
@@ -319,30 +292,21 @@ class DriverMapPage extends HookConsumerWidget {
             final remainingPoints = simulationState.routePolyline.skip(
               simulationState.currentSegmentIndex + 1,
             );
-            routePoints.addAll(
-              remainingPoints.map(
-                (point) => LatLng(point.latitude, point.longitude),
-              ),
-            );
+            routePoints.addAll(remainingPoints);
           } else {
             // At or near end of route - show full route
-            routePoints.addAll(
-              simulationState.routePolyline.map(
-                (point) => LatLng(point.latitude, point.longitude),
-              ),
-            );
+            routePoints.addAll(simulationState.routePolyline);
           }
 
           final routePolyline = Polyline(
-            polylineId: const PolylineId('route'),
-            points: routePoints,
-            color: AppColors.primaryBlue,
-            width: 8, // Thicker during simulation for visibility
-            startCap: Cap.roundCap,
-            endCap: Cap.roundCap,
-            jointType: JointType.round,
-            visible: true,
-            zIndex: 100,
+            polylineId: 'route',
+            options: PolylineOptions(
+              points: routePoints,
+              strokeColor: AppColors.primaryBlue,
+              strokeWidth: 8, // Thicker during simulation for visibility
+              visible: true,
+              zIndex: 100,
+            ),
           );
 
           polylines.value = {routePolyline};
@@ -394,25 +358,24 @@ class DriverMapPage extends HookConsumerWidget {
           // Case 3: Fallback - draw simple straight lines from current location through bins
           AppLogger.map('   → Using FALLBACK route (manual bins)');
           if (location != null) {
-            routePoints.add(LatLng(location.latitude, location.longitude));
+            routePoints.add(LatLng(latitude: location.latitude, longitude: location.longitude));
           }
           routePoints.addAll(
             routeBins
                 .where((b) => b.latitude != null && b.longitude != null)
-                .map((b) => LatLng(b.latitude!, b.longitude!)),
+                .map((b) => LatLng(latitude: b.latitude!, longitude: b.longitude!)),
           );
 
           if (routePoints.isNotEmpty) {
             final routePolyline = Polyline(
-              polylineId: const PolylineId('route'),
-              points: routePoints,
-              color: AppColors.primaryBlue,
-              width: 4,
-              startCap: Cap.roundCap,
-              endCap: Cap.roundCap,
-              jointType: JointType.round,
-              visible: true,
-              zIndex: 100,
+              polylineId: 'route',
+              options: PolylineOptions(
+                points: routePoints,
+                strokeColor: AppColors.primaryBlue,
+                strokeWidth: 4,
+                visible: true,
+                zIndex: 100,
+              ),
             );
 
             polylines.value = {routePolyline};
@@ -425,19 +388,18 @@ class DriverMapPage extends HookConsumerWidget {
           }
         } else {
           polylines.value = {};
-          AppLogger.map('   → NO ROUTE (all sources unavailable)');
+          // AppLogger.map('   → NO ROUTE (all sources unavailable)');
           // DEPRECATED: HERE Maps reference - commented out during Mapbox migration
           // AppLogger.map(
           //   '❌ No route polyline (not simulating, no HERE data, no routeBins)',
           // );
-          AppLogger.map(
-            '❌ No route polyline (not simulating, no routeBins)',
-          );
+          // AppLogger.map(
+          //   '❌ No route polyline (not simulating, no routeBins)',
+          // );
         }
         } else {
           // No shift bins → clean map with no route polylines
           polylines.value = {};
-          AppLogger.map('📍 No shift bins - clean map (no route polylines)');
         }
 
         // Add user location marker (only when NOT simulating and NOT following)
@@ -445,31 +407,17 @@ class DriverMapPage extends HookConsumerWidget {
         final userPosition =
             simulationState.simulatedPosition ??
             (location != null
-                ? LatLng(location.latitude, location.longitude)
+                ? LatLng(latitude: location.latitude, longitude: location.longitude)
                 : null);
 
-        AppLogger.map('🔍 DEBUG - User marker decision:');
-        AppLogger.map(
-          '   userPosition: ${userPosition != null ? "EXISTS" : "NULL"}',
-        );
-        AppLogger.map('   isSimulating: ${simulationState.isSimulating}');
-        AppLogger.map('   shiftStatus: ${shiftState.status}');
-        AppLogger.map('   shift has bins: ${shiftState.routeBins.isNotEmpty}');
-        AppLogger.map(
-          '   navigationArrowIcon loaded: ${navigationArrowIcon.value != null}',
-        );
-
-        // ✅ ONLY show custom arrow when there's a shift (not during simulation)
-        // When no shift → use default Google Maps blue dot (myLocationEnabled: true)
+        // ✅ Show user location marker
+        // When shift exists → custom navigation arrow
+        // When no shift → use Google Maps built-in blue dot (enabled via controller.setMyLocationEnabled)
         if (userPosition != null &&
             !simulationState.isSimulating &&
             shiftState.routeBins.isNotEmpty) {
           // Show custom navigation arrow for shift-based navigation
           if (navigationArrowIcon.value != null) {
-            AppLogger.map(
-              '   → Adding NAVIGATION ARROW marker (current location)',
-            );
-
             // Determine rotation based on movement state
             // If moving (speed >= 1 m/s): use GPS bearing
             // If stationary (speed < 1 m/s): use compass heading
@@ -491,22 +439,18 @@ class DriverMapPage extends HookConsumerWidget {
 
             newMarkers.add(
               Marker(
-                markerId: const MarkerId('current_location_arrow'),
-                position: userPosition,
-                icon: navigationArrowIcon.value!,
-                anchor: const Offset(0.5, 0.5),
-                flat: true, // Keeps marker straight on ground plane - critical!
-                rotation: rotation, // Rotation based on movement state
-                zIndex: 1000,
+                markerId: 'current_location_arrow',
+                options: MarkerOptions(
+                  position: userPosition,
+                  icon: navigationArrowIcon.value!,
+                  anchor: const MarkerAnchor(u: 0.5, v: 0.5),
+                  flat: true, // Keeps marker straight on ground plane - critical!
+                  rotation: rotation, // Rotation based on movement state
+                  zIndex: 1000,
+                ),
               ),
             );
-          } else {
-            AppLogger.map(
-              '   → Navigation arrow not loaded yet, skipping marker',
-            );
           }
-        } else {
-          AppLogger.map('   → NO USER MARKER (userPos null or simulating)');
         }
 
         markers.value = newMarkers;
@@ -582,8 +526,8 @@ class DriverMapPage extends HookConsumerWidget {
         }
 
         final location = LatLng(
-          locationState.value!.latitude,
-          locationState.value!.longitude,
+          latitude: locationState.value!.latitude,
+          longitude: locationState.value!.longitude,
         );
 
         // Speed-aware bearing: use GPS when moving, compass when stationary
@@ -802,7 +746,7 @@ class DriverMapPage extends HookConsumerWidget {
                       isAutoFollowEnabled.value = false;
                     }
                   },
-                  child: GoogleMap(
+                  child: GoogleMapsMapView(
                     key: const ValueKey('driver_map'),
                     initialCameraPosition: CameraPosition(
                       target: initialCenter,
@@ -810,64 +754,75 @@ class DriverMapPage extends HookConsumerWidget {
                       tilt: 0.0, // Always start in 2D mode
                       bearing: 0.0, // North-up orientation
                     ),
-                    myLocationEnabled:
-                        shiftState.routeBins.isEmpty, // Default blue dot when no shift, custom arrow when shift exists
-                    myLocationButtonEnabled: shiftState.routeBins.isEmpty, // Recenter button when no shift
-                    compassEnabled: shiftState.routeBins.isEmpty, // Show compass when no shift
-                    trafficEnabled: false, // Always hide traffic on home map
-                    buildingsEnabled: shiftState.routeBins.isEmpty, // Show buildings when no shift
-                    mapType: MapType.normal,
-                    zoomControlsEnabled: false,
-                    markers: markers.value,
-                    polylines: polylines.value,
-                    onMapCreated: (controller) async {
+                    initialMapType: MapType.normal,
+                    // Disable zoom controls (+ and - buttons) - Android only feature
+                    initialZoomControlsEnabled: false,
+                    onViewCreated: (controller) async {
                       mapController.value = controller;
 
+                      // Enable My Location (blue dot) - Google Maps built-in feature
+                      try {
+                        await controller.setMyLocationEnabled(true);
+                        AppLogger.map('✅ My Location (blue dot) enabled');
+                      } catch (e) {
+                        AppLogger.map('⚠️  Failed to enable My Location: $e');
+                      }
+
+                      // Disable the default My Location button (we'll use a custom one)
+                      try {
+                        await controller.settings.setMyLocationButtonEnabled(false);
+                        AppLogger.map('✅ Default My Location button disabled (using custom button)');
+                      } catch (e) {
+                        AppLogger.map('⚠️  Failed to disable My Location button: $e');
+                      }
+
+                      // CUSTOM MAP STYLE DISABLED - Using default Google Maps style
                       // ✅ ONLY apply custom map style when there's a shift
                       // When no shift → vanilla Google Maps style
-                      if (shiftState.routeBins.isNotEmpty) {
-                        const mapStyle = '''
-                    [
-                      {
-                        "featureType": "poi",
-                        "elementType": "geometry",
-                        "stylers": [{"visibility": "off"}]
-                      },
-                      {
-                        "featureType": "poi",
-                        "elementType": "labels",
-                        "stylers": [{"visibility": "off"}]
-                      },
-                      {
-                        "featureType": "landscape.man_made",
-                        "elementType": "geometry.fill",
-                        "stylers": [{"visibility": "off"}]
-                      },
-                      {
-                        "featureType": "landscape.man_made",
-                        "elementType": "geometry.stroke",
-                        "stylers": [{"visibility": "off"}]
-                      }
-                    ]
-                    ''';
-
-                        try {
-                          await controller.setMapStyle(mapStyle);
-                          AppLogger.map(
-                            '✅ Custom map style applied - buildings hidden',
-                          );
-                        } catch (e) {
-                          AppLogger.map('⚠️  Failed to apply map style: $e');
-                        }
-                      } else {
-                        // Reset to default style (vanilla Google Maps)
-                        try {
-                          await controller.setMapStyle(null);
-                          AppLogger.map('✅ Default Google Maps style applied');
-                        } catch (e) {
-                          AppLogger.map('⚠️  Failed to reset map style: $e');
-                        }
-                      }
+                      // if (shiftState.routeBins.isNotEmpty) {
+                      //   const mapStyle = '''
+                      // [
+                      //   {
+                      //     "featureType": "poi",
+                      //     "elementType": "geometry",
+                      //     "stylers": [{"visibility": "off"}]
+                      //   },
+                      //   {
+                      //     "featureType": "poi",
+                      //     "elementType": "labels",
+                      //     "stylers": [{"visibility": "off"}]
+                      //   },
+                      //   {
+                      //     "featureType": "landscape.man_made",
+                      //     "elementType": "geometry.fill",
+                      //     "stylers": [{"visibility": "off"}]
+                      //   },
+                      //   {
+                      //     "featureType": "landscape.man_made",
+                      //     "elementType": "geometry.stroke",
+                      //     "stylers": [{"visibility": "off"}]
+                      //   }
+                      // ]
+                      // ''';
+                      //
+                      //   try {
+                      //     await controller.setMapStyle(mapStyle);
+                      //     AppLogger.map(
+                      //       '✅ Custom map style applied - buildings hidden',
+                      //     );
+                      //   } catch (e) {
+                      //     AppLogger.map('⚠️  Failed to apply map style: $e');
+                      //   }
+                      // } else {
+                      //   // Reset to default style (vanilla Google Maps)
+                      //   try {
+                      //     await controller.setMapStyle(null);
+                      //     AppLogger.map('✅ Default Google Maps style applied');
+                      //   } catch (e) {
+                      //     AppLogger.map('⚠️  Failed to reset map style: $e');
+                      //   }
+                      // }
+                      AppLogger.map('✅ Using default Google Maps style (custom style disabled)');
 
                       AppLogger.map('🗺️  Google Map created');
                       AppLogger.map(
@@ -876,38 +831,9 @@ class DriverMapPage extends HookConsumerWidget {
                       AppLogger.map(
                         '   Polylines count: ${polylines.value.length}',
                       );
-                      if (polylines.value.isNotEmpty) {
-                        final polyline = polylines.value.first;
-                        AppLogger.map(
-                          '   Polyline points: ${polyline.points.length}',
-                        );
-                        AppLogger.map('   Polyline color: ${polyline.color}');
-                        AppLogger.map(
-                          '   Polyline visible: ${polyline.visible}',
-                        );
-                        AppLogger.map('   Polyline width: ${polyline.width}');
-                        AppLogger.map('   Polyline zIndex: ${polyline.zIndex}');
-                      }
-
-                      // Get initial camera position
-                      try {
-                        final initialCameraPos = await controller.getLatLng(
-                          const ScreenCoordinate(x: 0, y: 0),
-                        );
-                        cameraPosition.value = CameraPosition(
-                          target: initialCameraPos,
-                          zoom: 10.0, // Will be updated by onCameraMove
-                        );
-                      } catch (e) {
-                        // Ignore
-                      }
                     },
-                    onCameraMove: (position) {
-                      // Track camera position for synchronous blue dot calculation
-                      cameraPosition.value = position;
-                    },
-                    // Note: Listener.onPointerDown detects actual user touch, unlike onCameraMoveStarted
-                    // which fires for both user gestures AND programmatic camera moves
+                    // Note: Camera position tracking removed as onCameraChanged is not available in this API version
+                    // Blue dot overlay may need alternative camera position tracking if required
                   ),
                 ),
                 // Blue dot overlays during simulation (smooth 60 FPS movement)
@@ -928,18 +854,24 @@ class DriverMapPage extends HookConsumerWidget {
                 SafeArea(
                   child: Stack(
                     children: [
-                      // Notification bell button (DoorDash style - top right)
+                      // Notification bell button (DoorDash-inspired - top left)
                       Positioned(
                         top: 16,
-                        right: 16,
+                        left: 16,
                         child: Container(
                           decoration: BoxDecoration(
-                            color: AppColors.primaryBlue,
+                            color: Colors.white,
                             shape: BoxShape.circle,
                             boxShadow: [
                               BoxShadow(
-                                color: Colors.black.withOpacity(0.1),
-                                blurRadius: 8,
+                                color: Colors.black.withOpacity(0.12),
+                                blurRadius: 12,
+                                offset: const Offset(0, 4),
+                                spreadRadius: 0,
+                              ),
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.05),
+                                blurRadius: 4,
                                 offset: const Offset(0, 2),
                               ),
                             ],
@@ -948,23 +880,23 @@ class DriverMapPage extends HookConsumerWidget {
                             color: Colors.transparent,
                             child: InkWell(
                               onTap: () {
-                                final bins = binsState.value ?? [];
-                                showModalBottomSheet(
-                                  context: context,
-                                  builder: (context) =>
-                                      AlertsBottomSheet(bins: bins),
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => const NotificationsPage(),
+                                  ),
                                 );
                               },
                               customBorder: const CircleBorder(),
                               child: Padding(
-                                padding: const EdgeInsets.all(12.0),
+                                padding: const EdgeInsets.all(10.0),
                                 child: Stack(
                                   clipBehavior: Clip.none,
                                   children: [
                                     const Icon(
                                       Icons.notifications_outlined,
-                                      color: Colors.white,
-                                      size: 24,
+                                      color: AppColors.primaryBlue,
+                                      size: 22,
                                     ),
                                     // Notification badge
                                     binsState.whenOrNull(
@@ -1019,102 +951,103 @@ class DriverMapPage extends HookConsumerWidget {
                           ),
                         ),
                       ),
-                      // Recenter button (restores following mode)
-                      Positioned(
-                        top: 72,
-                        right: 16,
-                        child: Container(
-                          decoration: BoxDecoration(
-                            color:
-                                (simulationState.isFollowing ||
-                                    isAutoFollowEnabled.value)
-                                ? AppColors.primaryBlue
-                                : Colors.white,
-                            shape: BoxShape.circle,
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withOpacity(0.1),
-                                blurRadius: 8,
-                                offset: const Offset(0, 2),
-                              ),
-                            ],
-                          ),
-                          child: Material(
-                            color: Colors.transparent,
-                            child: InkWell(
-                              onTap: () {
-                                // Re-enable simulation following
-                                ref
-                                    .read(simulationNotifierProvider.notifier)
-                                    .enableFollowing();
-
-                                // Re-enable camera auto-follow for active shifts
-                                if (shiftState.status == ShiftStatus.active) {
-                                  AppLogger.map(
-                                    '📍 Recenter button tapped - re-enabling camera auto-follow',
-                                  );
-                                  isAutoFollowEnabled.value = true;
-                                }
-
-                                final location =
-                                    simulationState.simulatedPosition ??
-                                    (locationState.value != null
-                                        ? LatLng(
-                                            locationState.value!.latitude,
-                                            locationState.value!.longitude,
-                                          )
-                                        : null);
-
-                                if (location != null &&
-                                    mapController.value != null) {
-                                  try {
-                                    // Animate to current position in current mode (preserve 2D/3D state)
-                                    mapController.value!.animateCamera(
-                                      CameraUpdate.newCameraPosition(
-                                        CameraPosition(
-                                          target: location,
-                                          zoom: simulationState.isNavigationMode
-                                              ? BinConstants.navigationZoom
-                                              : 15.0,
-                                          bearing:
-                                              simulationState.isNavigationMode
-                                              ? (simulationState
-                                                        .smoothedBearing ??
-                                                    simulationState.bearing ??
-                                                    compassHeading.value ??
-                                                    0.0)
-                                              : 0.0,
-                                          tilt: simulationState.isNavigationMode
-                                              ? BinConstants.navigationTilt
-                                              : 0.0,
-                                        ),
-                                      ),
-                                    );
-                                  } catch (e) {
-                                    AppLogger.map(
-                                      'Recenter skipped - controller disposed',
-                                      level: AppLogger.debug,
-                                    );
-                                  }
-                                }
-                              },
-                              customBorder: const CircleBorder(),
-                              child: Padding(
-                                padding: const EdgeInsets.all(12.0),
-                                child: Icon(
-                                  Icons.my_location,
-                                  color:
-                                      (simulationState.isFollowing ||
-                                          isAutoFollowEnabled.value)
-                                      ? Colors.white
-                                      : Colors.grey.shade800,
-                                  size: 24,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
+                      // COMMENTED OUT: Recenter button (restores following mode)
+                      // Replaced with custom My Location button at bottom-right
+                      // Positioned(
+                      //   top: 72,
+                      //   right: 16,
+                      //   child: Container(
+                      //     decoration: BoxDecoration(
+                      //       color:
+                      //           (simulationState.isFollowing ||
+                      //               isAutoFollowEnabled.value)
+                      //           ? AppColors.primaryBlue
+                      //           : Colors.white,
+                      //       shape: BoxShape.circle,
+                      //       boxShadow: [
+                      //         BoxShadow(
+                      //           color: Colors.black.withOpacity(0.1),
+                      //           blurRadius: 8,
+                      //           offset: const Offset(0, 2),
+                      //         ),
+                      //       ],
+                      //     ),
+                      //     child: Material(
+                      //       color: Colors.transparent,
+                      //       child: InkWell(
+                      //         onTap: () {
+                      //           // Re-enable simulation following
+                      //           ref
+                      //               .read(simulationNotifierProvider.notifier)
+                      //               .enableFollowing();
+                      //
+                      //           // Re-enable camera auto-follow for active shifts
+                      //           if (shiftState.status == ShiftStatus.active) {
+                      //             AppLogger.map(
+                      //               '📍 Recenter button tapped - re-enabling camera auto-follow',
+                      //             );
+                      //             isAutoFollowEnabled.value = true;
+                      //           }
+                      //
+                      //           final location =
+                      //               simulationState.simulatedPosition ??
+                      //               (locationState.value != null
+                      //                   ? LatLng(
+                      //                       latitude: locationState.value!.latitude,
+                      //                       longitude: locationState.value!.longitude,
+                      //                     )
+                      //                   : null);
+                      //
+                      //           if (location != null &&
+                      //               mapController.value != null) {
+                      //             try {
+                      //               // Animate to current position in current mode (preserve 2D/3D state)
+                      //               mapController.value!.animateCamera(
+                      //                 CameraUpdate.newCameraPosition(
+                      //                   CameraPosition(
+                      //                     target: location,
+                      //                     zoom: simulationState.isNavigationMode
+                      //                         ? BinConstants.navigationZoom
+                      //                         : 15.0,
+                      //                     bearing:
+                      //                         simulationState.isNavigationMode
+                      //                         ? (simulationState
+                      //                                   .smoothedBearing ??
+                      //                               simulationState.bearing ??
+                      //                               compassHeading.value ??
+                      //                               0.0)
+                      //                         : 0.0,
+                      //                     tilt: simulationState.isNavigationMode
+                      //                         ? BinConstants.navigationTilt
+                      //                         : 0.0,
+                      //                   ),
+                      //                 ),
+                      //               );
+                      //             } catch (e) {
+                      //               AppLogger.map(
+                      //                 'Recenter skipped - controller disposed',
+                      //                 level: AppLogger.debug,
+                      //               );
+                      //             }
+                      //           }
+                      //         },
+                      //         customBorder: const CircleBorder(),
+                      //         child: Padding(
+                      //           padding: const EdgeInsets.all(12.0),
+                      //           child: Icon(
+                      //             Icons.my_location,
+                      //             color:
+                      //                 (simulationState.isFollowing ||
+                      //                     isAutoFollowEnabled.value)
+                      //                 ? Colors.white
+                      //                 : Colors.grey.shade800,
+                      //             size: 24,
+                      //           ),
+                      //         ),
+                      //       ),
+                      //     ),
+                      //   ),
+                      // ),
                       // 2D/3D toggle button (below recenter)
                       // Show during simulation OR active shift
                       if (simulationState.isSimulating ||
@@ -1147,8 +1080,8 @@ class DriverMapPage extends HookConsumerWidget {
                                       simulationState.simulatedPosition ??
                                       (locationState.value != null
                                           ? LatLng(
-                                              locationState.value!.latitude,
-                                              locationState.value!.longitude,
+                                              latitude: locationState.value!.latitude,
+                                              longitude: locationState.value!.longitude,
                                             )
                                           : null);
 
@@ -1277,13 +1210,33 @@ class DriverMapPage extends HookConsumerWidget {
                             },
                           ),
                         ),
-                      // Pre-shift overview card (when route assigned)
-                      if (shiftState.status == ShiftStatus.ready)
+                      // Pre-shift overview card (when route assigned) or empty state
+                      // Show only when NOT in active shift (active shift has its own bottom sheet)
+                      if (shiftState.status != ShiftStatus.active)
                         Positioned(
-                          bottom: 80, // Position above bottom tab navigator
+                          bottom: 90, // Position very close to bottom tab navigator
                           left: 0,
                           right: 0,
-                          child: PreShiftOverviewCard(
+                          child: AnimatedShiftTransitionWithSlide(
+                            useSlideAnimation: true, // Use slide-up animation for bottom content
+                            hasActiveShift: shiftState.status == ShiftStatus.ready,
+                            emptyState: NoShiftEmptyState(
+                              onRefresh: () async {
+                                // Refresh shift status from backend
+                                await ref.read(shiftNotifierProvider.notifier).fetchCurrentShift();
+                                if (context.mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text('Shift status refreshed'),
+                                      duration: Duration(seconds: 2),
+                                    ),
+                                  );
+                                }
+                              },
+                              // TODO: Get next shift time from backend if available
+                              nextShiftTime: null,
+                            ),
+                            activeRouteCard: PreShiftOverviewCard(
                             shiftOverview: ShiftOverview(
                               shiftId: shiftState.assignedRouteId ?? '',
                               startTime: DateTime.now(),
@@ -1323,18 +1276,10 @@ class DriverMapPage extends HookConsumerWidget {
                                 await EasyLoading.dismiss();
 
                                 // Navigate to navigation page with iOS-style slide transition
-                                AppLogger.general('🧭 START SHIFT - Checking context.mounted: ${context.mounted}');
+                                AppLogger.general('🧭 START SHIFT - Navigating to GoogleNavigationPage');
                                 if (context.mounted) {
-                                  AppLogger.general('🧭 START SHIFT - Pushing CupertinoPageRoute to GoogleNavigationPage');
-                                  Navigator.of(context).push(
-                                    CupertinoPageRoute(
-                                      builder: (context) {
-                                        AppLogger.general('🏗️  START SHIFT - Building GoogleNavigationPage');
-                                        return const GoogleNavigationPage();
-                                      },
-                                    ),
-                                  );
-                                  AppLogger.general('✅ START SHIFT - Navigation push complete');
+                                  context.push('/navigation');
+                                  AppLogger.general('✅ START SHIFT - Navigation complete');
                                 } else {
                                   AppLogger.general('❌ START SHIFT - Context not mounted, cannot navigate!');
                                 }
@@ -1358,6 +1303,7 @@ class DriverMapPage extends HookConsumerWidget {
                               }
                             },
                           ),
+                            ), // End of AnimatedShiftTransition
                         ),
                       // Active shift bottom sheet
                       if (shiftState.status == ShiftStatus.active)
@@ -1383,8 +1329,8 @@ class DriverMapPage extends HookConsumerWidget {
                                     CameraUpdate.newCameraPosition(
                                       CameraPosition(
                                         target: LatLng(
-                                          nextBin.latitude,
-                                          nextBin.longitude,
+                                          latitude: nextBin.latitude,
+                                          longitude: nextBin.longitude,
                                         ),
                                         zoom: 17.0, // Closer zoom for bin view
                                       ),
@@ -1400,6 +1346,58 @@ class DriverMapPage extends HookConsumerWidget {
                             },
                           ),
                         ),
+
+                      // Custom My Location button - positioned just above Today's Route card
+                      Positioned(
+                        bottom: 310,
+                        right: 16,
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            shape: BoxShape.circle,
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.12),
+                                blurRadius: 12,
+                                offset: const Offset(0, 4),
+                                spreadRadius: 0,
+                              ),
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.05),
+                                blurRadius: 4,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
+                          ),
+                          child: Material(
+                            color: Colors.transparent,
+                            child: InkWell(
+                              onTap: () async {
+                                if (mapController.value != null) {
+                                  final location = await mapController.value!.getMyLocation();
+                                  if (location != null) {
+                                    await mapController.value!.animateCamera(
+                                      CameraUpdate.newLatLng(location),
+                                    );
+                                    AppLogger.map('📍 Centered on user location');
+                                  }
+                                }
+                              },
+                              customBorder: const CircleBorder(),
+                              child: Container(
+                                width: 42,
+                                height: 42,
+                                alignment: Alignment.center,
+                                child: const Icon(
+                                  Icons.my_location,
+                                  color: AppColors.primaryBlue,
+                                  size: 22,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -1439,15 +1437,15 @@ class DriverMapPage extends HookConsumerWidget {
 
 /// Calculate total distance for route in kilometers
 double _calculateTotalDistance(List<dynamic> routeBins) {
-  print('🧮 Calculating distance for ${routeBins.length} bins');
+  // print('🧮 Calculating distance for ${routeBins.length} bins');
 
   if (routeBins.isEmpty) {
-    print('   ⚠️ Route bins is empty, returning 0');
+    // print('   ⚠️ Route bins is empty, returning 0');
     return 0.0;
   }
 
   if (routeBins.length == 1) {
-    print('   ⚠️ Only 1 bin in route, returning 0');
+    // print('   ⚠️ Only 1 bin in route, returning 0');
     return 0.0;
   }
 
@@ -1458,8 +1456,8 @@ double _calculateTotalDistance(List<dynamic> routeBins) {
     final current = routeBins[i];
     final next = routeBins[i + 1];
 
-    print('   Bin ${i + 1}: lat=${current.latitude}, lng=${current.longitude}');
-    print('   Bin ${i + 2}: lat=${next.latitude}, lng=${next.longitude}');
+    // print('   Bin ${i + 1}: lat=${current.latitude}, lng=${current.longitude}');
+    // print('   Bin ${i + 2}: lat=${next.latitude}, lng=${next.longitude}');
 
     final currentPoint = latlong.LatLng(current.latitude, current.longitude);
     final nextPoint = latlong.LatLng(next.latitude, next.longitude);
@@ -1468,11 +1466,11 @@ double _calculateTotalDistance(List<dynamic> routeBins) {
     final segmentMeters = distance.distance(currentPoint, nextPoint);
     final segmentKm = segmentMeters / 1000.0;
 
-    print('   → Raw distance (meters): $segmentMeters');
-    print('   → Distance to bin ${i + 2}: ${segmentKm.toStringAsFixed(4)} km');
+    // print('   → Raw distance (meters): $segmentMeters');
+    // print('   → Distance to bin ${i + 2}: ${segmentKm.toStringAsFixed(4)} km');
     totalKm += segmentKm;
   }
 
-  print('   ✅ Total distance: ${totalKm.toStringAsFixed(2)} km');
+  // print('   ✅ Total distance: ${totalKm.toStringAsFixed(2)} km');
   return totalKm;
 }

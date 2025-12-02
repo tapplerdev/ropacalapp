@@ -1,12 +1,8 @@
 import 'package:riverpod_annotation/riverpod_annotation.dart';
-import 'package:latlong2/latlong.dart' as latlong;
 import 'package:ropacalapp/core/utils/app_logger.dart';
 import 'package:ropacalapp/models/shift_state.dart';
 import 'package:ropacalapp/services/shift_service.dart';
-import 'package:ropacalapp/services/mapbox_route_fetcher_service.dart'; // Stub - will be replaced with Google Navigation
-import 'package:ropacalapp/core/services/mapbox_directions_service.dart'; // Stub - will be replaced with Google Navigation
 import 'package:ropacalapp/providers/api_provider.dart';
-import 'package:ropacalapp/providers/mapbox_route_provider.dart'; // Stub - will be replaced with Google Navigation
 import 'package:ropacalapp/providers/location_provider.dart';
 
 part 'shift_provider.g.dart';
@@ -20,9 +16,6 @@ ShiftService shiftService(ShiftServiceRef ref) {
 
 @Riverpod(keepAlive: true)
 class ShiftNotifier extends _$ShiftNotifier {
-  /// Track if we're waiting for location to become available
-  bool _isWaitingForLocation = false;
-
   @override
   ShiftState build() {
     // Don't fetch on initialization - will be called after login
@@ -54,32 +47,10 @@ class ShiftNotifier extends _$ShiftNotifier {
             currentShift.status == ShiftStatus.paused) {
           ref.read(currentLocationProvider.notifier).startBackgroundTracking();
         }
-
-        // Auto-fetch Mapbox route if shift has bins
-        if (currentShift.routeBins.isNotEmpty) {
-          // Check if location is ready
-          final locationState = ref.read(currentLocationProvider);
-
-          if (locationState.hasValue && locationState.value != null) {
-            // ✅ Location ready - fetch immediately
-            AppLogger.general(
-              '✅ Location ready, fetching Mapbox route immediately',
-            );
-            _fetchMapboxRouteForCurrentShift();
-          } else {
-            // ⏳ Location not ready - wait for it
-            AppLogger.general('⏳ Location not ready yet, will wait for it...');
-            _waitForLocationThenFetch();
-          }
-        } else {
-          AppLogger.general('⚠️  routeBins is EMPTY, not fetching Mapbox route');
-        }
       } else {
-        // No shift found - reset to inactive and clear Mapbox route data
+        // No shift found - reset to inactive
         state = const ShiftState(status: ShiftStatus.inactive);
-        ref.read(mapboxRouteMetadataProvider.notifier).clearRouteData();
         AppLogger.general('📥 No active shift - state reset to inactive');
-        AppLogger.general('🗑️  Cleared Mapbox route data (no shift)');
 
         // Stop background location tracking
         ref.read(currentLocationProvider.notifier).stopBackgroundTracking();
@@ -90,101 +61,12 @@ class ShiftNotifier extends _$ShiftNotifier {
         level: AppLogger.warning,
       );
       AppLogger.general('Stack trace: $stack');
-      // On error, reset to inactive to be safe and clear Mapbox route data
+      // On error, reset to inactive to be safe
       state = const ShiftState(status: ShiftStatus.inactive);
-      ref.read(mapboxRouteMetadataProvider.notifier).clearRouteData();
-      AppLogger.general('🗑️  Cleared Mapbox route data (error)');
 
       // Stop background location tracking
       ref.read(currentLocationProvider.notifier).stopBackgroundTracking();
     }
-  }
-
-  /// Fetch Mapbox Directions route for current shift's bins
-  /// Runs in background, doesn't block UI
-  /// Assumes location is already available
-  Future<void> _fetchMapboxRouteForCurrentShift() async {
-    try {
-      AppLogger.routing('🗺️  Auto-fetching Mapbox route for shift...');
-      AppLogger.routing(
-        '🔍 state.routeBins.length = ${state.routeBins.length}',
-      );
-
-      // Get current location
-      final locationState = ref.read(currentLocationProvider);
-      if (!locationState.hasValue || locationState.value == null) {
-        AppLogger.routing('⚠️  No location available, cannot fetch Mapbox route');
-        return;
-      }
-
-      final location = locationState.value!;
-      final currentLocation = latlong.LatLng(
-        location.latitude,
-        location.longitude,
-      );
-      AppLogger.routing(
-        '📍 Current location: ${location.latitude}, ${location.longitude}',
-      );
-
-      // Get Mapbox Directions service with access token
-      const accessToken = 'pk.eyJ1IjoiYmlubHl5YWkiLCJhIjoiY21pNzN4bzlhMDVheTJpcHdqd2FtYjhpeSJ9.sQM8WHE2C9zWH0xG107xhw';
-      final mapboxService = MapboxDirectionsService(accessToken: accessToken);
-
-      // Create fetcher service
-      final fetcher = MapboxRouteFetcherService(
-        mapboxService: mapboxService,
-        ref: ref,
-      );
-
-      // Fetch and store route (runs async, doesn't block)
-      AppLogger.routing('🚀 Calling fetchAndStoreRoute...');
-      final success = await fetcher.fetchAndStoreRoute(
-        currentLocation: currentLocation,
-        routeBins: state.routeBins,
-        optimize: true,
-      );
-
-      if (success) {
-        AppLogger.routing('✅ Mapbox route auto-fetch completed');
-      } else {
-        AppLogger.routing(
-          '⚠️  Mapbox route auto-fetch failed (will keep skeleton)',
-        );
-      }
-    } catch (e, stack) {
-      AppLogger.routing('❌ Error auto-fetching Mapbox route: $e');
-      AppLogger.routing('Stack trace: $stack');
-      // Don't throw - let skeleton keep showing
-    }
-  }
-
-  /// Wait for location to become available, then fetch Mapbox route
-  /// Sets up a one-time listener that triggers when location is ready
-  void _waitForLocationThenFetch() {
-    if (_isWaitingForLocation) {
-      AppLogger.routing(
-        '⚠️  Already waiting for location, skipping duplicate listener',
-      );
-      return;
-    }
-
-    _isWaitingForLocation = true;
-    AppLogger.routing('⏳ Setting up location listener...');
-
-    // Listen for location to become available
-    final subscription = ref.listen(currentLocationProvider, (previous, next) {
-      // Check if location is now available and we're still waiting
-      if (_isWaitingForLocation && next.hasValue && next.value != null) {
-        AppLogger.routing('✅ Location ready! Triggering Mapbox route fetch...');
-        _isWaitingForLocation = false;
-
-        // Fetch the Mapbox route now that location is available
-        _fetchMapboxRouteForCurrentShift();
-      }
-    });
-
-    // Note: The listener will automatically be disposed when the provider is disposed
-    // or when the notifier is rebuilt, so we don't need manual cleanup
   }
 
   /// Manually refresh shift from backend
@@ -194,22 +76,20 @@ class ShiftNotifier extends _$ShiftNotifier {
     AppLogger.general('✅ refreshShift() complete');
   }
 
-  /// Pre-load route data (shift + location + Mapbox Directions)
-  /// Returns true if route was successfully loaded, false otherwise
-  /// Use this before navigating to map to ensure everything is ready
+  /// Pre-load shift and location data
+  /// Returns true if data was successfully loaded, false otherwise
+  /// Note: Google Navigation SDK handles route calculation internally
   Future<bool> preloadRoute() async {
     try {
       AppLogger.general('🚀 preloadRoute: Starting...');
 
       // Step 1: Fetch shift
-      AppLogger.general('📥 preloadRoute: Step 1/3 - Fetching shift...');
+      AppLogger.general('📥 preloadRoute: Step 1/2 - Fetching shift...');
       await fetchCurrentShift();
 
       // Check if we have bins
       if (state.routeBins.isEmpty) {
-        AppLogger.general(
-          'ℹ️  preloadRoute: No route bins, skipping Mapbox fetch',
-        );
+        AppLogger.general('ℹ️  preloadRoute: No route bins');
         return false;
       }
 
@@ -218,7 +98,7 @@ class ShiftNotifier extends _$ShiftNotifier {
       );
 
       // Step 2: Wait for location (with timeout)
-      AppLogger.general('📍 preloadRoute: Step 2/3 - Waiting for location...');
+      AppLogger.general('📍 preloadRoute: Step 2/2 - Waiting for location...');
       final locationState = ref.read(currentLocationProvider);
 
       if (!locationState.hasValue || locationState.value == null) {
@@ -245,26 +125,7 @@ class ShiftNotifier extends _$ShiftNotifier {
         return false;
       }
 
-      AppLogger.general('✅ preloadRoute: Location ready');
-
-      // Step 3: Fetch Mapbox route
-      AppLogger.general(
-        '🗺️  preloadRoute: Step 3/3 - Fetching Mapbox Directions route...',
-      );
-      await _fetchMapboxRouteForCurrentShift();
-
-      // Check if route was loaded
-      final routeMetadata = ref.read(mapboxRouteMetadataProvider);
-      if (routeMetadata == null) {
-        AppLogger.general(
-          '⚠️  preloadRoute: Mapbox route fetch returned no data',
-        );
-        return false;
-      }
-
-      AppLogger.general(
-        '✅ preloadRoute: Complete! Route ready with ${routeMetadata.polyline.length} points',
-      );
+      AppLogger.general('✅ preloadRoute: Complete! Shift and location ready');
       return true;
     } catch (e, stack) {
       AppLogger.general('❌ preloadRoute: Error - $e');
@@ -380,10 +241,6 @@ class ShiftNotifier extends _$ShiftNotifier {
       // Note: Backend will send WebSocket update with full shift data
       // For now, set to ended status (will be replaced by WebSocket update)
       state = state.copyWith(status: ShiftStatus.ended);
-
-      // Clear Mapbox route data when shift ends
-      ref.read(mapboxRouteMetadataProvider.notifier).clearRouteData();
-      AppLogger.general('🗑️  Cleared Mapbox route data (shift ended)');
 
       // Stop background location tracking
       ref.read(currentLocationProvider.notifier).stopBackgroundTracking();

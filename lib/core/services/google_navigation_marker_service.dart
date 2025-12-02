@@ -102,7 +102,7 @@ class GoogleNavigationMarkerService {
     final canvas = Canvas(recorder);
 
     // Determine fill color based on fill percentage
-    final fillColor = _getFillColor(fillPercentage);
+    final fillColor = getFillColor(fillPercentage);
 
     // Use PinMarkerPainter to draw the marker
     final painter = PinMarkerPainter(
@@ -131,7 +131,7 @@ class GoogleNavigationMarkerService {
   }
 
   /// Get fill color based on fill percentage
-  static Color _getFillColor(int fillPercentage) {
+  static Color getFillColor(int fillPercentage) {
     if (fillPercentage >= 80) {
       return Colors.red;
     } else if (fillPercentage >= 50) {

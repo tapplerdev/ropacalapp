@@ -1,7 +1,5 @@
 import 'dart:async';
 import 'dart:io';
-import 'dart:math';
-import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
@@ -16,7 +14,6 @@ import 'package:ropacalapp/core/services/google_navigation_marker_service.dart';
 import 'package:ropacalapp/providers/shift_provider.dart';
 import 'package:ropacalapp/providers/location_provider.dart';
 import 'package:ropacalapp/features/driver/widgets/turn_by_turn_navigation_card.dart';
-import 'package:ropacalapp/features/driver/widgets/pin_marker_painter.dart';
 import 'package:ropacalapp/features/driver/widgets/check_in_dialog_v2.dart';
 import 'package:ropacalapp/features/driver/notifications_page.dart';
 import 'package:ropacalapp/models/route_bin.dart';
@@ -1199,137 +1196,6 @@ class GoogleNavigationPage extends HookConsumerWidget {
     }
   }
 
-  /// Create custom bin markers with numbered pins
-  static Future<List<MarkerOptions>> _createCustomBinMarkers(
-    List<RouteBin> bins,
-    Map<String, RouteBin> markerToBinMap,
-  ) async {
-    AppLogger.navigation('🎨 Creating ${bins.length} custom bin markers...');
-    final markers = <MarkerOptions>[];
-
-    for (int i = 0; i < bins.length; i++) {
-      final bin = bins[i];
-      final binNumber = i + 1;
-
-      // Create custom marker icon
-      final icon = await _createBinMarkerIcon(bin.binNumber, bin.fillPercentage);
-
-      final markerId = 'bin_${bin.id}';
-      markerToBinMap[markerId] = bin;
-
-      final markerOptions = MarkerOptions(
-        position: LatLng(
-          latitude: bin.latitude,
-          longitude: bin.longitude,
-        ),
-        icon: icon,
-        anchor: const MarkerAnchor(u: 0.5, v: 0.5), // Center
-        zIndex: 9999.0 + binNumber.toDouble(), // Very high z-index to render above Google's default markers
-        consumeTapEvents: true,
-      );
-
-      markers.add(markerOptions);
-      AppLogger.navigation('   ✅ Marker $binNumber: Bin #${bin.binNumber} at (${bin.latitude}, ${bin.longitude})');
-    }
-
-    AppLogger.navigation('📍 Created ${markers.length} custom markers total');
-    return markers;
-  }
-
-  /// Create geofence circles around bins (50m radius)
-  static Future<List<CircleOptions>> _createGeofenceCircles(List<RouteBin> bins) async {
-    final circles = <CircleOptions>[];
-
-    for (int i = 0; i < bins.length; i++) {
-      final bin = bins[i];
-
-      final circleOptions = CircleOptions(
-        position: LatLng(
-          latitude: bin.latitude,
-          longitude: bin.longitude,
-        ),
-        radius: 50, // 50 meters
-        strokeWidth: 2,
-        strokeColor: Colors.blue.withOpacity(0.6),
-        fillColor: Colors.blue.withOpacity(0.1),
-        zIndex: 1,
-        clickable: false,
-      );
-
-      circles.add(circleOptions);
-    }
-
-    return circles;
-  }
-
-  /// Create polyline for completed route segments
-  static Future<PolylineOptions?> _createCompletedRoutePolyline(List<RouteBin> completedBins) async {
-    if (completedBins.length < 2) {
-      return null; // Need at least 2 points for a line
-    }
-
-    final points = completedBins.map((bin) {
-      return LatLng(
-        latitude: bin.latitude,
-        longitude: bin.longitude,
-      );
-    }).toList();
-
-    return PolylineOptions(
-      points: points,
-      strokeWidth: 6,
-      strokeColor: Colors.grey.withOpacity(0.6),
-      geodesic: true,
-      zIndex: 0,
-      clickable: false,
-    );
-  }
-
-  /// Create custom bin marker icon with number badge
-  static Future<ImageDescriptor> _createBinMarkerIcon(int binNumber, int fillPercentage) async {
-    final recorder = ui.PictureRecorder();
-    final canvas = Canvas(recorder);
-
-    // Determine fill color based on fill percentage
-    final fillColor = _getFillColor(fillPercentage);
-
-    // Use PinMarkerPainter to draw the marker
-    final painter = PinMarkerPainter(
-      binNumber: binNumber,
-      fillPercentage: fillPercentage,
-      fillColor: fillColor,
-    );
-    painter.paint(canvas, const Size(120, 120));
-
-    final picture = recorder.endRecording();
-    final image = await picture.toImage(120, 120);
-    final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
-
-    if (bytes == null) {
-      throw Exception('Failed to create marker icon');
-    }
-
-    final registeredImage = await registerBitmapImage(
-      bitmap: bytes,
-      imagePixelRatio: 1.0,
-      width: 120,
-      height: 120,
-    );
-
-    return registeredImage;
-  }
-
-  /// Get fill color based on fill percentage
-  static Color _getFillColor(int fillPercentage) {
-    if (fillPercentage >= 80) {
-      return Colors.red;
-    } else if (fillPercentage >= 50) {
-      return Colors.orange;
-    } else {
-      return Colors.green;
-    }
-  }
-
   /// Setup navigation event listeners
   static void _setupNavigationListeners(
     BuildContext context,
@@ -1358,12 +1224,12 @@ class GoogleNavigationPage extends HookConsumerWidget {
       if (navInfo.currentStep != null) {
         final step = navInfo.currentStep!;
         currentStep.value = RouteStep(
-          maneuverType: _convertManeuverType(step.maneuver),
+          maneuverType: GoogleNavigationHelpers.convertManeuverType(step.maneuver),
           instruction: step.fullInstructions,
           distance: step.distanceFromPrevStepMeters.toDouble(),
           duration: navInfo.timeToCurrentStepSeconds?.toDouble() ?? 0.0,
           location: latlong.LatLng(0, 0), // Location not available in StepInfo
-          modifier: _extractModifier(step.fullInstructions),
+          modifier: GoogleNavigationHelpers.extractModifier(step.fullInstructions),
         );
       }
 
@@ -1398,183 +1264,6 @@ class GoogleNavigationPage extends HookConsumerWidget {
     });
 
     AppLogger.general('✅ Navigation listeners setup complete');
-  }
-
-  /// Convert Maneuver enum to string representation
-  static String _convertManeuverType(Maneuver? maneuver) {
-    if (maneuver == null) return 'UNKNOWN';
-
-    switch (maneuver) {
-      case Maneuver.destination:
-        return 'DESTINATION';
-      case Maneuver.depart:
-        return 'DEPART';
-      case Maneuver.destinationLeft:
-        return 'DESTINATION_LEFT';
-      case Maneuver.destinationRight:
-        return 'DESTINATION_RIGHT';
-      case Maneuver.ferryBoat:
-        return 'FERRY_BOAT';
-      case Maneuver.ferryTrain:
-        return 'FERRY_TRAIN';
-      case Maneuver.forkLeft:
-        return 'FORK_LEFT';
-      case Maneuver.forkRight:
-        return 'FORK_RIGHT';
-      case Maneuver.mergeLeft:
-        return 'MERGE_LEFT';
-      case Maneuver.mergeRight:
-        return 'MERGE_RIGHT';
-      case Maneuver.mergeUnspecified:
-        return 'MERGE_UNSPECIFIED';
-      case Maneuver.nameChange:
-        return 'NAME_CHANGE';
-      case Maneuver.offRampUnspecified:
-        return 'OFF_RAMP_UNSPECIFIED';
-      case Maneuver.offRampKeepLeft:
-        return 'OFF_RAMP_KEEP_LEFT';
-      case Maneuver.offRampKeepRight:
-        return 'OFF_RAMP_KEEP_RIGHT';
-      case Maneuver.offRampLeft:
-        return 'OFF_RAMP_LEFT';
-      case Maneuver.offRampRight:
-        return 'OFF_RAMP_RIGHT';
-      case Maneuver.offRampSharpLeft:
-        return 'OFF_RAMP_SHARP_LEFT';
-      case Maneuver.offRampSharpRight:
-        return 'OFF_RAMP_SHARP_RIGHT';
-      case Maneuver.offRampSlightLeft:
-        return 'OFF_RAMP_SLIGHT_LEFT';
-      case Maneuver.offRampSlightRight:
-        return 'OFF_RAMP_SLIGHT_RIGHT';
-      case Maneuver.offRampUTurnClockwise:
-        return 'OFF_RAMP_U_TURN_CLOCKWISE';
-      case Maneuver.offRampUTurnCounterclockwise:
-        return 'OFF_RAMP_U_TURN_COUNTERCLOCKWISE';
-      case Maneuver.onRampUnspecified:
-        return 'ON_RAMP_UNSPECIFIED';
-      case Maneuver.onRampKeepLeft:
-        return 'ON_RAMP_KEEP_LEFT';
-      case Maneuver.onRampKeepRight:
-        return 'ON_RAMP_KEEP_RIGHT';
-      case Maneuver.onRampLeft:
-        return 'ON_RAMP_LEFT';
-      case Maneuver.onRampRight:
-        return 'ON_RAMP_RIGHT';
-      case Maneuver.onRampSharpLeft:
-        return 'ON_RAMP_SHARP_LEFT';
-      case Maneuver.onRampSharpRight:
-        return 'ON_RAMP_SHARP_RIGHT';
-      case Maneuver.onRampSlightLeft:
-        return 'ON_RAMP_SLIGHT_LEFT';
-      case Maneuver.onRampSlightRight:
-        return 'ON_RAMP_SLIGHT_RIGHT';
-      case Maneuver.onRampUTurnClockwise:
-        return 'ON_RAMP_U_TURN_CLOCKWISE';
-      case Maneuver.onRampUTurnCounterclockwise:
-        return 'ON_RAMP_U_TURN_COUNTERCLOCKWISE';
-      case Maneuver.roundaboutClockwise:
-        return 'ROUNDABOUT_CLOCKWISE';
-      case Maneuver.roundaboutCounterclockwise:
-        return 'ROUNDABOUT_COUNTERCLOCKWISE';
-      case Maneuver.roundaboutExitClockwise:
-        return 'ROUNDABOUT_EXIT_CLOCKWISE';
-      case Maneuver.roundaboutExitCounterclockwise:
-        return 'ROUNDABOUT_EXIT_COUNTERCLOCKWISE';
-      case Maneuver.roundaboutLeftClockwise:
-        return 'ROUNDABOUT_LEFT_CLOCKWISE';
-      case Maneuver.roundaboutLeftCounterclockwise:
-        return 'ROUNDABOUT_LEFT_COUNTERCLOCKWISE';
-      case Maneuver.roundaboutRightClockwise:
-        return 'ROUNDABOUT_RIGHT_CLOCKWISE';
-      case Maneuver.roundaboutRightCounterclockwise:
-        return 'ROUNDABOUT_RIGHT_COUNTERCLOCKWISE';
-      case Maneuver.roundaboutSharpLeftClockwise:
-        return 'ROUNDABOUT_SHARP_LEFT_CLOCKWISE';
-      case Maneuver.roundaboutSharpLeftCounterclockwise:
-        return 'ROUNDABOUT_SHARP_LEFT_COUNTERCLOCKWISE';
-      case Maneuver.roundaboutSharpRightClockwise:
-        return 'ROUNDABOUT_SHARP_RIGHT_CLOCKWISE';
-      case Maneuver.roundaboutSharpRightCounterclockwise:
-        return 'ROUNDABOUT_SHARP_RIGHT_COUNTERCLOCKWISE';
-      case Maneuver.roundaboutSlightLeftClockwise:
-        return 'ROUNDABOUT_SLIGHT_LEFT_CLOCKWISE';
-      case Maneuver.roundaboutSlightLeftCounterclockwise:
-        return 'ROUNDABOUT_SLIGHT_LEFT_COUNTERCLOCKWISE';
-      case Maneuver.roundaboutSlightRightClockwise:
-        return 'ROUNDABOUT_SLIGHT_RIGHT_CLOCKWISE';
-      case Maneuver.roundaboutSlightRightCounterclockwise:
-        return 'ROUNDABOUT_SLIGHT_RIGHT_COUNTERCLOCKWISE';
-      case Maneuver.roundaboutStraightClockwise:
-        return 'ROUNDABOUT_STRAIGHT_CLOCKWISE';
-      case Maneuver.roundaboutStraightCounterclockwise:
-        return 'ROUNDABOUT_STRAIGHT_COUNTERCLOCKWISE';
-      case Maneuver.roundaboutUTurnClockwise:
-        return 'ROUNDABOUT_U_TURN_CLOCKWISE';
-      case Maneuver.roundaboutUTurnCounterclockwise:
-        return 'ROUNDABOUT_U_TURN_COUNTERCLOCKWISE';
-      case Maneuver.straight:
-        return 'STRAIGHT';
-      case Maneuver.turnKeepLeft:
-        return 'TURN_KEEP_LEFT';
-      case Maneuver.turnKeepRight:
-        return 'TURN_KEEP_RIGHT';
-      case Maneuver.turnLeft:
-        return 'TURN_LEFT';
-      case Maneuver.turnRight:
-        return 'TURN_RIGHT';
-      case Maneuver.turnSharpLeft:
-        return 'TURN_SHARP_LEFT';
-      case Maneuver.turnSharpRight:
-        return 'TURN_SHARP_RIGHT';
-      case Maneuver.turnSlightLeft:
-        return 'TURN_SLIGHT_LEFT';
-      case Maneuver.turnSlightRight:
-        return 'TURN_SLIGHT_RIGHT';
-      case Maneuver.turnUTurnClockwise:
-        return 'TURN_U_TURN_CLOCKWISE';
-      case Maneuver.turnUTurnCounterclockwise:
-        return 'TURN_U_TURN_COUNTERCLOCKWISE';
-      case Maneuver.unknown:
-        return 'UNKNOWN';
-    }
-  }
-
-  /// Extract modifier (left/right/slight/sharp) from instruction text
-  static String _extractModifier(String instruction) {
-    final lowerInstruction = instruction.toLowerCase();
-
-    if (lowerInstruction.contains('sharp left')) return 'sharp left';
-    if (lowerInstruction.contains('sharp right')) return 'sharp right';
-    if (lowerInstruction.contains('slight left')) return 'slight left';
-    if (lowerInstruction.contains('slight right')) return 'slight right';
-    if (lowerInstruction.contains('left')) return 'left';
-    if (lowerInstruction.contains('right')) return 'right';
-    if (lowerInstruction.contains('straight')) return 'straight';
-    if (lowerInstruction.contains('u-turn')) return 'u-turn';
-
-    return '';
-  }
-
-  /// Calculate distance between two coordinates using Haversine formula
-  static double _calculateDistance(LatLng point1, LatLng point2) {
-    const earthRadius = 6371000.0; // meters
-
-    final lat1 = _degreesToRadians(point1.latitude);
-    final lat2 = _degreesToRadians(point2.latitude);
-    final deltaLat = _degreesToRadians(point2.latitude - point1.latitude);
-    final deltaLon = _degreesToRadians(point2.longitude - point1.longitude);
-
-    final a = sin(deltaLat / 2) * sin(deltaLat / 2) +
-        cos(lat1) * cos(lat2) * sin(deltaLon / 2) * sin(deltaLon / 2);
-    final c = 2 * atan2(sqrt(a), sqrt(1 - a));
-
-    return earthRadius * c;
-  }
-
-  /// Convert degrees to radians
-  static double _degreesToRadians(double degrees) {
-    return degrees * pi / 180;
   }
 
   /// Apply branded map style (light or dark mode)
@@ -1641,11 +1330,11 @@ class GoogleNavigationPage extends HookConsumerWidget {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(
-                  _formatDistance(totalDistanceRemaining),
+                  GoogleNavigationHelpers.formatDistance(totalDistanceRemaining),
                   style: const TextStyle(fontSize: 14),
                 ),
                 Text(
-                  _formatETA(remainingTime),
+                  GoogleNavigationHelpers.formatETA(remainingTime),
                   style: const TextStyle(fontSize: 14),
                 ),
               ],
@@ -1875,11 +1564,11 @@ class GoogleNavigationPage extends HookConsumerWidget {
     LatLng? driverLocation,
   ) {
     final progressPercentage = shift.totalBins > 0 ? shift.completedBins / shift.totalBins : 0.0;
-    final upcomingBins = _getUpcomingBins(shift.remainingBins, currentIndex);
+    final upcomingBins = GoogleNavigationHelpers.getUpcomingBins(shift.remainingBins, currentIndex);
 
     // Calculate distance to bin for geofence check
     final double? distanceToBin = driverLocation != null
-        ? _calculateDistance(
+        ? GoogleNavigationHelpers.calculateDistance(
             driverLocation,
             LatLng(
               latitude: currentBin.latitude,
@@ -1938,7 +1627,7 @@ class GoogleNavigationPage extends HookConsumerWidget {
                         ),
                         const SizedBox(width: 5),
                         Text(
-                          'Est. finish: ${_calculateEstimatedFinishTime(remainingTime)}',
+                          'Est. finish: ${GoogleNavigationHelpers.calculateEstimatedFinishTime(remainingTime)}',
                           style: const TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.w600,
@@ -2026,14 +1715,14 @@ class GoogleNavigationPage extends HookConsumerWidget {
                               Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
                                 decoration: BoxDecoration(
-                                  color: GoogleNavigationPage._getFillColor(currentBin.fillPercentage).withOpacity(0.2),
+                                  color: GoogleNavigationMarkerService.getFillColor(currentBin.fillPercentage).withOpacity(0.2),
                                   borderRadius: BorderRadius.circular(4),
                                 ),
                                 child: Text(
                                   '${currentBin.fillPercentage}% full',
                                   style: TextStyle(
                                     fontSize: 12,
-                                    color: GoogleNavigationPage._getFillColor(currentBin.fillPercentage),
+                                    color: GoogleNavigationMarkerService.getFillColor(currentBin.fillPercentage),
                                     fontWeight: FontWeight.bold,
                                   ),
                                 ),
@@ -2048,7 +1737,7 @@ class GoogleNavigationPage extends HookConsumerWidget {
                                     borderRadius: BorderRadius.circular(4),
                                   ),
                                   child: Text(
-                                    _formatDistance(totalDistanceRemaining),
+                                    GoogleNavigationHelpers.formatDistance(totalDistanceRemaining),
                                     style: TextStyle(
                                       fontSize: 12,
                                       color: Colors.grey.shade800,
@@ -2067,7 +1756,7 @@ class GoogleNavigationPage extends HookConsumerWidget {
                                     borderRadius: BorderRadius.circular(4),
                                   ),
                                   child: Text(
-                                    'ETA ${_formatETA(remainingTime)}',
+                                    'ETA ${GoogleNavigationHelpers.formatETA(remainingTime)}',
                                     style: const TextStyle(
                                       fontSize: 12,
                                       color: AppColors.primaryBlue,
@@ -2252,14 +1941,14 @@ class GoogleNavigationPage extends HookConsumerWidget {
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                           decoration: BoxDecoration(
-                            color: GoogleNavigationPage._getFillColor(bin.fillPercentage).withOpacity(0.2),
+                            color: GoogleNavigationMarkerService.getFillColor(bin.fillPercentage).withOpacity(0.2),
                             borderRadius: BorderRadius.circular(4),
                           ),
                           child: Text(
                             '${bin.fillPercentage}% full',
                             style: TextStyle(
                               fontSize: 12,
-                              color: GoogleNavigationPage._getFillColor(bin.fillPercentage),
+                              color: GoogleNavigationMarkerService.getFillColor(bin.fillPercentage),
                               fontWeight: FontWeight.bold,
                             ),
                           ),
@@ -2304,27 +1993,6 @@ class GoogleNavigationPage extends HookConsumerWidget {
     );
   }
 
-  /// Format distance in meters to km/m
-  static String _formatDistance(double meters) {
-    if (meters >= 1000) {
-      return '${(meters / 1000).toStringAsFixed(1)} km';
-    } else {
-      return '${meters.round()} m';
-    }
-  }
-
-  /// Format ETA duration
-  static String _formatETA(Duration duration) {
-    final hours = duration.inHours;
-    final minutes = duration.inMinutes.remainder(60);
-
-    if (hours > 0) {
-      return '${hours}h ${minutes}m';
-    } else {
-      return '${minutes}m';
-    }
-  }
-
   /// Build skeleton loader for loading state
   Widget _buildSkeletonLoader() {
     return Container(
@@ -2365,31 +2033,6 @@ class GoogleNavigationPage extends HookConsumerWidget {
         ],
       ),
     );
-  }
-
-  /// Calculate estimated finish time
-  static String _calculateEstimatedFinishTime(Duration remainingTime) {
-    final now = DateTime.now();
-    final estimatedFinish = now.add(remainingTime);
-
-    final hour = estimatedFinish.hour;
-    final minute = estimatedFinish.minute;
-    final period = hour >= 12 ? 'PM' : 'AM';
-    final displayHour = hour > 12 ? hour - 12 : (hour == 0 ? 12 : hour);
-
-    return '${displayHour.toString().padLeft(2, '0')}:${minute.toString().padLeft(2, '0')} $period';
-  }
-
-  /// Get upcoming bins (next 2-3 bins)
-  static List<RouteBin> _getUpcomingBins(List<RouteBin> allBins, int currentIndex) {
-    if (currentIndex >= allBins.length - 1) {
-      return [];
-    }
-
-    final startIndex = currentIndex + 1;
-    final endIndex = min(startIndex + 3, allBins.length);
-
-    return allBins.sublist(startIndex, endIndex);
   }
 
   /// Build circular map control button

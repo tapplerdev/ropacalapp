@@ -1,27 +1,24 @@
 import 'dart:async';
+import 'dart:io';
 import 'dart:math';
-import 'dart:typed_data';
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:flutter_easyloading/flutter_easyloading.dart';
-import 'package:go_router/go_router.dart';
 import 'package:google_navigation_flutter/google_navigation_flutter.dart';
+import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:ropacalapp/core/utils/app_logger.dart';
 import 'package:ropacalapp/core/theme/app_colors.dart';
 import 'package:ropacalapp/providers/shift_provider.dart';
 import 'package:ropacalapp/providers/location_provider.dart';
-import 'package:ropacalapp/features/driver/widgets/check_in_dialog.dart';
-import 'package:ropacalapp/features/driver/widgets/bin_details_bottom_sheet.dart';
 import 'package:ropacalapp/features/driver/widgets/turn_by_turn_navigation_card.dart';
 import 'package:ropacalapp/features/driver/widgets/pin_marker_painter.dart';
-import 'package:ropacalapp/features/driver/widgets/active_shift_bottom_sheet.dart';
-import 'package:ropacalapp/models/bin.dart';
+import 'package:ropacalapp/features/driver/widgets/check_in_dialog_v2.dart';
+import 'package:ropacalapp/features/driver/notifications_page.dart';
 import 'package:ropacalapp/models/route_bin.dart';
 import 'package:ropacalapp/models/route_step.dart';
-import 'package:ropacalapp/core/enums/bin_status.dart';
 import 'package:ropacalapp/models/shift_state.dart';
 import 'package:latlong2/latlong.dart' as latlong;
 
@@ -48,11 +45,10 @@ class GoogleNavigationPage extends HookConsumerWidget {
     final remainingTime = useState<Duration?>(null);
     final totalDistanceRemaining = useState<double?>(null); // meters
 
-    final isDarkMode = useState(false); // Dark mode toggle for map style
+    final isDarkMode = useState(false); // UNUSED - Dark mode toggle (custom map style disabled)
     final navigationLocation = useState<LatLng?>(null);
     final geofenceCircles = useState<List<CircleOptions>>([]);
     final completedRoutePolyline = useState<PolylineOptions?>(null);
-    final isMounted = useRef(true);
     final hasReceivedFirstNavInfo = useRef(false);
     final navigatorInitialized = useState(false);
     final initializationError = useState<String?>(null);
@@ -83,6 +79,7 @@ class GoogleNavigationPage extends HookConsumerWidget {
         AppLogger.general('   Remaining bins: ${next.remainingBins.length}');
         AppLogger.general('   Triggering route recalculation...');
         _recalculateNavigationRoute(
+          context,
           navigationController.value,
           ref,
           next,
@@ -153,13 +150,26 @@ class GoogleNavigationPage extends HookConsumerWidget {
             AppLogger.general('   Accuracy: ${currentLocation.accuracy}m, Age: ${DateTime.now().difference(currentLocation.timestamp).inSeconds}s');
           } else {
             // Fallback only for emulator or if GPS fails
-            // Use city center default (Bogotá, Colombia)
-            userLocation.value = const LatLng(
-              latitude: 4.6097,
-              longitude: -74.0817,
-            );
-            AppLogger.general('⚠️  [EARLY INIT] GPS not available (emulator?), using Bogotá city center: ${userLocation.value}');
-            AppLogger.general('   Navigation will start from default location');
+            // Use first bin's location as starting point (better than random city center)
+            final firstBin = shift.remainingBins.isNotEmpty ? shift.remainingBins.first : null;
+
+            if (firstBin != null) {
+              // Start from first bin location
+              userLocation.value = LatLng(
+                latitude: firstBin.latitude,
+                longitude: firstBin.longitude,
+              );
+              AppLogger.general('⚠️  [EARLY INIT] GPS not available (emulator?), using first bin location: ${userLocation.value}');
+              AppLogger.general('   Starting from Bin #${firstBin.binNumber}: ${firstBin.currentStreet}');
+            } else {
+              // Last resort: Use San Jose city center (where most bins are)
+              userLocation.value = const LatLng(
+                latitude: 37.3382,
+                longitude: -121.8863,
+              );
+              AppLogger.general('⚠️  [EARLY INIT] GPS not available, using San Jose city center: ${userLocation.value}');
+            }
+            // Note: Simulator location will be set in onViewCreated (after SDK is ready)
           }
         } catch (e) {
           AppLogger.general('❌ [EARLY INIT] Navigator initialization failed: $e');
@@ -170,17 +180,6 @@ class GoogleNavigationPage extends HookConsumerWidget {
 
       initializeNavigator();
       return null;
-    }, []);
-
-    // Safety timeout
-    useEffect(() {
-      final timer = Timer(const Duration(seconds: 15), () {
-        if (!navigatorInitialized.value) {
-          AppLogger.general('⏱️  Navigator initialization timeout');
-          navigatorInitialized.value = true;
-        }
-      });
-      return timer.cancel;
     }, []);
 
     // Cleanup navigation
@@ -200,21 +199,21 @@ class GoogleNavigationPage extends HookConsumerWidget {
             AppLogger.general('   ⏹️  Stopped navigation guidance');
           }
         } catch (e) {
-          AppLogger.general('   ⚠️  Error stopping guidance: $e');
+          AppLogger.general('   ⚠️  Error stopping guidance (likely already stopped): $e');
         }
 
         try {
           GoogleMapsNavigator.clearDestinations();
           AppLogger.general('   🗑️  Cleared destinations');
         } catch (e) {
-          AppLogger.general('   ⚠️  Error clearing destinations: $e');
+          AppLogger.general('   ⚠️  Error clearing destinations (likely already cleared): $e');
         }
 
         try {
           GoogleMapsNavigator.cleanup();
-          AppLogger.general('   ✅ Navigation cleanup complete');
+          AppLogger.general('   ✅ Disposal cleanup complete');
         } catch (e) {
-          AppLogger.general('   ⚠️  Error during cleanup: $e');
+          AppLogger.general('   ℹ️  Cleanup already done or session doesn\'t exist: $e');
         }
       };
     }, []);
@@ -222,7 +221,7 @@ class GoogleNavigationPage extends HookConsumerWidget {
     return Scaffold(
       body: Stack(
         children: [
-          // Google Maps Navigation view
+          // Google Maps Navigation view (with bottom padding for navigation bar)
           if (initializationError.value != null)
             // Show error message if initialization failed
             Center(
@@ -257,9 +256,13 @@ class GoogleNavigationPage extends HookConsumerWidget {
                 ),
               ),
             )
-          else if (userLocation.value != null)
+          else if (navigatorInitialized.value && userLocation.value != null)
             GoogleMapsNavigationView(
-              onMarkerClicked: (String markerId) {
+                // Add bottom padding to prevent map content from being hidden behind bottom nav bar and panel
+                initialPadding: EdgeInsets.only(
+                  bottom: kBottomNavigationBarHeight + MediaQuery.of(context).padding.bottom + 100,
+                ),
+                onMarkerClicked: (String markerId) {
                 AppLogger.general('🎯 Marker clicked: $markerId');
                 final bin = markerToBinMap.value[markerId];
                 if (bin != null) {
@@ -276,6 +279,17 @@ class GoogleNavigationPage extends HookConsumerWidget {
               onViewCreated: (controller) async {
                 navigationController.value = controller;
                 AppLogger.general('📍 [VIEW CREATED] Google Maps navigation view created');
+
+                // Enable MyLocation to show the blue dot/puck (Google's official pattern)
+                await controller.setMyLocationEnabled(true);
+                AppLogger.general('✅ [VIEW CREATED] My location enabled');
+
+                // Disable native Google Maps recenter button (using custom button instead)
+                await controller.setRecenterButtonEnabled(false);
+                AppLogger.general('✅ [VIEW CREATED] Recenter button disabled');
+
+                await controller.setReportIncidentButtonEnabled(false);
+                AppLogger.general('✅ [VIEW CREATED] Report incident button disabled');
 
                 try {
                   await _setupNavigationAfterViewCreated(
@@ -300,11 +314,39 @@ class GoogleNavigationPage extends HookConsumerWidget {
                 } catch (e) {
                   AppLogger.general('❌ [VIEW CREATED] Setup failed: $e');
                 }
+
+                // iOS simulator fallback: Set default location after timeout if GPS unavailable
+                // This follows Google's official example pattern (navigation.dart:269-283)
+                if (Platform.isIOS) {
+                  Future.delayed(const Duration(milliseconds: 1500), () async {
+                    if (navigationLocation.value == null) {
+                      AppLogger.general('⚠️  [iOS] GPS location unavailable after 1.5s timeout');
+
+                      // Try to get location from map controller first
+                      final LatLng? currentLocation = await controller.getMyLocation();
+                      final LatLng fallbackLocation = currentLocation ?? userLocation.value ?? const LatLng(
+                        latitude: 37.3382, // San Jose city center
+                        longitude: -121.8863,
+                      );
+
+                      try {
+                        await GoogleMapsNavigator.simulator.setUserLocation(fallbackLocation);
+                        AppLogger.general('✅ [iOS] Fallback simulator location set: $fallbackLocation');
+                      } catch (e) {
+                        AppLogger.general('⚠️  [iOS] Failed to set simulator location: $e');
+                      }
+                    } else {
+                      AppLogger.general('✅ [iOS] GPS location acquired, no simulator fallback needed');
+                    }
+                  });
+                }
               },
               initialCameraPosition: CameraPosition(
                 target: userLocation.value!,
                 zoom: 15,
               ),
+              // Disable zoom controls (+ and - buttons) - Android only feature
+              initialZoomControlsEnabled: false,
             )
           else
             // Loading while initializing
@@ -315,7 +357,7 @@ class GoogleNavigationPage extends HookConsumerWidget {
           // Turn-by-turn navigation card
           if (isNavigating.value && currentStep.value != null)
             Positioned(
-              top: 60,
+              top: 80,
               left: 16,
               right: 16,
               child: TurnByTurnNavigationCard(
@@ -326,47 +368,51 @@ class GoogleNavigationPage extends HookConsumerWidget {
               ),
             ),
 
-          // Map control buttons - positioned top-right
+          // Notification button - positioned top-left
           Positioned(
-            top: 50,
-            right: 16,
+            top: 16,
+            left: 16,
             child: SafeArea(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  // Notifications button
-                  _buildCircularButton(
-                    icon: Icons.notifications_outlined,
-                    onTap: () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Notifications')),
-                      );
-                    },
-                  ),
-                  const SizedBox(height: 12),
-                  // Current location button
-                  _buildCircularButton(
-                    icon: Icons.my_location,
-                    onTap: () async {
-                      if (navigationController.value != null) {
-                        final location = await navigationController.value!.getMyLocation();
-                        if (location != null) {
-                          await navigationController.value!.animateCamera(
-                            CameraUpdate.newLatLng(location),
-                          );
-                          AppLogger.general('📍 Centered on location');
-                        }
-                      }
-                    },
-                  ),
-                  const SizedBox(height: 12),
-                  // Audio button
-                  _buildCircularButton(
-                    icon: isAudioMuted.value ? Icons.volume_off : Icons.volume_up,
-                    onTap: () => _toggleAudio(isAudioMuted),
-                  ),
-                ],
+              child: _buildCircularButton(
+                icon: Icons.notifications_outlined,
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const NotificationsPage(),
+                    ),
+                  );
+                },
               ),
+            ),
+          ),
+
+          // Audio button - positioned above recenter button
+          Positioned(
+            bottom: 400,
+            right: 16,
+            child: _buildCircularButton(
+              icon: isAudioMuted.value ? Icons.volume_off : Icons.volume_up,
+              onTap: () => _toggleAudio(isAudioMuted),
+            ),
+          ),
+
+          // Custom recenter button - positioned just above bottom panel
+          Positioned(
+            bottom: 340,
+            right: 16,
+            child: _buildCircularButton(
+              icon: Icons.my_location,
+              onTap: () async {
+                if (navigationController.value != null) {
+                  // Use followMyLocation with tilted perspective for navigation-aware recentering
+                  await navigationController.value!.followMyLocation(
+                    CameraPerspective.tilted,
+                    zoomLevel: 17,
+                  );
+                  AppLogger.general('📍 Re-enabled camera following mode with tilted perspective');
+                }
+              },
             ),
           ),
 
@@ -380,6 +426,7 @@ class GoogleNavigationPage extends HookConsumerWidget {
               isExpanded,
               remainingTime.value,
               totalDistanceRemaining.value,
+              navigationLocation.value,
             ),
         ],
       ),
@@ -402,6 +449,16 @@ class GoogleNavigationPage extends HookConsumerWidget {
           'Ropacal Navigation',
         );
         AppLogger.general('✅ Terms accepted');
+      }
+
+      // Defensive cleanup: Ensure previous session is terminated before starting new one
+      try {
+        AppLogger.general('🧹 Defensive cleanup: Ensuring previous session is terminated...');
+        await GoogleMapsNavigator.cleanup();
+        AppLogger.general('   ✅ Previous session cleanup complete (if any existed)');
+      } catch (e) {
+        // Ignore error if no session exists - this is expected on first run
+        AppLogger.general('   ℹ️  No previous session to clean up: $e');
       }
 
       // Initialize navigation session
@@ -495,28 +552,171 @@ class GoogleNavigationPage extends HookConsumerWidget {
 
       AppLogger.general('📊 Route calculation result: $result');
 
-      if (result == NavigationRouteStatus.statusOk) {
-        AppLogger.general('✅ Route calculated successfully');
+      // Handle route calculation result (Google's comprehensive error handling pattern)
+      switch (result) {
+        case NavigationRouteStatus.statusOk:
+          AppLogger.general('✅ Route calculated successfully');
 
-        // Start navigation guidance
-        await GoogleMapsNavigator.startGuidance();
-        AppLogger.general('🎯 Navigation guidance started');
+          // Start navigation guidance
+          await GoogleMapsNavigator.startGuidance();
+          AppLogger.general('🎯 Navigation guidance started');
 
-        // Reset current bin index
-        currentBinIndex.value = 0;
-      } else {
-        AppLogger.general('❌ Route calculation failed: $result');
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Failed to calculate route: $result'),
-              backgroundColor: Colors.red,
-            ),
-          );
-        }
+          // Reset current bin index
+          currentBinIndex.value = 0;
+          break;
+
+        case NavigationRouteStatus.internalError:
+          AppLogger.general('❌ Internal error calculating route');
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Unexpected internal error. Please restart the app.'),
+                backgroundColor: Colors.red,
+              ),
+            );
+          }
+          break;
+
+        case NavigationRouteStatus.routeNotFound:
+          AppLogger.general('❌ Route not found');
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('No route could be calculated to these destinations.'),
+                backgroundColor: Colors.red,
+              ),
+            );
+          }
+          break;
+
+        case NavigationRouteStatus.networkError:
+          AppLogger.general('❌ Network error calculating route');
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Network connection required to calculate route.'),
+                backgroundColor: Colors.red,
+              ),
+            );
+          }
+          break;
+
+        case NavigationRouteStatus.quotaExceeded:
+          AppLogger.general('❌ API quota exceeded');
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('API quota exceeded. Please contact support.'),
+                backgroundColor: Colors.red,
+              ),
+            );
+          }
+          break;
+
+        case NavigationRouteStatus.apiKeyNotAuthorized:
+          AppLogger.general('❌ API key not authorized');
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Navigation API key not authorized.'),
+                backgroundColor: Colors.red,
+              ),
+            );
+          }
+          break;
+
+        case NavigationRouteStatus.locationUnavailable:
+          AppLogger.general('❌ Location unavailable');
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Your location is unavailable. Please check permissions.'),
+                backgroundColor: Colors.red,
+              ),
+            );
+          }
+          break;
+
+        case NavigationRouteStatus.locationUnknown:
+          AppLogger.general('❌ Location unknown');
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Unable to determine your current location.'),
+                backgroundColor: Colors.red,
+              ),
+            );
+          }
+          break;
+
+        case NavigationRouteStatus.waypointError:
+          AppLogger.general('❌ Invalid waypoints');
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Invalid destination waypoints provided.'),
+                backgroundColor: Colors.red,
+              ),
+            );
+          }
+          break;
+
+        case NavigationRouteStatus.duplicateWaypointsError:
+          AppLogger.general('❌ Duplicate waypoints');
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Route contains duplicate waypoints.'),
+                backgroundColor: Colors.red,
+              ),
+            );
+          }
+          break;
+
+        case NavigationRouteStatus.noWaypointsError:
+          AppLogger.general('❌ No waypoints provided');
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('No destinations provided for navigation.'),
+                backgroundColor: Colors.red,
+              ),
+            );
+          }
+          break;
+
+        case NavigationRouteStatus.travelModeUnsupported:
+          AppLogger.general('❌ Travel mode unsupported');
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Travel mode not supported for this route.'),
+                backgroundColor: Colors.red,
+              ),
+            );
+          }
+          break;
+
+        case NavigationRouteStatus.statusCanceled:
+          AppLogger.general('⚠️  Route calculation canceled');
+          // Don't show error for cancellation (happens when a new calculation starts)
+          break;
+
+        case NavigationRouteStatus.quotaCheckFailed:
+        case NavigationRouteStatus.unknown:
+          AppLogger.general('❌ Unknown error: $result');
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Unable to calculate route: $result'),
+                backgroundColor: Colors.red,
+              ),
+            );
+          }
+          break;
       }
     } catch (e) {
-      AppLogger.general('❌ Error setting destinations: $e');
+      AppLogger.general('❌ Exception setting destinations: $e');
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -530,6 +730,7 @@ class GoogleNavigationPage extends HookConsumerWidget {
 
   /// Recalculate navigation route when bins are completed
   static Future<void> _recalculateNavigationRoute(
+    BuildContext context,
     GoogleNavigationViewController? controller,
     WidgetRef ref,
     ShiftState shift,
@@ -555,31 +756,11 @@ class GoogleNavigationPage extends HookConsumerWidget {
       await GoogleMapsNavigator.stopGuidance();
       AppLogger.general('⏹️  Stopped current guidance');
 
-      // Recreate markers and circles for remaining bins
-      final tempMarkerMap = <String, RouteBin>{};
-      final markers = await _createCustomBinMarkers(shift.remainingBins, tempMarkerMap);
+      // Clear existing markers first
       await controller.clearMarkers();
-      await controller.addMarkers(markers);
-      AppLogger.general('📍 Updated ${markers.length} markers');
+      AppLogger.general('🗑️  Cleared existing markers');
 
-      // Recreate geofence circles
-      final circles = await _createGeofenceCircles(shift.remainingBins);
-      await controller.clearCircles();
-      await controller.addCircles(circles);
-      geofenceCircles.value = circles;
-      AppLogger.general('⭕ Updated ${circles.length} geofence circles');
-
-      // Update completed route polyline
-      final completedBinsList = shift.routeBins.where((bin) => bin.isCompleted == 1).toList();
-      final polyline = await _createCompletedRoutePolyline(completedBinsList);
-      await controller.clearPolylines();
-      if (polyline != null) {
-        await controller.addPolylines([polyline]);
-        completedRoutePolyline.value = polyline;
-        AppLogger.general('📏 Updated completed route polyline');
-      }
-
-      // If there are remaining bins, set new destinations
+      // If there are remaining bins, set new destinations FIRST
       if (shift.remainingBins.isNotEmpty) {
         final waypoints = shift.remainingBins.map((bin) {
           return NavigationWaypoint.withLatLngTarget(
@@ -609,7 +790,32 @@ class GoogleNavigationPage extends HookConsumerWidget {
         if (result == NavigationRouteStatus.statusOk) {
           await GoogleMapsNavigator.startGuidance();
           currentBinIndex.value = 0;
-          AppLogger.general('✅ Route recalculated successfully');
+          AppLogger.general('✅ Route set with destinations hidden');
+
+          // NOW add custom markers AFTER destinations are set
+          final tempMarkerMap = <String, RouteBin>{};
+          final markers = await _createCustomBinMarkers(shift.remainingBins, tempMarkerMap);
+          await controller.addMarkers(markers);
+          AppLogger.general('📍 Added ${markers.length} custom markers');
+
+          // Add geofence circles
+          final circles = await _createGeofenceCircles(shift.remainingBins);
+          await controller.clearCircles();
+          await controller.addCircles(circles);
+          geofenceCircles.value = circles;
+          AppLogger.general('⭕ Added ${circles.length} geofence circles');
+
+          // Update completed route polyline
+          final completedBinsList = shift.routeBins.where((bin) => bin.isCompleted == 1).toList();
+          final polyline = await _createCompletedRoutePolyline(completedBinsList);
+          await controller.clearPolylines();
+          if (polyline != null) {
+            await controller.addPolylines([polyline]);
+            completedRoutePolyline.value = polyline;
+            AppLogger.general('📏 Added completed route polyline');
+          }
+
+          AppLogger.general('✅ Route recalculation complete');
         } else {
           AppLogger.general('❌ Route recalculation failed: $result');
         }
@@ -627,7 +833,15 @@ class GoogleNavigationPage extends HookConsumerWidget {
         try {
           await ref.read(shiftNotifierProvider.notifier).endShift();
           AppLogger.general('✅ Shift auto-ended successfully');
-          // Loading will auto-dismiss when listener detects status change
+
+          // Dismiss loading
+          await EasyLoading.dismiss();
+
+          // Navigate back to home page
+          if (context.mounted) {
+            AppLogger.general('🏠 Navigating back to home page...');
+            context.pop();
+          }
         } catch (e) {
           AppLogger.general('⚠️  Failed to auto-end shift: $e');
           AppLogger.general('   Shift may need to be ended manually');
@@ -705,13 +919,21 @@ class GoogleNavigationPage extends HookConsumerWidget {
         AppLogger.general('   ⚠️  Error clearing completed route (likely disposed): $e');
       }
 
+      // 7. Cleanup navigation session
+      try {
+        await GoogleMapsNavigator.cleanup();
+        AppLogger.general('   ✅ Navigation session cleaned up');
+      } catch (e) {
+        AppLogger.general('   ⚠️  Error cleaning up navigation session: $e');
+      }
+
       AppLogger.general('✅ Navigation cleanup complete');
 
-      // 7. Dismiss any loading overlays
+      // 8. Dismiss any loading overlays
       await EasyLoading.dismiss();
       AppLogger.general('   ✅ Dismissed loading overlay');
 
-      // 8. Handle navigation based on scenario
+      // 9. Handle navigation based on scenario
       if (!context.mounted) {
         AppLogger.general('   ⚠️  Context unmounted, skipping navigation');
         return;
@@ -875,7 +1097,7 @@ class GoogleNavigationPage extends HookConsumerWidget {
     );
   }
 
-  /// Setup navigation after view is created (5-step process)
+  /// Setup navigation after view is created (6-step process)
   static Future<void> _setupNavigationAfterViewCreated(
     GoogleNavigationViewController controller,
     BuildContext context,
@@ -895,15 +1117,13 @@ class GoogleNavigationPage extends HookConsumerWidget {
     ObjectRef<bool> hasReceivedFirstNavInfo,
     bool isDark,
   ) async {
-    AppLogger.general('🚀 [SETUP] Starting 5-step navigation setup...');
+    AppLogger.general('🚀 [SETUP] Starting 6-step navigation setup...');
 
     try {
       // STEP 1: Configure map settings
-      AppLogger.general('📱 [STEP 1/5] Configuring map settings...');
-      await controller.setMyLocationEnabled(true);
+      AppLogger.general('📱 [STEP 1/6] Configuring map settings...');
+
       await controller.settings.setCompassEnabled(false);
-      await controller.settings.setMyLocationButtonEnabled(false);
-      await controller.settings.setZoomControlsEnabled(false);
       await controller.settings.setTrafficEnabled(false);
 
       // Hide Google's navigation header (green banner) and footer (ETA card)
@@ -912,25 +1132,47 @@ class GoogleNavigationPage extends HookConsumerWidget {
       await controller.setNavigationFooterEnabled(false);
       AppLogger.general('   🎨 Disabled Google navigation header & footer');
 
-      AppLogger.general('✅ [STEP 1/5] Map settings configured');
+      AppLogger.general('✅ [STEP 1/6] Map settings configured');
 
-      // STEP 2: Apply map style
-      AppLogger.general('🎨 [STEP 2/5] Applying map style...');
-      await _applyMapStyle(controller, isDark);
-      AppLogger.general('✅ [STEP 2/5] Map style applied');
+      // STEP 2: Apply map style (COMMENTED OUT - using default Google Maps style)
+      // AppLogger.general('🎨 [STEP 2/6] Applying map style...');
+      // await _applyMapStyle(controller, isDark);
+      // AppLogger.general('✅ [STEP 2/6] Map style applied');
+      AppLogger.general('✅ [STEP 2/6] Using default Google Maps style (custom style disabled)');
 
-      // STEP 3: Create and add custom markers
-      AppLogger.general('📍 [STEP 3/5] Creating custom bin markers...');
+      // STEP 3: Setup navigation listeners (for location updates, turn-by-turn, etc.)
+      AppLogger.general('👂 [STEP 3/6] Setting up navigation listeners...');
+      _setupNavigationListeners(
+        context,
+        ref,
+        shift,
+        currentBinIndex,
+        currentStep,
+        distanceToNextManeuver,
+        remainingTime,
+        totalDistanceRemaining,
+        navigationLocation,
+        hasReceivedFirstNavInfo,
+      );
+      AppLogger.general('✅ [STEP 3/6] Listeners configured');
+
+      // STEP 4: Calculate route immediately (Google's recommended pattern)
+      AppLogger.general('🗺️  [STEP 4/6] Calculating route to destinations...');
+      await _setDestinationsFromShift(context, ref, shift, currentBinIndex);
+      AppLogger.general('✅ [STEP 4/6] Route calculation initiated');
+
+      // STEP 5: Add custom markers
+      AppLogger.general('📍 [STEP 5/6] Creating and adding custom bin markers...');
       final markers = await _createCustomBinMarkers(shift.remainingBins, markerToBinMap.value);
       await controller.addMarkers(markers);
-      AppLogger.general('✅ [STEP 3/5] Added ${markers.length} custom markers');
+      AppLogger.general('✅ [STEP 5/6] Added ${markers.length} custom markers');
 
-      // STEP 4: Create geofence circles
-      AppLogger.general('⭕ [STEP 4/5] Creating geofence circles...');
+      // STEP 6: Create geofence circles and completed route polyline
+      AppLogger.general('⭕ [STEP 6/6] Adding geofence circles and polylines...');
       final circles = await _createGeofenceCircles(shift.remainingBins);
       await controller.addCircles(circles);
       geofenceCircles.value = circles;
-      AppLogger.general('✅ [STEP 4/5] Added ${circles.length} geofence circles');
+      AppLogger.general('   Added ${circles.length} geofence circles');
 
       // Add completed route polyline if there are completed bins
       if (shift.completedBins > 0) {
@@ -939,29 +1181,16 @@ class GoogleNavigationPage extends HookConsumerWidget {
         if (polyline != null) {
           await controller.addPolylines([polyline]);
           completedRoutePolyline.value = polyline;
-          AppLogger.general('📏 Added completed route polyline');
+          AppLogger.general('   Added completed route polyline');
         }
       }
-
-      // STEP 5: Set destinations and start navigation
-      AppLogger.general('🗺️  [STEP 5/5] Setting destinations and starting navigation...');
-      await _setDestinationsFromShift(context, ref, shift, currentBinIndex);
-
-      // Setup navigation listeners
-      _setupNavigationListeners(
-        currentStep,
-        distanceToNextManeuver,
-        remainingTime,
-        totalDistanceRemaining,
-        navigationLocation,
-        hasReceivedFirstNavInfo,
-      );
+      AppLogger.general('✅ [STEP 6/6] Circles and polylines added');
 
       isNavigationReady.value = true;
       isNavigating.value = true;
-      AppLogger.general('✅ [STEP 5/5] Navigation started');
+      AppLogger.general('✅ Navigation ready');
 
-      AppLogger.general('🎉 [SETUP] All 5 steps completed successfully!');
+      AppLogger.general('🎉 [SETUP] All 6 steps completed successfully!');
     } catch (e) {
       AppLogger.general('❌ [SETUP] Error during setup: $e');
       rethrow;
@@ -973,6 +1202,7 @@ class GoogleNavigationPage extends HookConsumerWidget {
     List<RouteBin> bins,
     Map<String, RouteBin> markerToBinMap,
   ) async {
+    AppLogger.navigation('🎨 Creating ${bins.length} custom bin markers...');
     final markers = <MarkerOptions>[];
 
     for (int i = 0; i < bins.length; i++) {
@@ -992,13 +1222,15 @@ class GoogleNavigationPage extends HookConsumerWidget {
         ),
         icon: icon,
         anchor: const MarkerAnchor(u: 0.5, v: 0.5), // Center
-        zIndex: binNumber.toDouble(),
+        zIndex: 9999.0 + binNumber.toDouble(), // Very high z-index to render above Google's default markers
         consumeTapEvents: true,
       );
 
       markers.add(markerOptions);
+      AppLogger.navigation('   ✅ Marker $binNumber: Bin #${bin.binNumber} at (${bin.latitude}, ${bin.longitude})');
     }
 
+    AppLogger.navigation('📍 Created ${markers.length} custom markers total');
     return markers;
   }
 
@@ -1098,6 +1330,10 @@ class GoogleNavigationPage extends HookConsumerWidget {
 
   /// Setup navigation event listeners
   static void _setupNavigationListeners(
+    BuildContext context,
+    WidgetRef ref,
+    ShiftState shift,
+    ValueNotifier<int> currentBinIndex,
     ValueNotifier<RouteStep?> currentStep,
     ValueNotifier<double> distanceToNextManeuver,
     ValueNotifier<Duration?> remainingTime,
@@ -1132,15 +1368,15 @@ class GoogleNavigationPage extends HookConsumerWidget {
       // Update distance to next maneuver
       distanceToNextManeuver.value = navInfo.distanceToCurrentStepMeters?.toDouble() ?? 0;
 
-      // Update remaining time and distance
-      remainingTime.value = navInfo.timeToCurrentStepSeconds != null
-          ? Duration(seconds: navInfo.timeToCurrentStepSeconds!)
+      // Update remaining time and distance to final destination
+      remainingTime.value = navInfo.timeToFinalDestinationSeconds != null
+          ? Duration(seconds: navInfo.timeToFinalDestinationSeconds!)
           : null;
 
       totalDistanceRemaining.value = navInfo.distanceToFinalDestinationMeters?.toDouble();
     });
 
-    // Listen to location updates
+    // Listen to location updates (for display purposes only)
     GoogleMapsNavigator.setRoadSnappedLocationUpdatedListener((location) {
       navigationLocation.value = location.location;
     });
@@ -1340,22 +1576,23 @@ class GoogleNavigationPage extends HookConsumerWidget {
   }
 
   /// Apply branded map style (light or dark mode)
-  static Future<void> _applyMapStyle(GoogleNavigationViewController controller, bool isDark) async {
-    try {
-      final stylePath = isDark
-          ? 'assets/map_styles/dark_style.json'
-          : 'assets/map_styles/light_style.json';
-
-      final styleJson = await rootBundle.loadString(stylePath);
-      await controller.setMapStyle(styleJson);
-
-      AppLogger.general('🎨 Applied ${isDark ? "dark" : "light"} map style');
-    } catch (e) {
-      AppLogger.general('⚠️  Failed to apply map style: $e');
-      // Fallback to default style
-      await controller.setMapStyle(null);
-    }
-  }
+  /// COMMENTED OUT - Using default Google Maps style instead
+  // static Future<void> _applyMapStyle(GoogleNavigationViewController controller, bool isDark) async {
+  //   try {
+  //     final stylePath = isDark
+  //         ? 'assets/map_styles/dark_style.json'
+  //         : 'assets/map_styles/light_style.json';
+  //
+  //     final styleJson = await rootBundle.loadString(stylePath);
+  //     await controller.setMapStyle(styleJson);
+  //
+  //     AppLogger.general('🎨 Applied ${isDark ? "dark" : "light"} map style');
+  //   } catch (e) {
+  //     AppLogger.general('⚠️  Failed to apply map style: $e');
+  //     // Fallback to default style
+  //     await controller.setMapStyle(null);
+  //   }
+  // }
 
   /// Build navigation info card (unused, kept for reference)
   Widget _buildNavigationInfoCard({
@@ -1467,6 +1704,7 @@ class GoogleNavigationPage extends HookConsumerWidget {
     ValueNotifier<bool> isExpanded,
     Duration? remainingTime,
     double? totalDistanceRemaining,
+    LatLng? driverLocation,
   ) {
     final currentBin = shift.remainingBins.isNotEmpty && currentIndex < shift.remainingBins.length
         ? shift.remainingBins[currentIndex]
@@ -1515,8 +1753,8 @@ class GoogleNavigationPage extends HookConsumerWidget {
               // Content
               Expanded(
                 child: isExpanded.value
-                    ? _buildExpandedContent(context, ref, shift, currentBin, currentIndex, remainingTime, totalDistanceRemaining)
-                    : _buildCollapsedContent(currentBin, currentIndex, shift.remainingBins.length, remainingTime),
+                    ? _buildExpandedContent(context, ref, shift, currentBin, currentIndex, remainingTime, totalDistanceRemaining, driverLocation)
+                    : _buildCollapsedContent(currentBin, shift.completedBins, shift.totalBins, remainingTime),
               ),
             ],
           ),
@@ -1528,11 +1766,11 @@ class GoogleNavigationPage extends HookConsumerWidget {
   /// Build collapsed panel content (compact bar) - matching screenshot design
   Widget _buildCollapsedContent(
     RouteBin currentBin,
-    int currentIndex,
+    int completedBins,
     int totalBins,
     Duration? remainingTime,
   ) {
-    final progressPercentage = totalBins > 0 ? currentIndex / totalBins : 0.0;
+    final progressPercentage = totalBins > 0 ? completedBins / totalBins : 0.0;
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -1555,7 +1793,7 @@ class GoogleNavigationPage extends HookConsumerWidget {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
-                  color: AppColors.primaryBlue,
+                  color: AppColors.primaryBlue.withOpacity(0.15),
                   borderRadius: BorderRadius.circular(6),
                 ),
                 child: Text(
@@ -1563,7 +1801,7 @@ class GoogleNavigationPage extends HookConsumerWidget {
                   style: const TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.bold,
-                    color: Colors.white,
+                    color: AppColors.primaryBlue,
                   ),
                 ),
               ),
@@ -1586,11 +1824,11 @@ class GoogleNavigationPage extends HookConsumerWidget {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
-                  color: Colors.grey.shade300,
+                  color: Colors.grey.shade200,
                   borderRadius: BorderRadius.circular(6),
                 ),
                 child: Text(
-                  '${currentIndex}/$totalBins',
+                  '$completedBins/$totalBins',
                   style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
@@ -1632,9 +1870,24 @@ class GoogleNavigationPage extends HookConsumerWidget {
     int currentIndex,
     Duration? remainingTime,
     double? totalDistanceRemaining,
+    LatLng? driverLocation,
   ) {
     final progressPercentage = shift.totalBins > 0 ? shift.completedBins / shift.totalBins : 0.0;
     final upcomingBins = _getUpcomingBins(shift.remainingBins, currentIndex);
+
+    // Calculate distance to bin for geofence check
+    final double? distanceToBin = driverLocation != null
+        ? _calculateDistance(
+            driverLocation,
+            LatLng(
+              latitude: currentBin.latitude,
+              longitude: currentBin.longitude,
+            ),
+          )
+        : null;
+
+    const double geofenceRadius = 100.0; // 100 meters
+    final bool isWithinGeofence = distanceToBin != null && distanceToBin <= geofenceRadius;
 
     return SingleChildScrollView(
       child: Column(
@@ -1726,13 +1979,13 @@ class GoogleNavigationPage extends HookConsumerWidget {
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    // Bin number badge (44px blue square - more compact)
+                    // Bin number badge (36px blue square - more compact)
                     Container(
-                      width: 44,
-                      height: 44,
+                      width: 36,
+                      height: 36,
                       decoration: BoxDecoration(
                         color: AppColors.primaryBlue.withOpacity(0.15),
-                        borderRadius: BorderRadius.circular(12),
+                        borderRadius: BorderRadius.circular(10),
                       ),
                       child: Center(
                         child: Text(
@@ -1740,7 +1993,7 @@ class GoogleNavigationPage extends HookConsumerWidget {
                           style: const TextStyle(
                             color: AppColors.primaryBlue,
                             fontWeight: FontWeight.bold,
-                            fontSize: 20,
+                            fontSize: 18,
                           ),
                         ),
                       ),
@@ -1829,17 +2082,67 @@ class GoogleNavigationPage extends HookConsumerWidget {
                   ],
                 ),
                 const SizedBox(height: 16),
-                // Complete Bin button (simple green button)
+                // Geofence warning message (shown when too far)
+                if (!isWithinGeofence && distanceToBin != null)
+                  Container(
+                    margin: const EdgeInsets.only(bottom: 12),
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: Colors.orange.shade50,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        color: Colors.orange.shade300,
+                        width: 1,
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.location_off,
+                          color: Colors.orange.shade700,
+                          size: 18,
+                        ),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: Text(
+                            'You need to be within ${geofenceRadius.toInt()}m of the bin to check in (${distanceToBin.toInt()}m away)',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.orange.shade900,
+                              fontWeight: FontWeight.w500,
+                              height: 1.3,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                // Complete Bin button (conditionally enabled based on geofence)
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton(
-                    onPressed: () {
-                      AppLogger.general('Complete Bin button pressed for Bin #${currentBin.binNumber}');
-                      _showCheckInDialog(context, ref, currentBin);
-                    },
+                    onPressed: isWithinGeofence
+                        ? () {
+                            AppLogger.general('Complete Bin button pressed for Bin #${currentBin.binNumber}');
+                            showDialog(
+                              context: context,
+                              barrierDismissible: false,
+                              builder: (context) => CheckInDialogV2(
+                                bin: currentBin,
+                                onCheckedIn: () {
+                                  // Dialog handles bin completion internally
+                                  // This callback can be used for additional actions if needed
+                                  AppLogger.general('✅ Bin #${currentBin.binNumber} checked in');
+                                },
+                              ),
+                            );
+                          }
+                        : null, // Disabled when not within geofence
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF4CAF50),
+                      backgroundColor: isWithinGeofence ? const Color(0xFF4CAF50) : Colors.grey.shade400,
                       foregroundColor: Colors.white,
+                      disabledBackgroundColor: Colors.grey.shade400,
+                      disabledForegroundColor: Colors.grey.shade100,
                       padding: const EdgeInsets.symmetric(vertical: 18),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
@@ -1847,9 +2150,9 @@ class GoogleNavigationPage extends HookConsumerWidget {
                       elevation: 0,
                       minimumSize: const Size(double.infinity, 54),
                     ),
-                    child: const Text(
-                      'Complete Bin',
-                      style: TextStyle(
+                    child: Text(
+                      isWithinGeofence ? 'Complete Bin' : 'Too Far Away',
+                      style: const TextStyle(
                         fontSize: 17,
                         fontWeight: FontWeight.w600,
                         letterSpacing: 0.2,
@@ -2091,27 +2394,40 @@ class GoogleNavigationPage extends HookConsumerWidget {
   static Widget _buildCircularButton({
     required IconData icon,
     required VoidCallback onTap,
+    Color? backgroundColor,
+    Color? iconColor,
   }) {
+    final bgColor = backgroundColor ?? Colors.white;
+    final isWhiteBg = bgColor == Colors.white;
+
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        width: 48,
-        height: 48,
+        width: 42,
+        height: 42,
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: bgColor,
           shape: BoxShape.circle,
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.2),
-              blurRadius: 8,
+              color: isWhiteBg
+                  ? Colors.black.withOpacity(0.12)
+                  : bgColor.withOpacity(0.2),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
+              spreadRadius: 0,
+            ),
+            BoxShadow(
+              color: Colors.black.withOpacity(0.05),
+              blurRadius: 4,
               offset: const Offset(0, 2),
             ),
           ],
         ),
         child: Icon(
           icon,
-          color: Colors.grey.shade700,
-          size: 24,
+          color: iconColor ?? (isWhiteBg ? AppColors.primaryBlue : Colors.white),
+          size: 22,
         ),
       ),
     );
@@ -2137,123 +2453,4 @@ class GoogleNavigationPage extends HookConsumerWidget {
     );
   }
 
-  /// Show check-in dialog for completing a bin
-  static void _showCheckInDialog(BuildContext context, WidgetRef ref, RouteBin bin) {
-    final fillPercentageNotifier = ValueNotifier<int>(bin.fillPercentage);
-    final isSubmittingNotifier = ValueNotifier<bool>(false);
-
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (dialogContext) => AlertDialog(
-        title: Text('Check In - Bin #${bin.binNumber}'),
-        content: StatefulBuilder(
-          builder: (context, setState) {
-            return Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Current fill level: ${bin.fillPercentage}%',
-                  style: Theme.of(context).textTheme.bodyMedium,
-                ),
-                const SizedBox(height: 24),
-                Text(
-                  'New fill level: ${fillPercentageNotifier.value}%',
-                  style: Theme.of(context).textTheme.titleMedium,
-                ),
-                const SizedBox(height: 8),
-                Slider(
-                  value: fillPercentageNotifier.value.toDouble(),
-                  min: 0,
-                  max: 100,
-                  divisions: 20,
-                  label: '${fillPercentageNotifier.value}%',
-                  onChanged: (value) {
-                    setState(() {
-                      fillPercentageNotifier.value = value.round();
-                    });
-                  },
-                ),
-                const SizedBox(height: 16),
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: Theme.of(context).colorScheme.primaryContainer,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(
-                        Icons.info_outline,
-                        size: 20,
-                        color: Theme.of(context).colorScheme.primary,
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          'This will update the bin\'s fill level and record a check-in.',
-                          style: Theme.of(context).textTheme.bodySmall,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            );
-          },
-        ),
-        actions: [
-          TextButton(
-            onPressed: isSubmittingNotifier.value ? null : () => Navigator.pop(dialogContext),
-            child: const Text('Cancel'),
-          ),
-          ValueListenableBuilder<bool>(
-            valueListenable: isSubmittingNotifier,
-            builder: (context, isSubmitting, child) {
-              return ElevatedButton(
-                onPressed: isSubmitting
-                    ? null
-                    : () async {
-                        isSubmittingNotifier.value = true;
-                        try {
-                          // Complete bin via shift provider
-                          await ref.read(shiftNotifierProvider.notifier).completeBin(bin.binId);
-
-                          if (dialogContext.mounted) {
-                            Navigator.pop(dialogContext);
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('Bin completed successfully'),
-                                backgroundColor: Colors.green,
-                              ),
-                            );
-                          }
-                        } catch (e) {
-                          if (dialogContext.mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text('Error: $e'),
-                                backgroundColor: Colors.red,
-                              ),
-                            );
-                          }
-                        } finally {
-                          isSubmittingNotifier.value = false;
-                        }
-                      },
-                child: isSubmitting
-                    ? const SizedBox(
-                        width: 16,
-                        height: 16,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Text('Submit'),
-              );
-            },
-          ),
-        ],
-      ),
-    );
-  }
 }

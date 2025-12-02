@@ -1,6 +1,6 @@
 import 'dart:convert';
 import 'package:dio/dio.dart';
-import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:google_navigation_flutter/google_navigation_flutter.dart';
 import 'package:latlong2/latlong.dart' as latlong;
 import 'package:ropacalapp/core/utils/app_logger.dart';
 
@@ -179,7 +179,7 @@ class GoogleRoutesService {
       double latitude = lat / 1E5;
       double longitude = lng / 1E5;
 
-      points.add(LatLng(latitude, longitude));
+      points.add(LatLng(latitude: latitude, longitude: longitude));
     }
 
     return points;

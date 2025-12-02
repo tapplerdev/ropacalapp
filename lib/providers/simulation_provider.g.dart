@@ -7,7 +7,7 @@ part of 'simulation_provider.dart';
 // **************************************************************************
 
 String _$simulationNotifierHash() =>
-    r'4aeb9add5afd59b642baad70d806157607ccc3b6';
+    r'09c03d79555162434c6d95e2e2342188ca3ea0f3';
 
 /// Provider for route simulation state and logic
 ///

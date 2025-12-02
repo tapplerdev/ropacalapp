@@ -1,4 +1,4 @@
-import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:google_navigation_flutter/google_navigation_flutter.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:ropacalapp/core/utils/app_logger.dart';
 import 'package:ropacalapp/core/utils/map_marker_utils.dart';
@@ -8,9 +8,9 @@ part 'bin_marker_cache_provider.g.dart';
 
 /// Cache state for bin markers
 class BinMarkerCache {
-  final Map<String, BitmapDescriptor> binMarkers;
-  final Map<int, BitmapDescriptor> routeMarkers;
-  final BitmapDescriptor? blueDotMarker;
+  final Map<String, ImageDescriptor> binMarkers;
+  final Map<int, ImageDescriptor> routeMarkers;
+  final ImageDescriptor? blueDotMarker;
   final bool isLoading;
 
   const BinMarkerCache({
@@ -33,9 +33,9 @@ class BinMarkerCache {
       isLoading = true;
 
   BinMarkerCache copyWith({
-    Map<String, BitmapDescriptor>? binMarkers,
-    Map<int, BitmapDescriptor>? routeMarkers,
-    BitmapDescriptor? blueDotMarker,
+    Map<String, ImageDescriptor>? binMarkers,
+    Map<int, ImageDescriptor>? routeMarkers,
+    ImageDescriptor? blueDotMarker,
     bool? isLoading,
   }) {
     return BinMarkerCache(
@@ -71,7 +71,7 @@ class BinMarkerCacheNotifier extends _$BinMarkerCacheNotifier {
     AppLogger.map('🎨 Generating marker cache for ${bins.length} bins...');
     state = const BinMarkerCache.loading();
 
-    final binMarkers = <String, BitmapDescriptor>{};
+    final binMarkers = <String, ImageDescriptor>{};
 
     // Generate bin markers in parallel for better performance
     await Future.wait(
@@ -96,7 +96,7 @@ class BinMarkerCacheNotifier extends _$BinMarkerCacheNotifier {
     );
 
     // Pre-generate route markers 1-20 (common route sizes)
-    final routeMarkers = <int, BitmapDescriptor>{};
+    final routeMarkers = <int, ImageDescriptor>{};
     await Future.wait(
       List.generate(20, (i) => i + 1).map((routeNumber) async {
         try {
@@ -114,7 +114,7 @@ class BinMarkerCacheNotifier extends _$BinMarkerCacheNotifier {
     );
 
     // Pre-generate blue dot marker for current location
-    BitmapDescriptor? blueDot;
+    ImageDescriptor? blueDot;
     try {
       blueDot = await MapMarkerUtils.createBlueDotMarker();
       AppLogger.map('🔵 Blue dot marker generated');
@@ -139,13 +139,13 @@ class BinMarkerCacheNotifier extends _$BinMarkerCacheNotifier {
 
   /// Get bin marker by bin ID
   /// Returns null if not in cache (shouldn't happen if bins are loaded)
-  BitmapDescriptor? getBinMarker(String binId) {
+  ImageDescriptor? getBinMarker(String binId) {
     return state.binMarkers[binId];
   }
 
   /// Get route marker by route number
   /// Returns null if number > 20 (will need to generate on demand)
-  BitmapDescriptor? getRouteMarker(int routeNumber) {
+  ImageDescriptor? getRouteMarker(int routeNumber) {
     return state.routeMarkers[routeNumber];
   }
 
@@ -161,7 +161,7 @@ class BinMarkerCacheNotifier extends _$BinMarkerCacheNotifier {
 
   /// Get blue dot marker for current location
   /// Returns null if not yet generated
-  BitmapDescriptor? getBlueDotMarker() {
+  ImageDescriptor? getBlueDotMarker() {
     return state.blueDotMarker;
   }
 

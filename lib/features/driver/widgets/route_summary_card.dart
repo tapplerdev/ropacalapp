@@ -6,7 +6,6 @@ import 'package:ropacalapp/core/constants/bin_constants.dart';
 import 'package:ropacalapp/core/theme/app_colors.dart';
 import 'package:ropacalapp/core/utils/app_logger.dart';
 import 'package:ropacalapp/models/bin.dart';
-import 'package:ropacalapp/providers/navigation_provider.dart';
 
 class RouteSummaryCard extends StatelessWidget {
   final List<Bin> routeBins;
@@ -110,56 +109,12 @@ class RouteSummaryCard extends StatelessWidget {
                 onPressed: () async {
                   if (routeBins.isEmpty) return;
 
-                  // Get current location (use fallback for simulator)
-                  final gpsLocation = currentLocation;
-                  final startLocation =
-                      gpsLocation ?? const latlong.LatLng(37.3382, -121.8863);
+                  AppLogger.map('🚀 Starting Google Navigation...');
 
-                  // Start navigation from current location
-                  try {
-                    AppLogger.map(
-                      '🚀 Starting navigation with Mapbox data...',
-                    );
-                    AppLogger.map(
-                      '   Start location: ${startLocation.latitude}, ${startLocation.longitude}',
-                    );
-                    AppLogger.map('   GPS available: ${gpsLocation != null}');
-                    ref
-                        .read(navigationNotifierProvider.notifier)
-                        .startNavigationWithMapboxData(
-                          startLocation: startLocation,
-                          destinationBins: routeBins,
-                        );
-
-                    // Small delay to ensure state is set
-                    await Future.delayed(const Duration(milliseconds: 100));
-
-                    // Verify state is set
-                    final navState = ref.read(navigationNotifierProvider);
-                    AppLogger.map(
-                      '✅ Navigation state set, navigating to page...',
-                    );
-                    AppLogger.map(
-                      '   State verification: ${navState != null ? "NOT NULL (${navState.routeSteps.length} steps)" : "NULL"}',
-                    );
-
-                    // Navigate to navigation page
-                    if (context.mounted) {
-                      context.push('/navigation');
-                    }
-                  } catch (e) {
-                    AppLogger.map(
-                      '❌ Navigation error: $e',
-                      level: AppLogger.error,
-                    );
-                    if (context.mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text('Failed to start navigation: $e'),
-                          backgroundColor: AppColors.alertRed,
-                        ),
-                      );
-                    }
+                  // Navigate to Google Navigation page
+                  // Note: GoogleNavigationPage handles route setup using Google Navigation SDK
+                  if (context.mounted) {
+                    context.push('/navigation');
                   }
                 },
                 icon: const Icon(Icons.navigation),

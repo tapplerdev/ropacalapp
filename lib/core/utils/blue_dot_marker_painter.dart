@@ -1,6 +1,6 @@
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
-import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:google_navigation_flutter/google_navigation_flutter.dart';
 
 /// Creates a custom blue dot marker icon for navigation
 /// Matches EXACT design from NavigationBlueDotOverlay:
@@ -10,10 +10,10 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 /// - Shadow: black 0.3 opacity, 6 blur, offset (0, 2)
 class BlueDotMarkerPainter {
   /// Generate a blue dot marker icon
-  /// Returns a BitmapDescriptor that can be used for Google Maps markers
+  /// Returns an ImageDescriptor that can be used for Google Maps markers
   ///
   /// [size] is the total diameter in pixels (default 60)
-  static Future<BitmapDescriptor> createBlueDotMarker({
+  static Future<ImageDescriptor> createBlueDotMarker({
     double size = 60.0, // Total size in pixels
   }) async {
     // Calculate proportions based on original 20x20 design
@@ -53,6 +53,10 @@ class BlueDotMarkerPainter {
     final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
     final bytes = byteData!.buffer.asUint8List();
 
-    return BitmapDescriptor.fromBytes(bytes);
+    return ImageDescriptor(
+      registeredImageId: 'blue_dot_marker',
+      width: size,
+      height: size,
+    );
   }
 }

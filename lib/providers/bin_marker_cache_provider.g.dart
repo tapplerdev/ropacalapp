@@ -7,7 +7,7 @@ part of 'bin_marker_cache_provider.dart';
 // **************************************************************************
 
 String _$binMarkerCacheNotifierHash() =>
-    r'4a7c880e8776f4ead90479edadf9b3e5aa98d13b';
+    r'e3e11fd2317b57b15768135f60071035301d3f2f';
 
 /// Global marker cache provider
 /// Pre-generates custom markers for all bins when bins are loaded

@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:math' as math;
 import 'package:flutter/animation.dart';
-import 'package:google_maps_flutter/google_maps_flutter.dart' as gmaps;
+import 'package:google_navigation_flutter/google_navigation_flutter.dart';
 import 'package:latlong2/latlong.dart' as latlong;
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:ropacalapp/core/constants/bin_constants.dart';
@@ -218,10 +218,15 @@ class SimulationNotifier extends _$SimulationNotifier {
     _simulationStartTime = DateTime.now();
 
     // Set initial position (convert latlong.LatLng to LatLng)
-    final initialPosition = gmaps.LatLng(
-      routePolyline.first.latitude,
-      routePolyline.first.longitude,
+    final initialPosition = LatLng(
+      latitude: routePolyline.first.latitude,
+      longitude: routePolyline.first.longitude,
     );
+
+    // Convert latlong.LatLng list to google_navigation_flutter LatLng list
+    final convertedPolyline = routePolyline.map((point) =>
+      LatLng(latitude: point.latitude, longitude: point.longitude)
+    ).toList();
 
     state = state.copyWith(
       isSimulating: true,
@@ -232,7 +237,7 @@ class SimulationNotifier extends _$SimulationNotifier {
       isNavigationMode: true, // Auto-enable 3D navigation mode
       isFollowing: true, // Auto-enable camera following
       routePolyline:
-          routePolyline, // Store the full OSRM polyline for map rendering
+          convertedPolyline, // Store the full OSRM polyline for map rendering (converted)
     );
 
     AppLogger.navigation('📍 Simulation state after start:');
@@ -289,9 +294,9 @@ class SimulationNotifier extends _$SimulationNotifier {
 
       // Update state
       state = state.copyWith(
-        simulatedPosition: gmaps.LatLng(
-          currentPosition.latitude,
-          currentPosition.longitude,
+        simulatedPosition: LatLng(
+          latitude: currentPosition.latitude,
+          longitude: currentPosition.longitude,
         ),
         bearing: bearing,
         smoothedBearing: smoothedBearing,

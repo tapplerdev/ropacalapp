@@ -1,15 +1,15 @@
 import 'dart:ui' as ui;
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
-import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:google_navigation_flutter/google_navigation_flutter.dart';
 import 'package:ropacalapp/core/theme/app_colors.dart';
 
 class MapMarkerUtils {
   // Cache for generated markers to avoid regenerating identical ones
-  static final Map<String, BitmapDescriptor> _markerCache = {};
+  static final Map<String, ImageDescriptor> _markerCache = {};
 
   /// Creates a bin marker icon with number and fill percentage ring
-  static Future<BitmapDescriptor> createBinMarker({
+  static Future<ImageDescriptor> createBinMarker({
     required int binNumber,
     required int fillPercentage,
   }) async {
@@ -98,16 +98,20 @@ class MapMarkerUtils {
     final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
     final imageData = byteData!.buffer.asUint8List();
 
-    // Create BitmapDescriptor from image data
-    final bitmapDescriptor = BitmapDescriptor.fromBytes(imageData);
+    // Create ImageDescriptor from image data
+    final imageDescriptor = ImageDescriptor(
+      registeredImageId: cacheKey,
+      width: size,
+      height: size,
+    );
 
     // Cache the result
-    _markerCache[cacheKey] = bitmapDescriptor;
-    return bitmapDescriptor;
+    _markerCache[cacheKey] = imageDescriptor;
+    return imageDescriptor;
   }
 
   /// Creates a numbered route marker icon
-  static Future<BitmapDescriptor> createRouteMarker({
+  static Future<ImageDescriptor> createRouteMarker({
     required int routeNumber,
   }) async {
     // Cache key based on route number
@@ -174,17 +178,21 @@ class MapMarkerUtils {
     final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
     final imageData = byteData!.buffer.asUint8List();
 
-    // Create BitmapDescriptor from image data
-    final bitmapDescriptor = BitmapDescriptor.fromBytes(imageData);
+    // Create ImageDescriptor from image data
+    final imageDescriptor = ImageDescriptor(
+      registeredImageId: cacheKey,
+      width: size,
+      height: size,
+    );
 
     // Cache the result
-    _markerCache[cacheKey] = bitmapDescriptor;
-    return bitmapDescriptor;
+    _markerCache[cacheKey] = imageDescriptor;
+    return imageDescriptor;
   }
 
   /// Creates a blue dot marker icon matching the overlay widget design
   /// Used for current location in 2D map mode
-  static Future<BitmapDescriptor> createBlueDotMarker() async {
+  static Future<ImageDescriptor> createBlueDotMarker() async {
     const cacheKey = 'blue_dot';
     if (_markerCache.containsKey(cacheKey)) {
       return _markerCache[cacheKey]!;
@@ -234,12 +242,16 @@ class MapMarkerUtils {
     final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
     final imageData = byteData!.buffer.asUint8List();
 
-    // Create BitmapDescriptor from image data
-    final bitmapDescriptor = BitmapDescriptor.fromBytes(imageData);
+    // Create ImageDescriptor from image data
+    final imageDescriptor = ImageDescriptor(
+      registeredImageId: cacheKey,
+      width: size,
+      height: size,
+    );
 
     // Cache the result
-    _markerCache[cacheKey] = bitmapDescriptor;
-    return bitmapDescriptor;
+    _markerCache[cacheKey] = imageDescriptor;
+    return imageDescriptor;
   }
 
   static Color _getFillColor(int fillPercentage) {

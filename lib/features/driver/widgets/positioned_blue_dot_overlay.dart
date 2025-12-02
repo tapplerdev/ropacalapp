@@ -1,6 +1,6 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
-import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:google_navigation_flutter/google_navigation_flutter.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 
 /// Positioned blue dot overlay that follows a lat/lng position on the map
@@ -8,7 +8,7 @@ import 'package:flutter_hooks/flutter_hooks.dart';
 /// Calculates screen position from world coordinates using Mercator projection
 class PositionedBlueDotOverlay extends HookWidget {
   final LatLng position;
-  final GoogleMapController? mapController;
+  final GoogleMapViewController? mapController;
   final ValueNotifier<CameraPosition?> cameraPosition;
 
   const PositionedBlueDotOverlay({

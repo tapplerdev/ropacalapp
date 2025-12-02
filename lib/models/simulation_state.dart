@@ -1,6 +1,6 @@
 import 'package:freezed_annotation/freezed_annotation.dart';
-import 'package:google_maps_flutter/google_maps_flutter.dart' as gmaps;
-import 'package:latlong2/latlong.dart';
+import 'package:google_navigation_flutter/google_navigation_flutter.dart';
+import 'package:latlong2/latlong.dart' as latlong;
 
 part 'simulation_state.freezed.dart';
 
@@ -12,7 +12,7 @@ class SimulationState with _$SimulationState {
     @Default(false) bool isSimulating,
 
     /// Current simulated position (Google Maps LatLng for rendering)
-    gmaps.LatLng? simulatedPosition,
+    LatLng? simulatedPosition,
 
     /// Current bearing/heading in degrees (0-360)
     @Default(0.0) double bearing,

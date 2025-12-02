@@ -1,17 +1,17 @@
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:google_navigation_flutter/google_navigation_flutter.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
 /// Creates a navigation arrow marker icon using the provided SVG asset
 /// Arrow points upward (north) by default, rotates based on compass heading
 class NavigationArrowMarkerPainter {
   /// Generate a navigation arrow marker icon from SVG asset
-  /// Returns a BitmapDescriptor that can be used for Google Maps markers
+  /// Returns an ImageDescriptor that can be used for Google Maps markers
   ///
   /// [size] is the total diameter in pixels (default 80)
-  static Future<BitmapDescriptor> createNavigationArrow({
+  static Future<ImageDescriptor> createNavigationArrow({
     double size = 80.0,
   }) async {
     // Load the SVG from assets
@@ -46,6 +46,11 @@ class NavigationArrowMarkerPainter {
     // Clean up
     pictureInfo.picture.dispose();
 
-    return BitmapDescriptor.fromBytes(bytes);
+    // Return ImageDescriptor (will need to be registered with map controller)
+    return ImageDescriptor(
+      registeredImageId: 'navigation_arrow',
+      width: svgWidth * scale,
+      height: svgHeight * scale,
+    );
   }
 }

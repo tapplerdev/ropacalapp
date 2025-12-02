@@ -21,7 +21,7 @@ mixin _$SimulationState {
   bool get isSimulating => throw _privateConstructorUsedError;
 
   /// Current simulated position (Google Maps LatLng for rendering)
-  gmaps.LatLng? get simulatedPosition => throw _privateConstructorUsedError;
+  LatLng? get simulatedPosition => throw _privateConstructorUsedError;
 
   /// Current bearing/heading in degrees (0-360)
   double get bearing => throw _privateConstructorUsedError;
@@ -63,7 +63,7 @@ abstract class $SimulationStateCopyWith<$Res> {
   @useResult
   $Res call({
     bool isSimulating,
-    gmaps.LatLng? simulatedPosition,
+    LatLng? simulatedPosition,
     double bearing,
     int currentSegmentIndex,
     double segmentProgress,
@@ -110,7 +110,7 @@ class _$SimulationStateCopyWithImpl<$Res, $Val extends SimulationState>
             simulatedPosition: freezed == simulatedPosition
                 ? _value.simulatedPosition
                 : simulatedPosition // ignore: cast_nullable_to_non_nullable
-                      as gmaps.LatLng?,
+                      as LatLng?,
             bearing: null == bearing
                 ? _value.bearing
                 : bearing // ignore: cast_nullable_to_non_nullable
@@ -160,7 +160,7 @@ abstract class _$$SimulationStateImplCopyWith<$Res>
   @useResult
   $Res call({
     bool isSimulating,
-    gmaps.LatLng? simulatedPosition,
+    LatLng? simulatedPosition,
     double bearing,
     int currentSegmentIndex,
     double segmentProgress,
@@ -206,7 +206,7 @@ class __$$SimulationStateImplCopyWithImpl<$Res>
         simulatedPosition: freezed == simulatedPosition
             ? _value.simulatedPosition
             : simulatedPosition // ignore: cast_nullable_to_non_nullable
-                  as gmaps.LatLng?,
+                  as LatLng?,
         bearing: null == bearing
             ? _value.bearing
             : bearing // ignore: cast_nullable_to_non_nullable
@@ -267,7 +267,7 @@ class _$SimulationStateImpl implements _SimulationState {
 
   /// Current simulated position (Google Maps LatLng for rendering)
   @override
-  final gmaps.LatLng? simulatedPosition;
+  final LatLng? simulatedPosition;
 
   /// Current bearing/heading in degrees (0-360)
   @override
@@ -378,7 +378,7 @@ class _$SimulationStateImpl implements _SimulationState {
 abstract class _SimulationState implements SimulationState {
   const factory _SimulationState({
     final bool isSimulating,
-    final gmaps.LatLng? simulatedPosition,
+    final LatLng? simulatedPosition,
     final double bearing,
     final int currentSegmentIndex,
     final double segmentProgress,
@@ -395,7 +395,7 @@ abstract class _SimulationState implements SimulationState {
 
   /// Current simulated position (Google Maps LatLng for rendering)
   @override
-  gmaps.LatLng? get simulatedPosition;
+  LatLng? get simulatedPosition;
 
   /// Current bearing/heading in degrees (0-360)
   @override

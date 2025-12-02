@@ -14,14 +14,8 @@ import 'package:ropacalapp/providers/shift_provider.dart';
 import 'package:ropacalapp/providers/location_provider.dart';
 import 'package:ropacalapp/providers/simulation_provider.dart';
 import 'package:ropacalapp/providers/voice_instruction_provider.dart';
-import 'package:ropacalapp/core/services/mapbox_directions_service.dart';
 import 'package:ropacalapp/core/utils/app_logger.dart';
 import 'package:ropacalapp/core/utils/location_helpers.dart';
-import 'package:ropacalapp/providers/here_route_provider.dart';
-
-/// Mapbox access token for routing API
-const String _kMapboxAccessToken =
-    'pk.eyJ1IjoiYmlubHl5YWkiLCJhIjoiY21pNzN4bzlhMDVheTJpcHdqd2FtYjhpeSJ9.sQM8WHE2C9zWH0xG107xhw';
 
 /// Bottom sheet showing active shift navigation
 class ActiveShiftBottomSheet extends HookConsumerWidget {
@@ -75,24 +69,13 @@ class ActiveShiftBottomSheet extends HookConsumerWidget {
     return index;
   }
 
-  /// Calculate distance to next bin in kilometers
-  /// DEPRECATED: Previously used HERE Maps data, now uses straight-line distance
+  /// Calculate distance to next bin in kilometers using straight-line distance
   double? _calculateDistance(
     RouteBin bin,
     latlong.LatLng? currentLocation,
-    HereRouteData? hereData,
     int binIndex,
   ) {
-    // DEPRECATED: HERE Maps - commented out during Mapbox migration
-    // Try to use HERE Maps distance first
-    // if (hereData != null && binIndex >= 0) {
-    //   final distanceMeters = hereData.getDistanceToBin(binIndex);
-    //   if (distanceMeters != null) {
-    //     return distanceMeters / 1000; // Convert meters to kilometers
-    //   }
-    // }
-
-    // Fallback to straight-line distance
+    // Use straight-line distance
     if (currentLocation == null) return null;
 
     final distance = latlong.Distance();
@@ -106,12 +89,9 @@ class ActiveShiftBottomSheet extends HookConsumerWidget {
     );
   }
 
-  /// Calculate ETA in minutes
-  /// DEPRECATED: Previously used HERE Maps traffic-aware duration, now uses simple calculation
-  /// Falls back to simple calculation (30 km/h average)
+  /// Calculate ETA in minutes using simple calculation (30 km/h average)
   int? _calculateETA(
     double? distanceKm,
-    HereRouteData? hereData,
     int binIndex,
   ) {
     // AppLogger.routing('🔍 _calculateETA called:');
@@ -212,32 +192,19 @@ class ActiveShiftBottomSheet extends HookConsumerWidget {
           )
         : null;
     final simulationState = ref.watch(simulationNotifierProvider);
-    // DEPRECATED: Using Mapbox instead of HERE - setting to null to avoid compilation errors
-    final hereRouteData = null; // ref.watch(hereRouteMetadataProvider);
-
-    // DEPRECATED: HERE Maps debugging - commented out during Mapbox migration
-    // Debug: Log what data we have when building
-    // AppLogger.routing('🏗️  ActiveShiftBottomSheet.build():');
-    // AppLogger.routing('   hereRouteData: ${hereRouteData != null ? "Available" : "NULL"}');
-    // if (hereRouteData != null) {
-    //   AppLogger.routing('   - totalDuration: ${hereRouteData.totalDuration}s (${(hereRouteData.totalDuration / 60).toStringAsFixed(1)} min)');
-    //   AppLogger.routing('   - legDurations: ${hereRouteData.legDurations.length} legs');
-    // }
-
     if (next == null) {
       // All bins completed
       return _buildAllCompleteSheet(context, ref);
     }
 
-    // Calculate distance and ETA using HERE Maps data if available
+    // Calculate distance and ETA using straight-line distance
     final nextBinIndex = _getNextBinIndex(next);
     final distanceKm = _calculateDistance(
       next,
       currentLocation,
-      hereRouteData,
       nextBinIndex,
     );
-    final etaMinutes = _calculateETA(distanceKm, hereRouteData, nextBinIndex);
+    final etaMinutes = _calculateETA(distanceKm, nextBinIndex);
 
     // Calculate progress percentage
     final progressPercentage = totalBins > 0 ? completedBins / totalBins : 0.0;
@@ -283,7 +250,6 @@ class ActiveShiftBottomSheet extends HookConsumerWidget {
                     currentLocation,
                     simulationState,
                     isExpanded,
-                    hereRouteData,
                     nextBinIndex,
                   )
                 : _buildCollapsedContent(
@@ -412,7 +378,6 @@ class ActiveShiftBottomSheet extends HookConsumerWidget {
     latlong.LatLng? currentLocation,
     dynamic simulationState,
     ValueNotifier<bool> isExpanded,
-    HereRouteData? hereRouteData,
     int nextBinIndex,
   ) {
     // Get upcoming bins (next 2-3 bins after current)

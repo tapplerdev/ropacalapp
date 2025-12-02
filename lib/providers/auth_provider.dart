@@ -6,7 +6,6 @@ import 'package:ropacalapp/services/fcm_service.dart';
 import 'package:ropacalapp/services/shift_service.dart';
 import 'package:ropacalapp/services/websocket_service.dart';
 import 'package:ropacalapp/providers/shift_provider.dart';
-import 'package:ropacalapp/providers/here_route_provider.dart';
 import 'package:ropacalapp/providers/simulation_provider.dart';
 import 'package:ropacalapp/core/utils/app_logger.dart';
 

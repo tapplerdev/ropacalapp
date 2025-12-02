@@ -51,13 +51,13 @@ dependencies:
   # Images
   cached_network_image: ^3.4.1
   flutter_svg: ^2.0.10+1
+  image_picker: ^1.1.2  # Camera and gallery image picker
 
   # Networking
   dio: ^5.4.0
   flutter_secure_storage: ^9.0.0
 
   # Maps & Location
-  google_maps_flutter: ^2.10.0
   google_navigation_flutter: ^0.7.0  # Google Navigation SDK (includes Maps + Navigation)
   geolocator: ^13.0.4
   flutter_polyline_points: ^2.0.0

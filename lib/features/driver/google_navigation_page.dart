@@ -14,6 +14,7 @@ import 'package:ropacalapp/core/services/google_navigation_marker_service.dart';
 import 'package:ropacalapp/core/services/google_navigation_service.dart';
 import 'package:ropacalapp/providers/shift_provider.dart';
 import 'package:ropacalapp/providers/location_provider.dart';
+import 'package:ropacalapp/providers/navigation_page_provider.dart';
 import 'package:ropacalapp/features/driver/widgets/turn_by_turn_navigation_card.dart';
 import 'package:ropacalapp/features/driver/widgets/check_in_dialog_v2.dart';
 import 'package:ropacalapp/features/driver/notifications_page.dart';
@@ -28,32 +29,30 @@ class GoogleNavigationPage extends HookConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // Local UI-only state (keep as hooks)
     final navigationController = useState<GoogleNavigationViewController?>(null);
-    final isAudioMuted = useState(false);
     final userLocation = useState<LatLng?>(null);
-
-    // Navigation state
-    final isNavigationReady = useState(false);
-    final isNavigating = useState(false);
-    final currentBinIndex = useState(0);
     final isExpanded = useState(false); // Expandable bottom panel state
-    final markerToBinMap = useState<Map<String, RouteBin>>({});
-
-    // Turn-by-turn navigation state for custom UI
-    final currentStep = useState<RouteStep?>(null);
-    final distanceToNextManeuver = useState<double>(0.0); // meters
-    final remainingTime = useState<Duration?>(null);
-    final totalDistanceRemaining = useState<double?>(null); // meters
-
     final isDarkMode = useState(false); // UNUSED - Dark mode toggle (custom map style disabled)
-    final navigationLocation = useState<LatLng?>(null);
-    final geofenceCircles = useState<List<CircleOptions>>([]);
-    final completedRoutePolyline = useState<PolylineOptions?>(null);
-    final hasReceivedFirstNavInfo = useRef(false);
     final navigatorInitialized = useState(false);
     final initializationError = useState<String?>(null);
     final isHandlingShiftEnd = useRef(false); // Prevent duplicate cleanup calls
+    final hasReceivedFirstNavInfo = useRef(false); // Keep as ref for listener
 
+    // Temporary: Keep these as hooks until full migration (will be migrated in full migration)
+    final isAudioMuted = useState(false);
+    final markerToBinMap = useState<Map<String, RouteBin>>({});
+    final currentStep = useState<RouteStep?>(null);
+    final distanceToNextManeuver = useState<double>(0.0);
+    final remainingTime = useState<Duration?>(null);
+    final totalDistanceRemaining = useState<double?>(null);
+    final navigationLocation = useState<LatLng?>(null);
+    final geofenceCircles = useState<List<CircleOptions>>([]);
+    final completedRoutePolyline = useState<PolylineOptions?>(null);
+
+    // Navigation state from provider (migrated: isNavigationReady, isNavigating, currentBinIndex)
+    final navState = ref.watch(navigationPageNotifierProvider);
+    final navNotifier = ref.read(navigationPageNotifierProvider.notifier);
     final shift = ref.watch(shiftNotifierProvider);
 
     // Guard: If no active shift exists on mount, navigate back to home
@@ -83,7 +82,7 @@ class GoogleNavigationPage extends HookConsumerWidget {
           navigationController.value,
           ref,
           next,
-          currentBinIndex,
+          navNotifier,
           geofenceCircles,
           completedRoutePolyline,
         );
@@ -194,7 +193,7 @@ class GoogleNavigationPage extends HookConsumerWidget {
         }
 
         try {
-          if (isNavigating.value) {
+          if (navState.isNavigating) {
             GoogleMapsNavigator.stopGuidance();
             AppLogger.general('   ⏹️  Stopped navigation guidance');
           }
@@ -297,9 +296,7 @@ class GoogleNavigationPage extends HookConsumerWidget {
                     context,
                     ref,
                     shift,
-                    isNavigationReady,
-                    isNavigating,
-                    currentBinIndex,
+                    navNotifier,
                     markerToBinMap,
                     currentStep,
                     distanceToNextManeuver,
@@ -355,7 +352,7 @@ class GoogleNavigationPage extends HookConsumerWidget {
             ),
 
           // Turn-by-turn navigation card
-          if (isNavigating.value && currentStep.value != null)
+          if (navState.isNavigating && currentStep.value != null)
             Positioned(
               top: 80,
               left: 16,
@@ -417,12 +414,12 @@ class GoogleNavigationPage extends HookConsumerWidget {
           ),
 
           // Bottom panel - expandable bin details
-          if (isNavigationReady.value && shift.remainingBins.isNotEmpty)
+          if (navState.isNavigationReady && shift.remainingBins.isNotEmpty)
             _buildBottomPanel(
               context,
               ref,
               shift,
-              currentBinIndex.value,
+              navState.currentBinIndex,
               isExpanded,
               remainingTime.value,
               totalDistanceRemaining.value,
@@ -461,7 +458,7 @@ class GoogleNavigationPage extends HookConsumerWidget {
     BuildContext context,
     WidgetRef ref,
     ShiftState shift,
-    ValueNotifier<int> currentBinIndex,
+    NavigationPageNotifier navNotifier,
   ) async {
     AppLogger.general('🗺️  Setting destinations from shift...');
 
@@ -518,7 +515,7 @@ class GoogleNavigationPage extends HookConsumerWidget {
           AppLogger.general('🎯 Navigation guidance started');
 
           // Reset current bin index
-          currentBinIndex.value = 0;
+          navNotifier.setCurrentBinIndex(0);
           break;
 
         case NavigationRouteStatus.internalError:
@@ -690,7 +687,7 @@ class GoogleNavigationPage extends HookConsumerWidget {
     GoogleNavigationViewController? controller,
     WidgetRef ref,
     ShiftState shift,
-    ValueNotifier<int> currentBinIndex,
+    NavigationPageNotifier navNotifier,
     ValueNotifier<List<CircleOptions>> geofenceCircles,
     ValueNotifier<PolylineOptions?> completedRoutePolyline,
   ) async {
@@ -745,7 +742,7 @@ class GoogleNavigationPage extends HookConsumerWidget {
 
         if (result == NavigationRouteStatus.statusOk) {
           await GoogleMapsNavigator.startGuidance();
-          currentBinIndex.value = 0;
+          navNotifier.setCurrentBinIndex(0);
           AppLogger.general('✅ Route set with destinations hidden');
 
           // NOW add custom markers AFTER destinations are set
@@ -1059,9 +1056,7 @@ class GoogleNavigationPage extends HookConsumerWidget {
     BuildContext context,
     WidgetRef ref,
     ShiftState shift,
-    ValueNotifier<bool> isNavigationReady,
-    ValueNotifier<bool> isNavigating,
-    ValueNotifier<int> currentBinIndex,
+    NavigationPageNotifier navNotifier,
     ValueNotifier<Map<String, RouteBin>> markerToBinMap,
     ValueNotifier<RouteStep?> currentStep,
     ValueNotifier<double> distanceToNextManeuver,
@@ -1098,11 +1093,13 @@ class GoogleNavigationPage extends HookConsumerWidget {
 
       // STEP 3: Setup navigation listeners (for location updates, turn-by-turn, etc.)
       AppLogger.general('👂 [STEP 3/6] Setting up navigation listeners...');
+      // Note: currentBinIndex is not used in listeners, passing dummy ValueNotifier for now
+      final dummyCurrentBinIndex = ValueNotifier<int>(navNotifier.state.currentBinIndex);
       _setupNavigationListeners(
         context,
         ref,
         shift,
-        currentBinIndex,
+        dummyCurrentBinIndex,
         currentStep,
         distanceToNextManeuver,
         remainingTime,
@@ -1114,7 +1111,7 @@ class GoogleNavigationPage extends HookConsumerWidget {
 
       // STEP 4: Calculate route immediately (Google's recommended pattern)
       AppLogger.general('🗺️  [STEP 4/6] Calculating route to destinations...');
-      await _setDestinationsFromShift(context, ref, shift, currentBinIndex);
+      await _setDestinationsFromShift(context, ref, shift, navNotifier);
       AppLogger.general('✅ [STEP 4/6] Route calculation initiated');
 
       // STEP 5: Add custom markers
@@ -1142,8 +1139,8 @@ class GoogleNavigationPage extends HookConsumerWidget {
       }
       AppLogger.general('✅ [STEP 6/6] Circles and polylines added');
 
-      isNavigationReady.value = true;
-      isNavigating.value = true;
+      navNotifier.setNavigationReady(true);
+      navNotifier.setNavigating(true);
       AppLogger.general('✅ Navigation ready');
 
       AppLogger.general('🎉 [SETUP] All 6 steps completed successfully!');

@@ -11,6 +11,8 @@ import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:ropacalapp/core/utils/app_logger.dart';
 import 'package:ropacalapp/core/theme/app_colors.dart';
+import 'package:ropacalapp/core/utils/google_navigation_helpers.dart';
+import 'package:ropacalapp/core/services/google_navigation_marker_service.dart';
 import 'package:ropacalapp/providers/shift_provider.dart';
 import 'package:ropacalapp/providers/location_provider.dart';
 import 'package:ropacalapp/features/driver/widgets/turn_by_turn_navigation_card.dart';
@@ -794,12 +796,12 @@ class GoogleNavigationPage extends HookConsumerWidget {
 
           // NOW add custom markers AFTER destinations are set
           final tempMarkerMap = <String, RouteBin>{};
-          final markers = await _createCustomBinMarkers(shift.remainingBins, tempMarkerMap);
+          final markers = await GoogleNavigationMarkerService.createCustomBinMarkers(shift.remainingBins, tempMarkerMap);
           await controller.addMarkers(markers);
           AppLogger.general('📍 Added ${markers.length} custom markers');
 
           // Add geofence circles
-          final circles = await _createGeofenceCircles(shift.remainingBins);
+          final circles = await GoogleNavigationMarkerService.createGeofenceCircles(shift.remainingBins);
           await controller.clearCircles();
           await controller.addCircles(circles);
           geofenceCircles.value = circles;
@@ -807,7 +809,7 @@ class GoogleNavigationPage extends HookConsumerWidget {
 
           // Update completed route polyline
           final completedBinsList = shift.routeBins.where((bin) => bin.isCompleted == 1).toList();
-          final polyline = await _createCompletedRoutePolyline(completedBinsList);
+          final polyline = await GoogleNavigationMarkerService.createCompletedRoutePolyline(completedBinsList);
           await controller.clearPolylines();
           if (polyline != null) {
             await controller.addPolylines([polyline]);
@@ -1163,13 +1165,13 @@ class GoogleNavigationPage extends HookConsumerWidget {
 
       // STEP 5: Add custom markers
       AppLogger.general('📍 [STEP 5/6] Creating and adding custom bin markers...');
-      final markers = await _createCustomBinMarkers(shift.remainingBins, markerToBinMap.value);
+      final markers = await GoogleNavigationMarkerService.createCustomBinMarkers(shift.remainingBins, markerToBinMap.value);
       await controller.addMarkers(markers);
       AppLogger.general('✅ [STEP 5/6] Added ${markers.length} custom markers');
 
       // STEP 6: Create geofence circles and completed route polyline
       AppLogger.general('⭕ [STEP 6/6] Adding geofence circles and polylines...');
-      final circles = await _createGeofenceCircles(shift.remainingBins);
+      final circles = await GoogleNavigationMarkerService.createGeofenceCircles(shift.remainingBins);
       await controller.addCircles(circles);
       geofenceCircles.value = circles;
       AppLogger.general('   Added ${circles.length} geofence circles');
@@ -1177,7 +1179,7 @@ class GoogleNavigationPage extends HookConsumerWidget {
       // Add completed route polyline if there are completed bins
       if (shift.completedBins > 0) {
         final completedBinsList = shift.routeBins.where((bin) => bin.isCompleted == 1).toList();
-        final polyline = await _createCompletedRoutePolyline(completedBinsList);
+        final polyline = await GoogleNavigationMarkerService.createCompletedRoutePolyline(completedBinsList);
         if (polyline != null) {
           await controller.addPolylines([polyline]);
           completedRoutePolyline.value = polyline;
@@ -1629,7 +1631,7 @@ class GoogleNavigationPage extends HookConsumerWidget {
             ),
             const SizedBox(height: 8),
             Text(
-              'In ${_formatDistance(distanceToNextManeuver)}',
+              'In ${GoogleNavigationHelpers.formatDistance(distanceToNextManeuver)}',
               style: const TextStyle(fontSize: 14, color: Colors.grey),
             ),
           ],

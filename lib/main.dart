@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter_easyloading/flutter_easyloading.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 // Mapbox removed - using Google Navigation SDK instead
 import 'package:ropacalapp/core/theme/app_colors.dart';
 import 'package:ropacalapp/router/app_router.dart';
@@ -11,6 +12,9 @@ void main() async {
   // Note: Navigation session is now initialized lazily when first needed
   // (when opening a page that uses GoogleMapsNavigationView)
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Load environment variables
+  await dotenv.load(fileName: '.env');
 
   // Initialize Firebase
   await Firebase.initializeApp();

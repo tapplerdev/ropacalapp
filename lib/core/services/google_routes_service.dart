@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:dio/dio.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:google_navigation_flutter/google_navigation_flutter.dart';
 import 'package:latlong2/latlong.dart' as latlong;
 import 'package:ropacalapp/core/utils/app_logger.dart';
@@ -8,7 +9,18 @@ import 'package:ropacalapp/core/utils/app_logger.dart';
 /// https://developers.google.com/maps/documentation/routes
 class GoogleRoutesService {
   final Dio _dio;
-  static const String _apiKey = 'AIzaSyAH7PTzTVJrud5KqsDmWEw67mQkiA0Co4Y';
+
+  /// Get API key from environment variables
+  static String get _apiKey {
+    final key = dotenv.env['GOOGLE_MAPS_API_KEY'];
+    if (key == null || key.isEmpty) {
+      throw Exception(
+        'GOOGLE_MAPS_API_KEY not found in .env file. '
+        'Please create a .env file with your API key.',
+      );
+    }
+    return key;
+  }
   static const String _baseUrl =
       'https://routes.googleapis.com/directions/v2:computeRoutes';
 

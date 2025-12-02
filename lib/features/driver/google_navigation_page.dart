@@ -11,6 +11,7 @@ import 'package:ropacalapp/core/utils/app_logger.dart';
 import 'package:ropacalapp/core/theme/app_colors.dart';
 import 'package:ropacalapp/core/utils/google_navigation_helpers.dart';
 import 'package:ropacalapp/core/services/google_navigation_marker_service.dart';
+import 'package:ropacalapp/core/services/google_navigation_service.dart';
 import 'package:ropacalapp/providers/shift_provider.dart';
 import 'package:ropacalapp/providers/location_provider.dart';
 import 'package:ropacalapp/features/driver/widgets/turn_by_turn_navigation_card.dart';
@@ -132,7 +133,7 @@ class GoogleNavigationPage extends HookConsumerWidget {
         AppLogger.general('🚀 [EARLY INIT] Starting navigator initialization (before view creation)...');
 
         try {
-          await _initializeNavigation(context, ref);
+          await GoogleNavigationService.initializeNavigation(context, ref);
           navigatorInitialized.value = true;
           AppLogger.general('✅ [EARLY INIT] Navigator initialized successfully');
 
@@ -392,7 +393,7 @@ class GoogleNavigationPage extends HookConsumerWidget {
             right: 16,
             child: _buildCircularButton(
               icon: isAudioMuted.value ? Icons.volume_off : Icons.volume_up,
-              onTap: () => _toggleAudio(isAudioMuted),
+              onTap: () => GoogleNavigationService.toggleAudio(isAudioMuted),
             ),
           ),
 
@@ -433,50 +434,6 @@ class GoogleNavigationPage extends HookConsumerWidget {
   }
 
   /// Initialize navigation session and show T&C dialog if needed
-  static Future<void> _initializeNavigation(BuildContext context, WidgetRef ref) async {
-    AppLogger.general('🚀 Initializing Google Maps Navigator...');
-
-    try {
-      // Check if T&C dialog needs to be shown
-      final termsAccepted = await GoogleMapsNavigator.areTermsAccepted();
-      AppLogger.general('📋 Terms accepted: $termsAccepted');
-
-      if (!termsAccepted) {
-        AppLogger.general('📋 Showing terms and conditions dialog...');
-        await GoogleMapsNavigator.showTermsAndConditionsDialog(
-          'Navigation Terms',
-          'Ropacal Navigation',
-        );
-        AppLogger.general('✅ Terms accepted');
-      }
-
-      // Defensive cleanup: Ensure previous session is terminated before starting new one
-      try {
-        AppLogger.general('🧹 Defensive cleanup: Ensuring previous session is terminated...');
-        await GoogleMapsNavigator.cleanup();
-        AppLogger.general('   ✅ Previous session cleanup complete (if any existed)');
-      } catch (e) {
-        // Ignore error if no session exists - this is expected on first run
-        AppLogger.general('   ℹ️  No previous session to clean up: $e');
-      }
-
-      // Initialize navigation session
-      await GoogleMapsNavigator.initializeNavigationSession();
-      AppLogger.general('✅ Navigation session initialized');
-
-      // Set audio guidance to enabled by default
-      await GoogleMapsNavigator.setAudioGuidance(
-        NavigationAudioGuidanceSettings(
-          guidanceType: NavigationAudioGuidanceType.alertsAndGuidance,
-        ),
-      );
-      AppLogger.general('🔊 Audio guidance enabled');
-    } catch (e) {
-      AppLogger.general('❌ Navigation initialization error: $e');
-      rethrow;
-    }
-  }
-
   /// Wait for location to be ready before proceeding
   static Future<void> _waitForLocationReady(WidgetRef ref) async {
     AppLogger.general('📍 Waiting for location to be ready...');
@@ -2075,26 +2032,6 @@ class GoogleNavigationPage extends HookConsumerWidget {
           size: 22,
         ),
       ),
-    );
-  }
-
-  /// Toggle audio guidance on/off
-  static void _toggleAudio(ValueNotifier<bool> isAudioMuted) {
-    isAudioMuted.value = !isAudioMuted.value;
-
-    // Update Google Maps audio guidance
-    GoogleMapsNavigator.setAudioGuidance(
-      NavigationAudioGuidanceSettings(
-        guidanceType: isAudioMuted.value
-            ? NavigationAudioGuidanceType.silent
-            : NavigationAudioGuidanceType.alertsAndGuidance,
-      ),
-    );
-
-    AppLogger.general(
-      isAudioMuted.value
-          ? '🔇 Audio guidance muted'
-          : '🔊 Audio guidance enabled',
     );
   }
 

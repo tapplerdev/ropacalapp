@@ -16,6 +16,7 @@ import 'package:ropacalapp/core/enums/bin_status.dart';
 import 'package:ropacalapp/core/theme/app_colors.dart';
 import 'package:ropacalapp/core/utils/app_logger.dart';
 import 'package:ropacalapp/core/utils/bin_helpers.dart';
+import 'package:ropacalapp/core/utils/responsive.dart';
 import 'package:ropacalapp/providers/bins_provider.dart';
 import 'package:ropacalapp/providers/location_provider.dart';
 import 'package:ropacalapp/providers/bin_marker_cache_provider.dart';
@@ -834,14 +835,20 @@ class DriverMapPage extends HookConsumerWidget {
                               },
                               customBorder: const CircleBorder(),
                               child: Padding(
-                                padding: const EdgeInsets.all(10.0),
+                                padding: Responsive.padding(
+                                  context,
+                                  mobile: 10.0,
+                                ),
                                 child: Stack(
                                   clipBehavior: Clip.none,
                                   children: [
-                                    const Icon(
+                                    Icon(
                                       Icons.notifications_outlined,
                                       color: AppColors.primaryBlue,
-                                      size: 22,
+                                      size: Responsive.iconSize(
+                                        context,
+                                        mobile: 22,
+                                      ),
                                     ),
                                     // Notification badge
                                     binsState.whenOrNull(
@@ -861,25 +868,34 @@ class DriverMapPage extends HookConsumerWidget {
                                               right: -4,
                                               top: -4,
                                               child: Container(
-                                                padding: const EdgeInsets.all(
-                                                  3,
+                                                padding: Responsive.padding(
+                                                  context,
+                                                  mobile: 3,
                                                 ),
                                                 decoration: const BoxDecoration(
                                                   color: AppColors.alertRed,
                                                   shape: BoxShape.circle,
                                                 ),
-                                                constraints:
-                                                    const BoxConstraints(
-                                                      minWidth: 16,
-                                                      minHeight: 16,
-                                                    ),
+                                                constraints: BoxConstraints(
+                                                  minWidth: Responsive.spacing(
+                                                    context,
+                                                    mobile: 16,
+                                                  ),
+                                                  minHeight: Responsive.spacing(
+                                                    context,
+                                                    mobile: 16,
+                                                  ),
+                                                ),
                                                 child: Text(
                                                   highFillCount > 9
                                                       ? '9+'
                                                       : '$highFillCount',
-                                                  style: const TextStyle(
+                                                  style: TextStyle(
                                                     color: Colors.white,
-                                                    fontSize: 9,
+                                                    fontSize: Responsive.fontSize(
+                                                      context,
+                                                      mobile: 9,
+                                                    ),
                                                     fontWeight: FontWeight.bold,
                                                   ),
                                                   textAlign: TextAlign.center,
@@ -1065,7 +1081,10 @@ class DriverMapPage extends HookConsumerWidget {
                                 },
                                 customBorder: const CircleBorder(),
                                 child: Padding(
-                                  padding: const EdgeInsets.all(12.0),
+                                  padding: Responsive.padding(
+                                    context,
+                                    mobile: 12.0,
+                                  ),
                                   child: Transform.scale(
                                     scaleX: simulationState.isNavigationMode
                                         ? -1
@@ -1073,7 +1092,10 @@ class DriverMapPage extends HookConsumerWidget {
                                     child: Icon(
                                       Icons.explore,
                                       color: Colors.grey.shade800,
-                                      size: 24,
+                                      size: Responsive.iconSize(
+                                        context,
+                                        mobile: 24,
+                                      ),
                                     ),
                                   ),
                                 ),
@@ -1330,13 +1352,22 @@ class DriverMapPage extends HookConsumerWidget {
                               },
                               customBorder: const CircleBorder(),
                               child: Container(
-                                width: 42,
-                                height: 42,
+                                width: Responsive.iconSize(
+                                  context,
+                                  mobile: 42,
+                                ),
+                                height: Responsive.iconSize(
+                                  context,
+                                  mobile: 42,
+                                ),
                                 alignment: Alignment.center,
-                                child: const Icon(
+                                child: Icon(
                                   Icons.my_location,
                                   color: AppColors.primaryBlue,
-                                  size: 22,
+                                  size: Responsive.iconSize(
+                                    context,
+                                    mobile: 22,
+                                  ),
                                 ),
                               ),
                             ),

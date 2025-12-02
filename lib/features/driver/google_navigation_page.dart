@@ -10,6 +10,7 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:ropacalapp/core/utils/app_logger.dart';
 import 'package:ropacalapp/core/theme/app_colors.dart';
 import 'package:ropacalapp/core/utils/google_navigation_helpers.dart';
+import 'package:ropacalapp/core/utils/responsive.dart';
 import 'package:ropacalapp/core/services/google_navigation_marker_service.dart';
 import 'package:ropacalapp/core/services/google_navigation_service.dart';
 import 'package:ropacalapp/providers/shift_provider.dart';
@@ -213,27 +214,52 @@ class GoogleNavigationPage extends HookConsumerWidget {
             // Show error message if initialization failed
             Center(
               child: Padding(
-                padding: const EdgeInsets.all(32),
+                padding: Responsive.padding(context, mobile: 32),
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    const Icon(Icons.error_outline, size: 64, color: Colors.red),
-                    const SizedBox(height: 16),
-                    const Text(
+                    Icon(
+                      Icons.error_outline,
+                      size: Responsive.iconSize(
+                        context,
+                        mobile: 64,
+                      ),
+                      color: Colors.red,
+                    ),
+                    SizedBox(
+                      height: Responsive.spacing(
+                        context,
+                        mobile: 16,
+                      ),
+                    ),
+                    Text(
                       'Navigation Initialization Failed',
                       style: TextStyle(
-                        fontSize: 20,
+                        fontSize: Responsive.fontSize(
+                          context,
+                          mobile: 20,
+                        ),
                         fontWeight: FontWeight.bold,
                       ),
                       textAlign: TextAlign.center,
                     ),
-                    const SizedBox(height: 8),
+                    SizedBox(
+                      height: Responsive.spacing(
+                        context,
+                        mobile: 8,
+                      ),
+                    ),
                     Text(
                       initializationError.value!,
                       style: const TextStyle(color: Colors.grey),
                       textAlign: TextAlign.center,
                     ),
-                    const SizedBox(height: 24),
+                    SizedBox(
+                      height: Responsive.spacing(
+                        context,
+                        mobile: 24,
+                      ),
+                    ),
                     ElevatedButton.icon(
                       onPressed: () => Navigator.of(context).pop(),
                       icon: const Icon(Icons.arrow_back),
@@ -333,9 +359,9 @@ class GoogleNavigationPage extends HookConsumerWidget {
           // Turn-by-turn navigation card
           if (navState.isNavigating && navState.currentStep != null)
             Positioned(
-              top: 80,
-              left: 16,
-              right: 16,
+              top: Responsive.spacing(context, mobile: 80),
+              left: Responsive.spacing(context, mobile: 16),
+              right: Responsive.spacing(context, mobile: 16),
               child: TurnByTurnNavigationCard(
                 currentStep: navState.currentStep!,
                 distanceToNextManeuver: navState.distanceToNextManeuver,
@@ -346,8 +372,8 @@ class GoogleNavigationPage extends HookConsumerWidget {
 
           // Notification button - positioned top-left
           Positioned(
-            top: 16,
-            left: 16,
+            top: Responsive.spacing(context, mobile: 16),
+            left: Responsive.spacing(context, mobile: 16),
             child: SafeArea(
               child: CircularMapButton(
                 icon: Icons.notifications_outlined,
@@ -365,8 +391,8 @@ class GoogleNavigationPage extends HookConsumerWidget {
 
           // Audio button - positioned above recenter button
           Positioned(
-            bottom: 400,
-            right: 16,
+            bottom: Responsive.spacing(context, mobile: 400),
+            right: Responsive.spacing(context, mobile: 16),
             child: CircularMapButton(
               icon: navState.isAudioMuted ? Icons.volume_off : Icons.volume_up,
               onTap: () => GoogleNavigationService.toggleAudio(
@@ -378,8 +404,8 @@ class GoogleNavigationPage extends HookConsumerWidget {
 
           // Custom recenter button - positioned just above bottom panel
           Positioned(
-            bottom: 340,
-            right: 16,
+            bottom: Responsive.spacing(context, mobile: 340),
+            right: Responsive.spacing(context, mobile: 16),
             child: CircularMapButton(
               icon: Icons.my_location,
               onTap: () async {

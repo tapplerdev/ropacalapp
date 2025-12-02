@@ -174,11 +174,6 @@ final goRouterProvider = Provider<GoRouter>((ref) {
         name: 'shift-demo',
         builder: (context, state) => const ShiftDemoPage(),
       ),
-      // GoRoute(
-      //   path: '/mapbox-diagnostic',
-      //   name: 'mapbox-diagnostic',
-      //   builder: (context, state) => const MapboxDiagnosticPage(), // Removed - was Mapbox diagnostic tool
-      // ),
     ],
   );
 });

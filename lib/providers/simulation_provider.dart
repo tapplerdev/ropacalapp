@@ -237,7 +237,7 @@ class SimulationNotifier extends _$SimulationNotifier {
       isNavigationMode: true, // Auto-enable 3D navigation mode
       isFollowing: true, // Auto-enable camera following
       routePolyline:
-          convertedPolyline, // Store the full OSRM polyline for map rendering (converted)
+          convertedPolyline, // Store the full polyline for map rendering (converted)
     );
 
     AppLogger.navigation('📍 Simulation state after start:');

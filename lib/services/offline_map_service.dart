@@ -2,7 +2,8 @@ import 'dart:async';
 import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart';
 import 'package:ropacalapp/core/utils/app_logger.dart';
 
-/// Service for managing offline map tile downloads
+/// DEPRECATED: Mapbox-specific offline map service (app now uses Google Maps)
+/// This file is not used and can be deleted in future cleanup.
 /// NOTE: Mapbox offline API has changed in v2.12.0
 /// This is a stub implementation until the new API is documented
 class OfflineMapService {

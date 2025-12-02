@@ -29,7 +29,7 @@ class LatLngConverter implements JsonConverter<LatLng, List<dynamic>> {
     return LatLng(
       json[1] as double,
       json[0] as double,
-    ); // OSRM returns [lon, lat]
+    ); // Coordinate order: [lon, lat]
   }
 
   @override

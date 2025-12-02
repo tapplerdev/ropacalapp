@@ -142,8 +142,7 @@ class AuthNotifier extends _$AuthNotifier {
         await _registerFCMToken();
 
         // NOTE: Shift pre-loading is now handled in login_page.dart
-        // This ensures shift data, location, and HERE Maps route are all
-        // ready before navigating to the map screen
+        // This ensures shift data and location are ready before navigating to the map screen
       }
 
       // Extract user from response
@@ -185,10 +184,6 @@ class AuthNotifier extends _$AuthNotifier {
 
     // Disconnect WebSocket
     ref.read(webSocketManagerProvider.notifier).disconnect();
-
-    // Clear stale HERE route data (DEPRECATED - using Mapbox now)
-    // ref.read(hereRouteMetadataProvider.notifier).clearRouteData();
-    // AppLogger.general('🗑️  Cleared HERE route data on logout');
 
     // Reset simulation state
     ref.read(simulationNotifierProvider.notifier).reset();

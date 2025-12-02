@@ -65,8 +65,6 @@ class DriverMapPage extends HookConsumerWidget {
     final markerCache = ref.watch(binMarkerCacheNotifierProvider);
     final shiftState = ref.watch(shiftNotifierProvider);
     final simulationState = ref.watch(simulationNotifierProvider);
-    // DEPRECATED: Using Mapbox instead of HERE - setting to null to avoid compilation errors
-    final hereRouteData = null; // ref.watch(hereRouteMetadataProvider);
     final user = ref.watch(authNotifierProvider).value;
     final mapController = useState<GoogleMapViewController?>(null);
     final markers = useState<Set<Marker>>({});
@@ -212,20 +210,6 @@ class DriverMapPage extends HookConsumerWidget {
       return null;
     }, [locationState.value, simulationState.isSimulating]);
 
-    // DEPRECATED: HERE Maps debugging - commented out during Mapbox migration
-    // DEBUG: Track hereRouteData provider updates
-    // useEffect(() {
-    //   AppLogger.map('🔔 DEBUG - hereRouteData provider changed!');
-    //   AppLogger.map(
-    //     '   Value: ${hereRouteData != null ? "EXISTS (${hereRouteData!.polyline.length} points)" : "NULL"}',
-    //   );
-    //   if (hereRouteData != null) {
-    //     AppLogger.map('   Total distance: ${hereRouteData!.totalDistance}m');
-    //     AppLogger.map('   Total duration: ${hereRouteData!.totalDuration}s');
-    //   }
-    //   return null;
-    // }, [hereRouteData]);
-
     // Update markers and polylines when data changes
     useEffect(
       () {
@@ -271,7 +255,7 @@ class DriverMapPage extends HookConsumerWidget {
           }
         }
 
-        // Add route polyline (priority: simulation > HERE Maps > simple lines)
+        // Add route polyline (priority: simulation > simple lines)
         final routePoints = <LatLng>[];
 
         // ✅ ONLY show polylines if there's a shift with bins
@@ -324,38 +308,8 @@ class DriverMapPage extends HookConsumerWidget {
             );
           }
         }
-        // DEPRECATED: HERE Maps - commented out during Mapbox migration
-        // else if (hereRouteData != null && hereRouteData.polyline.isNotEmpty) {
-        //   // Case 2: HERE Maps route available - show detailed traffic-aware route
-        //   AppLogger.map('   → Using HERE MAPS route');
-        //   routePoints.addAll(
-        //     hereRouteData.polyline.map(
-        //       (point) => LatLng(point.latitude, point.longitude),
-        //     ),
-        //   );
-
-        //   final routePolyline = Polyline(
-        //     polylineId: const PolylineId('route'),
-        //     points: routePoints,
-        //     color: AppColors.primaryBlue,
-        //     width: 5,
-        //     startCap: Cap.roundCap,
-        //     endCap: Cap.roundCap,
-        //     jointType: JointType.round,
-        //     visible: true,
-        //     zIndex: 100,
-        //   );
-
-        //   polylines.value = {routePolyline};
-
-        //   AppLogger.map('✅ HERE MAPS Route polyline set');
-        //   AppLogger.map('   Points: ${routePoints.length}');
-        //   AppLogger.map(
-        //     '   Distance: ${(hereRouteData.totalDistance / 1000).toStringAsFixed(2)} km',
-        //   );
-        // }
         else if (routeBins != null && routeBins.isNotEmpty) {
-          // Case 3: Fallback - draw simple straight lines from current location through bins
+          // Case 2: Fallback - draw simple straight lines from current location through bins
           AppLogger.map('   → Using FALLBACK route (manual bins)');
           if (location != null) {
             routePoints.add(LatLng(latitude: location.latitude, longitude: location.longitude));
@@ -389,13 +343,6 @@ class DriverMapPage extends HookConsumerWidget {
         } else {
           polylines.value = {};
           // AppLogger.map('   → NO ROUTE (all sources unavailable)');
-          // DEPRECATED: HERE Maps reference - commented out during Mapbox migration
-          // AppLogger.map(
-          //   '❌ No route polyline (not simulating, no HERE data, no routeBins)',
-          // );
-          // AppLogger.map(
-          //   '❌ No route polyline (not simulating, no routeBins)',
-          // );
         }
         } else {
           // No shift bins → clean map with no route polylines
@@ -466,8 +413,6 @@ class DriverMapPage extends HookConsumerWidget {
         simulationState.routePolyline,
         simulationState.segmentProgress,
         simulationState.currentSegmentIndex,
-        // DEPRECATED: HERE Maps - removed from dependency array during Mapbox migration
-        // hereRouteData,
         shiftState.status,
         navigationArrowIcon.value,
         compassHeading.value,

@@ -23,10 +23,9 @@ class ActiveShiftBottomSheet extends HookConsumerWidget {
   final int completedBins;
   final int totalBins;
   final VoidCallback? onNavigateToNextBin;
-  final List<latlong.LatLng>?
-  preComputedPolyline; // Optional pre-fetched polyline (e.g., from HERE Maps)
+  final List<latlong.LatLng>? preComputedPolyline; // Optional pre-fetched polyline
 
-  // Google Navigation data (replaces deprecated HERE Maps data)
+  // Google Navigation data
   final Duration? googleRemainingTime; // Time to final destination
   final double? googleTotalDistanceRemaining; // Distance to final destination (meters)
   final double? googleDistanceToNextManeuver; // Distance to next turn (meters)
@@ -94,28 +93,7 @@ class ActiveShiftBottomSheet extends HookConsumerWidget {
     double? distanceKm,
     int binIndex,
   ) {
-    // AppLogger.routing('🔍 _calculateETA called:');
-    // AppLogger.routing('   binIndex: $binIndex');
-    // AppLogger.routing('   distanceKm: $distanceKm');
-    // AppLogger.routing('   hereData available: ${hereData != null}');
-
-    // DEPRECATED: HERE Maps - commented out during Mapbox migration
-    // Try to use HERE Maps duration first (traffic-aware)
-    // if (hereData != null && binIndex >= 0) {
-    //   // AppLogger.routing('   HERE Maps data found, attempting to get ETA...');
-    //   final durationSeconds = hereData.getEtaToBin(binIndex);
-    //   // AppLogger.routing('   durationSeconds from HERE: $durationSeconds');
-
-    //   if (durationSeconds != null) {
-    //     final minutes = (durationSeconds / 60).round();
-    //     // AppLogger.routing('   ✅ Using HERE Maps ETA: $minutes min');
-    //     return minutes;
-    //   } else {
-    //     // AppLogger.routing('   ⚠️  HERE Maps returned null duration for binIndex $binIndex');
-    //   }
-    // }
-
-    // Fallback to simple calculation
+    // Simple calculation based on distance and average speed
     if (distanceKm == null) {
       // AppLogger.routing('   ❌ No distance available, returning null');
       return null;

@@ -35,7 +35,7 @@ class SimulationState with _$SimulationState {
     /// Smoothed bearing to reduce jitter
     double? smoothedBearing,
 
-    /// Full OSRM route polyline for map rendering (detailed road path)
+    /// Full route polyline for map rendering (detailed road path)
     @Default([]) List<LatLng> routePolyline,
   }) = _SimulationState;
 }

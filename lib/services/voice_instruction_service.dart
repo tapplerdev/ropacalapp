@@ -2,7 +2,7 @@ import 'package:flutter_tts/flutter_tts.dart';
 import 'package:ropacalapp/core/utils/app_logger.dart';
 
 /// Service for announcing turn-by-turn voice instructions during navigation
-/// Uses flutter_tts to speak Mapbox voice instruction announcements
+/// Uses flutter_tts to speak voice instruction announcements
 class VoiceInstructionService {
   final FlutterTts _tts = FlutterTts();
   final Set<String> _announcedInstructions = {};
@@ -49,7 +49,7 @@ class VoiceInstructionService {
   }
 
   /// Announce a voice instruction
-  /// [announcement] - Text to speak (from Mapbox voice instruction)
+  /// [announcement] - Text to speak (from navigation system)
   /// [distanceToManeuver] - Distance in meters to the turn/maneuver
   /// [instructionId] - Unique ID to prevent duplicate announcements
   Future<void> announce({
@@ -126,10 +126,10 @@ class VoiceInstructionService {
     AppLogger.navigation('🗑️  Voice instruction service disposed');
   }
 
-  /// Process Mapbox voice instruction and announce if needed
+  /// Process navigation voice instruction and announce if needed
   /// Called repeatedly as user moves along route
   ///
-  /// [voiceInstruction] - Mapbox voice instruction object with:
+  /// [voiceInstruction] - Voice instruction object with:
   ///   - announcement: String to speak
   ///   - distanceAlongGeometry: Distance in meters from start of route to instruction
   /// [currentDistanceAlongRoute] - Driver's current distance along route in meters
@@ -149,7 +149,7 @@ class VoiceInstructionService {
       final distanceToInstruction = distanceAlongGeometry - currentDistanceAlongRoute;
 
       // Only announce if instruction is ahead and within announcement range
-      // Mapbox provides instructions at different distances (e.g., "In 500 meters, turn left")
+      // Navigation system provides instructions at different distances (e.g., "In 500 meters, turn left")
       if (distanceToInstruction > 0 && distanceToInstruction <= 1000) {
         // Use distance and announcement as unique ID
         final instructionId = '${distanceAlongGeometry.toInt()}_${announcement.hashCode}';

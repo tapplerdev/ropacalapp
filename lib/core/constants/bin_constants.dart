@@ -57,7 +57,6 @@ class BinConstants {
   /// Camera tilt angle for 3D navigation mode (degrees) - street-level, first-person view
   /// 0° = perpendicular/top-down, 45-60° = forward-looking perspective
   /// Set to 68.4° based on user testing for optimal road-ahead visibility
-  /// Mapbox max: 85°
   static const double navigationTilt = 68.4;
 
   /// Camera tilt for flat 2D map mode (degrees)
@@ -92,7 +91,7 @@ class BinConstants {
   /// Size of current location blue dot marker (logical pixels)
   static const double blueDotMarkerSize = 80.0;
 
-  /// Icon scale for bin markers in Mapbox (0.4 = 40% of original 100px = 40px display)
+  /// Icon scale for bin markers (0.4 = 40% of original 100px = 40px display)
   static const double binMarkerIconScale = 0.4;
 
   // ==================== UI SPACING ====================

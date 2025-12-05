@@ -35,6 +35,9 @@ import 'package:ropacalapp/features/driver/widgets/navigation_blue_dot_overlay.d
 import 'package:ropacalapp/features/driver/widgets/positioned_blue_dot_overlay.dart';
 import 'package:ropacalapp/features/driver/widgets/no_shift_empty_state.dart';
 import 'package:ropacalapp/features/driver/widgets/animated_shift_transition.dart';
+import 'package:ropacalapp/features/driver/widgets/map_notification_button.dart';
+import 'package:ropacalapp/features/driver/widgets/map_2d_3d_toggle_button.dart';
+import 'package:ropacalapp/features/driver/widgets/map_location_button.dart';
 import 'package:ropacalapp/features/driver/google_navigation_page.dart';
 import 'package:ropacalapp/features/driver/notifications_page.dart';
 import 'package:ropacalapp/models/shift_overview.dart';
@@ -804,113 +807,7 @@ class DriverMapPage extends HookConsumerWidget {
                       Positioned(
                         top: 16,
                         left: 16,
-                        child: Container(
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            shape: BoxShape.circle,
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withOpacity(0.12),
-                                blurRadius: 12,
-                                offset: const Offset(0, 4),
-                                spreadRadius: 0,
-                              ),
-                              BoxShadow(
-                                color: Colors.black.withOpacity(0.05),
-                                blurRadius: 4,
-                                offset: const Offset(0, 2),
-                              ),
-                            ],
-                          ),
-                          child: Material(
-                            color: Colors.transparent,
-                            child: InkWell(
-                              onTap: () {
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (context) => const NotificationsPage(),
-                                  ),
-                                );
-                              },
-                              customBorder: const CircleBorder(),
-                              child: Padding(
-                                padding: Responsive.padding(
-                                  context,
-                                  mobile: 10.0,
-                                ),
-                                child: Stack(
-                                  clipBehavior: Clip.none,
-                                  children: [
-                                    Icon(
-                                      Icons.notifications_outlined,
-                                      color: AppColors.primaryBlue,
-                                      size: Responsive.iconSize(
-                                        context,
-                                        mobile: 22,
-                                      ),
-                                    ),
-                                    // Notification badge
-                                    binsState.whenOrNull(
-                                          data: (bins) {
-                                            final highFillCount = bins
-                                                .where(
-                                                  (b) =>
-                                                      (b.fillPercentage ?? 0) >
-                                                      BinConstants
-                                                          .criticalFillThreshold,
-                                                )
-                                                .length;
-                                            if (highFillCount == 0)
-                                              return const SizedBox.shrink();
-
-                                            return Positioned(
-                                              right: -4,
-                                              top: -4,
-                                              child: Container(
-                                                padding: Responsive.padding(
-                                                  context,
-                                                  mobile: 3,
-                                                ),
-                                                decoration: const BoxDecoration(
-                                                  color: AppColors.alertRed,
-                                                  shape: BoxShape.circle,
-                                                ),
-                                                constraints: BoxConstraints(
-                                                  minWidth: Responsive.spacing(
-                                                    context,
-                                                    mobile: 16,
-                                                  ),
-                                                  minHeight: Responsive.spacing(
-                                                    context,
-                                                    mobile: 16,
-                                                  ),
-                                                ),
-                                                child: Text(
-                                                  highFillCount > 9
-                                                      ? '9+'
-                                                      : '$highFillCount',
-                                                  style: TextStyle(
-                                                    color: Colors.white,
-                                                    fontSize: Responsive.fontSize(
-                                                      context,
-                                                      mobile: 9,
-                                                    ),
-                                                    fontWeight: FontWeight.bold,
-                                                  ),
-                                                  textAlign: TextAlign.center,
-                                                ),
-                                              ),
-                                            );
-                                          },
-                                        ) ??
-                                        const SizedBox.shrink(),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
+                        child: MapNotificationButton(binsState: binsState),
                       ),
                       // COMMENTED OUT: Recenter button (restores following mode)
                       // Replaced with custom My Location button at bottom-right
@@ -1016,91 +913,10 @@ class DriverMapPage extends HookConsumerWidget {
                         Positioned(
                           top: 128,
                           right: 16,
-                          child: Container(
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              shape: BoxShape.circle,
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black.withOpacity(0.1),
-                                  blurRadius: 8,
-                                  offset: const Offset(0, 2),
-                                ),
-                              ],
-                            ),
-                            child: Material(
-                              color: Colors.transparent,
-                              child: InkWell(
-                                onTap: () {
-                                  ref
-                                      .read(simulationNotifierProvider.notifier)
-                                      .toggleNavigationMode();
-
-                                  // Immediately update camera to reflect new mode
-                                  final location =
-                                      simulationState.simulatedPosition ??
-                                      (locationState.value != null
-                                          ? LatLng(
-                                              latitude: locationState.value!.latitude,
-                                              longitude: locationState.value!.longitude,
-                                            )
-                                          : null);
-
-                                  if (location != null &&
-                                      mapController.value != null) {
-                                    try {
-                                      // Toggle between 2D and 3D
-                                      final willBe3D = !simulationState
-                                          .isNavigationMode; // It will be toggled
-
-                                      mapController.value!.animateCamera(
-                                        CameraUpdate.newCameraPosition(
-                                          CameraPosition(
-                                            target: location,
-                                            zoom: willBe3D
-                                                ? BinConstants.navigationZoom
-                                                : 15.0,
-                                            bearing: willBe3D
-                                                ? (simulationState
-                                                          .smoothedBearing ??
-                                                      simulationState.bearing)
-                                                : 0.0,
-                                            tilt: willBe3D
-                                                ? BinConstants.navigationTilt
-                                                : 0.0, // 45° vs 0°
-                                          ),
-                                        ),
-                                      );
-                                    } catch (e) {
-                                      AppLogger.map(
-                                        'Camera toggle skipped - controller disposed',
-                                        level: AppLogger.debug,
-                                      );
-                                    }
-                                  }
-                                },
-                                customBorder: const CircleBorder(),
-                                child: Padding(
-                                  padding: Responsive.padding(
-                                    context,
-                                    mobile: 12.0,
-                                  ),
-                                  child: Transform.scale(
-                                    scaleX: simulationState.isNavigationMode
-                                        ? -1
-                                        : 1,
-                                    child: Icon(
-                                      Icons.explore,
-                                      color: Colors.grey.shade800,
-                                      size: Responsive.iconSize(
-                                        context,
-                                        mobile: 24,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ),
+                          child: Map2D3DToggleButton(
+                            simulationState: simulationState,
+                            locationState: locationState,
+                            mapController: mapController.value,
                           ),
                         ),
                       // Stats card (only visible to admin users)
@@ -1318,60 +1134,8 @@ class DriverMapPage extends HookConsumerWidget {
                       Positioned(
                         bottom: 310,
                         right: 16,
-                        child: Container(
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            shape: BoxShape.circle,
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withOpacity(0.12),
-                                blurRadius: 12,
-                                offset: const Offset(0, 4),
-                                spreadRadius: 0,
-                              ),
-                              BoxShadow(
-                                color: Colors.black.withOpacity(0.05),
-                                blurRadius: 4,
-                                offset: const Offset(0, 2),
-                              ),
-                            ],
-                          ),
-                          child: Material(
-                            color: Colors.transparent,
-                            child: InkWell(
-                              onTap: () async {
-                                if (mapController.value != null) {
-                                  final location = await mapController.value!.getMyLocation();
-                                  if (location != null) {
-                                    await mapController.value!.animateCamera(
-                                      CameraUpdate.newLatLng(location),
-                                    );
-                                    AppLogger.map('📍 Centered on user location');
-                                  }
-                                }
-                              },
-                              customBorder: const CircleBorder(),
-                              child: Container(
-                                width: Responsive.iconSize(
-                                  context,
-                                  mobile: 42,
-                                ),
-                                height: Responsive.iconSize(
-                                  context,
-                                  mobile: 42,
-                                ),
-                                alignment: Alignment.center,
-                                child: Icon(
-                                  Icons.my_location,
-                                  color: AppColors.primaryBlue,
-                                  size: Responsive.iconSize(
-                                    context,
-                                    mobile: 22,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
+                        child: MapLocationButton(
+                          mapController: mapController.value,
                         ),
                       ),
                     ],

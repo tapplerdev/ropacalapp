@@ -25,11 +25,7 @@ class ShiftAcceptanceBottomSheet extends StatelessWidget {
     final formattedTime = '${estimatedEndTime.hour}:'
         '${estimatedEndTime.minute.toString().padLeft(2, '0')}';
 
-    // Calculate priority counts
-    final highPriorityCount = shiftOverview.routeBins
-        .where((bin) => bin.fillPercentage >= 80)
-        .length;
-
+    // Calculate average fill percentage for urgency indicator
     final avgFillPercentage = shiftOverview.routeBins.isEmpty
         ? 0
         : shiftOverview.routeBins
@@ -101,21 +97,24 @@ class ShiftAcceptanceBottomSheet extends StatelessWidget {
                                       height: 1.0,
                                     ),
                                   ),
-                                  Text(
-                                    '•',
-                                    style: TextStyle(
-                                      fontSize: 18,
-                                      color: Colors.grey.shade400,
+                                  // Only show distance if > 0
+                                  if (shiftOverview.totalDistanceKm > 0) ...[
+                                    Text(
+                                      '•',
+                                      style: TextStyle(
+                                        fontSize: 18,
+                                        color: Colors.grey.shade400,
+                                      ),
                                     ),
-                                  ),
-                                  Text(
-                                    '${shiftOverview.distanceFormatted} away',
-                                    style: TextStyle(
-                                      fontSize: 15,
-                                      fontWeight: FontWeight.w500,
-                                      color: Colors.grey.shade600,
+                                    Text(
+                                      '${shiftOverview.distanceFormatted} away',
+                                      style: TextStyle(
+                                        fontSize: 15,
+                                        fontWeight: FontWeight.w500,
+                                        color: Colors.grey.shade600,
+                                      ),
                                     ),
-                                  ),
+                                  ],
                                   Text(
                                     '•',
                                     style: TextStyle(
@@ -179,21 +178,6 @@ class ShiftAcceptanceBottomSheet extends StatelessWidget {
                               ),
                           ],
                         ),
-
-                        // Priority summary
-                        if (highPriorityCount > 0)
-                          Padding(
-                            padding: const EdgeInsets.only(top: 6),
-                            child: Text(
-                              '⚠️  $highPriorityCount urgent '
-                              '${highPriorityCount == 1 ? 'bin' : 'bins'}',
-                              style: TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w600,
-                                color: Colors.red.shade700,
-                              ),
-                            ),
-                          ),
 
                         // Finish time
                         Padding(
@@ -334,85 +318,67 @@ class ShiftAcceptanceBottomSheet extends StatelessWidget {
 
   Widget _buildTimelineStartPoint() {
     return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        // Dot and line
-        Column(
-          children: [
-            // Start dot
-            Container(
-              width: 12,
-              height: 12,
-              decoration: BoxDecoration(
-                color: Colors.grey.shade400,
-                shape: BoxShape.circle,
-                border: Border.all(
-                  color: Colors.white,
-                  width: 2,
+        // Dot and line container (28px to match bin badges)
+        SizedBox(
+          width: 28,
+          child: Column(
+            children: [
+              // Start dot
+              Container(
+                width: 12,
+                height: 12,
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade400,
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: Colors.white,
+                    width: 2,
+                  ),
                 ),
               ),
-            ),
-            // Connecting line
-            Container(
-              width: 2,
-              height: 28,
-              margin: const EdgeInsets.symmetric(vertical: 4),
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [
-                    Colors.grey.shade300,
-                    Colors.grey.shade200,
-                  ],
+              // Connecting line
+              Container(
+                width: 2,
+                height: 28,
+                margin: const EdgeInsets.symmetric(vertical: 4),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      Colors.grey.shade300,
+                      Colors.grey.shade200,
+                    ],
+                  ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
 
         const SizedBox(width: 12),
 
         // Location info
         Expanded(
-          child: Padding(
-            padding: const EdgeInsets.only(bottom: 4),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Icon(
-                      Icons.my_location,
-                      size: 16,
-                      color: Colors.grey.shade600,
-                    ),
-                    const SizedBox(width: 6),
-                    Text(
-                      'Current Location',
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.grey.shade700,
-                      ),
-                    ),
-                  ],
+          child: Row(
+            children: [
+              Icon(
+                Icons.my_location,
+                size: 16,
+                color: Colors.grey.shade600,
+              ),
+              const SizedBox(width: 6),
+              Text(
+                'Current Location',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.grey.shade700,
                 ),
-                // Distance to first bin
-                if (shiftOverview.routeBins.isNotEmpty)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 4, left: 22),
-                    child: Text(
-                      '${shiftOverview.distanceFormatted} to first bin',
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w500,
-                        color: Colors.grey.shade500,
-                      ),
-                    ),
-                  ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
       ],
@@ -428,64 +394,67 @@ class ShiftAcceptanceBottomSheet extends StatelessWidget {
     final isUrgent = bin.fillPercentage >= 80;
     final isMedium = bin.fillPercentage >= 50 && bin.fillPercentage < 80;
 
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // Numbered dot and line
-        Column(
-          children: [
-            // Numbered badge
-            Container(
-              width: 28,
-              height: 28,
-              decoration: BoxDecoration(
-                color: fillColor,
-                shape: BoxShape.circle,
-                boxShadow: [
-                  BoxShadow(
-                    color: fillColor.withValues(alpha: 0.3),
-                    blurRadius: 4,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
-              ),
-              child: Center(
-                child: Text(
-                  '${index + 1}',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w700,
-                    fontSize: 13,
-                  ),
-                ),
-              ),
-            ),
-            // Connecting line (if not last)
-            if (!isLast)
-              Container(
-                width: 2,
-                height: 40,
-                margin: const EdgeInsets.symmetric(vertical: 4),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [
-                      fillColor.withValues(alpha: 0.3),
-                      Colors.grey.shade200,
+    return Padding(
+      padding: EdgeInsets.only(bottom: isLast ? 0 : 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          // Numbered badge with line below
+          SizedBox(
+            width: 28,
+            child: Column(
+              children: [
+                // Numbered badge
+                Container(
+                  width: 28,
+                  height: 28,
+                  decoration: BoxDecoration(
+                    color: fillColor,
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: fillColor.withValues(alpha: 0.3),
+                        blurRadius: 4,
+                        offset: const Offset(0, 2),
+                      ),
                     ],
                   ),
+                  child: Center(
+                    child: Text(
+                      '${index + 1}',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 13,
+                      ),
+                    ),
+                  ),
                 ),
-              ),
-          ],
-        ),
+                // Connecting line (if not last)
+                if (!isLast)
+                  Container(
+                    width: 2,
+                    height: 40,
+                    margin: const EdgeInsets.symmetric(vertical: 4),
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [
+                          fillColor.withValues(alpha: 0.3),
+                          Colors.grey.shade200,
+                        ],
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
 
-        const SizedBox(width: 12),
+          const SizedBox(width: 12),
 
-        // Bin details
-        Expanded(
-          child: Padding(
-            padding: EdgeInsets.only(bottom: isLast ? 0 : 8),
+          // Bin details
+          Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -541,8 +510,8 @@ class ShiftAcceptanceBottomSheet extends StatelessWidget {
               ],
             ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 

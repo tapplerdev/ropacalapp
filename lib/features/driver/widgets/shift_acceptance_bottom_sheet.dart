@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:ropacalapp/core/theme/app_colors.dart';
 import 'package:ropacalapp/models/shift_overview.dart';
 
-/// Lyft-style draggable bottom sheet for shift acceptance
-/// Premium design with bold typography and clear hierarchy
+/// Premium Lyft-style bottom sheet for shift acceptance
+/// Optimized for quick decision-making with clear visual hierarchy
 class ShiftAcceptanceBottomSheet extends StatelessWidget {
   const ShiftAcceptanceBottomSheet({
     super.key,
@@ -24,108 +24,251 @@ class ShiftAcceptanceBottomSheet extends StatelessWidget {
     final formattedTime =
         '${estimatedEndTime.hour}:${estimatedEndTime.minute.toString().padLeft(2, '0')}';
 
+    // Calculate average fill percentage for urgency indicator
+    final avgFillPercentage = shiftOverview.routeBins.isEmpty
+        ? 0
+        : shiftOverview.routeBins
+                .map((b) => b.fillPercentage)
+                .reduce((a, b) => a + b) ~/
+            shiftOverview.routeBins.length;
+
+    // Determine urgency level
+    final isUrgent = avgFillPercentage >= 80;
+    final isMedium = avgFillPercentage >= 50 && avgFillPercentage < 80;
+
     return Container(
       decoration: const BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black12,
+            blurRadius: 20,
+            offset: Offset(0, -2),
+          ),
+        ],
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Drag handle (Material 3 style)
+          // Drag handle
           Container(
-            margin: const EdgeInsets.only(top: 12),
-            width: 48,
-            height: 5,
+            margin: const EdgeInsets.only(top: 10),
+            width: 40,
+            height: 4,
             decoration: BoxDecoration(
               color: Colors.grey.shade300,
-              borderRadius: BorderRadius.circular(3),
+              borderRadius: BorderRadius.circular(2),
             ),
           ),
 
           Padding(
-            padding: const EdgeInsets.fromLTRB(24, 24, 24, 32),
+            padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Hero section - Large bin count (Lyft-style pricing display)
+                // Hero section with urgency badge
                 Row(
-                  crossAxisAlignment: CrossAxisAlignment.baseline,
-                  textBaseline: TextBaseline.alphabetic,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      '${shiftOverview.totalBins}',
-                      style: const TextStyle(
-                        fontSize: 56,
-                        fontWeight: FontWeight.w700,
-                        height: 1.0,
-                        letterSpacing: -1.5,
+                    // Large bin count
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.baseline,
+                            textBaseline: TextBaseline.alphabetic,
+                            children: [
+                              Text(
+                                '${shiftOverview.totalBins}',
+                                style: const TextStyle(
+                                  fontSize: 48,
+                                  fontWeight: FontWeight.w800,
+                                  height: 1.0,
+                                  letterSpacing: -1.0,
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                shiftOverview.totalBins == 1 ? 'Bin' : 'Bins',
+                                style: TextStyle(
+                                  fontSize: 24,
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.grey.shade600,
+                                  height: 1.0,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 4),
+                          // Distance and time
+                          Text(
+                            '${shiftOverview.distanceFormatted} away • ${shiftOverview.durationFormatted}',
+                            style: TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w500,
+                              color: Colors.grey.shade600,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                    const SizedBox(width: 8),
-                    Text(
-                      shiftOverview.totalBins == 1 ? 'Bin' : 'Bins',
-                      style: TextStyle(
-                        fontSize: 28,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.grey.shade700,
-                        height: 1.0,
+                    // Urgency badge
+                    if (isUrgent || isMedium)
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 6,
+                        ),
+                        decoration: BoxDecoration(
+                          color: isUrgent
+                              ? Colors.red.shade50
+                              : Colors.orange.shade50,
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(
+                            color: isUrgent
+                                ? Colors.red.shade200
+                                : Colors.orange.shade200,
+                            width: 1,
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.local_fire_department,
+                              size: 16,
+                              color: isUrgent ? Colors.red : Colors.orange,
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              isUrgent ? 'URGENT' : 'MEDIUM',
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w700,
+                                letterSpacing: 0.5,
+                                color: isUrgent
+                                    ? Colors.red.shade700
+                                    : Colors.orange.shade700,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
-                    ),
                   ],
                 ),
 
-                const SizedBox(height: 8),
+                const SizedBox(height: 20),
 
-                // Route metadata (distance + duration)
-                Row(
-                  children: [
-                    Icon(
-                      Icons.route,
-                      size: 18,
-                      color: Colors.grey.shade600,
-                    ),
-                    const SizedBox(width: 6),
-                    Text(
-                      '${shiftOverview.distanceFormatted} • ~${shiftOverview.durationFormatted}',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w500,
-                        color: Colors.grey.shade700,
-                      ),
-                    ),
-                  ],
-                ),
-
-                const SizedBox(height: 28),
-
-                // Route preview - First 3 stops with clean timeline
-                _buildRoutePreview(context),
-
-                const SizedBox(height: 24),
-
-                // Estimated completion time (subtle info card)
+                // Divider
                 Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 14,
-                  ),
+                  height: 1,
+                  color: Colors.grey.shade200,
+                ),
+
+                const SizedBox(height: 20),
+
+                // Location and fill percentage (compact)
+                Row(
+                  children: [
+                    // Location pin icon
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: AppColors.primaryBlue.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: const Icon(
+                        Icons.location_on,
+                        color: AppColors.primaryBlue,
+                        size: 20,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    // Location text
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            shiftOverview.routeBins.first.currentStreet,
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                              height: 1.3,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          const SizedBox(height: 2),
+                          Row(
+                            children: [
+                              // Fill percentage indicator
+                              Container(
+                                width: 8,
+                                height: 8,
+                                decoration: BoxDecoration(
+                                  color: _getFillColor(
+                                    shiftOverview.routeBins.first.fillPercentage,
+                                  ),
+                                  shape: BoxShape.circle,
+                                ),
+                              ),
+                              const SizedBox(width: 6),
+                              Text(
+                                '${shiftOverview.routeBins.first.fillPercentage}% full',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w500,
+                                  color: Colors.grey.shade600,
+                                ),
+                              ),
+                              if (shiftOverview.routeBins.length > 1) ...[
+                                Text(
+                                  '  •  ',
+                                  style: TextStyle(
+                                    color: Colors.grey.shade400,
+                                  ),
+                                ),
+                                Text(
+                                  '+${shiftOverview.routeBins.length - 1} more',
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w500,
+                                    color: AppColors.primaryBlue,
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+
+                const SizedBox(height: 20),
+
+                // Completion time (compact)
+                Container(
+                  padding: const EdgeInsets.all(14),
                   decoration: BoxDecoration(
-                    color: Colors.blue.shade50,
-                    borderRadius: BorderRadius.circular(16),
+                    color: Colors.grey.shade50,
+                    borderRadius: BorderRadius.circular(12),
                   ),
                   child: Row(
                     children: [
                       Icon(
                         Icons.schedule_rounded,
-                        size: 22,
-                        color: AppColors.primaryBlue,
+                        size: 20,
+                        color: Colors.grey.shade700,
                       ),
-                      const SizedBox(width: 12),
+                      const SizedBox(width: 10),
                       Text(
-                        'Est. completion: ',
+                        'Estimated completion: ',
                         style: TextStyle(
-                          fontSize: 15,
+                          fontSize: 14,
                           fontWeight: FontWeight.w500,
                           color: Colors.grey.shade700,
                         ),
@@ -133,18 +276,18 @@ class ShiftAcceptanceBottomSheet extends StatelessWidget {
                       Text(
                         formattedTime,
                         style: const TextStyle(
-                          fontSize: 15,
+                          fontSize: 14,
                           fontWeight: FontWeight.w700,
-                          color: AppColors.primaryBlue,
+                          color: Colors.black87,
                         ),
                       ),
                     ],
                   ),
                 ),
 
-                const SizedBox(height: 32),
+                const SizedBox(height: 24),
 
-                // Accept button (Large, inviting, Lyft-style)
+                // Accept button (Large)
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton(
@@ -152,33 +295,32 @@ class ShiftAcceptanceBottomSheet extends StatelessWidget {
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppColors.primaryBlue,
                       foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 18),
+                      padding: const EdgeInsets.symmetric(vertical: 16),
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
+                        borderRadius: BorderRadius.circular(14),
                       ),
                       elevation: 0,
-                      shadowColor: Colors.transparent,
                     ),
                     child: const Text(
                       'Accept',
                       style: TextStyle(
-                        fontSize: 18,
+                        fontSize: 17,
                         fontWeight: FontWeight.w700,
-                        letterSpacing: 0.2,
+                        letterSpacing: 0.3,
                       ),
                     ),
                   ),
                 ),
 
-                const SizedBox(height: 16),
+                const SizedBox(height: 12),
 
-                // Decline button (Subtle, low-key)
+                // Decline button
                 SizedBox(
                   width: double.infinity,
                   child: TextButton(
                     onPressed: onDecline,
                     style: TextButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      padding: const EdgeInsets.symmetric(vertical: 12),
                     ),
                     child: Text(
                       'Decline',
@@ -198,128 +340,13 @@ class ShiftAcceptanceBottomSheet extends StatelessWidget {
     );
   }
 
-  Widget _buildRoutePreview(BuildContext context) {
-    // Show first 3 bins as preview
-    final previewBins = shiftOverview.routeBins.take(3).toList();
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // "Route" label
-        Text(
-          'ROUTE',
-          style: TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.w700,
-            letterSpacing: 1.2,
-            color: Colors.grey.shade500,
-          ),
-        ),
-        const SizedBox(height: 16),
-
-        // Timeline
-        ...previewBins.asMap().entries.map((entry) {
-          final index = entry.key;
-          final bin = entry.value;
-          final isFirst = index == 0;
-          final isLast = index == previewBins.length - 1;
-
-          return Padding(
-            padding: EdgeInsets.only(bottom: isLast ? 0 : 16),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Timeline connector
-                SizedBox(
-                  width: 24,
-                  child: Column(
-                    children: [
-                      // Dot
-                      Container(
-                        width: 12,
-                        height: 12,
-                        decoration: BoxDecoration(
-                          color: isFirst
-                              ? AppColors.primaryBlue
-                              : Colors.grey.shade400,
-                          shape: BoxShape.circle,
-                        ),
-                      ),
-                      // Connecting line
-                      if (!isLast)
-                        Container(
-                          width: 2,
-                          height: 36,
-                          margin: const EdgeInsets.symmetric(vertical: 4),
-                          decoration: BoxDecoration(
-                            color: Colors.grey.shade300,
-                            borderRadius: BorderRadius.circular(1),
-                          ),
-                        ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 16),
-                // Bin info
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        bin.currentStreet,
-                        style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                          height: 1.3,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        '${bin.fillPercentage}% full',
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w500,
-                          color: Colors.grey.shade600,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          );
-        }).toList(),
-
-        // "View all X stops" link (if more than 3)
-        if (shiftOverview.routeBins.length > 3) ...[
-          const SizedBox(height: 12),
-          Padding(
-            padding: const EdgeInsets.only(left: 40),
-            child: InkWell(
-              onTap: () {
-                // TODO: Show full route list modal
-              },
-              borderRadius: BorderRadius.circular(8),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 8,
-                  vertical: 6,
-                ),
-                child: Text(
-                  'View all ${shiftOverview.routeBins.length} stops',
-                  style: const TextStyle(
-                    fontSize: 14,
-                    color: AppColors.primaryBlue,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ],
-      ],
-    );
+  Color _getFillColor(int fillPercentage) {
+    if (fillPercentage >= 80) {
+      return Colors.red;
+    } else if (fillPercentage >= 50) {
+      return Colors.orange;
+    } else {
+      return Colors.green;
+    }
   }
 }

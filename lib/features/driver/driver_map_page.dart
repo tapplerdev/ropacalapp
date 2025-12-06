@@ -147,20 +147,12 @@ class DriverMapPage extends HookConsumerWidget {
           if (context.mounted) {
             showModalBottomSheet(
               context: context,
-              isScrollControlled: true,
+              isScrollControlled: false,
               isDismissible: true,
               enableDrag: true,
               backgroundColor: Colors.transparent,
               barrierColor: Colors.black.withOpacity(0.5),
-              builder: (context) => DraggableScrollableSheet(
-                initialChildSize: 0.75,
-                minChildSize: 0.5,
-                maxChildSize: 0.95,
-                expand: false,
-                builder: (context, scrollController) {
-                  return SingleChildScrollView(
-                    controller: scrollController,
-                    child: ShiftAcceptanceBottomSheet(
+              builder: (context) => ShiftAcceptanceBottomSheet(
                       shiftOverview: ShiftOverview(
                         shiftId: shiftState.assignedRouteId ?? '',
                         startTime: DateTime.now(),
@@ -225,9 +217,6 @@ class DriverMapPage extends HookConsumerWidget {
                         previousShiftStatus.value = null;
                       },
                     ),
-                  );
-                },
-              ),
             );
           }
         });

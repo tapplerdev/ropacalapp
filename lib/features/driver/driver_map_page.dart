@@ -38,7 +38,7 @@ import 'package:ropacalapp/features/driver/widgets/animated_shift_transition.dar
 import 'package:ropacalapp/features/driver/widgets/map_notification_button.dart';
 import 'package:ropacalapp/features/driver/widgets/map_2d_3d_toggle_button.dart';
 import 'package:ropacalapp/features/driver/widgets/map_location_button.dart';
-import 'package:ropacalapp/features/driver/shift_acceptance_screen.dart';
+import 'package:ropacalapp/features/driver/widgets/shift_acceptance_bottom_sheet.dart';
 import 'package:ropacalapp/features/driver/google_navigation_page.dart';
 import 'package:ropacalapp/features/driver/notifications_page.dart';
 import 'package:ropacalapp/models/shift_overview.dart';
@@ -142,78 +142,91 @@ class DriverMapPage extends HookConsumerWidget {
         // Update previous status
         previousShiftStatus.value = ShiftStatus.ready;
 
-        // Show Lyft-style acceptance screen as full-screen modal
+        // Show Lyft-style bottom sheet modal
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (context.mounted) {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                fullscreenDialog: true,
-                builder: (context) => ShiftAcceptanceScreen(
-                  shiftOverview: ShiftOverview(
-                    shiftId: shiftState.assignedRouteId ?? '',
-                    startTime: DateTime.now(),
-                    estimatedEndTime: DateTime.now().add(
-                      Duration(
-                        hours: (shiftState.totalBins * 0.25).ceil(),
-                      ),
-                    ),
-                    totalBins: shiftState.totalBins,
-                    totalDistanceKm: _calculateTotalDistance(
-                      shiftState.routeBins,
-                    ),
-                    routeBins: shiftState.routeBins,
-                    routeName: 'Route ${shiftState.assignedRouteId ?? ''}',
-                  ),
-                  onAccept: () async {
-                    AppLogger.general('🚀 SHIFT ACCEPTED - Starting shift');
-
-                    // Close modal first
-                    Navigator.pop(context);
-
-                    // Show loading overlay
-                    EasyLoading.show(
-                      status: 'Starting shift...',
-                      maskType: EasyLoadingMaskType.black,
-                    );
-
-                    try {
-                      // Start the shift
-                      await ref
-                          .read(shiftNotifierProvider.notifier)
-                          .startShift();
-
-                      // Hide loading
-                      await EasyLoading.dismiss();
-
-                      // Navigate to navigation page
-                      if (context.mounted) {
-                        context.push('/navigation');
-                      }
-                    } catch (e) {
-                      AppLogger.general('❌ SHIFT START ERROR: $e');
-
-                      // Hide loading
-                      await EasyLoading.dismiss();
-
-                      // Show error
-                      if (context.mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text('Failed to start shift: $e'),
-                            backgroundColor: Colors.red,
+            showModalBottomSheet(
+              context: context,
+              isScrollControlled: true,
+              isDismissible: true,
+              enableDrag: true,
+              backgroundColor: Colors.transparent,
+              barrierColor: Colors.black.withOpacity(0.5),
+              builder: (context) => DraggableScrollableSheet(
+                initialChildSize: 0.75,
+                minChildSize: 0.5,
+                maxChildSize: 0.95,
+                expand: false,
+                builder: (context, scrollController) {
+                  return SingleChildScrollView(
+                    controller: scrollController,
+                    child: ShiftAcceptanceBottomSheet(
+                      shiftOverview: ShiftOverview(
+                        shiftId: shiftState.assignedRouteId ?? '',
+                        startTime: DateTime.now(),
+                        estimatedEndTime: DateTime.now().add(
+                          Duration(
+                            hours: (shiftState.totalBins * 0.25).ceil(),
                           ),
+                        ),
+                        totalBins: shiftState.totalBins,
+                        totalDistanceKm: _calculateTotalDistance(
+                          shiftState.routeBins,
+                        ),
+                        routeBins: shiftState.routeBins,
+                        routeName: 'Route ${shiftState.assignedRouteId ?? ''}',
+                      ),
+                      onAccept: () async {
+                        AppLogger.general('🚀 SHIFT ACCEPTED - Starting shift');
+
+                        // Close modal first
+                        Navigator.pop(context);
+
+                        // Show loading overlay
+                        EasyLoading.show(
+                          status: 'Starting shift...',
+                          maskType: EasyLoadingMaskType.black,
                         );
-                      }
-                    }
-                  },
-                  onDecline: () {
-                    AppLogger.general('❌ SHIFT DECLINED - Closing modal');
-                    Navigator.pop(context);
-                    // Reset status tracking so it can be shown again if needed
-                    previousShiftStatus.value = null;
-                  },
-                ),
+
+                        try {
+                          // Start the shift
+                          await ref
+                              .read(shiftNotifierProvider.notifier)
+                              .startShift();
+
+                          // Hide loading
+                          await EasyLoading.dismiss();
+
+                          // Navigate to navigation page
+                          if (context.mounted) {
+                            context.push('/navigation');
+                          }
+                        } catch (e) {
+                          AppLogger.general('❌ SHIFT START ERROR: $e');
+
+                          // Hide loading
+                          await EasyLoading.dismiss();
+
+                          // Show error
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text('Failed to start shift: $e'),
+                                backgroundColor: Colors.red,
+                              ),
+                            );
+                          }
+                        }
+                      },
+                      onDecline: () {
+                        AppLogger.general('❌ SHIFT DECLINED - Closing modal');
+                        Navigator.pop(context);
+                        // Reset status tracking so it can be shown again if needed
+                        previousShiftStatus.value = null;
+                      },
+                    ),
+                  );
+                },
               ),
             );
           }

@@ -37,7 +37,11 @@ class WebSocketService {
       // Automatically converts http/https to ws/wss
       final wsUrl = '${ApiConstants.wsUrl}?token=$token';
 
-      AppLogger.general('Connecting to WebSocket: $wsUrl');
+      AppLogger.general('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      AppLogger.general('🔌 WEBSOCKET CONNECTION ATTEMPT');
+      AppLogger.general('   URL: $wsUrl');
+      AppLogger.general('   Token preview: ${token.substring(0, 20)}...');
+      AppLogger.general('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
 
       _channel = WebSocketChannel.connect(Uri.parse(wsUrl));
 
@@ -45,7 +49,16 @@ class WebSocketService {
       _channel!.stream.listen(
         _handleMessage,
         onError: _handleError,
-        onDone: _handleDisconnect,
+        onDone: () {
+          AppLogger.general('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+          AppLogger.general('🔴 WEBSOCKET DISCONNECTED');
+          AppLogger.general('   Reason: Server closed connection (onDone called)');
+          AppLogger.general('   Was connected: $_isConnected');
+          AppLogger.general('   Close code: ${_channel?.closeCode}');
+          AppLogger.general('   Close reason: ${_channel?.closeReason}');
+          AppLogger.general('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+          _handleDisconnect();
+        },
         cancelOnError: false,
       );
 
@@ -56,10 +69,11 @@ class WebSocketService {
       // Start heartbeat
       _startHeartbeat();
 
-      AppLogger.general('WebSocket connected successfully');
+      AppLogger.general('✅ WebSocket stream listener attached');
+      AppLogger.general('   Waiting for messages from server...');
     } catch (e) {
       AppLogger.general(
-        'WebSocket connection error: $e',
+        '❌ WebSocket connection error: $e',
         level: AppLogger.error,
       );
       _scheduleReconnect(token);
@@ -110,10 +124,18 @@ class WebSocketService {
 
   /// Handle WebSocket disconnect
   void _handleDisconnect() {
-    AppLogger.general('WebSocket disconnected');
+    final wasConnected = _isConnected;
     _isConnected = false;
     _stopHeartbeat();
     onDisconnected?.call();
+
+    // Auto-reconnect if we were previously connected
+    // This handles server-initiated disconnects
+    if (wasConnected) {
+      AppLogger.general('⚠️  Auto-reconnect scheduled after unexpected disconnect');
+      // Note: We need the token to reconnect, but we don't have it here
+      // The auth provider should handle reconnection
+    }
   }
 
   /// Start heartbeat timer to keep connection alive

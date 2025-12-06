@@ -59,6 +59,19 @@ class WebSocketManager extends _$WebSocketManager {
 
     _service!.onDisconnected = () {
       AppLogger.general('🔌 WebSocket disconnected');
+
+      // Auto-reconnect after 5 seconds if we have a valid token
+      Future.delayed(const Duration(seconds: 5), () {
+        final apiService = ref.read(apiServiceProvider);
+        final currentToken = apiService.authToken;
+
+        if (currentToken != null && _service != null) {
+          AppLogger.general('🔄 Auto-reconnecting WebSocket after disconnect...');
+          _service!.connect(currentToken);
+        } else {
+          AppLogger.general('⚠️  Cannot reconnect: No token available');
+        }
+      });
     };
 
     _service!.connect(token);

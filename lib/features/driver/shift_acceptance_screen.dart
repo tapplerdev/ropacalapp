@@ -3,6 +3,7 @@ import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:google_navigation_flutter/google_navigation_flutter.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:ropacalapp/core/theme/app_colors.dart';
+import 'package:ropacalapp/core/services/google_navigation_marker_service.dart';
 import 'package:ropacalapp/features/driver/widgets/shift_acceptance_bottom_sheet.dart';
 import 'package:ropacalapp/models/shift_overview.dart';
 
@@ -23,106 +24,112 @@ class ShiftAcceptanceScreen extends HookConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final mapController = useState<GoogleMapViewController?>(null);
-    final markers = useState<Set<Marker>>({});
-    final polylines = useState<Set<Polyline>>({});
 
-    // Initialize map markers and polyline
+    // Initialize map markers and polyline when controller is available
     useEffect(() {
       Future<void> initializeMapData() async {
-        final binMarkers = <Marker>{};
-        final routePoints = <LatLng>[];
+        if (mapController.value == null) return;
 
-        // Create markers for each bin
-        for (var i = 0; i < shiftOverview.routeBins.length; i++) {
-          final bin = shiftOverview.routeBins[i];
-          final position = LatLng(
-            latitude: bin.latitude,
-            longitude: bin.longitude,
-          );
+        try {
+          // Create custom markers for each bin
+          final markers = <MarkerOptions>[];
+          for (var i = 0; i < shiftOverview.routeBins.length; i++) {
+            final bin = shiftOverview.routeBins[i];
 
-          routePoints.add(position);
-
-          // Determine marker color based on fill percentage
-          BitmapDescriptor markerIcon;
-          if (bin.fillPercentage > 80) {
-            markerIcon = BitmapDescriptor.defaultMarkerWithHue(
-              BitmapDescriptor.hueRed,
+            // Use GoogleNavigationMarkerService to create custom icon
+            final icon = await GoogleNavigationMarkerService.createBinMarkerIcon(
+              i + 1, // bin number
+              bin.fillPercentage,
             );
-          } else if (bin.fillPercentage > 50) {
-            markerIcon = BitmapDescriptor.defaultMarkerWithHue(
-              BitmapDescriptor.hueOrange,
-            );
-          } else {
-            markerIcon = BitmapDescriptor.defaultMarkerWithHue(
-              BitmapDescriptor.hueBlue,
-            );
-          }
 
-          binMarkers.add(
-            Marker(
-              markerId: MarkerId('bin_${bin.id}'),
-              position: position,
-              icon: markerIcon,
-              infoWindow: InfoWindow(
-                title: bin.currentStreet,
-                snippet: '${bin.fillPercentage}% full',
+            final markerOptions = MarkerOptions(
+              position: LatLng(
+                latitude: bin.latitude,
+                longitude: bin.longitude,
               ),
-            ),
-          );
-        }
-
-        markers.value = binMarkers;
-
-        // Create polyline connecting all bins
-        if (routePoints.isNotEmpty) {
-          polylines.value = {
-            Polyline(
-              polylineId: const PolylineId('route'),
-              points: routePoints,
-              color: AppColors.primaryBlue,
-              width: 4,
-              patterns: [
-                PatternItem.dash(20),
-                PatternItem.gap(10),
-              ],
-            ),
-          };
-        }
-
-        // Fit camera to show all bins
-        if (mapController.value != null && routePoints.length >= 2) {
-          try {
-            // Calculate bounds
-            double minLat = routePoints.first.latitude;
-            double maxLat = routePoints.first.latitude;
-            double minLng = routePoints.first.longitude;
-            double maxLng = routePoints.first.longitude;
-
-            for (final point in routePoints) {
-              if (point.latitude < minLat) minLat = point.latitude;
-              if (point.latitude > maxLat) maxLat = point.latitude;
-              if (point.longitude < minLng) minLng = point.longitude;
-              if (point.longitude > maxLng) maxLng = point.longitude;
-            }
-
-            final bounds = LatLngBounds(
-              southwest: LatLng(latitude: minLat, longitude: minLng),
-              northeast: LatLng(latitude: maxLat, longitude: maxLng),
+              icon: icon,
+              anchor: const MarkerAnchor(u: 0.5, v: 0.5),
+              zIndex: 100.0 + i.toDouble(),
+              consumeTapEvents: false,
             );
 
-            // Add padding to bounds
-            await mapController.value!.animateCamera(
-              CameraUpdate.newLatLngBounds(bounds, 80),
-            );
-          } catch (e) {
-            // Ignore camera errors
+            markers.add(markerOptions);
           }
+
+          // Add markers to map
+          if (markers.isNotEmpty) {
+            await mapController.value!.addMarkers(markers);
+          }
+
+          // Create polyline connecting all bins
+          if (shiftOverview.routeBins.length >= 2) {
+            final points = shiftOverview.routeBins.map((bin) {
+              return LatLng(
+                latitude: bin.latitude,
+                longitude: bin.longitude,
+              );
+            }).toList();
+
+            final polylineOptions = PolylineOptions(
+              points: points,
+              strokeWidth: 4,
+              strokeColor: AppColors.primaryBlue,
+              geodesic: true,
+              zIndex: 50,
+              clickable: false,
+            );
+
+            await mapController.value!.addPolylines([polylineOptions]);
+          }
+
+          // Fit camera to show all bins
+          if (shiftOverview.routeBins.length >= 2) {
+            try {
+              final routePoints = shiftOverview.routeBins.map((bin) {
+                return LatLng(
+                  latitude: bin.latitude,
+                  longitude: bin.longitude,
+                );
+              }).toList();
+
+              // Calculate bounds
+              double minLat = routePoints.first.latitude;
+              double maxLat = routePoints.first.latitude;
+              double minLng = routePoints.first.longitude;
+              double maxLng = routePoints.first.longitude;
+
+              for (final point in routePoints) {
+                if (point.latitude < minLat) minLat = point.latitude;
+                if (point.latitude > maxLat) maxLat = point.latitude;
+                if (point.longitude < minLng) minLng = point.longitude;
+                if (point.longitude > maxLng) maxLng = point.longitude;
+              }
+
+              final bounds = LatLngBounds(
+                southwest: LatLng(latitude: minLat, longitude: minLng),
+                northeast: LatLng(latitude: maxLat, longitude: maxLng),
+              );
+
+              // Animate camera to fit bounds with padding
+              await mapController.value!.animateCamera(
+                CameraUpdate.newLatLngBounds(bounds),
+              );
+            } catch (e) {
+              // Ignore camera errors
+            }
+          }
+        } catch (e) {
+          // Ignore initialization errors
         }
       }
 
-      initializeMapData();
+      // Run initialization when controller becomes available
+      if (mapController.value != null) {
+        initializeMapData();
+      }
+
       return null;
-    }, []);
+    }, [mapController.value]);
 
     return Scaffold(
       body: Stack(
@@ -141,8 +148,6 @@ class ShiftAcceptanceScreen extends HookConsumerWidget {
                     ), // Default to SF
               zoom: 12,
             ),
-            initialMarkers: markers.value,
-            initialPolylines: polylines.value,
             onViewCreated: (controller) {
               mapController.value = controller;
             },

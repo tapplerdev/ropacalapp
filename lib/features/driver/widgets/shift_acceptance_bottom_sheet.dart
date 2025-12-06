@@ -283,32 +283,66 @@ class ShiftAcceptanceBottomSheet extends StatelessWidget {
   }
 
   Widget _buildTimelineStartPoint() {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.center,
+    return Column(
       children: [
-        // Dot and line container (28px to match bin badges)
-        SizedBox(
-          width: 28,
-          child: Column(
-            children: [
-              // Start dot
-              Container(
-                width: 12,
-                height: 12,
-                decoration: BoxDecoration(
-                  color: Colors.grey.shade400,
-                  shape: BoxShape.circle,
-                  border: Border.all(
-                    color: Colors.white,
-                    width: 2,
+        // Row with dot and text aligned
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            // Dot (12px centered in 28px container)
+            SizedBox(
+              width: 28,
+              height: 28,
+              child: Center(
+                child: Container(
+                  width: 12,
+                  height: 12,
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade400,
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: Colors.white,
+                      width: 2,
+                    ),
                   ),
                 ),
               ),
-              // Connecting line
-              Container(
+            ),
+
+            const SizedBox(width: 12),
+
+            // Location info - aligned with dot center
+            Expanded(
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.my_location,
+                    size: 16,
+                    color: Colors.grey.shade600,
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    'Current Location',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.grey.shade700,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        // Connecting line below
+        Row(
+          children: [
+            SizedBox(
+              width: 28,
+              child: Container(
                 width: 2,
                 height: 28,
-                margin: const EdgeInsets.symmetric(vertical: 4),
+                margin: const EdgeInsets.only(top: 4, bottom: 4),
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
                     begin: Alignment.topCenter,
@@ -320,32 +354,8 @@ class ShiftAcceptanceBottomSheet extends StatelessWidget {
                   ),
                 ),
               ),
-            ],
-          ),
-        ),
-
-        const SizedBox(width: 12),
-
-        // Location info
-        Expanded(
-          child: Row(
-            children: [
-              Icon(
-                Icons.my_location,
-                size: 16,
-                color: Colors.grey.shade600,
-              ),
-              const SizedBox(width: 6),
-              Text(
-                'Current Location',
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.grey.shade700,
-                ),
-              ),
-            ],
-          ),
+            ),
+          ],
         ),
       ],
     );
@@ -362,70 +372,44 @@ class ShiftAcceptanceBottomSheet extends StatelessWidget {
 
     return Padding(
       padding: EdgeInsets.only(bottom: isLast ? 0 : 8),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
+      child: Column(
         children: [
-          // Numbered badge with line below
-          SizedBox(
-            width: 28,
-            child: Column(
-              children: [
-                // Numbered badge
-                Container(
-                  width: 28,
-                  height: 28,
-                  decoration: BoxDecoration(
-                    color: fillColor,
-                    shape: BoxShape.circle,
-                    boxShadow: [
-                      BoxShadow(
-                        color: fillColor.withValues(alpha: 0.3),
-                        blurRadius: 4,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
-                  ),
-                  child: Center(
-                    child: Text(
-                      '${index + 1}',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w700,
-                        fontSize: 13,
-                      ),
+          // Row with badge and street name aligned
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              // Numbered badge (28px)
+              Container(
+                width: 28,
+                height: 28,
+                decoration: BoxDecoration(
+                  color: fillColor,
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: fillColor.withValues(alpha: 0.3),
+                      blurRadius: 4,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: Center(
+                  child: Text(
+                    '${index + 1}',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w700,
+                      fontSize: 13,
                     ),
                   ),
                 ),
-                // Connecting line (if not last)
-                if (!isLast)
-                  Container(
-                    width: 2,
-                    height: 40,
-                    margin: const EdgeInsets.symmetric(vertical: 4),
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                        colors: [
-                          fillColor.withValues(alpha: 0.3),
-                          Colors.grey.shade200,
-                        ],
-                      ),
-                    ),
-                  ),
-              ],
-            ),
-          ),
+              ),
 
-          const SizedBox(width: 12),
+              const SizedBox(width: 12),
 
-          // Bin details
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Street name with priority emoji
-                Row(
+              // Street name with priority emoji - aligned with badge center
+              Expanded(
+                child: Row(
                   children: [
                     Expanded(
                       child: Text(
@@ -451,31 +435,63 @@ class ShiftAcceptanceBottomSheet extends StatelessWidget {
                       ),
                   ],
                 ),
+              ),
+            ],
+          ),
 
-                const SizedBox(height: 4),
-
-                // Fill percentage badge
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 3,
-                  ),
-                  decoration: BoxDecoration(
-                    color: fillColor.withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: Text(
-                    '${bin.fillPercentage}% full',
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      color: fillColor,
-                    ),
+          // Fill percentage below
+          // (with left padding to align under street name)
+          Padding(
+            padding: const EdgeInsets.only(left: 40, top: 4),
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 8,
+                  vertical: 3,
+                ),
+                decoration: BoxDecoration(
+                  color: fillColor.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Text(
+                  '${bin.fillPercentage}% full',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: fillColor,
                   ),
                 ),
-              ],
+              ),
             ),
           ),
+
+          // Connecting line (if not last)
+          if (!isLast)
+            Padding(
+              padding: const EdgeInsets.only(top: 4, bottom: 4),
+              child: Row(
+                children: [
+                  SizedBox(
+                    width: 28,
+                    child: Container(
+                      width: 2,
+                      height: 40,
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: [
+                            fillColor.withValues(alpha: 0.3),
+                            Colors.grey.shade200,
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
         ],
       ),
     );

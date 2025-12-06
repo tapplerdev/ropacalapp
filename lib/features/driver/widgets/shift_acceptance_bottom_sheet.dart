@@ -19,12 +19,6 @@ class ShiftAcceptanceBottomSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final estimatedEndTime = DateTime.now().add(
-      Duration(hours: (shiftOverview.totalBins * 0.25).ceil()),
-    );
-    final formattedTime = '${estimatedEndTime.hour}:'
-        '${estimatedEndTime.minute.toString().padLeft(2, '0')}';
-
     // Calculate average fill percentage for urgency indicator
     final avgFillPercentage = shiftOverview.routeBins.isEmpty
         ? 0
@@ -123,7 +117,8 @@ class ShiftAcceptanceBottomSheet extends StatelessWidget {
                                     ),
                                   ),
                                   Text(
-                                    '${shiftOverview.durationFormatted} route',
+                                    'Total time: '
+                                    '${shiftOverview.durationFormatted}',
                                     style: TextStyle(
                                       fontSize: 15,
                                       fontWeight: FontWeight.w500,
@@ -177,19 +172,6 @@ class ShiftAcceptanceBottomSheet extends StatelessWidget {
                                 ),
                               ),
                           ],
-                        ),
-
-                        // Finish time
-                        Padding(
-                          padding: const EdgeInsets.only(top: 4),
-                          child: Text(
-                            'Finish by $formattedTime',
-                            style: TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w500,
-                              color: Colors.grey.shade600,
-                            ),
-                          ),
                         ),
                       ],
                     ),

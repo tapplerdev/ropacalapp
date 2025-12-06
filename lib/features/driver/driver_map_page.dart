@@ -38,6 +38,7 @@ import 'package:ropacalapp/features/driver/widgets/animated_shift_transition.dar
 import 'package:ropacalapp/features/driver/widgets/map_notification_button.dart';
 import 'package:ropacalapp/features/driver/widgets/map_2d_3d_toggle_button.dart';
 import 'package:ropacalapp/features/driver/widgets/map_location_button.dart';
+import 'package:ropacalapp/features/driver/shift_acceptance_screen.dart';
 import 'package:ropacalapp/features/driver/google_navigation_page.dart';
 import 'package:ropacalapp/features/driver/notifications_page.dart';
 import 'package:ropacalapp/models/shift_overview.dart';
@@ -91,6 +92,8 @@ class DriverMapPage extends HookConsumerWidget {
     final lastLoggedSegment = useRef<int>(-1);
     // Track if camera auto-follow is enabled (disabled when user pans)
     final isAutoFollowEnabled = useState<bool>(true);
+    // Track previous shift status to detect changes to "ready"
+    final previousShiftStatus = useRef<ShiftStatus?>(null);
 
     // Default to San Jose if no location available
     final initialCenter = useMemoized(
@@ -129,6 +132,99 @@ class DriverMapPage extends HookConsumerWidget {
         compassSubscription?.cancel();
       };
     }, []);
+
+    // Show shift acceptance modal when new shift becomes ready
+    useEffect(() {
+      // Check if shift status changed to "ready"
+      if (shiftState.status == ShiftStatus.ready &&
+          previousShiftStatus.value != ShiftStatus.ready) {
+
+        // Update previous status
+        previousShiftStatus.value = ShiftStatus.ready;
+
+        // Show Lyft-style acceptance screen as full-screen modal
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (context.mounted) {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                fullscreenDialog: true,
+                builder: (context) => ShiftAcceptanceScreen(
+                  shiftOverview: ShiftOverview(
+                    shiftId: shiftState.assignedRouteId ?? '',
+                    startTime: DateTime.now(),
+                    estimatedEndTime: DateTime.now().add(
+                      Duration(
+                        hours: (shiftState.totalBins * 0.25).ceil(),
+                      ),
+                    ),
+                    totalBins: shiftState.totalBins,
+                    totalDistanceKm: _calculateTotalDistance(
+                      shiftState.routeBins,
+                    ),
+                    routeBins: shiftState.routeBins,
+                    routeName: 'Route ${shiftState.assignedRouteId ?? ''}',
+                  ),
+                  onAccept: () async {
+                    AppLogger.general('🚀 SHIFT ACCEPTED - Starting shift');
+
+                    // Close modal first
+                    Navigator.pop(context);
+
+                    // Show loading overlay
+                    EasyLoading.show(
+                      status: 'Starting shift...',
+                      maskType: EasyLoadingMaskType.black,
+                    );
+
+                    try {
+                      // Start the shift
+                      await ref
+                          .read(shiftNotifierProvider.notifier)
+                          .startShift();
+
+                      // Hide loading
+                      await EasyLoading.dismiss();
+
+                      // Navigate to navigation page
+                      if (context.mounted) {
+                        context.push('/navigation');
+                      }
+                    } catch (e) {
+                      AppLogger.general('❌ SHIFT START ERROR: $e');
+
+                      // Hide loading
+                      await EasyLoading.dismiss();
+
+                      // Show error
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text('Failed to start shift: $e'),
+                            backgroundColor: Colors.red,
+                          ),
+                        );
+                      }
+                    }
+                  },
+                  onDecline: () {
+                    AppLogger.general('❌ SHIFT DECLINED - Closing modal');
+                    Navigator.pop(context);
+                    // Reset status tracking so it can be shown again if needed
+                    previousShiftStatus.value = null;
+                  },
+                ),
+              ),
+            );
+          }
+        });
+      } else {
+        // Update previous status for next check
+        previousShiftStatus.value = shiftState.status;
+      }
+
+      return null;
+    }, [shiftState.status]);
 
     // Calculate bearing from GPS movement (for current location arrow rotation)
     useEffect(() {
@@ -1002,7 +1098,7 @@ class DriverMapPage extends HookConsumerWidget {
                           right: 0,
                           child: AnimatedShiftTransitionWithSlide(
                             useSlideAnimation: true, // Use slide-up animation for bottom content
-                            hasActiveShift: shiftState.status == ShiftStatus.ready,
+                            hasActiveShift: false, // Lyft-style modal handles shift acceptance now
                             emptyState: NoShiftEmptyState(
                               onRefresh: () async {
                                 // Refresh shift status from backend
@@ -1019,7 +1115,8 @@ class DriverMapPage extends HookConsumerWidget {
                               // TODO: Get next shift time from backend if available
                               nextShiftTime: null,
                             ),
-                            activeRouteCard: PreShiftOverviewCard(
+                            // Replaced with Lyft-style full-screen modal (see useEffect above)
+                            activeRouteCard: const SizedBox.shrink(), /* PreShiftOverviewCard(
                             shiftOverview: ShiftOverview(
                               shiftId: shiftState.assignedRouteId ?? '',
                               startTime: DateTime.now(),
@@ -1085,7 +1182,7 @@ class DriverMapPage extends HookConsumerWidget {
                                 }
                               }
                             },
-                          ),
+                          ), */
                             ), // End of AnimatedShiftTransition
                         ),
                       // Active shift bottom sheet

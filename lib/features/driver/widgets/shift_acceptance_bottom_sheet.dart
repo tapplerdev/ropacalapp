@@ -109,22 +109,6 @@ class ShiftAcceptanceBottomSheet extends StatelessWidget {
                                       ),
                                     ),
                                   ],
-                                  Text(
-                                    '•',
-                                    style: TextStyle(
-                                      fontSize: 18,
-                                      color: Colors.grey.shade400,
-                                    ),
-                                  ),
-                                  Text(
-                                    'Total time: '
-                                    '${shiftOverview.durationFormatted}',
-                                    style: TextStyle(
-                                      fontSize: 15,
-                                      fontWeight: FontWeight.w500,
-                                      color: Colors.grey.shade600,
-                                    ),
-                                  ),
                                 ],
                               ),
                             ),

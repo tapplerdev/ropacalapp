@@ -51,9 +51,9 @@ Future<void> showShiftCancellationDialog(
 
   // Auto-dismiss after 2.5 seconds and pop back to home
   await Future.delayed(const Duration(milliseconds: 2500));
-  if (context.mounted) {
+  if (context.mounted && Navigator.of(context).canPop()) {
     Navigator.of(context).pop(); // Close dialog
-    if (context.mounted) {
+    if (context.mounted && Navigator.of(context).canPop()) {
       Navigator.of(context).pop(); // Pop navigation page with animation
     }
   }

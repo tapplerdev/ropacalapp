@@ -50,7 +50,7 @@ Future<void> showShiftSummaryDialog(
           if (shift.completedBins > 0)
             Text(
               isCompleted
-                  ? '<‰ Great job! All bins collected!'
+                  ? '<ï¿½ Great job! All bins collected!'
                   : '=M Good work today!',
               style: TextStyle(
                 fontSize: 14,
@@ -64,7 +64,7 @@ Future<void> showShiftSummaryDialog(
           onPressed: () {
             Navigator.of(dialogContext).pop();
             // Navigate back to driver home with reverse slide animation
-            if (context.mounted) {
+            if (context.mounted && Navigator.of(context).canPop()) {
               Navigator.of(context).pop();
             }
           },

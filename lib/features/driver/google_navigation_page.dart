@@ -55,8 +55,10 @@ class GoogleNavigationPage extends HookConsumerWidget {
       if (initialShift.status == ShiftStatus.inactive) {
         AppLogger.general('⚠️  No active shift on mount - navigating back to home');
         WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (context.mounted) {
+          if (context.mounted && Navigator.of(context).canPop()) {
             Navigator.of(context).pop();
+          } else if (context.mounted) {
+            context.go('/driver');
           }
         });
       }
@@ -261,7 +263,13 @@ class GoogleNavigationPage extends HookConsumerWidget {
                       ),
                     ),
                     ElevatedButton.icon(
-                      onPressed: () => Navigator.of(context).pop(),
+                      onPressed: () {
+                        if (Navigator.of(context).canPop()) {
+                          Navigator.of(context).pop();
+                        } else {
+                          context.go('/driver');
+                        }
+                      },
                       icon: const Icon(Icons.arrow_back),
                       label: const Text('Back to Home'),
                     ),
@@ -895,7 +903,12 @@ class GoogleNavigationPage extends HookConsumerWidget {
       if (isDeleted) {
         // Scenario 3: Deleted/nuked → Just pop immediately, no dialog
         AppLogger.general('   📤 Auto-popping to home (shift deleted)');
-        Navigator.of(context).pop();
+        if (Navigator.of(context).canPop()) {
+          Navigator.of(context).pop();
+        } else {
+          AppLogger.general('   ⚠️  Cannot pop - already at root, using context.go()');
+          context.go('/driver');
+        }
       } else if (shift.status == ShiftStatus.cancelled) {
         // Scenario 2: Cancelled → Show brief dialog, auto-dismiss, then pop
         AppLogger.general('   📤 Showing cancellation notice (auto-dismiss)');

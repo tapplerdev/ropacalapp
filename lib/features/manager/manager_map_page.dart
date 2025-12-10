@@ -24,8 +24,6 @@ class ManagerMapPage extends HookConsumerWidget {
     final cachedBinMarkers = useState<List<MarkerOptions>?>(null);
     // Cache driver marker icons to avoid recreating them (performance optimization)
     final cachedDriverIcons = useState<Map<String, ImageDescriptor>>({});
-    // Track last position to avoid unnecessary marker updates
-    final lastDriverPositions = useState<Map<String, LatLng>>({});
 
     return Scaffold(
       body: driversAsync.when(
@@ -113,7 +111,7 @@ class ManagerMapPage extends HookConsumerWidget {
             [binsAsync.hasValue],
           );
 
-          // Effect 2: Update driver markers (with icon caching & position filtering)
+          // Effect 2: Update driver markers (backend handles filtering at 20m)
           useEffect(
             () {
               if (mapController.value == null || cachedBinMarkers.value == null) {
@@ -123,42 +121,13 @@ class ManagerMapPage extends HookConsumerWidget {
               // Build markers with cached bins
               () async {
                 try {
-                  // Check if any driver position actually changed significantly (> 5m)
-                  bool hasSignificantChange = false;
-                  for (final driver in activeDrivers) {
-                    final location = driver.lastLocation!;
-                    final newPos = LatLng(
-                      latitude: location.latitude,
-                      longitude: location.longitude,
-                    );
-                    final lastPos = lastDriverPositions.value[driver.id];
-
-                    if (lastPos == null ||
-                        _calculateDistance(lastPos, newPos) > 5) {
-                      hasSignificantChange = true;
-                      break;
-                    }
-                  }
-
-                  // Skip update if no significant position changes
-                  if (!hasSignificantChange && lastDriverPositions.value.isNotEmpty) {
-                    AppLogger.map('🔇 Skipping marker update - no significant movement');
-                    return;
-                  }
-
                   final allMarkerOptions = <MarkerOptions>[];
-                  final newPositions = <String, LatLng>{};
 
                   AppLogger.map('🔄 Updating ${activeDrivers.length} driver markers...');
 
-                  // 1. Add driver markers with CACHED icons
+                  // 1. Add driver markers with CACHED icons (backend already filtered at 20m)
                   for (final driver in activeDrivers) {
                     final location = driver.lastLocation!;
-                    final newPos = LatLng(
-                      latitude: location.latitude,
-                      longitude: location.longitude,
-                    );
-                    newPositions[driver.id] = newPos;
 
                     // Get or create cached driver icon
                     ImageDescriptor? driverIcon = cachedDriverIcons.value[driver.id];
@@ -174,7 +143,10 @@ class ManagerMapPage extends HookConsumerWidget {
 
                     allMarkerOptions.add(
                       MarkerOptions(
-                        position: newPos,
+                        position: LatLng(
+                          latitude: location.latitude,
+                          longitude: location.longitude,
+                        ),
                         infoWindow: InfoWindow(
                           title: driver.name,
                           snippet:
@@ -188,9 +160,6 @@ class ManagerMapPage extends HookConsumerWidget {
                       ),
                     );
                   }
-
-                  // Update last positions
-                  lastDriverPositions.value = newPositions;
 
                   // 2. Reuse cached bin markers
                   allMarkerOptions.addAll(cachedBinMarkers.value!);
@@ -349,21 +318,4 @@ class ManagerMapPage extends HookConsumerWidget {
       ),
     );
   }
-}
-
-/// Calculate distance between two LatLng positions (in meters)
-double _calculateDistance(LatLng start, LatLng end) {
-  const earthRadius = 6371000.0; // meters
-
-  final lat1 = start.latitude * (3.14159265359 / 180.0);
-  final lat2 = end.latitude * (3.14159265359 / 180.0);
-  final deltaLat = (end.latitude - start.latitude) * (3.14159265359 / 180.0);
-  final deltaLng = (end.longitude - start.longitude) * (3.14159265359 / 180.0);
-
-  final a = (deltaLat / 2).sin() * (deltaLat / 2).sin() +
-      lat1.cos() * lat2.cos() * (deltaLng / 2).sin() * (deltaLng / 2).sin();
-
-  final c = 2 * a.sqrt().atan2((1 - a).sqrt());
-
-  return earthRadius * c;
 }

@@ -1,29 +1,27 @@
-import 'dart:async';
 import 'dart:math';
-import 'package:flutter/material.dart';
-import 'package:flutter/scheduler.dart';
+import 'package:flutter/foundation.dart';
+import 'package:flutter/animation.dart';
 import 'package:google_navigation_flutter/google_navigation_flutter.dart';
 import 'package:ropacalapp/core/utils/app_logger.dart';
 
 /// Service for animating driver markers smoothly (Uber-style)
 ///
-/// Uses Flutter's Ticker to interpolate marker positions at 60fps,
-/// creating smooth animations between GPS updates instead of instant "teleportation".
+/// Uses linear interpolation to smoothly transition markers between GPS updates
+/// instead of instant "teleportation".
 ///
 /// Inspired by flutter_animarker's approach but adapted for google_navigation_flutter.
 class MarkerAnimationService {
-  final TickerProvider _tickerProvider;
-
   // Animation state
   final Map<String, _DriverMarkerAnimation> _activeAnimations = {};
-  Ticker? _ticker;
-  DateTime? _lastFrameTime;
+
+  // Notifier for when animations become active/inactive
+  final animationStateNotifier = ValueNotifier<bool>(false);
 
   // Animation configuration
   static const Duration _animationDuration = Duration(milliseconds: 800);
   static const Curve _animationCurve = Curves.easeInOut;
 
-  MarkerAnimationService(this._tickerProvider);
+  MarkerAnimationService();
 
   /// Start animating a driver marker from current position to new position
   void animateMarker({
@@ -54,8 +52,11 @@ class MarkerAnimationService {
       duration: _animationDuration,
     );
 
-    // Start ticker if not already running
-    _startTicker();
+    // Notify listeners that animations are active
+    if (!animationStateNotifier.value) {
+      animationStateNotifier.value = true;
+      AppLogger.map('🔔 Animation state notifier set to TRUE');
+    }
   }
 
   /// Get interpolated positions for all animating drivers
@@ -90,9 +91,10 @@ class MarkerAnimationService {
       _activeAnimations.remove(driverId);
     }
 
-    // Stop ticker if no more animations
-    if (_activeAnimations.isEmpty) {
-      _stopTicker();
+    // Update notifier if all animations complete
+    if (_activeAnimations.isEmpty && animationStateNotifier.value) {
+      animationStateNotifier.value = false;
+      AppLogger.map('🔔 Animation state notifier set to FALSE');
     }
 
     return positions;
@@ -100,31 +102,6 @@ class MarkerAnimationService {
 
   /// Check if any animations are currently running
   bool get hasActiveAnimations => _activeAnimations.isNotEmpty;
-
-  /// Start the animation ticker (runs at ~60fps)
-  void _startTicker() {
-    if (_ticker != null && _ticker!.isActive) return;
-
-    _ticker = _tickerProvider.createTicker(_onTick);
-    _lastFrameTime = DateTime.now();
-    _ticker!.start();
-    AppLogger.map('▶️  Animation ticker started');
-  }
-
-  /// Stop the animation ticker
-  void _stopTicker() {
-    _ticker?.stop();
-    _ticker?.dispose();
-    _ticker = null;
-    _lastFrameTime = null;
-    AppLogger.map('⏹️  Animation ticker stopped');
-  }
-
-  /// Ticker callback - called every frame (~60fps)
-  void _onTick(Duration elapsed) {
-    // This is handled externally - we just track frame time
-    _lastFrameTime = DateTime.now();
-  }
 
   /// Linear interpolation between two LatLng positions
   LatLng _lerpLatLng(LatLng start, LatLng end, double t) {
@@ -153,8 +130,8 @@ class MarkerAnimationService {
 
   /// Clean up resources
   void dispose() {
-    _stopTicker();
     _activeAnimations.clear();
+    animationStateNotifier.dispose();
   }
 }
 

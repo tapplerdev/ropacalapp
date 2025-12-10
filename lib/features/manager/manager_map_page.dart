@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:google_navigation_flutter/google_navigation_flutter.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
@@ -28,24 +29,23 @@ class ManagerMapPage extends HookConsumerWidget {
     // Track current driver positions for animation
     final currentDriverPositions = useState<Map<String, LatLng>>({});
 
-    // Create animation service (with TickerProvider from hooks)
-    final tickerProvider = useSingleTickerProvider();
+    // Create animation service
     final animationService = useMemoized(
-      () => MarkerAnimationService(tickerProvider),
-      [tickerProvider],
+      () => MarkerAnimationService(),
+      [],
     );
 
-    // Animation ticker to update markers at 60fps
-    useEffect(() {
-      void onTick() {
-        if (animationService.hasActiveAnimations && mapController.value != null) {
-          // Trigger rebuild to update markers
-          // Flutter hooks will handle this
-        }
-      }
+    // Listen to animation state changes (triggers ticker start/stop)
+    final hasActiveAnimations = useValueListenable(animationService.animationStateNotifier);
 
-      return null;
-    }, [animationService, mapController.value]);
+    // Ticker provider (must be at top level, not in effect)
+    final tickerProvider = useSingleTickerProvider();
+
+    // Flag to prevent concurrent marker updates
+    final isUpdatingMarkers = useState<bool>(false);
+
+    // Store the ticker reference (created once, reused)
+    final ticker = useRef<Ticker?>(null);
 
     return Scaffold(
       body: driversAsync.when(
@@ -180,7 +180,13 @@ class ManagerMapPage extends HookConsumerWidget {
 
               // Function to update markers on map
               Future<void> updateMarkersOnMap() async {
+                // Prevent concurrent updates
+                if (isUpdatingMarkers.value) {
+                  return;
+                }
+
                 try {
+                  isUpdatingMarkers.value = true;
                   final allMarkerOptions = <MarkerOptions>[];
 
                   // Get current positions (either animated or final)
@@ -233,27 +239,46 @@ class ManagerMapPage extends HookConsumerWidget {
                   await mapController.value!.addMarkers(allMarkerOptions);
                 } catch (e) {
                   AppLogger.map('Failed to update markers: $e');
+                } finally {
+                  isUpdatingMarkers.value = false;
                 }
               }
 
-              // If animation is active, use ticker to update at 60fps
-              if (animationService.hasActiveAnimations) {
-                final ticker = tickerProvider.createTicker((elapsed) {
-                  updateMarkersOnMap();
+              // Create ticker once if needed
+              if (ticker.value == null) {
+                ticker.value = tickerProvider.createTicker((elapsed) {
+                  if (!isUpdatingMarkers.value) {
+                    updateMarkersOnMap();
+                  }
                 });
-                ticker.start();
-
-                return () {
-                  ticker.stop();
-                  ticker.dispose();
-                };
-              } else {
-                // No animation - just update once
-                updateMarkersOnMap();
-                return null;
+                AppLogger.map('🎬 Created persistent ticker');
               }
+
+              // Start or stop ticker based on animation state
+              if (hasActiveAnimations && !ticker.value!.isActive) {
+                AppLogger.map('🎬 Starting ticker for 60fps updates');
+                ticker.value!.start();
+              } else if (!hasActiveAnimations && ticker.value!.isActive) {
+                AppLogger.map('🎬 Stopping ticker');
+                ticker.value!.stop();
+              }
+
+              // If not animating, update once
+              if (!hasActiveAnimations) {
+                AppLogger.map('📍 No animation, updating markers once');
+                updateMarkersOnMap();
+              }
+
+              return () {
+                // Cleanup on unmount
+                if (ticker.value != null) {
+                  AppLogger.map('🎬 Disposing ticker on unmount');
+                  ticker.value!.dispose();
+                  ticker.value = null;
+                }
+              };
             },
-            [activeDrivers, cachedBinMarkers.value, mapController.value, animationService.hasActiveAnimations],
+            [activeDrivers, cachedBinMarkers.value, mapController.value, hasActiveAnimations],
           );
 
           return Stack(

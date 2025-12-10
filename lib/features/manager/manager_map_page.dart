@@ -155,7 +155,6 @@ class ManagerMapPage extends HookConsumerWidget {
                         icon: driverIcon,
                         anchor: const MarkerAnchor(u: 0.5, v: 0.5),
                         flat: true,
-                        rotation: location.heading ?? 0,  // Point marker in direction of travel
                         zIndex: 10000.0,
                       ),
                     );

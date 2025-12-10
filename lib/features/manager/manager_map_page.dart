@@ -10,6 +10,7 @@ import 'package:ropacalapp/providers/location_provider.dart';
 import 'package:ropacalapp/features/driver/widgets/circular_map_button.dart';
 import 'package:ropacalapp/features/driver/notifications_page.dart';
 import 'package:ropacalapp/core/services/google_navigation_marker_service.dart';
+import 'package:ropacalapp/core/services/marker_animation_service.dart';
 
 /// Manager dashboard map showing all active drivers
 class ManagerMapPage extends HookConsumerWidget {
@@ -24,6 +25,27 @@ class ManagerMapPage extends HookConsumerWidget {
     final cachedBinMarkers = useState<List<MarkerOptions>?>(null);
     // Cache driver marker icons to avoid recreating them (performance optimization)
     final cachedDriverIcons = useState<Map<String, ImageDescriptor>>({});
+    // Track current driver positions for animation
+    final currentDriverPositions = useState<Map<String, LatLng>>({});
+
+    // Create animation service (with TickerProvider from hooks)
+    final tickerProvider = useSingleTickerProvider();
+    final animationService = useMemoized(
+      () => MarkerAnimationService(tickerProvider),
+      [tickerProvider],
+    );
+
+    // Animation ticker to update markers at 60fps
+    useEffect(() {
+      void onTick() {
+        if (animationService.hasActiveAnimations && mapController.value != null) {
+          // Trigger rebuild to update markers
+          // Flutter hooks will handle this
+        }
+      }
+
+      return null;
+    }, [animationService, mapController.value]);
 
     return Scaffold(
       body: driversAsync.when(
@@ -111,23 +133,69 @@ class ManagerMapPage extends HookConsumerWidget {
             [binsAsync.hasValue],
           );
 
-          // Effect 2: Update driver markers (backend handles filtering at 20m)
+          // Effect 2: Start animations when driver positions change
+          useEffect(
+            () {
+              if (activeDrivers.isEmpty) return null;
+
+              // Start animations for any changed positions
+              for (final driver in activeDrivers) {
+                final location = driver.lastLocation!;
+                final newPosition = LatLng(
+                  latitude: location.latitude,
+                  longitude: location.longitude,
+                );
+
+                final currentPosition = currentDriverPositions.value[driver.driverId];
+
+                // Start animation if position changed
+                if (currentPosition == null ||
+                    currentPosition.latitude != newPosition.latitude ||
+                    currentPosition.longitude != newPosition.longitude) {
+                  animationService.animateMarker(
+                    driverId: driver.driverId,
+                    newPosition: newPosition,
+                    currentPosition: currentPosition,
+                  );
+
+                  // Update stored position
+                  currentDriverPositions.value = {
+                    ...currentDriverPositions.value,
+                    driver.driverId: newPosition,
+                  };
+                }
+              }
+
+              return null;
+            },
+            [activeDrivers],
+          );
+
+          // Effect 3: Update markers (continuously during animation, or once when animation completes)
           useEffect(
             () {
               if (mapController.value == null || cachedBinMarkers.value == null) {
                 return null;
               }
 
-              // Build markers with cached bins
-              () async {
+              // Function to update markers on map
+              Future<void> updateMarkersOnMap() async {
                 try {
                   final allMarkerOptions = <MarkerOptions>[];
 
-                  AppLogger.map('🔄 Updating ${activeDrivers.length} driver markers...');
+                  // Get current positions (either animated or final)
+                  final interpolatedPositions = animationService.getInterpolatedPositions();
 
-                  // 1. Add driver markers with CACHED icons (backend already filtered at 20m)
+                  // Add driver markers with CACHED icons
                   for (final driver in activeDrivers) {
                     final location = driver.lastLocation!;
+
+                    // Use interpolated position if animating, otherwise use real position
+                    final position = interpolatedPositions[driver.driverId] ??
+                        LatLng(
+                          latitude: location.latitude,
+                          longitude: location.longitude,
+                        );
 
                     // Get or create cached driver icon
                     ImageDescriptor? driverIcon = cachedDriverIcons.value[driver.driverId];
@@ -143,10 +211,7 @@ class ManagerMapPage extends HookConsumerWidget {
 
                     allMarkerOptions.add(
                       MarkerOptions(
-                        position: LatLng(
-                          latitude: location.latitude,
-                          longitude: location.longitude,
-                        ),
+                        position: position,
                         infoWindow: InfoWindow(
                           title: driver.name,
                           snippet:
@@ -160,21 +225,35 @@ class ManagerMapPage extends HookConsumerWidget {
                     );
                   }
 
-                  // 2. Reuse cached bin markers
+                  // Reuse cached bin markers
                   allMarkerOptions.addAll(cachedBinMarkers.value!);
 
-                  // Clear and add all markers in one batch
+                  // Update map (this is called at 60fps during animation)
                   await mapController.value!.clearMarkers();
                   await mapController.value!.addMarkers(allMarkerOptions);
-                  AppLogger.map('✅ Updated markers (${activeDrivers.length} drivers, ${cachedBinMarkers.value!.length} bins)');
                 } catch (e) {
                   AppLogger.map('Failed to update markers: $e');
                 }
-              }();
+              }
 
-              return null;
+              // If animation is active, use ticker to update at 60fps
+              if (animationService.hasActiveAnimations) {
+                final ticker = tickerProvider.createTicker((elapsed) {
+                  updateMarkersOnMap();
+                });
+                ticker.start();
+
+                return () {
+                  ticker.stop();
+                  ticker.dispose();
+                };
+              } else {
+                // No animation - just update once
+                updateMarkersOnMap();
+                return null;
+              }
             },
-            [activeDrivers, cachedBinMarkers.value, mapController.value],
+            [activeDrivers, cachedBinMarkers.value, mapController.value, animationService.hasActiveAnimations],
           );
 
           return Stack(

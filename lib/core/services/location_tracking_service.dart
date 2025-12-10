@@ -4,6 +4,7 @@ import 'dart:math';
 import 'package:geolocator/geolocator.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:ropacalapp/core/utils/app_logger.dart';
+import 'package:ropacalapp/providers/auth_provider.dart';
 import 'package:ropacalapp/services/websocket_service.dart';
 
 /// Simple location tracking service for drivers

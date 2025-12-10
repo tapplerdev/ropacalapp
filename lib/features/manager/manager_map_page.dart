@@ -130,14 +130,14 @@ class ManagerMapPage extends HookConsumerWidget {
                     final location = driver.lastLocation!;
 
                     // Get or create cached driver icon
-                    ImageDescriptor? driverIcon = cachedDriverIcons.value[driver.id];
+                    ImageDescriptor? driverIcon = cachedDriverIcons.value[driver.driverId];
                     if (driverIcon == null) {
                       AppLogger.map('🎨 Creating new icon for driver: ${driver.name}');
                       driverIcon = await GoogleNavigationMarkerService
                           .createDriverMarkerIcon(driver.name);
                       cachedDriverIcons.value = {
                         ...cachedDriverIcons.value,
-                        driver.id: driverIcon,
+                        driver.driverId: driverIcon,
                       };
                     }
 

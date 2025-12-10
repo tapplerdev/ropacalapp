@@ -19,19 +19,8 @@ class ShiftAcceptanceBottomSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Calculate average fill percentage for urgency indicator
-    final avgFillPercentage = shiftOverview.routeBins.isEmpty
-        ? 0
-        : shiftOverview.routeBins
-                .map((b) => b.fillPercentage)
-                .reduce((a, b) => a + b) ~/
-            shiftOverview.routeBins.length;
-
-    final isUrgent = avgFillPercentage >= 80;
-    final isMedium = avgFillPercentage >= 50 && avgFillPercentage < 80;
-
     // Bin count label
-    final binLabel = shiftOverview.totalBins == 1 ? 'Bin' : 'Bins';
+    final binLabel = shiftOverview.totalBins == 1 ? 'bin' : 'bins';
 
     return Container(
       constraints: BoxConstraints(
@@ -74,87 +63,49 @@ class ShiftAcceptanceBottomSheet extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        // Inline summary with urgency badge
-                        Row(
+                        // Main title
+                        const Text(
+                          'New Route Available',
+                          style: TextStyle(
+                            fontSize: 22,
+                            fontWeight: FontWeight.w700,
+                            height: 1.0,
+                            color: Color(0xFF1F2937),
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        // Subtitle with bin count and distance
+                        Wrap(
+                          crossAxisAlignment: WrapCrossAlignment.center,
+                          spacing: 8,
+                          runSpacing: 4,
                           children: [
-                            Expanded(
-                              child: Wrap(
-                                crossAxisAlignment: WrapCrossAlignment.center,
-                                spacing: 8,
-                                runSpacing: 6,
-                                children: [
-                                  Text(
-                                    '${shiftOverview.totalBins} $binLabel',
-                                    style: const TextStyle(
-                                      fontSize: 20,
-                                      fontWeight: FontWeight.w700,
-                                      height: 1.0,
-                                    ),
-                                  ),
-                                  // Only show distance if > 0
-                                  if (shiftOverview.totalDistanceKm > 0) ...[
-                                    Text(
-                                      '•',
-                                      style: TextStyle(
-                                        fontSize: 18,
-                                        color: Colors.grey.shade400,
-                                      ),
-                                    ),
-                                    Text(
-                                      '${shiftOverview.distanceFormatted} away',
-                                      style: TextStyle(
-                                        fontSize: 15,
-                                        fontWeight: FontWeight.w500,
-                                        color: Colors.grey.shade600,
-                                      ),
-                                    ),
-                                  ],
-                                ],
+                            Text(
+                              '${shiftOverview.totalBins} $binLabel',
+                              style: TextStyle(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w500,
+                                color: Colors.grey.shade600,
                               ),
                             ),
-                            // Urgency badge
-                            if (isUrgent || isMedium)
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 10,
-                                  vertical: 5,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: isUrgent
-                                      ? Colors.red.shade50
-                                      : Colors.orange.shade50,
-                                  borderRadius: BorderRadius.circular(16),
-                                  border: Border.all(
-                                    color: isUrgent
-                                        ? Colors.red.shade200
-                                        : Colors.orange.shade200,
-                                    width: 1,
-                                  ),
-                                ),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Icon(
-                                      Icons.local_fire_department,
-                                      size: 14,
-                                      color:
-                                          isUrgent ? Colors.red : Colors.orange,
-                                    ),
-                                    const SizedBox(width: 4),
-                                    Text(
-                                      isUrgent ? 'URGENT' : 'MEDIUM',
-                                      style: TextStyle(
-                                        fontSize: 10,
-                                        fontWeight: FontWeight.w700,
-                                        letterSpacing: 0.5,
-                                        color: isUrgent
-                                            ? Colors.red.shade700
-                                            : Colors.orange.shade700,
-                                      ),
-                                    ),
-                                  ],
+                            // Only show distance if > 0
+                            if (shiftOverview.totalDistanceKm > 0) ...[
+                              Text(
+                                '•',
+                                style: TextStyle(
+                                  fontSize: 15,
+                                  color: Colors.grey.shade400,
                                 ),
                               ),
+                              Text(
+                                '${shiftOverview.distanceFormatted} away',
+                                style: TextStyle(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w500,
+                                  color: Colors.grey.shade600,
+                                ),
+                              ),
+                            ],
                           ],
                         ),
                       ],
@@ -186,72 +137,32 @@ class ShiftAcceptanceBottomSheet extends StatelessWidget {
             ),
           ),
 
-          // Fixed bottom buttons (side-by-side)
+          // Fixed bottom start button
           Container(
-            padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              border: Border(
-                top: BorderSide(
-                  color: Colors.grey.shade200,
-                  width: 1,
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+            color: Colors.white,
+            child: SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: onAccept,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.successGreen,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  elevation: 0,
+                ),
+                child: const Text(
+                  'Start',
+                  style: TextStyle(
+                    fontSize: 17,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 0.5,
+                  ),
                 ),
               ),
-            ),
-            child: Row(
-              children: [
-                // Accept button (50%)
-                Expanded(
-                  child: ElevatedButton(
-                    onPressed: onAccept,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.primaryBlue,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      elevation: 0,
-                    ),
-                    child: const Text(
-                      'Accept',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: 0.3,
-                      ),
-                    ),
-                  ),
-                ),
-
-                const SizedBox(width: 12),
-
-                // Decline button (50%)
-                Expanded(
-                  child: OutlinedButton(
-                    onPressed: onDecline,
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: Colors.grey.shade700,
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      side: BorderSide(
-                        color: Colors.grey.shade300,
-                        width: 1.5,
-                      ),
-                    ),
-                    child: const Text(
-                      'Decline',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                        letterSpacing: 0.3,
-                      ),
-                    ),
-                  ),
-                ),
-              ],
             ),
           ),
         ],
@@ -324,7 +235,7 @@ class ShiftAcceptanceBottomSheet extends StatelessWidget {
                   Text(
                     'Current Location',
                     style: TextStyle(
-                      fontSize: 14,
+                      fontSize: 15,
                       fontWeight: FontWeight.w600,
                       color: Colors.grey.shade700,
                     ),
@@ -339,18 +250,20 @@ class ShiftAcceptanceBottomSheet extends StatelessWidget {
           children: [
             SizedBox(
               width: 28,
-              child: Container(
-                width: 2,
-                height: 28,
-                margin: const EdgeInsets.only(top: 4, bottom: 4),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [
-                      Colors.grey.shade300,
-                      Colors.grey.shade200,
-                    ],
+              child: Center(
+                child: Container(
+                  width: 2,
+                  height: 28,
+                  margin: const EdgeInsets.symmetric(vertical: 4),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        Colors.grey.shade400,
+                        Colors.grey.shade300,
+                      ],
+                    ),
                   ),
                 ),
               ),
@@ -367,8 +280,6 @@ class ShiftAcceptanceBottomSheet extends StatelessWidget {
     required bool isLast,
   }) {
     final fillColor = _getFillColor(bin.fillPercentage);
-    final isUrgent = bin.fillPercentage >= 80;
-    final isMedium = bin.fillPercentage >= 50 && bin.fillPercentage < 80;
 
     return Padding(
       padding: EdgeInsets.only(bottom: isLast ? 0 : 8),
@@ -407,33 +318,17 @@ class ShiftAcceptanceBottomSheet extends StatelessWidget {
 
               const SizedBox(width: 12),
 
-              // Street name with priority emoji - aligned with badge center
+              // Street name - aligned with badge center
               Expanded(
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        bin.currentStreet,
-                        style: const TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w600,
-                          height: 1.3,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                    if (isUrgent)
-                      const Text(
-                        '🔴',
-                        style: TextStyle(fontSize: 16),
-                      )
-                    else if (isMedium)
-                      const Text(
-                        '🟠',
-                        style: TextStyle(fontSize: 16),
-                      ),
-                  ],
+                child: Text(
+                  bin.currentStreet,
+                  style: const TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                    height: 1.3,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
             ],
@@ -469,22 +364,24 @@ class ShiftAcceptanceBottomSheet extends StatelessWidget {
           // Connecting line (if not last)
           if (!isLast)
             Padding(
-              padding: const EdgeInsets.only(top: 4, bottom: 4),
+              padding: const EdgeInsets.symmetric(vertical: 4),
               child: Row(
                 children: [
                   SizedBox(
                     width: 28,
-                    child: Container(
-                      width: 2,
-                      height: 40,
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.topCenter,
-                          end: Alignment.bottomCenter,
-                          colors: [
-                            fillColor.withValues(alpha: 0.3),
-                            Colors.grey.shade200,
-                          ],
+                    child: Center(
+                      child: Container(
+                        width: 2,
+                        height: 40,
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
+                            colors: [
+                              fillColor.withValues(alpha: 0.4),
+                              Colors.grey.shade300,
+                            ],
+                          ),
                         ),
                       ),
                     ),

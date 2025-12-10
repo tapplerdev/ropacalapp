@@ -2,10 +2,12 @@ import 'dart:io';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:ropacalapp/core/services/api_service.dart';
 import 'package:ropacalapp/models/user.dart';
+import 'package:ropacalapp/models/driver_location.dart';
 import 'package:ropacalapp/services/fcm_service.dart';
 import 'package:ropacalapp/services/shift_service.dart';
 import 'package:ropacalapp/services/websocket_service.dart';
 import 'package:ropacalapp/providers/shift_provider.dart';
+import 'package:ropacalapp/providers/drivers_provider.dart';
 import 'package:ropacalapp/providers/simulation_provider.dart';
 import 'package:ropacalapp/core/utils/app_logger.dart';
 
@@ -51,6 +53,38 @@ class WebSocketManager extends _$WebSocketManager {
         '🗑️  Shift deleted via WebSocket: ${data['shift_id']}',
       );
       ref.read(shiftNotifierProvider.notifier).refreshShift();
+    };
+
+    _service!.onDriverLocationUpdate = (data) {
+      try {
+        AppLogger.general('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+        AppLogger.general('🟢 AUTH_PROVIDER: onDriverLocationUpdate CALLBACK TRIGGERED');
+        AppLogger.general('   Raw data: $data');
+        AppLogger.general('   Data type: ${data.runtimeType}');
+        AppLogger.general('   Data keys: ${data.keys.toList()}');
+
+        AppLogger.general('   📊 Getting driversNotifier...');
+        final driversNotifier = ref.read(driversNotifierProvider.notifier);
+        AppLogger.general('   ✅ Got driversNotifier: ${driversNotifier.runtimeType}');
+
+        AppLogger.general('   🔄 Parsing DriverLocation from JSON...');
+        final location = DriverLocation.fromJson(data);
+        AppLogger.general('   ✅ Parsed location:');
+        AppLogger.general('      Driver ID: ${location.driverId}');
+        AppLogger.general('      Lat: ${location.latitude}, Lng: ${location.longitude}');
+        AppLogger.general('      Timestamp: ${location.timestamp}');
+
+        AppLogger.general('   📍 Calling driversNotifier.updateDriverLocation()...');
+        driversNotifier.updateDriverLocation(location);
+        AppLogger.general('   ✅ Called updateDriverLocation successfully');
+        AppLogger.general('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      } catch (e, stack) {
+        AppLogger.general('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+        AppLogger.general('❌❌❌ ERROR in AUTH_PROVIDER callback');
+        AppLogger.general('   Error: $e');
+        AppLogger.general('   Stack: $stack');
+        AppLogger.general('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      }
     };
 
     _service!.onConnected = () {

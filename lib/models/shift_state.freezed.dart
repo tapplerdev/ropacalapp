@@ -24,6 +24,10 @@ mixin _$ShiftState {
   /// Current shift status
   ShiftStatus get status => throw _privateConstructorUsedError;
 
+  /// Shift ID (unique identifier for this shift instance)
+  @JsonKey(name: 'id')
+  String? get shiftId => throw _privateConstructorUsedError;
+
   /// When the shift started (clock in time)
   @JsonKey(name: 'start_time')
   @UnixTimestampConverter()
@@ -73,6 +77,7 @@ abstract class $ShiftStateCopyWith<$Res> {
   @useResult
   $Res call({
     ShiftStatus status,
+    @JsonKey(name: 'id') String? shiftId,
     @JsonKey(name: 'start_time') @UnixTimestampConverter() DateTime? startTime,
     @JsonKey(name: 'total_pause_seconds') int totalPauseSeconds,
     @JsonKey(name: 'pause_start_time')
@@ -101,6 +106,7 @@ class _$ShiftStateCopyWithImpl<$Res, $Val extends ShiftState>
   @override
   $Res call({
     Object? status = null,
+    Object? shiftId = freezed,
     Object? startTime = freezed,
     Object? totalPauseSeconds = null,
     Object? pauseStartTime = freezed,
@@ -115,6 +121,10 @@ class _$ShiftStateCopyWithImpl<$Res, $Val extends ShiftState>
                 ? _value.status
                 : status // ignore: cast_nullable_to_non_nullable
                       as ShiftStatus,
+            shiftId: freezed == shiftId
+                ? _value.shiftId
+                : shiftId // ignore: cast_nullable_to_non_nullable
+                      as String?,
             startTime: freezed == startTime
                 ? _value.startTime
                 : startTime // ignore: cast_nullable_to_non_nullable
@@ -160,6 +170,7 @@ abstract class _$$ShiftStateImplCopyWith<$Res>
   @useResult
   $Res call({
     ShiftStatus status,
+    @JsonKey(name: 'id') String? shiftId,
     @JsonKey(name: 'start_time') @UnixTimestampConverter() DateTime? startTime,
     @JsonKey(name: 'total_pause_seconds') int totalPauseSeconds,
     @JsonKey(name: 'pause_start_time')
@@ -187,6 +198,7 @@ class __$$ShiftStateImplCopyWithImpl<$Res>
   @override
   $Res call({
     Object? status = null,
+    Object? shiftId = freezed,
     Object? startTime = freezed,
     Object? totalPauseSeconds = null,
     Object? pauseStartTime = freezed,
@@ -201,6 +213,10 @@ class __$$ShiftStateImplCopyWithImpl<$Res>
             ? _value.status
             : status // ignore: cast_nullable_to_non_nullable
                   as ShiftStatus,
+        shiftId: freezed == shiftId
+            ? _value.shiftId
+            : shiftId // ignore: cast_nullable_to_non_nullable
+                  as String?,
         startTime: freezed == startTime
             ? _value.startTime
             : startTime // ignore: cast_nullable_to_non_nullable
@@ -239,6 +255,7 @@ class __$$ShiftStateImplCopyWithImpl<$Res>
 class _$ShiftStateImpl extends _ShiftState {
   const _$ShiftStateImpl({
     required this.status,
+    @JsonKey(name: 'id') this.shiftId,
     @JsonKey(name: 'start_time') @UnixTimestampConverter() this.startTime,
     @JsonKey(name: 'total_pause_seconds') this.totalPauseSeconds = 0,
     @JsonKey(name: 'pause_start_time')
@@ -257,6 +274,11 @@ class _$ShiftStateImpl extends _ShiftState {
   /// Current shift status
   @override
   final ShiftStatus status;
+
+  /// Shift ID (unique identifier for this shift instance)
+  @override
+  @JsonKey(name: 'id')
+  final String? shiftId;
 
   /// When the shift started (clock in time)
   @override
@@ -304,7 +326,7 @@ class _$ShiftStateImpl extends _ShiftState {
 
   @override
   String toString() {
-    return 'ShiftState(status: $status, startTime: $startTime, totalPauseSeconds: $totalPauseSeconds, pauseStartTime: $pauseStartTime, assignedRouteId: $assignedRouteId, totalBins: $totalBins, completedBins: $completedBins, routeBins: $routeBins)';
+    return 'ShiftState(status: $status, shiftId: $shiftId, startTime: $startTime, totalPauseSeconds: $totalPauseSeconds, pauseStartTime: $pauseStartTime, assignedRouteId: $assignedRouteId, totalBins: $totalBins, completedBins: $completedBins, routeBins: $routeBins)';
   }
 
   @override
@@ -313,6 +335,7 @@ class _$ShiftStateImpl extends _ShiftState {
         (other.runtimeType == runtimeType &&
             other is _$ShiftStateImpl &&
             (identical(other.status, status) || other.status == status) &&
+            (identical(other.shiftId, shiftId) || other.shiftId == shiftId) &&
             (identical(other.startTime, startTime) ||
                 other.startTime == startTime) &&
             (identical(other.totalPauseSeconds, totalPauseSeconds) ||
@@ -336,6 +359,7 @@ class _$ShiftStateImpl extends _ShiftState {
   int get hashCode => Object.hash(
     runtimeType,
     status,
+    shiftId,
     startTime,
     totalPauseSeconds,
     pauseStartTime,
@@ -362,6 +386,7 @@ class _$ShiftStateImpl extends _ShiftState {
 abstract class _ShiftState extends ShiftState {
   const factory _ShiftState({
     required final ShiftStatus status,
+    @JsonKey(name: 'id') final String? shiftId,
     @JsonKey(name: 'start_time')
     @UnixTimestampConverter()
     final DateTime? startTime,
@@ -382,6 +407,11 @@ abstract class _ShiftState extends ShiftState {
   /// Current shift status
   @override
   ShiftStatus get status;
+
+  /// Shift ID (unique identifier for this shift instance)
+  @override
+  @JsonKey(name: 'id')
+  String? get shiftId;
 
   /// When the shift started (clock in time)
   @override

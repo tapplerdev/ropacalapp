@@ -59,7 +59,7 @@ dependencies:
   flutter_dotenv: ^5.2.1  # Environment variables
 
   # Maps & Location
-  google_navigation_flutter: ^0.7.0  # Google Navigation SDK (includes Maps + Navigation)
+  google_navigation_flutter: ^0.7.0  # Google Navigation SDK (includes map view for both driver & manager)
   geolocator: ^13.0.4
   flutter_polyline_points: ^2.0.0
   flexible_polyline_dart: ^1.0.1  # HERE Maps polyline decoding

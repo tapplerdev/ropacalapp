@@ -130,6 +130,97 @@ class GoogleNavigationMarkerService {
     return registeredImage;
   }
 
+  /// Create custom driver marker icon (programmatically drawn)
+  static Future<ImageDescriptor> createDriverMarkerIcon(
+    String driverName,
+  ) async {
+    try {
+      AppLogger.navigation(
+        '📦 Creating driver marker for: $driverName',
+      );
+
+      // Create marker programmatically (high-res for sharp display)
+      final recorder = ui.PictureRecorder();
+      final canvas = Canvas(recorder);
+      const canvasSize = 120.0;
+      const renderScale = 3.0; // Render at 3x for high-DPI screens
+      const circleRadius = 20.0 * renderScale;
+      const borderWidth = 3.0 * renderScale;
+
+      final center = const Offset(
+        canvasSize * renderScale / 2,
+        circleRadius,
+      );
+
+      // Draw blue circle background
+      final paint = Paint()
+        ..color = Colors.blue
+        ..style = PaintingStyle.fill;
+
+      canvas.drawCircle(center, circleRadius, paint);
+
+      // Draw white border
+      final borderPaint = Paint()
+        ..color = Colors.white
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = borderWidth;
+
+      canvas.drawCircle(center, circleRadius - borderWidth / 2, borderPaint);
+
+      // Draw driver initial
+      final initial = driverName.isNotEmpty
+          ? driverName[0].toUpperCase()
+          : '?';
+
+      final textPainter = TextPainter(
+        text: TextSpan(
+          text: initial,
+          style: const TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
+            fontSize: 16.0 * renderScale,
+            fontFamily: 'sans-serif',
+          ),
+        ),
+        textDirection: TextDirection.ltr,
+        textAlign: TextAlign.center,
+      );
+
+      textPainter.layout();
+      textPainter.paint(
+        canvas,
+        Offset(
+          center.dx - textPainter.width / 2,
+          center.dy - textPainter.height / 2,
+        ),
+      );
+
+      final picture = recorder.endRecording();
+      final image = await picture.toImage(
+        (canvasSize * renderScale).toInt(),
+        (canvasSize * renderScale).toInt(),
+      );
+      final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
+
+      if (bytes == null) {
+        throw Exception('Failed to create driver marker icon');
+      }
+
+      final registeredImage = await registerBitmapImage(
+        bitmap: bytes,
+        imagePixelRatio: 3.0,
+        // No width/height - let imagePixelRatio calculate natural size
+      );
+
+      AppLogger.navigation('✅ Driver marker created for: $driverName');
+      return registeredImage;
+    } catch (e, stack) {
+      AppLogger.navigation('❌ Error creating driver marker: $e');
+      AppLogger.navigation('Stack: $stack');
+      rethrow;
+    }
+  }
+
   /// Get fill color based on fill percentage
   static Color getFillColor(int fillPercentage) {
     if (fillPercentage >= 80) {

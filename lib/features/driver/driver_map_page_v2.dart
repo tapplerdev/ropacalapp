@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
-import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:google_navigation_flutter/google_navigation_flutter.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:latlong2/latlong.dart' as latlong;
 import 'package:ropacalapp/core/constants/bin_constants.dart';
@@ -49,7 +49,7 @@ class DriverMapPageV2 extends HookConsumerWidget {
                 Marker(
                   markerId: MarkerId('bin_${bin.id}'),
                   position: LatLng(bin.latitude!, bin.longitude!),
-                  icon: customIcon ?? BitmapDescriptor.defaultMarker,
+                  icon: customIcon ?? MarkerIcon.defaultMarker,
                   onTap: () {
                     selectedBin.value = bin;
                   },

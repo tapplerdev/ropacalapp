@@ -19,6 +19,7 @@ class WebSocketService {
   Function(Map<String, dynamic>)? onRouteAssigned;
   Function(Map<String, dynamic>)? onShiftUpdate;
   Function(Map<String, dynamic>)? onShiftDeleted;
+  Function(Map<String, dynamic>)? onDriverLocationUpdate;
   Function()? onConnected;
   Function()? onDisconnected;
 
@@ -83,35 +84,62 @@ class WebSocketService {
   /// Handle incoming WebSocket message
   void _handleMessage(dynamic message) {
     try {
+      AppLogger.general('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      AppLogger.general('🔵 RAW WEBSOCKET MESSAGE RECEIVED');
+      AppLogger.general('   Raw message type: ${message.runtimeType}');
+      AppLogger.general('   Raw message preview: ${message.toString().substring(0, message.toString().length > 100 ? 100 : message.toString().length)}...');
+
       final data = jsonDecode(message as String) as Map<String, dynamic>;
       final type = data['type'] as String?;
 
-      AppLogger.general('WebSocket message received: $type');
+      AppLogger.general('   Parsed message type: $type');
+      AppLogger.general('   Full data keys: ${data.keys.toList()}');
 
       switch (type) {
         case 'pong':
           // Heartbeat response - do nothing
+          AppLogger.general('   ✅ Pong received (heartbeat)');
           break;
         case 'route_assigned':
+          AppLogger.general('   📨 Route assigned callback: ${onRouteAssigned != null ? "SET" : "NULL"}');
           onRouteAssigned?.call(data['data'] as Map<String, dynamic>);
           break;
         case 'shift_update':
+          AppLogger.general('   📨 Shift update callback: ${onShiftUpdate != null ? "SET" : "NULL"}');
           onShiftUpdate?.call(data['data'] as Map<String, dynamic>);
           break;
         case 'shift_deleted':
+          AppLogger.general('   🗑️  Shift deleted callback: ${onShiftDeleted != null ? "SET" : "NULL"}');
           onShiftDeleted?.call(data['data'] as Map<String, dynamic>);
+          break;
+        case 'driver_location_update':
+          // Manager-only: Update driver location on map
+          AppLogger.general('   📍 DRIVER LOCATION UPDATE MESSAGE');
+          AppLogger.general('   Callback status: ${onDriverLocationUpdate != null ? "✅ SET" : "❌ NULL"}');
+          AppLogger.general('   Location data: ${data['data']}');
+
+          if (onDriverLocationUpdate == null) {
+            AppLogger.general('   ❌❌❌ CRITICAL: onDriverLocationUpdate callback is NULL!');
+            AppLogger.general('   ❌ This means the callback was never registered!');
+          } else {
+            AppLogger.general('   ✅ Calling onDriverLocationUpdate callback...');
+            onDriverLocationUpdate?.call(data['data'] as Map<String, dynamic>);
+            AppLogger.general('   ✅ Callback executed');
+          }
           break;
         default:
           AppLogger.general(
-            'Unknown WebSocket message type: $type',
+            '   ⚠️  Unknown WebSocket message type: $type',
             level: AppLogger.warning,
           );
       }
-    } catch (e) {
+      AppLogger.general('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    } catch (e, stack) {
       AppLogger.general(
-        'Error parsing WebSocket message: $e',
+        '❌ Error parsing WebSocket message: $e',
         level: AppLogger.error,
       );
+      AppLogger.general('   Stack trace: $stack');
     }
   }
 
@@ -164,6 +192,26 @@ class WebSocketService {
       _channel?.sink.add(message);
     } catch (e) {
       AppLogger.general('Error sending ping: $e', level: AppLogger.error);
+    }
+  }
+
+  /// Send a message through WebSocket
+  void sendMessage(String message) {
+    if (!_isConnected || _channel == null) {
+      AppLogger.general(
+        'Cannot send message: WebSocket not connected',
+        level: AppLogger.warning,
+      );
+      return;
+    }
+
+    try {
+      _channel!.sink.add(message);
+    } catch (e) {
+      AppLogger.general(
+        'Error sending WebSocket message: $e',
+        level: AppLogger.error,
+      );
     }
   }
 

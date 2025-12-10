@@ -2,10 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:ropacalapp/features/driver/driver_map_page.dart';
 import 'package:ropacalapp/features/driver/google_navigation_page.dart';
+import 'package:ropacalapp/features/driver/shift_acceptance_page.dart';
 import 'package:ropacalapp/providers/shift_provider.dart';
 import 'package:ropacalapp/models/shift_state.dart';
 
-/// Wrapper that automatically switches to Google Navigation when shift is active
+/// Wrapper that automatically switches between map states based on shift status
+/// - ready: Shows shift acceptance page (Uber/Lyft pattern)
+/// - active: Shows Google Navigation
+/// - inactive: Shows regular map
 class DriverMapWrapper extends ConsumerWidget {
   const DriverMapWrapper({super.key});
 
@@ -13,12 +17,18 @@ class DriverMapWrapper extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final shiftState = ref.watch(shiftNotifierProvider);
 
-    // If shift is active and has bins, show Google Navigation SDK
-    if (shiftState.status == ShiftStatus.active && shiftState.routeBins.isNotEmpty) {
+    // Priority 1: Shift ready → Show acceptance page
+    if (shiftState.status == ShiftStatus.ready) {
+      return const ShiftAcceptancePage();
+    }
+
+    // Priority 2: Shift active → Show navigation page
+    if (shiftState.status == ShiftStatus.active &&
+        shiftState.routeBins.isNotEmpty) {
       return const GoogleNavigationPage();
     }
 
-    // Otherwise show regular map
+    // Priority 3: Default → Show regular map
     return Stack(
       children: [
         // Regular map view when no active shift

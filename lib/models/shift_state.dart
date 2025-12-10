@@ -12,6 +12,9 @@ class ShiftState with _$ShiftState {
     /// Current shift status
     required ShiftStatus status,
 
+    /// Shift ID (unique identifier for this shift instance)
+    @JsonKey(name: 'id') String? shiftId,
+
     /// When the shift started (clock in time)
     @JsonKey(name: 'start_time') @UnixTimestampConverter() DateTime? startTime,
 

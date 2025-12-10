@@ -38,10 +38,8 @@ import 'package:ropacalapp/features/driver/widgets/animated_shift_transition.dar
 import 'package:ropacalapp/features/driver/widgets/map_notification_button.dart';
 import 'package:ropacalapp/features/driver/widgets/map_2d_3d_toggle_button.dart';
 import 'package:ropacalapp/features/driver/widgets/map_location_button.dart';
-import 'package:ropacalapp/features/driver/widgets/shift_acceptance_bottom_sheet.dart';
 import 'package:ropacalapp/features/driver/google_navigation_page.dart';
 import 'package:ropacalapp/features/driver/notifications_page.dart';
-import 'package:ropacalapp/models/shift_overview.dart';
 // DEPRECATED: NavigationPage uses old google_maps_flutter - replaced by GoogleNavigationPage
 // import 'package:ropacalapp/features/driver/navigation_page.dart';
 import 'package:ropacalapp/core/utils/navigation_arrow_marker_painter.dart';
@@ -92,8 +90,6 @@ class DriverMapPage extends HookConsumerWidget {
     final lastLoggedSegment = useRef<int>(-1);
     // Track if camera auto-follow is enabled (disabled when user pans)
     final isAutoFollowEnabled = useState<bool>(true);
-    // Track previous shift status to detect changes to "ready"
-    final previousShiftStatus = useRef<ShiftStatus?>(null);
 
     // Default to San Jose if no location available
     final initialCenter = useMemoized(
@@ -132,101 +128,6 @@ class DriverMapPage extends HookConsumerWidget {
         compassSubscription?.cancel();
       };
     }, []);
-
-    // Show shift acceptance modal when new shift becomes ready
-    useEffect(() {
-      // Check if shift status changed to "ready"
-      if (shiftState.status == ShiftStatus.ready &&
-          previousShiftStatus.value != ShiftStatus.ready) {
-
-        // Update previous status
-        previousShiftStatus.value = ShiftStatus.ready;
-
-        // Show Lyft-style bottom sheet modal
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (context.mounted) {
-            showModalBottomSheet(
-              context: context,
-              isScrollControlled: false,
-              isDismissible: true,
-              enableDrag: true,
-              backgroundColor: Colors.transparent,
-              barrierColor: Colors.black.withOpacity(0.5),
-              builder: (context) => ShiftAcceptanceBottomSheet(
-                      shiftOverview: ShiftOverview(
-                        shiftId: shiftState.assignedRouteId ?? '',
-                        startTime: DateTime.now(),
-                        estimatedEndTime: DateTime.now().add(
-                          Duration(
-                            hours: (shiftState.totalBins * 0.25).ceil(),
-                          ),
-                        ),
-                        totalBins: shiftState.totalBins,
-                        totalDistanceKm: _calculateTotalDistance(
-                          shiftState.routeBins,
-                        ),
-                        routeBins: shiftState.routeBins,
-                        routeName: 'Route ${shiftState.assignedRouteId ?? ''}',
-                      ),
-                      onAccept: () async {
-                        AppLogger.general('🚀 SHIFT ACCEPTED - Starting shift');
-
-                        // Close modal first
-                        Navigator.pop(context);
-
-                        // Show loading overlay
-                        EasyLoading.show(
-                          status: 'Starting shift...',
-                          maskType: EasyLoadingMaskType.black,
-                        );
-
-                        try {
-                          // Start the shift
-                          await ref
-                              .read(shiftNotifierProvider.notifier)
-                              .startShift();
-
-                          // Hide loading
-                          await EasyLoading.dismiss();
-
-                          // Navigate to navigation page
-                          if (context.mounted) {
-                            context.push('/navigation');
-                          }
-                        } catch (e) {
-                          AppLogger.general('❌ SHIFT START ERROR: $e');
-
-                          // Hide loading
-                          await EasyLoading.dismiss();
-
-                          // Show error
-                          if (context.mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text('Failed to start shift: $e'),
-                                backgroundColor: Colors.red,
-                              ),
-                            );
-                          }
-                        }
-                      },
-                      onDecline: () {
-                        AppLogger.general('❌ SHIFT DECLINED - Closing modal');
-                        Navigator.pop(context);
-                        // Reset status tracking so it can be shown again if needed
-                        previousShiftStatus.value = null;
-                      },
-                    ),
-            );
-          }
-        });
-      } else {
-        // Update previous status for next check
-        previousShiftStatus.value = shiftState.status;
-      }
-
-      return null;
-    }, [shiftState.status]);
 
     // Calculate bearing from GPS movement (for current location arrow rotation)
     useEffect(() {
@@ -1092,8 +993,8 @@ class DriverMapPage extends HookConsumerWidget {
                           ),
                         ),
                       // Pre-shift overview card (when route assigned) or empty state
-                      // Show only when NOT in active shift (active shift has its own bottom sheet)
-                      if (shiftState.status != ShiftStatus.active)
+                      // Show only when status is inactive (hide during ready and active states)
+                      if (shiftState.status == ShiftStatus.inactive)
                         Positioned(
                           bottom: 90, // Position very close to bottom tab navigator
                           left: 0,

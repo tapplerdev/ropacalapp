@@ -119,12 +119,9 @@ final goRouterProvider = Provider<GoRouter>((ref) {
                     return const LoginPage();
                   }
 
-                  // Route based on user role
-                  if (user.role == UserRole.driver) {
-                    return const DriverHomeScaffold();
-                  } else {
-                    return const AdminDashboardPage();
-                  }
+                  // DriverHomeScaffold handles both driver and admin roles
+                  // (shows different tabs based on role)
+                  return const DriverHomeScaffold();
                 },
                 loading: () => const Scaffold(
                   body: Center(child: CircularProgressIndicator()),

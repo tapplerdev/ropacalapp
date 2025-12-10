@@ -4,6 +4,7 @@ import 'package:ropacalapp/models/shift_state.dart';
 import 'package:ropacalapp/services/shift_service.dart';
 import 'package:ropacalapp/providers/api_provider.dart';
 import 'package:ropacalapp/providers/location_provider.dart';
+import 'package:ropacalapp/core/services/location_tracking_service.dart';
 
 part 'shift_provider.g.dart';
 
@@ -163,6 +164,16 @@ class ShiftNotifier extends _$ShiftNotifier {
 
       state = updatedShift;
       AppLogger.general('🚀 Shift started at ${state.startTime}');
+
+      // Start location tracking (sends GPS every 10 seconds)
+      if (state.shiftId != null) {
+        AppLogger.general('📍 Starting location tracking for shift: ${state.shiftId}');
+        ref.read(locationTrackingServiceProvider).startTracking(
+          state.shiftId!,
+        );
+      } else {
+        AppLogger.general('⚠️ Cannot start location tracking - shiftId is null');
+      }
     } catch (e) {
       AppLogger.general('❌ Error starting shift: $e', level: AppLogger.error);
       rethrow;
@@ -186,6 +197,9 @@ class ShiftNotifier extends _$ShiftNotifier {
       );
 
       AppLogger.general('⏸️ Shift paused at ${state.pauseStartTime}');
+
+      // Stop location tracking during break (saves battery)
+      ref.read(locationTrackingServiceProvider).stopTracking();
     } catch (e) {
       AppLogger.general('❌ Error pausing shift: $e', level: AppLogger.error);
       rethrow;
@@ -217,6 +231,16 @@ class ShiftNotifier extends _$ShiftNotifier {
         );
 
         AppLogger.general('▶️ Shift resumed - total pause: ${newTotalPause}s');
+
+        // Resume location tracking after break
+        if (state.shiftId != null) {
+          AppLogger.general('📍 Resuming location tracking for shift: ${state.shiftId}');
+          ref.read(locationTrackingServiceProvider).startTracking(
+            state.shiftId!,
+          );
+        } else {
+          AppLogger.general('⚠️ Cannot resume location tracking - shiftId is null');
+        }
       }
     } catch (e) {
       AppLogger.general('❌ Error resuming shift: $e', level: AppLogger.error);
@@ -244,6 +268,9 @@ class ShiftNotifier extends _$ShiftNotifier {
 
       // Stop background location tracking
       ref.read(currentLocationProvider.notifier).stopBackgroundTracking();
+
+      // Stop location tracking service (GPS updates every 10 sec)
+      ref.read(locationTrackingServiceProvider).stopTracking();
     } catch (e) {
       AppLogger.general('❌ Error ending shift: $e', level: AppLogger.error);
       rethrow;

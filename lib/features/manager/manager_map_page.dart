@@ -1,5 +1,5 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:flutter/scheduler.dart';
 import 'package:google_navigation_flutter/google_navigation_flutter.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
@@ -35,43 +35,45 @@ class ManagerMapPage extends HookConsumerWidget {
       [],
     );
 
-    // Listen to animation state changes (triggers ticker start/stop)
+    // Listen to animation state changes (triggers update loop)
     final hasActiveAnimations = useValueListenable(animationService.animationStateNotifier);
-
-    // Ticker provider (must be at top level, not in effect)
-    final tickerProvider = useSingleTickerProvider();
 
     // Flag to prevent concurrent marker updates
     final isUpdatingMarkers = useState<bool>(false);
 
-    // Store the ticker reference (created once, reused)
-    final ticker = useRef<Ticker?>(null);
-
     return Scaffold(
       body: driversAsync.when(
         data: (drivers) {
-          // DEBUG: Log all drivers received
-          AppLogger.map('📊 Manager received ${drivers.length} total drivers');
-          for (final driver in drivers) {
-            AppLogger.map(
-              '   Driver: ${driver.name}, Status: ${driver.status}, HasLocation: ${driver.lastLocation != null}',
-            );
-            if (driver.lastLocation != null) {
-              AppLogger.map(
-                '      Location: (${driver.lastLocation!.latitude}, ${driver.lastLocation!.longitude})',
-              );
-            }
-          }
+          // CRITICAL: Use useMemoized to prevent list recreation on every build
+          // This was causing Effect 3 to retrigger constantly!
+          final activeDrivers = useMemoized(
+            () {
+              AppLogger.map('🔄 RECALCULATING activeDrivers list');
+              AppLogger.map('📊 Manager received ${drivers.length} total drivers');
 
-          // Filter to only active drivers with location
-          final activeDrivers = drivers
-              .where(
-                (d) =>
-                    d.status == ShiftStatus.active && d.lastLocation != null,
-              )
-              .toList();
+              for (final driver in drivers) {
+                AppLogger.map(
+                  '   Driver: ${driver.name}, Status: ${driver.status}, HasLocation: ${driver.lastLocation != null}',
+                );
+                if (driver.lastLocation != null) {
+                  AppLogger.map(
+                    '      Location: (${driver.lastLocation!.latitude}, ${driver.lastLocation!.longitude})',
+                  );
+                }
+              }
 
-          AppLogger.map('✅ Filtered to ${activeDrivers.length} active drivers with location');
+              final filtered = drivers
+                  .where(
+                    (d) =>
+                        d.status == ShiftStatus.active && d.lastLocation != null,
+                  )
+                  .toList();
+
+              AppLogger.map('✅ Filtered to ${filtered.length} active drivers with location');
+              return filtered;
+            },
+            [drivers],
+          );
 
           // Effect 1: Cache bin markers ONCE when bins first load
           useEffect(
@@ -134,9 +136,16 @@ class ManagerMapPage extends HookConsumerWidget {
           );
 
           // Effect 2: Start animations when driver positions change
+          // Create position key to trigger effect when ANY position changes
+          final positionKey = activeDrivers.map((d) =>
+            '${d.driverId}:${d.lastLocation?.latitude},${d.lastLocation?.longitude}'
+          ).join('|');
+
           useEffect(
             () {
               if (activeDrivers.isEmpty) return null;
+
+              AppLogger.map('🔄 Effect 2: Checking ${activeDrivers.length} drivers for position changes...');
 
               // Start animations for any changed positions
               for (final driver in activeDrivers) {
@@ -152,10 +161,22 @@ class ManagerMapPage extends HookConsumerWidget {
                 if (currentPosition == null ||
                     currentPosition.latitude != newPosition.latitude ||
                     currentPosition.longitude != newPosition.longitude) {
+
+                  AppLogger.map('🎯 Position change detected for ${driver.name}!');
+                  if (currentPosition != null) {
+                    AppLogger.map('   Old: (${currentPosition.latitude}, ${currentPosition.longitude})');
+                  } else {
+                    AppLogger.map('   Old: (none - first position)');
+                  }
+                  AppLogger.map('   New: (${newPosition.latitude}, ${newPosition.longitude})');
+
+                  // Pass heading and accuracy for snap-to-roads (hybrid approach)
                   animationService.animateMarker(
                     driverId: driver.driverId,
                     newPosition: newPosition,
                     currentPosition: currentPosition,
+                    heading: location.heading,
+                    accuracy: location.accuracy,
                   );
 
                   // Update stored position
@@ -163,20 +184,26 @@ class ManagerMapPage extends HookConsumerWidget {
                     ...currentDriverPositions.value,
                     driver.driverId: newPosition,
                   };
+                } else {
+                  AppLogger.map('   ${driver.name}: No position change');
                 }
               }
 
               return null;
             },
-            [activeDrivers],
+            [positionKey], // Depend on position key, not driver list
           );
 
           // Effect 3: Update markers (continuously during animation, or once when animation completes)
+          // CRITICAL: Only depends on animation state, not activeDrivers positions
+          // This prevents constant retriggering on position updates
           useEffect(
             () {
               if (mapController.value == null || cachedBinMarkers.value == null) {
                 return null;
               }
+
+              AppLogger.map('🔧 Effect 3: Setting up marker update logic (hasActiveAnimations=$hasActiveAnimations)');
 
               // Function to update markers on map
               Future<void> updateMarkersOnMap() async {
@@ -192,7 +219,8 @@ class ManagerMapPage extends HookConsumerWidget {
                   // Get current positions (either animated or final)
                   final interpolatedPositions = animationService.getInterpolatedPositions();
 
-                  // Add driver markers with CACHED icons
+                  // IMPORTANT: Get activeDrivers from current state, not from dependency
+                  // This allows us to get latest driver data without retriggering effect
                   for (final driver in activeDrivers) {
                     final location = driver.lastLocation!;
 
@@ -244,41 +272,33 @@ class ManagerMapPage extends HookConsumerWidget {
                 }
               }
 
-              // Create ticker once if needed
-              if (ticker.value == null) {
-                ticker.value = tickerProvider.createTicker((elapsed) {
-                  if (!isUpdatingMarkers.value) {
-                    updateMarkersOnMap();
-                  }
-                });
-                AppLogger.map('🎬 Created persistent ticker');
-              }
+              // Use Timer.periodic for 60fps updates when animating
+              if (hasActiveAnimations) {
+                AppLogger.map('🎬 Starting 60fps timer for marker updates');
 
-              // Start or stop ticker based on animation state
-              if (hasActiveAnimations && !ticker.value!.isActive) {
-                AppLogger.map('🎬 Starting ticker for 60fps updates');
-                ticker.value!.start();
-              } else if (!hasActiveAnimations && ticker.value!.isActive) {
-                AppLogger.map('🎬 Stopping ticker');
-                ticker.value!.stop();
-              }
+                final timer = Timer.periodic(
+                  const Duration(milliseconds: 16), // ~60fps (16ms per frame)
+                  (_) {
+                    if (!isUpdatingMarkers.value) {
+                      updateMarkersOnMap();
+                    }
+                  },
+                );
 
-              // If not animating, update once
-              if (!hasActiveAnimations) {
+                return () {
+                  AppLogger.map('🎬 Cancelling timer');
+                  timer.cancel();
+                };
+              } else {
+                // No animation - just update once
                 AppLogger.map('📍 No animation, updating markers once');
                 updateMarkersOnMap();
+                return null;
               }
-
-              return () {
-                // Cleanup on unmount
-                if (ticker.value != null) {
-                  AppLogger.map('🎬 Disposing ticker on unmount');
-                  ticker.value!.dispose();
-                  ticker.value = null;
-                }
-              };
             },
-            [activeDrivers, cachedBinMarkers.value, mapController.value, hasActiveAnimations],
+            // CRITICAL: Don't depend on activeDrivers! Only animation state matters.
+            // activeDrivers is captured in closure and will always have latest value
+            [cachedBinMarkers.value, mapController.value, hasActiveAnimations],
           );
 
           return Stack(

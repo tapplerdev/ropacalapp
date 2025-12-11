@@ -576,6 +576,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "4.0.0"
+  fused_location:
+    dependency: "direct main"
+    description:
+      name: fused_location
+      sha256: d2c902763cd9901e4df15fb1950f80b0487aead263140671fcdf2f251df01053
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.8.0"
   geoclue:
     dependency: transitive
     description:

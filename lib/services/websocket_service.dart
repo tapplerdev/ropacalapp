@@ -67,6 +67,10 @@ class WebSocketService {
       _reconnectAttempts = 0;
       onConnected?.call();
 
+      // Register AppLogger remote logging callback
+      AppLogger.setRemoteLogging(sendMessage);
+      AppLogger.general('✅ Remote logging enabled - logs will stream to backend');
+
       // Start heartbeat
       _startHeartbeat();
 
@@ -244,6 +248,9 @@ class WebSocketService {
     _channel?.sink.close();
     _channel = null;
     _isConnected = false;
+
+    // Clear remote logging callback
+    AppLogger.clearRemoteLogging();
   }
 
   /// Check if connected

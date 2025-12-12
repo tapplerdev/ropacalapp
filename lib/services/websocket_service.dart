@@ -20,6 +20,7 @@ class WebSocketService {
   Function(Map<String, dynamic>)? onShiftUpdate;
   Function(Map<String, dynamic>)? onShiftDeleted;
   Function(Map<String, dynamic>)? onDriverLocationUpdate;
+  Function(Map<String, dynamic>)? onDriverShiftChange;
   Function()? onConnected;
   Function()? onDisconnected;
 
@@ -130,6 +131,13 @@ class WebSocketService {
             onDriverLocationUpdate?.call(data['data'] as Map<String, dynamic>);
             AppLogger.general('   ✅ Callback executed');
           }
+          break;
+        case 'driver_shift_change':
+          // Manager-only: Driver shift state changed (started, ended, assigned)
+          AppLogger.general('   🚦 DRIVER SHIFT CHANGE MESSAGE');
+          AppLogger.general('   Callback status: ${onDriverShiftChange != null ? "✅ SET" : "❌ NULL"}');
+          AppLogger.general('   Shift change data: ${data['data']}');
+          onDriverShiftChange?.call(data['data'] as Map<String, dynamic>);
           break;
         default:
           AppLogger.general(

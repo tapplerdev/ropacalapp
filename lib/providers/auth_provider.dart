@@ -88,6 +88,28 @@ class WebSocketManager extends _$WebSocketManager {
       }
     };
 
+    _service!.onDriverShiftChange = (data) {
+      try {
+        AppLogger.general('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+        AppLogger.general('🚦 AUTH_PROVIDER: onDriverShiftChange CALLBACK TRIGGERED');
+        AppLogger.general('   Driver ID: ${data['driver_id']}');
+        AppLogger.general('   Status: ${data['status']}');
+        AppLogger.general('   Shift ID: ${data['shift_id']}');
+
+        AppLogger.general('   🔄 Refreshing drivers list...');
+        final driversNotifier = ref.read(driversNotifierProvider.notifier);
+        driversNotifier.refresh();
+        AppLogger.general('   ✅ Drivers list refresh triggered');
+        AppLogger.general('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      } catch (e, stack) {
+        AppLogger.general('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+        AppLogger.general('❌❌❌ ERROR in onDriverShiftChange callback');
+        AppLogger.general('   Error: $e');
+        AppLogger.general('   Stack: $stack');
+        AppLogger.general('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      }
+    };
+
     _service!.onConnected = () {
       AppLogger.general('✅ WebSocket connected');
     };

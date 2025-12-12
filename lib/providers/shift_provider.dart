@@ -55,6 +55,9 @@ class ShiftNotifier extends _$ShiftNotifier {
 
         // Stop background location tracking
         ref.read(currentLocationProvider.notifier).stopBackgroundTracking();
+
+        // Stop location tracking service (GPS updates with shift_id)
+        ref.read(locationTrackingServiceProvider).stopTracking();
       }
     } catch (e, stack) {
       AppLogger.general(
@@ -67,6 +70,9 @@ class ShiftNotifier extends _$ShiftNotifier {
 
       // Stop background location tracking
       ref.read(currentLocationProvider.notifier).stopBackgroundTracking();
+
+      // Stop location tracking service (GPS updates with shift_id)
+      ref.read(locationTrackingServiceProvider).stopTracking();
     }
   }
 

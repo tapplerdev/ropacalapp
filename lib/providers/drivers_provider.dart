@@ -2,6 +2,7 @@ import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:ropacalapp/core/utils/app_logger.dart';
 import 'package:ropacalapp/models/driver_status.dart';
 import 'package:ropacalapp/models/driver_location.dart';
+import 'package:ropacalapp/models/shift_state.dart';
 import 'package:ropacalapp/providers/api_provider.dart';
 
 part 'drivers_provider.g.dart';

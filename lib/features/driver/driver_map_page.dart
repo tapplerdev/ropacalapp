@@ -38,8 +38,10 @@ import 'package:ropacalapp/features/driver/widgets/animated_shift_transition.dar
 import 'package:ropacalapp/features/driver/widgets/map_notification_button.dart';
 import 'package:ropacalapp/features/driver/widgets/map_2d_3d_toggle_button.dart';
 import 'package:ropacalapp/features/driver/widgets/map_location_button.dart';
+import 'package:ropacalapp/features/driver/widgets/shift_acceptance_bottom_sheet.dart';
 import 'package:ropacalapp/features/driver/google_navigation_page.dart';
 import 'package:ropacalapp/features/driver/notifications_page.dart';
+import 'package:ropacalapp/models/shift_overview.dart';
 // DEPRECATED: NavigationPage uses old google_maps_flutter - replaced by GoogleNavigationPage
 // import 'package:ropacalapp/features/driver/navigation_page.dart';
 import 'package:ropacalapp/core/utils/navigation_arrow_marker_painter.dart';
@@ -952,6 +954,78 @@ class DriverMapPage extends HookConsumerWidget {
                           ),
                         ),
                       // Pre-shift overview card (when route assigned) or empty state
+                      // NEW ROUTE AVAILABLE MODAL (ShiftStatus.ready)
+                      if (shiftState.status == ShiftStatus.ready) ...[
+                        // Dark overlay
+                        Positioned.fill(
+                          child: Container(
+                            color: Colors.black.withValues(alpha: 0.5),
+                          ),
+                        ),
+                        // Acceptance modal
+                        Positioned(
+                          bottom: 0,
+                          left: 0,
+                          right: 0,
+                          child: ShiftAcceptanceBottomSheet(
+                            shiftOverview: ShiftOverview(
+                              shiftId: shiftState.assignedRouteId ?? '',
+                              startTime: DateTime.now(),
+                              estimatedEndTime: DateTime.now().add(
+                                Duration(
+                                  hours: (shiftState.totalBins * 0.25).ceil(),
+                                ),
+                              ),
+                              totalBins: shiftState.totalBins,
+                              totalDistanceKm: _calculateTotalDistance(
+                                shiftState.routeBins,
+                              ),
+                              routeBins: shiftState.routeBins,
+                              routeName: 'Route ${shiftState.assignedRouteId ?? ''}',
+                            ),
+                            onAccept: () async {
+                              AppLogger.general('🚀 SHIFT ACCEPTED - Starting shift');
+                              EasyLoading.show(
+                                status: 'Starting shift...',
+                                maskType: EasyLoadingMaskType.black,
+                              );
+
+                              try {
+                                await ref.read(shiftNotifierProvider.notifier).startShift();
+                                AppLogger.general('✅ Shift started successfully');
+                                await EasyLoading.dismiss();
+
+                                // Navigate to navigation page
+                                if (context.mounted) {
+                                  context.push('/navigation');
+                                }
+                              } catch (e) {
+                                AppLogger.general('❌ Error starting shift: $e');
+                                await EasyLoading.dismiss();
+
+                                if (context.mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text('Failed to start shift: $e'),
+                                      backgroundColor: Colors.red,
+                                    ),
+                                  );
+                                }
+                              }
+                            },
+                            onDecline: () async {
+                              // TODO: Implement decline logic
+                              AppLogger.general('❌ SHIFT DECLINED');
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('Shift declined (not implemented)'),
+                                ),
+                              );
+                            },
+                          ),
+                        ),
+                      ],
+
                       // Show only when status is inactive (hide during ready and active states)
                       if (shiftState.status == ShiftStatus.inactive)
                         Positioned(

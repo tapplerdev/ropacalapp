@@ -41,19 +41,22 @@ class WebSocketManager extends _$WebSocketManager {
     // Set up callbacks
     _service!.onRouteAssigned = (data) {
       AppLogger.general('📨 Route assigned via WebSocket: ${data['route_id']}');
-      ref.read(shiftNotifierProvider.notifier).refreshShift();
+      AppLogger.general('   Using updateFromWebSocket (no full refresh)');
+      ref.read(shiftNotifierProvider.notifier).updateFromWebSocket(data);
     };
 
     _service!.onShiftUpdate = (data) {
       AppLogger.general('📨 Shift updated via WebSocket');
-      ref.read(shiftNotifierProvider.notifier).refreshShift();
+      AppLogger.general('   Using updateFromWebSocket (no full refresh)');
+      ref.read(shiftNotifierProvider.notifier).updateFromWebSocket(data);
     };
 
     _service!.onShiftDeleted = (data) {
       AppLogger.general(
         '🗑️  Shift deleted via WebSocket: ${data['shift_id']}',
       );
-      ref.read(shiftNotifierProvider.notifier).refreshShift();
+      AppLogger.general('   Using updateFromWebSocket (no full refresh)');
+      ref.read(shiftNotifierProvider.notifier).updateFromWebSocket(data);
     };
 
     _service!.onDriverLocationUpdate = (data) {

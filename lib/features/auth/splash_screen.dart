@@ -156,73 +156,50 @@ class SplashScreen extends HookConsumerWidget {
       return null;
     }, [authState]);
 
+    // Determine if we should show branded splash or clean loader
+    // Show branded splash only if going to login (user not authenticated)
+    final showBrandedSplash = authState.whenOrNull(
+      data: (user) => user == null, // No user = going to login
+    ) ?? true; // Default to branded while loading
+
     return Scaffold(
+      backgroundColor: Colors.white,
       body: SafeArea(
         child: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              // App icon
-              Icon(
-                Icons.delete_outline_rounded,
-                size: 100,
-                color: Theme.of(context).colorScheme.primary,
-              ),
-              const SizedBox(height: 24),
-
-              // App title
-              Text(
-                'Bin Management',
-                style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 48),
-
-              // Loading indicator with session state
-              authState.when(
-                data: (_) => Column(
+          child: showBrandedSplash
+              ? Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
                   children: [
+                    // App icon (only for login flow)
+                    Icon(
+                      Icons.delete_outline_rounded,
+                      size: 100,
+                      color: Theme.of(context).colorScheme.primary,
+                    ),
+                    const SizedBox(height: 24),
+
+                    // App title
+                    Text(
+                      'Bin Management',
+                      style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 48),
+
+                    // Loading indicator
                     const SizedBox(
                       width: 40,
                       height: 40,
                       child: CircularProgressIndicator(strokeWidth: 3),
                     ),
-                    if (isQuickRestoring.value) ...[
-                      const SizedBox(height: 16),
-                      Text(
-                        'Restoring session...',
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              color: Colors.grey,
-                            ),
-                      ),
-                    ],
                   ],
-                ),
-                loading: () => const SizedBox(
+                )
+              : const SizedBox(
                   width: 40,
                   height: 40,
                   child: CircularProgressIndicator(strokeWidth: 3),
                 ),
-                error: (error, _) => Column(
-                  children: [
-                    const Icon(
-                      Icons.error_outline,
-                      size: 40,
-                      color: Colors.red,
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      'Error loading app',
-                      style: Theme.of(
-                        context,
-                      ).textTheme.bodySmall?.copyWith(color: Colors.red),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
         ),
       ),
     );

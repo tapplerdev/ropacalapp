@@ -64,6 +64,12 @@ class DriverMapPage extends HookConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // 🔍 DIAGNOSTIC: Log every build
+    AppLogger.general('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    AppLogger.general('🏗️ DriverMapPage.build() CALLED');
+    AppLogger.general('   Timestamp: ${DateTime.now().millisecondsSinceEpoch}');
+    AppLogger.general('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+
     final binsState = ref.watch(binsListProvider); // Used for Bins tab, NOT for map markers
     final locationState = ref.watch(currentLocationProvider);
     final routeState = ref.watch(optimizedRouteProvider);
@@ -72,6 +78,9 @@ class DriverMapPage extends HookConsumerWidget {
     final simulationState = ref.watch(simulationNotifierProvider);
     final user = ref.watch(authNotifierProvider).value;
     final mapController = useState<GoogleMapViewController?>(null);
+
+    AppLogger.general('   shiftState.status: ${shiftState.status}');
+    AppLogger.general('   shiftState.routeBins.length: ${shiftState.routeBins.length}');
     final markers = useState<Set<Marker>>({});
     final polylines = useState<Set<Polyline>>({});
     final cameraPosition = useMemoized(
@@ -118,6 +127,11 @@ class DriverMapPage extends HookConsumerWidget {
 
     // Memoize onViewCreated callback to prevent map re-creation on every build
     final onMapViewCreated = useCallback((GoogleMapViewController controller) async {
+      AppLogger.general('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      AppLogger.general('🗺️ onMapViewCreated CALLED - MAP IS BEING RECREATED!');
+      AppLogger.general('   Timestamp: ${DateTime.now().millisecondsSinceEpoch}');
+      AppLogger.general('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+
       mapController.value = controller;
 
       // Enable My Location (blue dot) - Google Maps built-in feature

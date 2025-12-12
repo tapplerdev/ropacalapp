@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 import 'package:ropacalapp/core/utils/app_logger.dart';
 import 'package:ropacalapp/core/constants/api_constants.dart';
@@ -210,20 +211,17 @@ class WebSocketService {
   /// Send a message through WebSocket
   void sendMessage(String message) {
     if (!_isConnected || _channel == null) {
-      AppLogger.general(
-        'Cannot send message: WebSocket not connected',
-        level: AppLogger.warning,
-      );
+      // Use debugPrint directly to avoid infinite loop
+      // (AppLogger would try to send this log via WebSocket!)
+      debugPrint('[WebSocket] Cannot send message: WebSocket not connected');
       return;
     }
 
     try {
       _channel!.sink.add(message);
     } catch (e) {
-      AppLogger.general(
-        'Error sending WebSocket message: $e',
-        level: AppLogger.error,
-      );
+      // Use debugPrint directly to avoid infinite loop
+      debugPrint('[WebSocket] Error sending message: $e');
     }
   }
 

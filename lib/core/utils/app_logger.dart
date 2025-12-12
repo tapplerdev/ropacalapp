@@ -34,11 +34,17 @@ class AppLogger {
     if (_sendLogCallback == null) return;
 
     try {
+      // Truncate large messages to prevent WebSocket close code 1009 (message too big)
+      const maxMessageLength = 1000;
+      final truncatedMessage = message.length > maxMessageLength
+          ? '${message.substring(0, maxMessageLength)}... (truncated ${message.length - maxMessageLength} chars)'
+          : message;
+
       final logData = jsonEncode({
         'type': 'driver_log',
         'data': {
           'category': category,
-          'message': message,
+          'message': truncatedMessage,
           'level': level,
           'timestamp': DateTime.now().millisecondsSinceEpoch,
         },

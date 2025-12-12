@@ -93,6 +93,86 @@ class DriversNotifier extends _$DriversNotifier {
     AppLogger.general('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
   }
 
+  /// Update a driver's shift status (called from WebSocket driver_shift_change)
+  void updateDriverStatus(String driverId, String status, String? shiftId) {
+    AppLogger.general('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    AppLogger.general('🔵 DRIVERS_PROVIDER: updateDriverStatus called');
+    AppLogger.general('   Driver ID: $driverId');
+    AppLogger.general('   Status: $status');
+    AppLogger.general('   Shift ID: $shiftId');
+    AppLogger.general('   Current state type: ${state.runtimeType}');
+
+    state.when(
+      data: (drivers) {
+        AppLogger.general('   ✅ State is AsyncData');
+        AppLogger.general('   Current drivers count: ${drivers.length}');
+
+        var foundMatch = false;
+        final updatedDrivers = drivers.map((driver) {
+          if (driver.driverId == driverId) {
+            foundMatch = true;
+            AppLogger.general('   🎯 MATCH FOUND: ${driver.name}');
+            AppLogger.general('      Old status: ${driver.status}');
+            AppLogger.general('      New status: $status');
+
+            // Parse string status to ShiftStatus enum
+            final shiftStatus = _parseShiftStatus(status);
+
+            // If shift ended/inactive, clear location to hide marker
+            final updatedLocation = (shiftStatus == ShiftStatus.inactive ||
+                    shiftStatus == ShiftStatus.ended)
+                ? null
+                : driver.lastLocation;
+
+            AppLogger.general(
+              '      Location cleared: ${updatedLocation == null && driver.lastLocation != null}',
+            );
+
+            return driver.copyWith(
+              status: shiftStatus,
+              shiftId: shiftId,
+              lastLocation: updatedLocation,
+            );
+          }
+          return driver;
+        }).toList();
+
+        if (!foundMatch) {
+          AppLogger.general('   ⚠️  NO MATCH: Driver $driverId not found in list!');
+        }
+
+        AppLogger.general('   📝 Setting new state...');
+        state = AsyncData(updatedDrivers);
+        AppLogger.general('   ✅ State updated successfully');
+      },
+      loading: () {
+        AppLogger.general('   ⚠️  State is AsyncLoading - cannot update!');
+      },
+      error: (error, stack) {
+        AppLogger.general('   ❌ State is AsyncError - cannot update!');
+        AppLogger.general('      Error: $error');
+      },
+    );
+
+    AppLogger.general('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+  }
+
+  /// Parse string status to ShiftStatus enum
+  ShiftStatus _parseShiftStatus(String status) {
+    switch (status) {
+      case 'ready':
+        return ShiftStatus.ready;
+      case 'active':
+        return ShiftStatus.active;
+      case 'paused':
+        return ShiftStatus.paused;
+      case 'ended':
+        return ShiftStatus.ended;
+      default:
+        return ShiftStatus.inactive;
+    }
+  }
+
   /// Refresh the driver list
   Future<void> refresh() async {
     state = const AsyncLoading();

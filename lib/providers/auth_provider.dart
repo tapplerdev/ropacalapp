@@ -92,14 +92,18 @@ class WebSocketManager extends _$WebSocketManager {
       try {
         AppLogger.general('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
         AppLogger.general('🚦 AUTH_PROVIDER: onDriverShiftChange CALLBACK TRIGGERED');
-        AppLogger.general('   Driver ID: ${data['driver_id']}');
-        AppLogger.general('   Status: ${data['status']}');
-        AppLogger.general('   Shift ID: ${data['shift_id']}');
+        final driverId = data['driver_id'] as String;
+        final status = data['status'] as String;
+        final shiftId = data['shift_id'] as String?;
 
-        AppLogger.general('   🔄 Refreshing drivers list...');
+        AppLogger.general('   Driver ID: $driverId');
+        AppLogger.general('   Status: $status');
+        AppLogger.general('   Shift ID: $shiftId');
+
+        AppLogger.general('   🔄 Updating driver status (granular update, no full refresh)...');
         final driversNotifier = ref.read(driversNotifierProvider.notifier);
-        driversNotifier.refresh();
-        AppLogger.general('   ✅ Drivers list refresh triggered');
+        driversNotifier.updateDriverStatus(driverId, status, shiftId);
+        AppLogger.general('   ✅ Driver status update triggered');
         AppLogger.general('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
       } catch (e, stack) {
         AppLogger.general('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');

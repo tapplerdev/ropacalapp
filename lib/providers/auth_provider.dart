@@ -55,8 +55,8 @@ class WebSocketManager extends _$WebSocketManager {
       AppLogger.general(
         '🗑️  Shift deleted via WebSocket: ${data['shift_id']}',
       );
-      AppLogger.general('   Using updateFromWebSocket (no full refresh)');
-      ref.read(shiftNotifierProvider.notifier).updateFromWebSocket(data);
+      AppLogger.general('   Resetting to inactive (no full refresh)');
+      ref.read(shiftNotifierProvider.notifier).resetToInactive();
     };
 
     _service!.onDriverLocationUpdate = (data) {

@@ -330,6 +330,18 @@ class ShiftNotifier extends _$ShiftNotifier {
     }
   }
 
+  /// Reset shift to inactive state (called when shift is deleted)
+  void resetToInactive() {
+    AppLogger.general('🗑️  Resetting shift to inactive state');
+    state = const ShiftState(status: ShiftStatus.inactive);
+
+    // Stop background location tracking
+    ref.read(currentLocationProvider.notifier).stopBackgroundTracking();
+
+    // Stop location tracking service (GPS updates with shift_id)
+    ref.read(locationTrackingServiceProvider).stopTracking();
+  }
+
   /// Get current shift duration (excluding pause time)
   Duration getActiveShiftDuration() {
     if (state.startTime == null) {

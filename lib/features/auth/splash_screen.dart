@@ -6,6 +6,7 @@ import 'package:ropacalapp/providers/auth_provider.dart';
 import 'package:ropacalapp/providers/shift_provider.dart';
 import 'package:ropacalapp/providers/location_provider.dart';
 import 'package:ropacalapp/core/utils/app_logger.dart';
+import 'package:ropacalapp/core/services/session_manager.dart';
 
 /// Splash screen shown on app startup
 ///
@@ -22,12 +23,51 @@ class SplashScreen extends HookConsumerWidget {
     AppLogger.general('🔷 SPLASH SCREEN: Building...');
     final authState = ref.watch(authNotifierProvider);
     final hasNavigated = useState(false);
+    final isQuickRestoring = useState(false);
 
-    // Pre-fetch location early for faster navigation startup
+    // Initialize session manager and handle smart navigation
     useEffect(() {
-      AppLogger.general('📍 SPLASH: Pre-fetching location for faster navigation...');
-      // This triggers the location provider to start acquiring GPS fix
-      ref.read(currentLocationProvider);
+      Future<void> initializeSession() async {
+        await SessionManager.initialize();
+
+        final sessionAge = SessionManager.sessionAge;
+        AppLogger.general('📅 Session age: $sessionAge');
+
+        // INSTANT RESUME: < 2 minutes since last active
+        if (SessionManager.hasActiveSession) {
+          AppLogger.general(
+            '⚡ INSTANT RESUME: Skipping validation, navigating to home',
+          );
+          if (context.mounted && !hasNavigated.value) {
+            hasNavigated.value = true;
+            // Pre-fetch location in background (don't wait)
+            ref.read(currentLocationProvider);
+            context.go('/home');
+          }
+          return;
+        }
+
+        // QUICK RESTORE: 2-10 minutes since last active
+        if (SessionManager.canQuickRestore) {
+          AppLogger.general(
+            '⚡ QUICK RESTORE: Fast validation with timeout',
+          );
+          isQuickRestoring.value = true;
+          // Continue to normal auth flow with fast validation
+        }
+
+        // COLD START: > 10 minutes or first launch
+        // Continue to normal auth flow (full validation)
+        AppLogger.general('❄️  COLD START: Full validation required');
+
+        // Pre-fetch location early for faster navigation startup
+        AppLogger.general(
+          '📍 SPLASH: Pre-fetching location for faster navigation...',
+        );
+        ref.read(currentLocationProvider);
+      }
+
+      initializeSession();
       return null;
     }, []);
 
@@ -59,20 +99,30 @@ class SplashScreen extends HookConsumerWidget {
         '🔷 SPLASH SCREEN: useEffect triggered, authState type: ${authState.runtimeType}',
       );
 
+      // Skip if already navigated via instant resume
+      if (hasNavigated.value) {
+        AppLogger.general('🔷 SPLASH SCREEN: Already navigated, skipping');
+        return null;
+      }
+
       authState.whenOrNull(
         data: (user) {
           AppLogger.general(
             '🔷 SPLASH SCREEN: Auth state = DATA, user: ${user != null ? user.email : "NULL"}',
           );
-          if (hasNavigated.value) {
-            AppLogger.general('🔷 SPLASH SCREEN: Already navigated, skipping');
-            return;
-          }
 
           if (user != null) {
             // User is authenticated - pre-load and navigate to home
             AppLogger.general('✅ Splash: User authenticated, pre-loading data');
-            preloadAndNavigate();
+
+            // For quick restore, add slight delay for better UX
+            if (isQuickRestoring.value) {
+              Future.delayed(const Duration(milliseconds: 300), () {
+                preloadAndNavigate();
+              });
+            } else {
+              preloadAndNavigate();
+            }
           } else {
             // User not authenticated - navigate to login
             AppLogger.general('➡️  Splash: No user, navigating to /login');
@@ -92,6 +142,15 @@ class SplashScreen extends HookConsumerWidget {
         },
         error: (err, stack) {
           AppLogger.general('🔷 SPLASH SCREEN: Auth state = ERROR: $err');
+          // On error, navigate to login
+          if (!hasNavigated.value) {
+            hasNavigated.value = true;
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (context.mounted) {
+                context.go('/login');
+              }
+            });
+          }
         },
       );
       return null;
@@ -120,12 +179,25 @@ class SplashScreen extends HookConsumerWidget {
               ),
               const SizedBox(height: 48),
 
-              // Loading indicator
+              // Loading indicator with session state
               authState.when(
-                data: (_) => const SizedBox(
-                  width: 40,
-                  height: 40,
-                  child: CircularProgressIndicator(strokeWidth: 3),
+                data: (_) => Column(
+                  children: [
+                    const SizedBox(
+                      width: 40,
+                      height: 40,
+                      child: CircularProgressIndicator(strokeWidth: 3),
+                    ),
+                    if (isQuickRestoring.value) ...[
+                      const SizedBox(height: 16),
+                      Text(
+                        'Restoring session...',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: Colors.grey,
+                            ),
+                      ),
+                    ],
+                  ],
                 ),
                 loading: () => const SizedBox(
                   width: 40,

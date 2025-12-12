@@ -7,6 +7,7 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:ropacalapp/core/theme/app_colors.dart';
 import 'package:ropacalapp/router/app_router.dart';
 import 'package:ropacalapp/services/fcm_service.dart';
+import 'package:ropacalapp/core/services/session_manager.dart';
 
 void main() async {
   // Note: Navigation session is now initialized lazily when first needed
@@ -44,11 +45,45 @@ void configLoading() {
     ..dismissOnTap = false;
 }
 
-class RopacalApp extends ConsumerWidget {
+class RopacalApp extends ConsumerStatefulWidget {
   const RopacalApp({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<RopacalApp> createState() => _RopacalAppState();
+}
+
+class _RopacalAppState extends ConsumerState<RopacalApp>
+    with WidgetsBindingObserver {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    switch (state) {
+      case AppLifecycleState.resumed:
+        // App came to foreground - session will be checked on splash
+        break;
+      case AppLifecycleState.inactive:
+      case AppLifecycleState.paused:
+      case AppLifecycleState.detached:
+      case AppLifecycleState.hidden:
+        // App going to background - update timestamp
+        SessionManager.updateLastActive();
+        break;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final router = ref.watch(goRouterProvider);
 
     return MaterialApp.router(

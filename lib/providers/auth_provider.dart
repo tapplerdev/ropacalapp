@@ -10,6 +10,7 @@ import 'package:ropacalapp/providers/shift_provider.dart';
 import 'package:ropacalapp/providers/drivers_provider.dart';
 import 'package:ropacalapp/providers/simulation_provider.dart';
 import 'package:ropacalapp/core/utils/app_logger.dart';
+import 'package:ropacalapp/core/services/session_manager.dart';
 
 part 'auth_provider.g.dart';
 
@@ -235,6 +236,10 @@ class AuthNotifier extends _$AuthNotifier {
     // Reset simulation state
     ref.read(simulationNotifierProvider.notifier).reset();
     AppLogger.general('🗑️  Reset simulation state on logout');
+
+    // Clear session timestamp
+    await SessionManager.clearSession();
+    AppLogger.general('🗑️  Session cleared on logout');
 
     state = const AsyncValue.data(null);
   }

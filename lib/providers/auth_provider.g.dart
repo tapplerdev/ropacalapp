@@ -43,7 +43,7 @@ final webSocketManagerProvider =
     );
 
 typedef _$WebSocketManager = Notifier<WebSocketService?>;
-String _$authNotifierHash() => r'a61f9bcfb5060327e5f97c1d6a5c2cc01474e0bf';
+String _$authNotifierHash() => r'a4f0be245c9d1c1ee804bd919c43fbd51529d35e';
 
 /// See also [AuthNotifier].
 @ProviderFor(AuthNotifier)

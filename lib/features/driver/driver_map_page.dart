@@ -102,6 +102,44 @@ class DriverMapPage extends HookConsumerWidget {
       [locationState.value],
     );
 
+    // Memoize initial camera position to prevent map re-creation on shift updates
+    // This is only used ONCE when map is created, so it should not react to shiftState changes
+    final initialCameraPosition = useMemoized(
+      () => CameraPosition(
+        target: initialCenter,
+        zoom: 15.0, // Default zoom level
+        tilt: 0.0, // Always start in 2D mode
+        bearing: 0.0, // North-up orientation
+      ),
+      [initialCenter], // Only recreate if initial center changes (location load)
+    );
+
+    // Memoize onViewCreated callback to prevent map re-creation on every build
+    final onMapViewCreated = useCallback((GoogleMapViewController controller) async {
+      mapController.value = controller;
+
+      // Enable My Location (blue dot) - Google Maps built-in feature
+      try {
+        await controller.setMyLocationEnabled(true);
+        AppLogger.map('✅ My Location (blue dot) enabled');
+      } catch (e) {
+        AppLogger.map('⚠️  Failed to enable My Location: $e');
+      }
+
+      // Disable the default My Location button (we'll use a custom one)
+      try {
+        await controller.settings.setMyLocationButtonEnabled(false);
+        AppLogger.map('✅ Default My Location button disabled (using custom button)');
+      } catch (e) {
+        AppLogger.map('⚠️  Failed to disable My Location button: $e');
+      }
+
+      AppLogger.map('✅ Using default Google Maps style (custom style disabled)');
+      AppLogger.map('🗺️  Google Map created');
+      AppLogger.map('   Markers count: ${markers.value.length}');
+      AppLogger.map('   Polylines count: ${polylines.value.length}');
+    }, []);
+
     // Load navigation arrow icon on mount
     useEffect(() {
       NavigationArrowMarkerPainter.createNavigationArrow(size: 96.0)
@@ -696,90 +734,11 @@ class DriverMapPage extends HookConsumerWidget {
                   },
                   child: GoogleMapsMapView(
                     key: const ValueKey('driver_map'),
-                    initialCameraPosition: CameraPosition(
-                      target: initialCenter,
-                      zoom: shiftState.routeBins.isEmpty ? 15.0 : 10.0, // Closer zoom when no shift
-                      tilt: 0.0, // Always start in 2D mode
-                      bearing: 0.0, // North-up orientation
-                    ),
+                    initialCameraPosition: initialCameraPosition,
                     initialMapType: MapType.normal,
                     // Disable zoom controls (+ and - buttons) - Android only feature
                     initialZoomControlsEnabled: false,
-                    onViewCreated: (controller) async {
-                      mapController.value = controller;
-
-                      // Enable My Location (blue dot) - Google Maps built-in feature
-                      try {
-                        await controller.setMyLocationEnabled(true);
-                        AppLogger.map('✅ My Location (blue dot) enabled');
-                      } catch (e) {
-                        AppLogger.map('⚠️  Failed to enable My Location: $e');
-                      }
-
-                      // Disable the default My Location button (we'll use a custom one)
-                      try {
-                        await controller.settings.setMyLocationButtonEnabled(false);
-                        AppLogger.map('✅ Default My Location button disabled (using custom button)');
-                      } catch (e) {
-                        AppLogger.map('⚠️  Failed to disable My Location button: $e');
-                      }
-
-                      // CUSTOM MAP STYLE DISABLED - Using default Google Maps style
-                      // ✅ ONLY apply custom map style when there's a shift
-                      // When no shift → vanilla Google Maps style
-                      // if (shiftState.routeBins.isNotEmpty) {
-                      //   const mapStyle = '''
-                      // [
-                      //   {
-                      //     "featureType": "poi",
-                      //     "elementType": "geometry",
-                      //     "stylers": [{"visibility": "off"}]
-                      //   },
-                      //   {
-                      //     "featureType": "poi",
-                      //     "elementType": "labels",
-                      //     "stylers": [{"visibility": "off"}]
-                      //   },
-                      //   {
-                      //     "featureType": "landscape.man_made",
-                      //     "elementType": "geometry.fill",
-                      //     "stylers": [{"visibility": "off"}]
-                      //   },
-                      //   {
-                      //     "featureType": "landscape.man_made",
-                      //     "elementType": "geometry.stroke",
-                      //     "stylers": [{"visibility": "off"}]
-                      //   }
-                      // ]
-                      // ''';
-                      //
-                      //   try {
-                      //     await controller.setMapStyle(mapStyle);
-                      //     AppLogger.map(
-                      //       '✅ Custom map style applied - buildings hidden',
-                      //     );
-                      //   } catch (e) {
-                      //     AppLogger.map('⚠️  Failed to apply map style: $e');
-                      //   }
-                      // } else {
-                      //   // Reset to default style (vanilla Google Maps)
-                      //   try {
-                      //     await controller.setMapStyle(null);
-                      //     AppLogger.map('✅ Default Google Maps style applied');
-                      //   } catch (e) {
-                      //     AppLogger.map('⚠️  Failed to reset map style: $e');
-                      //   }
-                      // }
-                      AppLogger.map('✅ Using default Google Maps style (custom style disabled)');
-
-                      AppLogger.map('🗺️  Google Map created');
-                      AppLogger.map(
-                        '   Markers count: ${markers.value.length}',
-                      );
-                      AppLogger.map(
-                        '   Polylines count: ${polylines.value.length}',
-                      );
-                    },
+                    onViewCreated: onMapViewCreated,
                     // Note: Camera position tracking removed as onCameraChanged is not available in this API version
                     // Blue dot overlay may need alternative camera position tracking if required
                   ),

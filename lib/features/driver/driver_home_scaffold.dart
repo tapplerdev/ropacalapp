@@ -46,14 +46,14 @@ class DriverHomeScaffold extends HookConsumerWidget {
           if (shiftState.status == ShiftStatus.active &&
               shiftState.routeBins.isNotEmpty &&
               locationState.hasValue) {
-            AppLogger.general('✅ DriverHomeScaffold: Showing GoogleNavigationPage with bottom tabs');
+            AppLogger.general('[DIAGNOSTIC] ✅ DriverHomeScaffold: Showing GoogleNavigationPage with bottom tabs');
             bodyWidget = const GoogleNavigationPage();
           }
           // Show loading screen if shift is active but GPS not ready
           else if (shiftState.status == ShiftStatus.active &&
               shiftState.routeBins.isNotEmpty &&
               !locationState.hasValue) {
-            AppLogger.general('⏳ DriverHomeScaffold: Waiting for location...');
+            AppLogger.general('[DIAGNOSTIC] ⏳ DriverHomeScaffold: Waiting for location...');
             bodyWidget = const Center(
               child: CircularProgressIndicator(),
             );

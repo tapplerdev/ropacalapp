@@ -26,68 +26,68 @@ class ShiftNotifier extends _$ShiftNotifier {
   /// Fetch current shift from backend (called after login and on app startup)
   Future<void> fetchCurrentShift() async {
     try {
-      AppLogger.general('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-      AppLogger.general('🔍 fetchCurrentShift: Starting...');
-      AppLogger.general('🔍 fetchCurrentShift: Calling backend API GET /api/driver/shift/current');
-      AppLogger.general('   Current state BEFORE fetch:');
-      AppLogger.general('     Status: ${state.status}');
-      AppLogger.general('     RouteID: ${state.assignedRouteId}');
-      AppLogger.general('     RouteBins: ${state.routeBins.length}');
+      AppLogger.general('[DIAGNOSTIC] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      AppLogger.general('[DIAGNOSTIC] 🔍 fetchCurrentShift: Starting...');
+      AppLogger.general('[DIAGNOSTIC] 🔍 fetchCurrentShift: Calling backend API GET /api/driver/shift/current');
+      AppLogger.general('[DIAGNOSTIC]    Current state BEFORE fetch:');
+      AppLogger.general('[DIAGNOSTIC]      Status: ${state.status}');
+      AppLogger.general('[DIAGNOSTIC]      RouteID: ${state.assignedRouteId}');
+      AppLogger.general('[DIAGNOSTIC]      RouteBins: ${state.routeBins.length}');
 
       final shiftService = ref.read(shiftServiceProvider);
       final currentShift = await shiftService.getCurrentShift();
 
-      AppLogger.general('🔍 fetchCurrentShift: Got response from backend');
-      AppLogger.general('   isNull: ${currentShift == null}');
+      AppLogger.general('[DIAGNOSTIC] 🔍 fetchCurrentShift: Got response from backend');
+      AppLogger.general('[DIAGNOSTIC]    isNull: ${currentShift == null}');
 
       if (currentShift != null) {
-        AppLogger.general('✅ fetchCurrentShift: Shift data received!');
-        AppLogger.general('   Status: ${currentShift.status}');
-        AppLogger.general('   RouteID: ${currentShift.assignedRouteId}');
-        AppLogger.general('   RouteBins.length: ${currentShift.routeBins.length}');
-        AppLogger.general('   CompletedBins: ${currentShift.completedBins}/${currentShift.totalBins}');
+        AppLogger.general('[DIAGNOSTIC] ✅ fetchCurrentShift: Shift data received!');
+        AppLogger.general('[DIAGNOSTIC]    Status: ${currentShift.status}');
+        AppLogger.general('[DIAGNOSTIC]    RouteID: ${currentShift.assignedRouteId}');
+        AppLogger.general('[DIAGNOSTIC]    RouteBins.length: ${currentShift.routeBins.length}');
+        AppLogger.general('[DIAGNOSTIC]    CompletedBins: ${currentShift.completedBins}/${currentShift.totalBins}');
 
         if (currentShift.routeBins.isNotEmpty) {
-          AppLogger.general('   First 3 bins:');
+          AppLogger.general('[DIAGNOSTIC]    First 3 bins:');
           for (var i = 0; i < currentShift.routeBins.length && i < 3; i++) {
             final bin = currentShift.routeBins[i];
-            AppLogger.general('     ${i + 1}. Bin #${bin.binNumber} - ${bin.currentStreet} (completed: ${bin.isCompleted})');
+            AppLogger.general('[DIAGNOSTIC]      ${i + 1}. Bin #${bin.binNumber} - ${bin.currentStreet} (completed: ${bin.isCompleted})');
           }
         } else {
-          AppLogger.general('   ⚠️  WARNING: routeBins array is EMPTY!');
+          AppLogger.general('[DIAGNOSTIC]    ⚠️  WARNING: routeBins array is EMPTY!');
         }
 
         state = currentShift;
-        AppLogger.general('📥 Current shift loaded and state updated');
+        AppLogger.general('[DIAGNOSTIC] 📥 Current shift loaded and state updated');
 
         // Start background tracking if shift is ready/active
         if (currentShift.status == ShiftStatus.ready ||
             currentShift.status == ShiftStatus.active ||
             currentShift.status == ShiftStatus.paused) {
-          AppLogger.general('📍 Starting background location tracking');
+          AppLogger.general('[DIAGNOSTIC] 📍 Starting background location tracking');
           ref.read(currentLocationProvider.notifier).startBackgroundTracking();
         }
       } else {
         // No shift found - reset to inactive
         state = const ShiftState(status: ShiftStatus.inactive);
-        AppLogger.general('📥 No active shift found in backend - state reset to inactive');
+        AppLogger.general('[DIAGNOSTIC] 📥 No active shift found in backend - state reset to inactive');
 
         // Downgrade to background tracking (no shift_id)
-        AppLogger.general('📍 Downgrading to background tracking (no shift)');
+        AppLogger.general('[DIAGNOSTIC] 📍 Downgrading to background tracking (no shift)');
         await ref.read(locationTrackingServiceProvider).startBackgroundTracking();
       }
-      AppLogger.general('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      AppLogger.general('[DIAGNOSTIC] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
     } catch (e, stack) {
-      AppLogger.general('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-      AppLogger.general('❌ ERROR in fetchCurrentShift: $e', level: AppLogger.warning);
-      AppLogger.general('Stack trace: $stack');
+      AppLogger.general('[DIAGNOSTIC] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      AppLogger.general('[DIAGNOSTIC] ❌ ERROR in fetchCurrentShift: $e', level: AppLogger.warning);
+      AppLogger.general('[DIAGNOSTIC] Stack trace: $stack');
       // On error, reset to inactive to be safe
       state = const ShiftState(status: ShiftStatus.inactive);
 
       // On error, downgrade to background tracking (defensive)
-      AppLogger.general('📍 Error fetching shift - downgrading to background tracking');
+      AppLogger.general('[DIAGNOSTIC] 📍 Error fetching shift - downgrading to background tracking');
       await ref.read(locationTrackingServiceProvider).startBackgroundTracking();
-      AppLogger.general('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      AppLogger.general('[DIAGNOSTIC] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
     }
   }
 

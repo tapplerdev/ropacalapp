@@ -4,7 +4,6 @@ import 'package:go_router/go_router.dart';
 import 'package:ropacalapp/providers/auth_provider.dart';
 import 'package:ropacalapp/providers/bins_provider.dart';
 import 'package:ropacalapp/core/theme/app_colors.dart';
-import 'package:ropacalapp/features/driver/diagnostic_page.dart';
 
 class AccountPage extends ConsumerWidget {
   const AccountPage({super.key});
@@ -168,24 +167,6 @@ class AccountPage extends ConsumerWidget {
                           // TODO: Navigate to notifications settings
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(content: Text('Coming soon!')),
-                          );
-                        },
-                      ),
-                      const Divider(height: 1),
-                      ListTile(
-                        leading: Icon(
-                          Icons.bug_report,
-                          color: Colors.orange.shade700,
-                        ),
-                        title: const Text('Diagnostics'),
-                        subtitle: const Text('Debug app state & send logs'),
-                        trailing: const Icon(Icons.chevron_right),
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => const DiagnosticPage(),
-                            ),
                           );
                         },
                       ),

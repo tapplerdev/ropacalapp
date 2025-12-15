@@ -8,6 +8,7 @@ import 'package:ropacalapp/core/theme/app_colors.dart';
 import 'package:ropacalapp/router/app_router.dart';
 import 'package:ropacalapp/services/fcm_service.dart';
 import 'package:ropacalapp/core/services/session_manager.dart';
+import 'package:ropacalapp/core/utils/app_logger.dart';
 
 void main() async {
   // Note: Navigation session is now initialized lazily when first needed
@@ -16,6 +17,12 @@ void main() async {
 
   // Load environment variables
   await dotenv.load(fileName: '.env');
+
+  // Set backend URL for diagnostic logging
+  final backendUrl = dotenv.env['API_BASE_URL'] ?? '';
+  if (backendUrl.isNotEmpty) {
+    AppLogger.setBackendUrl(backendUrl);
+  }
 
   // Initialize Firebase
   await Firebase.initializeApp();

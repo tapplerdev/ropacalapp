@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
+import 'package:http/http.dart' as http;
 
 /// Application-wide logging utility
 ///
@@ -14,6 +15,14 @@ class AppLogger {
   static const int info = 800;
   static const int warning = 900;
   static const int error = 1000;
+
+  // Railway backend URL (set from environment)
+  static String? _backendUrl;
+
+  /// Set backend URL for diagnostic logging
+  static void setBackendUrl(String url) {
+    _backendUrl = url;
+  }
 
   // WebSocket callback for remote logging (set by WebSocketService)
   static void Function(String)? _sendLogCallback;
@@ -102,6 +111,32 @@ class AppLogger {
   static void general(String message, {int level = info}) {
     debugPrint('[App] $message');
     _sendToBackend('App', message, level);
+
+    // Send [DIAGNOSTIC] logs to Railway HTTP endpoint
+    if (message.startsWith('[DIAGNOSTIC]') && _backendUrl != null) {
+      _sendDiagnosticToRailway(message);
+    }
+  }
+
+  /// Send diagnostic log to Railway via HTTP (fire and forget)
+  static void _sendDiagnosticToRailway(String message) {
+    if (_backendUrl == null) return;
+
+    // Fire and forget - don't await
+    http.post(
+      Uri.parse('$_backendUrl/api/logs/diagnostic'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({
+        'timestamp': DateTime.now().toIso8601String(),
+        'context': 'FLUTTER_APP',
+        'level': 'INFO',
+        'message': message,
+        'platform': 'flutter_ios',
+      }),
+    ).catchError((e) {
+      // Silently fail - don't break app
+      debugPrint('[AppLogger] Failed to send diagnostic to Railway: $e');
+    });
   }
 
   /// Debug-level log (lowest priority, most verbose)

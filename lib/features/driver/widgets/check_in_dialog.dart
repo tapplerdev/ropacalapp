@@ -79,8 +79,8 @@ class CheckInDialog extends HookConsumerWidget {
               : () async {
                   isSubmitting.value = true;
                   try {
-                    // Complete bin via shift provider
-                    await ref.read(shiftNotifierProvider.notifier).completeBin(bin.id);
+                    // Complete bin via shift provider (using current fill as placeholder)
+                    await ref.read(shiftNotifierProvider.notifier).completeBin(bin.id, bin.fillPercentage ?? 50);
 
                     if (context.mounted) {
                       Navigator.pop(context);

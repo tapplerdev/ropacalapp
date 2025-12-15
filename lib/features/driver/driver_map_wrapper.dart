@@ -1,14 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:ropacalapp/core/utils/app_logger.dart';
 import 'package:ropacalapp/features/driver/driver_map_page.dart';
-import 'package:ropacalapp/features/driver/google_navigation_page.dart';
 import 'package:ropacalapp/providers/shift_provider.dart';
 import 'package:ropacalapp/models/shift_state.dart';
 
-/// Wrapper that automatically switches between map states based on shift status
+/// Wrapper that shows DriverMapPage with appropriate state
 /// - ready: Shows DriverMapPage with modal overlay (Uber/Lyft pattern)
-/// - active: Shows GoogleNavigationPage (turn-by-turn navigation)
 /// - inactive: Shows DriverMapPage (regular map)
+///
+/// NOTE: Active shift navigation is handled by DriverHomeScaffold
+/// (shows GoogleNavigationPage as full-screen, bypassing this wrapper)
 class DriverMapWrapper extends ConsumerWidget {
   const DriverMapWrapper({super.key});
 
@@ -16,13 +18,15 @@ class DriverMapWrapper extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final shiftState = ref.watch(shiftNotifierProvider);
 
-    // When shift is active AND route bins are loaded, automatically switch to navigation page
-    // The modal overlay in DriverMapPage will handle shift acceptance (status: ready)
-    // When driver accepts, status changes to active, triggering this auto-switch
-    // Wait for WebSocket to populate route bins before switching (prevents "Loading route..." screen)
-    if (shiftState.status == ShiftStatus.active && shiftState.routeBins.isNotEmpty) {
-      return const GoogleNavigationPage();
-    }
+    // DIAGNOSTIC LOGGING
+    AppLogger.general(
+      '🗺️ DriverMapWrapper build() - Status: ${shiftState.status}, '
+      'RouteID: ${shiftState.assignedRouteId}',
+    );
+
+    // This wrapper now only handles inactive/ready states
+    // Active shift is handled by DriverHomeScaffold (shows GoogleNavigationPage)
+    AppLogger.general('➡️ DriverMapWrapper: Showing DriverMapPage');
 
     // Default: Show regular map with overlays
     // When status is 'ready', DriverMapPage shows modal overlay for shift acceptance

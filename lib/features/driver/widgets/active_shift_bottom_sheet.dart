@@ -896,7 +896,8 @@ class ActiveShiftBottomSheet extends HookConsumerWidget {
 
   Future<void> _completeBin(WidgetRef ref, String binId) async {
     try {
-      await ref.read(shiftNotifierProvider.notifier).completeBin(binId);
+      // Using 50% as placeholder - actual implementation uses check-in dialog
+      await ref.read(shiftNotifierProvider.notifier).completeBin(binId, 50);
     } catch (e) {
       // Error will be shown by the provider
     }

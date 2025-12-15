@@ -154,15 +154,23 @@ class ShiftService {
     }
   }
 
-  /// Complete a bin
-  Future<Map<String, dynamic>> completeBin(String binId) async {
+  /// Complete a bin with updated fill percentage
+  Future<Map<String, dynamic>> completeBin(
+    String binId,
+    int updatedFillPercentage,
+  ) async {
     try {
       print('📤 REQUEST: POST /api/driver/shift/complete-bin');
-      print('   Body: {"bin_id": "$binId"}');
+      print(
+        '   Body: {"bin_id": "$binId", "updated_fill_percentage": $updatedFillPercentage}',
+      );
 
       final response = await _apiService.post(
         '/api/driver/shift/complete-bin',
-        {'bin_id': binId},
+        {
+          'bin_id': binId,
+          'updated_fill_percentage': updatedFillPercentage,
+        },
       );
 
       print('📥 RESPONSE: ${response.statusCode}');
@@ -171,12 +179,72 @@ class ShiftService {
       if (response.data['success'] == true) {
         final data = response.data['data'] as Map<String, dynamic>;
         print(
-          '   ✅ Bin completed: ${data['completed_bins']}/${data['total_bins']}',
+          '   ✅ Bin completed: ${data['completed_bins']}/${data['total_bins']} (fill: $updatedFillPercentage%)',
         );
         return data;
       }
 
       throw Exception(response.data['error'] ?? 'Failed to complete bin');
+    } catch (e) {
+      print('   ❌ ERROR: $e');
+      rethrow;
+    }
+  }
+
+  /// Get shift history for the authenticated driver
+  Future<List<Map<String, dynamic>>> getShiftHistory() async {
+    try {
+      print('📤 REQUEST: GET /api/driver/shift-history');
+
+      final response = await _apiService.get('/api/driver/shift-history');
+
+      print('📥 RESPONSE: ${response.statusCode}');
+      print('   Data: ${response.data}');
+
+      if (response.data['success'] == true) {
+        // Handle null data (no shift history exists)
+        final data = response.data['data'];
+        if (data == null) {
+          print('   ℹ️  No shift history found (data is null)');
+          return [];
+        }
+
+        final shifts =
+            List<Map<String, dynamic>>.from(data as List);
+        print('   ✅ Found ${shifts.length} shifts in history');
+        return shifts;
+      }
+
+      throw Exception(response.data['error'] ?? 'Failed to fetch shift history');
+    } catch (e) {
+      print('   ❌ ERROR: $e');
+      rethrow;
+    }
+  }
+
+  /// Get detailed information about a specific shift
+  Future<Map<String, dynamic>> getShiftDetails(String shiftId) async {
+    try {
+      print('📤 REQUEST: GET /api/driver/shift-details?shift_id=$shiftId');
+
+      final response = await _apiService.get(
+        '/api/driver/shift-details',
+        queryParameters: {'shift_id': shiftId},
+      );
+
+      print('📥 RESPONSE: ${response.statusCode}');
+      print('   Data: ${response.data}');
+
+      if (response.data['success'] == true) {
+        final shiftDetails = response.data['data'] as Map<String, dynamic>;
+        final binsCount = (shiftDetails['bins'] as List).length;
+        print('   ✅ Shift details loaded with $binsCount bins');
+        return shiftDetails;
+      }
+
+      throw Exception(
+        response.data['error'] ?? 'Failed to fetch shift details',
+      );
     } catch (e) {
       print('   ❌ ERROR: $e');
       rethrow;

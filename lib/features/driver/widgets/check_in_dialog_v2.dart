@@ -901,11 +901,13 @@ class CheckInDialogV2 extends HookConsumerWidget {
                           : () async {
                               isSubmitting.value = true;
                               try {
-                                // TODO: Upload photo to backend
-                                // For now, just complete the bin
+                                // Complete bin with updated fill percentage
                                 await ref
                                     .read(shiftNotifierProvider.notifier)
-                                    .completeBin(bin.binId);
+                                    .completeBin(
+                                      bin.binId,
+                                      fillPercentage.value,
+                                    );
 
                                 if (context.mounted) {
                                   Navigator.pop(context);

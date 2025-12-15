@@ -44,6 +44,10 @@ mixin _$RouteBin {
   @JsonKey(name: 'completed_at')
   int? get completedAt => throw _privateConstructorUsedError;
 
+  /// Updated fill percentage after driver check-in (0-100)
+  @JsonKey(name: 'updated_fill_percentage')
+  int? get updatedFillPercentage => throw _privateConstructorUsedError;
+
   /// Created timestamp (Unix timestamp)
   @JsonKey(name: 'created_at')
   int get createdAt => throw _privateConstructorUsedError;
@@ -94,6 +98,7 @@ abstract class $RouteBinCopyWith<$Res> {
     @JsonKey(name: 'sequence_order') int sequenceOrder,
     @JsonKey(name: 'is_completed') int isCompleted,
     @JsonKey(name: 'completed_at') int? completedAt,
+    @JsonKey(name: 'updated_fill_percentage') int? updatedFillPercentage,
     @JsonKey(name: 'created_at') int createdAt,
     @JsonKey(name: 'bin_number') int binNumber,
     @JsonKey(name: 'current_street') String currentStreet,
@@ -126,6 +131,7 @@ class _$RouteBinCopyWithImpl<$Res, $Val extends RouteBin>
     Object? sequenceOrder = null,
     Object? isCompleted = null,
     Object? completedAt = freezed,
+    Object? updatedFillPercentage = freezed,
     Object? createdAt = null,
     Object? binNumber = null,
     Object? currentStreet = null,
@@ -160,6 +166,10 @@ class _$RouteBinCopyWithImpl<$Res, $Val extends RouteBin>
             completedAt: freezed == completedAt
                 ? _value.completedAt
                 : completedAt // ignore: cast_nullable_to_non_nullable
+                      as int?,
+            updatedFillPercentage: freezed == updatedFillPercentage
+                ? _value.updatedFillPercentage
+                : updatedFillPercentage // ignore: cast_nullable_to_non_nullable
                       as int?,
             createdAt: null == createdAt
                 ? _value.createdAt
@@ -215,6 +225,7 @@ abstract class _$$RouteBinImplCopyWith<$Res>
     @JsonKey(name: 'sequence_order') int sequenceOrder,
     @JsonKey(name: 'is_completed') int isCompleted,
     @JsonKey(name: 'completed_at') int? completedAt,
+    @JsonKey(name: 'updated_fill_percentage') int? updatedFillPercentage,
     @JsonKey(name: 'created_at') int createdAt,
     @JsonKey(name: 'bin_number') int binNumber,
     @JsonKey(name: 'current_street') String currentStreet,
@@ -246,6 +257,7 @@ class __$$RouteBinImplCopyWithImpl<$Res>
     Object? sequenceOrder = null,
     Object? isCompleted = null,
     Object? completedAt = freezed,
+    Object? updatedFillPercentage = freezed,
     Object? createdAt = null,
     Object? binNumber = null,
     Object? currentStreet = null,
@@ -280,6 +292,10 @@ class __$$RouteBinImplCopyWithImpl<$Res>
         completedAt: freezed == completedAt
             ? _value.completedAt
             : completedAt // ignore: cast_nullable_to_non_nullable
+                  as int?,
+        updatedFillPercentage: freezed == updatedFillPercentage
+            ? _value.updatedFillPercentage
+            : updatedFillPercentage // ignore: cast_nullable_to_non_nullable
                   as int?,
         createdAt: null == createdAt
             ? _value.createdAt
@@ -328,6 +344,7 @@ class _$RouteBinImpl implements _RouteBin {
     @JsonKey(name: 'sequence_order') required this.sequenceOrder,
     @JsonKey(name: 'is_completed') this.isCompleted = 0,
     @JsonKey(name: 'completed_at') this.completedAt,
+    @JsonKey(name: 'updated_fill_percentage') this.updatedFillPercentage,
     @JsonKey(name: 'created_at') required this.createdAt,
     @JsonKey(name: 'bin_number') required this.binNumber,
     @JsonKey(name: 'current_street') required this.currentStreet,
@@ -370,6 +387,11 @@ class _$RouteBinImpl implements _RouteBin {
   @JsonKey(name: 'completed_at')
   final int? completedAt;
 
+  /// Updated fill percentage after driver check-in (0-100)
+  @override
+  @JsonKey(name: 'updated_fill_percentage')
+  final int? updatedFillPercentage;
+
   /// Created timestamp (Unix timestamp)
   @override
   @JsonKey(name: 'created_at')
@@ -408,7 +430,7 @@ class _$RouteBinImpl implements _RouteBin {
 
   @override
   String toString() {
-    return 'RouteBin(id: $id, shiftId: $shiftId, binId: $binId, sequenceOrder: $sequenceOrder, isCompleted: $isCompleted, completedAt: $completedAt, createdAt: $createdAt, binNumber: $binNumber, currentStreet: $currentStreet, city: $city, zip: $zip, fillPercentage: $fillPercentage, latitude: $latitude, longitude: $longitude)';
+    return 'RouteBin(id: $id, shiftId: $shiftId, binId: $binId, sequenceOrder: $sequenceOrder, isCompleted: $isCompleted, completedAt: $completedAt, updatedFillPercentage: $updatedFillPercentage, createdAt: $createdAt, binNumber: $binNumber, currentStreet: $currentStreet, city: $city, zip: $zip, fillPercentage: $fillPercentage, latitude: $latitude, longitude: $longitude)';
   }
 
   @override
@@ -425,6 +447,8 @@ class _$RouteBinImpl implements _RouteBin {
                 other.isCompleted == isCompleted) &&
             (identical(other.completedAt, completedAt) ||
                 other.completedAt == completedAt) &&
+            (identical(other.updatedFillPercentage, updatedFillPercentage) ||
+                other.updatedFillPercentage == updatedFillPercentage) &&
             (identical(other.createdAt, createdAt) ||
                 other.createdAt == createdAt) &&
             (identical(other.binNumber, binNumber) ||
@@ -451,6 +475,7 @@ class _$RouteBinImpl implements _RouteBin {
     sequenceOrder,
     isCompleted,
     completedAt,
+    updatedFillPercentage,
     createdAt,
     binNumber,
     currentStreet,
@@ -483,6 +508,7 @@ abstract class _RouteBin implements RouteBin {
     @JsonKey(name: 'sequence_order') required final int sequenceOrder,
     @JsonKey(name: 'is_completed') final int isCompleted,
     @JsonKey(name: 'completed_at') final int? completedAt,
+    @JsonKey(name: 'updated_fill_percentage') final int? updatedFillPercentage,
     @JsonKey(name: 'created_at') required final int createdAt,
     @JsonKey(name: 'bin_number') required final int binNumber,
     @JsonKey(name: 'current_street') required final String currentStreet,
@@ -524,6 +550,11 @@ abstract class _RouteBin implements RouteBin {
   @override
   @JsonKey(name: 'completed_at')
   int? get completedAt;
+
+  /// Updated fill percentage after driver check-in (0-100)
+  @override
+  @JsonKey(name: 'updated_fill_percentage')
+  int? get updatedFillPercentage;
 
   /// Created timestamp (Unix timestamp)
   @override

@@ -15,29 +15,23 @@ class GoogleNavigationService {
 
     try {
       // Check if T&C dialog needs to be shown
+      // T&C state is preserved across sessions - only shows once ever
       final termsAccepted = await GoogleMapsNavigator.areTermsAccepted();
       AppLogger.general('📋 Terms accepted: $termsAccepted');
 
       if (!termsAccepted) {
-        AppLogger.general('📋 Showing terms and conditions dialog...');
+        AppLogger.general('📋 Showing terms and conditions dialog (first time only)...');
         await GoogleMapsNavigator.showTermsAndConditionsDialog(
           'Navigation Terms',
           'Ropacal Navigation',
         );
-        AppLogger.general('✅ Terms accepted');
-      }
-
-      // Defensive cleanup: Ensure previous session is terminated before starting new session
-      try {
-        AppLogger.general('🧹 Defensive cleanup: Ensuring previous session is terminated...');
-        await GoogleMapsNavigator.cleanup();
-        AppLogger.general('   ✅ Previous session cleanup complete (if any existed)');
-      } catch (e) {
-        // Ignore error if no session exists - this is expected on first run
-        AppLogger.general('   ℹ️  No previous session to clean up: $e');
+        AppLogger.general('✅ Terms accepted (will be remembered)');
+      } else {
+        AppLogger.general('✅ Terms previously accepted, reusing session');
       }
 
       // Initialize navigation session
+      // This can be called multiple times safely - reuses session if exists
       await GoogleMapsNavigator.initializeNavigationSession();
       AppLogger.general('✅ Navigation session initialized');
 

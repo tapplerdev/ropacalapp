@@ -26,43 +26,60 @@ class ShiftNotifier extends _$ShiftNotifier {
   /// Fetch current shift from backend (called after login and on app startup)
   Future<void> fetchCurrentShift() async {
     try {
+      AppLogger.general('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
       AppLogger.general('🔍 fetchCurrentShift: Starting...');
       AppLogger.general('🔍 fetchCurrentShift: Calling backend API GET /api/driver/shift/current');
+      AppLogger.general('   Current state BEFORE fetch:');
+      AppLogger.general('     Status: ${state.status}');
+      AppLogger.general('     RouteID: ${state.assignedRouteId}');
+      AppLogger.general('     RouteBins: ${state.routeBins.length}');
+
       final shiftService = ref.read(shiftServiceProvider);
       final currentShift = await shiftService.getCurrentShift();
 
-      AppLogger.general(
-        '🔍 fetchCurrentShift: Got response from backend, isNull=${currentShift == null}',
-      );
+      AppLogger.general('🔍 fetchCurrentShift: Got response from backend');
+      AppLogger.general('   isNull: ${currentShift == null}');
 
       if (currentShift != null) {
-        AppLogger.general(
-          '🔍 _fetchCurrentShift: routeBins.length=${currentShift.routeBins.length}',
-        );
+        AppLogger.general('✅ fetchCurrentShift: Shift data received!');
+        AppLogger.general('   Status: ${currentShift.status}');
+        AppLogger.general('   RouteID: ${currentShift.assignedRouteId}');
+        AppLogger.general('   RouteBins.length: ${currentShift.routeBins.length}');
+        AppLogger.general('   CompletedBins: ${currentShift.completedBins}/${currentShift.totalBins}');
+
+        if (currentShift.routeBins.isNotEmpty) {
+          AppLogger.general('   First 3 bins:');
+          for (var i = 0; i < currentShift.routeBins.length && i < 3; i++) {
+            final bin = currentShift.routeBins[i];
+            AppLogger.general('     ${i + 1}. Bin #${bin.binNumber} - ${bin.currentStreet} (completed: ${bin.isCompleted})');
+          }
+        } else {
+          AppLogger.general('   ⚠️  WARNING: routeBins array is EMPTY!');
+        }
+
         state = currentShift;
-        AppLogger.general('📥 Current shift loaded: ${currentShift.status}');
+        AppLogger.general('📥 Current shift loaded and state updated');
 
         // Start background tracking if shift is ready/active
         if (currentShift.status == ShiftStatus.ready ||
             currentShift.status == ShiftStatus.active ||
             currentShift.status == ShiftStatus.paused) {
+          AppLogger.general('📍 Starting background location tracking');
           ref.read(currentLocationProvider.notifier).startBackgroundTracking();
         }
       } else {
         // No shift found - reset to inactive
         state = const ShiftState(status: ShiftStatus.inactive);
-        AppLogger.general('📥 No active shift - state reset to inactive');
+        AppLogger.general('📥 No active shift found in backend - state reset to inactive');
 
         // Downgrade to background tracking (no shift_id)
-        // This allows managers to see driver location and assign routes
         AppLogger.general('📍 Downgrading to background tracking (no shift)');
         await ref.read(locationTrackingServiceProvider).startBackgroundTracking();
       }
+      AppLogger.general('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
     } catch (e, stack) {
-      AppLogger.general(
-        '⚠️ Error fetching shift: $e',
-        level: AppLogger.warning,
-      );
+      AppLogger.general('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      AppLogger.general('❌ ERROR in fetchCurrentShift: $e', level: AppLogger.warning);
       AppLogger.general('Stack trace: $stack');
       // On error, reset to inactive to be safe
       state = const ShiftState(status: ShiftStatus.inactive);
@@ -70,6 +87,7 @@ class ShiftNotifier extends _$ShiftNotifier {
       // On error, downgrade to background tracking (defensive)
       AppLogger.general('📍 Error fetching shift - downgrading to background tracking');
       await ref.read(locationTrackingServiceProvider).startBackgroundTracking();
+      AppLogger.general('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
     }
   }
 
@@ -165,8 +183,15 @@ class ShiftNotifier extends _$ShiftNotifier {
       final shiftService = ref.read(shiftServiceProvider);
       final updatedShift = await shiftService.startShift();
 
-      state = updatedShift;
+      // IMPORTANT: Preserve routeBins from current state
+      // The API response doesn't include bins array, but we already have it from route assignment
+      // This prevents the navigation page from being blocked due to empty routeBins
+      state = updatedShift.copyWith(
+        routeBins: state.routeBins.isNotEmpty ? state.routeBins : updatedShift.routeBins,
+      );
+
       AppLogger.general('🚀 Shift started at ${state.startTime}');
+      AppLogger.general('✅ Shift active - DriverMapWrapper will auto-switch to navigation');
 
       // Start location tracking (sends GPS every 10 seconds)
       if (state.shiftId != null) {
@@ -278,8 +303,8 @@ class ShiftNotifier extends _$ShiftNotifier {
     }
   }
 
-  /// Mark a bin as completed
-  Future<void> completeBin(String binId) async {
+  /// Mark a bin as completed with updated fill percentage
+  Future<void> completeBin(String binId, int updatedFillPercentage) async {
     if (state.status != ShiftStatus.active) {
       AppLogger.general('⚠️ Cannot complete bin - shift not active');
       return;
@@ -287,9 +312,11 @@ class ShiftNotifier extends _$ShiftNotifier {
 
     try {
       final shiftService = ref.read(shiftServiceProvider);
-      await shiftService.completeBin(binId);
+      await shiftService.completeBin(binId, updatedFillPercentage);
 
-      AppLogger.general('✅ Bin completed via API, waiting for WebSocket update...');
+      AppLogger.general(
+        '✅ Bin completed via API (fill: $updatedFillPercentage%), waiting for WebSocket update...',
+      );
 
       // Note: WebSocket will receive shift_update and call updateFromWebSocket()
       // No need to manually refresh - this avoids read-after-write consistency issues

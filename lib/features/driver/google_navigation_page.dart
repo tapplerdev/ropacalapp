@@ -238,12 +238,10 @@ class GoogleNavigationPage extends HookConsumerWidget {
           AppLogger.general('   ⚠️  Error clearing destinations (likely already cleared): $e');
         }
 
-        try {
-          GoogleMapsNavigator.cleanup();
-          AppLogger.general('   ✅ Disposal cleanup complete');
-        } catch (e) {
-          AppLogger.general('   ℹ️  Cleanup already done or session doesn\'t exist: $e');
-        }
+        // DON'T call cleanup() - it clears T&C acceptance state!
+        // Keeping the session alive allows reuse without re-showing T&C dialog
+        // The session is lightweight and can be reused across multiple shifts
+        AppLogger.general('   ✅ Disposal complete (session kept alive for reuse)');
       };
     }, []);
 
@@ -316,7 +314,7 @@ class GoogleNavigationPage extends HookConsumerWidget {
                 ),
               ),
             )
-          else if (navigatorInitialized.value && userLocation.value != null)
+          else if (userLocation.value != null)
             GoogleMapsNavigationView(
                 // Add bottom padding to prevent map content from being hidden behind bottom nav bar and panel
                 initialPadding: EdgeInsets.only(
@@ -344,9 +342,9 @@ class GoogleNavigationPage extends HookConsumerWidget {
                 await controller.setMyLocationEnabled(true);
                 AppLogger.general('✅ [VIEW CREATED] My location enabled');
 
-                // Disable native Google Maps recenter button (using custom button instead)
-                await controller.setRecenterButtonEnabled(false);
-                AppLogger.general('✅ [VIEW CREATED] Recenter button disabled');
+                // Enable native Google Maps recenter button
+                await controller.setRecenterButtonEnabled(true);
+                AppLogger.general('✅ [VIEW CREATED] Recenter button enabled');
 
                 await controller.setReportIncidentButtonEnabled(false);
                 AppLogger.general('✅ [VIEW CREATED] Report incident button disabled');
@@ -406,7 +404,7 @@ class GoogleNavigationPage extends HookConsumerWidget {
           // Turn-by-turn navigation card
           if (navState.isNavigating && navState.currentStep != null)
             Positioned(
-              top: Responsive.spacing(context, mobile: 80),
+              top: Responsive.spacing(context, mobile: 140),
               left: Responsive.spacing(context, mobile: 16),
               right: Responsive.spacing(context, mobile: 16),
               child: TurnByTurnNavigationCard(
@@ -449,24 +447,24 @@ class GoogleNavigationPage extends HookConsumerWidget {
             ),
           ),
 
-          // Custom recenter button - positioned just above bottom panel
-          Positioned(
-            bottom: Responsive.spacing(context, mobile: 340),
-            right: Responsive.spacing(context, mobile: 16),
-            child: CircularMapButton(
-              icon: Icons.my_location,
-              onTap: () async {
-                if (navigationController.value != null) {
-                  // Use followMyLocation with tilted perspective for navigation-aware recentering
-                  await navigationController.value!.followMyLocation(
-                    CameraPerspective.tilted,
-                    zoomLevel: 17,
-                  );
-                  AppLogger.general('📍 Re-enabled camera following mode with tilted perspective');
-                }
-              },
-            ),
-          ),
+          // Custom recenter button - COMMENTED OUT (using native Google Maps button instead)
+          // Positioned(
+          //   bottom: Responsive.spacing(context, mobile: 340),
+          //   right: Responsive.spacing(context, mobile: 16),
+          //   child: CircularMapButton(
+          //     icon: Icons.my_location,
+          //     onTap: () async {
+          //       if (navigationController.value != null) {
+          //         // Use followMyLocation with tilted perspective for navigation-aware recentering
+          //         await navigationController.value!.followMyLocation(
+          //           CameraPerspective.tilted,
+          //           zoomLevel: 17,
+          //         );
+          //         AppLogger.general('📍 Re-enabled camera following mode with tilted perspective');
+          //       }
+          //     },
+          //   ),
+          // ),
 
           // Bottom panel - expandable bin details
           if (navState.isNavigationReady && shift.remainingBins.isNotEmpty)

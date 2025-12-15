@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:google_navigation_flutter/google_navigation_flutter.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
@@ -12,6 +13,7 @@ import 'package:ropacalapp/features/driver/widgets/circular_map_button.dart';
 import 'package:ropacalapp/features/driver/notifications_page.dart';
 import 'package:ropacalapp/core/services/google_navigation_marker_service.dart';
 import 'package:ropacalapp/core/services/marker_animation_service.dart';
+import 'package:ropacalapp/core/theme/app_colors.dart';
 
 /// Manager dashboard map showing all active drivers
 class ManagerMapPage extends HookConsumerWidget {
@@ -34,6 +36,58 @@ class ManagerMapPage extends HookConsumerWidget {
     AppLogger.general('   📍 locationState: ${locationState.runtimeType}, hasValue: ${locationState.hasValue}');
 
     AppLogger.general('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+
+    // WAIT for initial data before rendering map (prevents timing issues)
+    if (!binsAsync.hasValue || !driversAsync.hasValue) {
+      AppLogger.general('⏳ Waiting for initial data...');
+      AppLogger.general('   Bins loaded: ${binsAsync.hasValue}');
+      AppLogger.general('   Drivers loaded: ${driversAsync.hasValue}');
+
+      return Scaffold(
+        appBar: AppBar(
+          title: const Text('Manager Dashboard'),
+          backgroundColor: AppColors.primaryBlue,
+          foregroundColor: Colors.white,
+        ),
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const CircularProgressIndicator(
+                valueColor: AlwaysStoppedAnimation<Color>(AppColors.primaryBlue),
+              ),
+              const SizedBox(height: 24),
+              Text(
+                'Loading map data...',
+                style: TextStyle(
+                  fontSize: 16,
+                  color: Colors.grey.shade700,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                binsAsync.hasValue ? '✓ Bins loaded' : '⏳ Loading bins...',
+                style: TextStyle(
+                  fontSize: 14,
+                  color: binsAsync.hasValue ? AppColors.successGreen : Colors.grey.shade500,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                driversAsync.hasValue ? '✓ Drivers loaded' : '⏳ Loading drivers...',
+                style: TextStyle(
+                  fontSize: 14,
+                  color: driversAsync.hasValue ? AppColors.successGreen : Colors.grey.shade500,
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    AppLogger.general('✅ Initial data loaded - proceeding with map render');
 
     final mapController = useState<GoogleNavigationViewController?>(null);
     final cachedBinMarkers = useState<List<MarkerOptions>?>(null);
@@ -341,43 +395,48 @@ class ManagerMapPage extends HookConsumerWidget {
                 },
               ),
 
-              // Driver count indicator
+              // Driver count indicator - tap to view active drivers list
               Positioned(
                 top: MediaQuery.of(context).padding.top + 16,
                 left: 16,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 8,
-                  ),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(20),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.1),
-                        blurRadius: 10,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(
-                        Icons.local_shipping,
-                        color: Colors.green,
-                        size: 20,
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        '${activeDrivers.length} active drivers',
-                        style: const TextStyle(
-                          fontWeight: FontWeight.w600,
-                          fontSize: 14,
+                child: GestureDetector(
+                  onTap: () {
+                    context.push('/manager/active-drivers');
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 8,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(20),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.1),
+                          blurRadius: 10,
+                          offset: const Offset(0, 2),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(
+                          Icons.local_shipping,
+                          color: Colors.green,
+                          size: 20,
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          '${activeDrivers.length} active drivers',
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w600,
+                            fontSize: 14,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ),

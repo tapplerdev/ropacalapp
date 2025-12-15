@@ -8,6 +8,10 @@ import 'package:ropacalapp/features/driver/driver_home_scaffold.dart';
 import 'package:ropacalapp/features/driver/bin_detail_page.dart';
 import 'package:ropacalapp/features/driver/google_navigation_page.dart';
 import 'package:ropacalapp/features/driver/shift_demo_page.dart';
+import 'package:ropacalapp/features/driver/routes_list_page.dart';
+import 'package:ropacalapp/features/driver/route_detail_page.dart';
+import 'package:ropacalapp/features/manager/active_drivers_list_page.dart';
+import 'package:ropacalapp/features/manager/driver_shift_detail_page.dart';
 import 'package:ropacalapp/providers/auth_provider.dart';
 
 // Placeholder page for admin dashboard (will be implemented in Phase 4)
@@ -165,6 +169,32 @@ final goRouterProvider = Provider<GoRouter>((ref) {
         path: '/admin',
         name: 'admin',
         builder: (context, state) => const AdminDashboardPage(),
+      ),
+      GoRoute(
+        path: '/routes',
+        name: 'routes',
+        builder: (context, state) => const RoutesListPage(),
+      ),
+      GoRoute(
+        path: '/routes/:shiftId',
+        name: 'route-detail',
+        builder: (context, state) {
+          final shiftId = state.pathParameters['shiftId']!;
+          return RouteDetailPage(shiftId: shiftId);
+        },
+      ),
+      GoRoute(
+        path: '/manager/active-drivers',
+        name: 'active-drivers',
+        builder: (context, state) => const ActiveDriversListPage(),
+      ),
+      GoRoute(
+        path: '/manager/drivers/:driverId',
+        name: 'driver-shift-detail',
+        builder: (context, state) {
+          final driverId = state.pathParameters['driverId']!;
+          return DriverShiftDetailPage(driverId: driverId);
+        },
       ),
       GoRoute(
         path: '/shift-demo',

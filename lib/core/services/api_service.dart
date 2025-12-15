@@ -355,9 +355,15 @@ class ApiService {
   }
 
   // Generic HTTP methods for other services
-  Future<Response> get(String path) async {
+  Future<Response> get(
+    String path, {
+    Map<String, dynamic>? queryParameters,
+  }) async {
     try {
-      return await _dio.get(path);
+      return await _dio.get(
+        path,
+        queryParameters: queryParameters,
+      );
     } catch (e) {
       throw _handleError(e);
     }

@@ -25,6 +25,9 @@ class RouteBin with _$RouteBin {
     /// Timestamp when completed (Unix timestamp)
     @JsonKey(name: 'completed_at') int? completedAt,
 
+    /// Updated fill percentage after driver check-in (0-100)
+    @JsonKey(name: 'updated_fill_percentage') int? updatedFillPercentage,
+
     /// Created timestamp (Unix timestamp)
     @JsonKey(name: 'created_at') required int createdAt,
 

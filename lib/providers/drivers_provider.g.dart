@@ -6,7 +6,7 @@ part of 'drivers_provider.dart';
 // RiverpodGenerator
 // **************************************************************************
 
-String _$driversNotifierHash() => r'fb5b3a1eb055b1a4d7647a8a53066e4124c3563f';
+String _$driversNotifierHash() => r'd3d918291d83fdc9c112d865941005630fcafb71';
 
 /// Provider for managing list of drivers (for manager dashboard)
 ///

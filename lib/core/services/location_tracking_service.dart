@@ -30,6 +30,24 @@ class LocationTrackingService {
 
   LocationTrackingService(this._ref);
 
+  /// Start background location tracking (no shift required)
+  /// Used when driver logs in to allow managers to see their location
+  Future<void> startBackgroundTracking() async {
+    if (_isTracking && _currentShiftId == null) {
+      AppLogger.general('📍 Background tracking already active');
+      return;
+    }
+
+    stopTracking();
+
+    _currentShiftId = null; // No shift ID for background tracking
+    _isTracking = true;
+
+    AppLogger.general('📍 Starting BACKGROUND location tracking (no shift)');
+
+    await _startLocationUpdates();
+  }
+
   /// Start location tracking for a shift
   Future<void> startTracking(String shiftId) async {
     if (_isTracking && _currentShiftId == shiftId) {
@@ -43,6 +61,12 @@ class LocationTrackingService {
     _isTracking = true;
 
     AppLogger.general('📍 Starting location tracking for shift: $shiftId');
+
+    await _startLocationUpdates();
+  }
+
+  /// Internal method to configure and start location updates
+  Future<void> _startLocationUpdates() async {
 
     try {
       // Configure fused_location with minimal distance filter
@@ -123,10 +147,12 @@ class LocationTrackingService {
 
   /// Send position via WebSocket
   void _sendLocation(FusedLocation location) {
-    if (!_isTracking || _currentShiftId == null) {
+    if (!_isTracking) {
       AppLogger.general('⚠️  Skipping location send (not tracking)');
       return;
     }
+
+    // Note: _currentShiftId can be null for background tracking
 
     try {
       // Get WebSocket service

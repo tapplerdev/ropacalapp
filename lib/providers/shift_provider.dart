@@ -53,11 +53,10 @@ class ShiftNotifier extends _$ShiftNotifier {
         state = const ShiftState(status: ShiftStatus.inactive);
         AppLogger.general('📥 No active shift - state reset to inactive');
 
-        // Stop background location tracking
-        ref.read(currentLocationProvider.notifier).stopBackgroundTracking();
-
-        // Stop location tracking service (GPS updates with shift_id)
-        ref.read(locationTrackingServiceProvider).stopTracking();
+        // Downgrade to background tracking (no shift_id)
+        // This allows managers to see driver location and assign routes
+        AppLogger.general('📍 Downgrading to background tracking (no shift)');
+        await ref.read(locationTrackingServiceProvider).startBackgroundTracking();
       }
     } catch (e, stack) {
       AppLogger.general(
@@ -68,11 +67,9 @@ class ShiftNotifier extends _$ShiftNotifier {
       // On error, reset to inactive to be safe
       state = const ShiftState(status: ShiftStatus.inactive);
 
-      // Stop background location tracking
-      ref.read(currentLocationProvider.notifier).stopBackgroundTracking();
-
-      // Stop location tracking service (GPS updates with shift_id)
-      ref.read(locationTrackingServiceProvider).stopTracking();
+      // On error, downgrade to background tracking (defensive)
+      AppLogger.general('📍 Error fetching shift - downgrading to background tracking');
+      await ref.read(locationTrackingServiceProvider).startBackgroundTracking();
     }
   }
 
@@ -272,11 +269,9 @@ class ShiftNotifier extends _$ShiftNotifier {
       // For now, set to ended status (will be replaced by WebSocket update)
       state = state.copyWith(status: ShiftStatus.ended);
 
-      // Stop background location tracking
-      ref.read(currentLocationProvider.notifier).stopBackgroundTracking();
-
-      // Stop location tracking service (GPS updates every 10 sec)
-      ref.read(locationTrackingServiceProvider).stopTracking();
+      // Downgrade to background tracking (driver may get assigned another shift)
+      AppLogger.general('📍 Downgrading to background tracking after shift ended');
+      await ref.read(locationTrackingServiceProvider).startBackgroundTracking();
     } catch (e) {
       AppLogger.general('❌ Error ending shift: $e', level: AppLogger.error);
       rethrow;
@@ -317,6 +312,9 @@ class ShiftNotifier extends _$ShiftNotifier {
       AppLogger.general(
         '✅ WebSocket: Shift updated - ${updatedShift.completedBins}/${updatedShift.totalBins} (${updatedShift.remainingBins.length} remaining)',
       );
+      AppLogger.general('   Status: ${updatedShift.status}');
+      AppLogger.general('   Bins array length: ${updatedShift.routeBins.length}');
+      AppLogger.general('   Route ID: ${updatedShift.assignedRouteId}');
 
       state = updatedShift;
     } catch (e) {
@@ -331,15 +329,13 @@ class ShiftNotifier extends _$ShiftNotifier {
   }
 
   /// Reset shift to inactive state (called when shift is deleted)
-  void resetToInactive() {
+  Future<void> resetToInactive() async {
     AppLogger.general('🗑️  Resetting shift to inactive state');
     state = const ShiftState(status: ShiftStatus.inactive);
 
-    // Stop background location tracking
-    ref.read(currentLocationProvider.notifier).stopBackgroundTracking();
-
-    // Stop location tracking service (GPS updates with shift_id)
-    ref.read(locationTrackingServiceProvider).stopTracking();
+    // Downgrade to background tracking (no shift_id)
+    AppLogger.general('📍 Downgrading to background tracking after shift deleted');
+    await ref.read(locationTrackingServiceProvider).startBackgroundTracking();
   }
 
   /// Get current shift duration (excluding pause time)

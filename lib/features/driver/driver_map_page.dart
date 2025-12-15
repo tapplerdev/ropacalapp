@@ -23,6 +23,7 @@ import 'package:ropacalapp/providers/bin_marker_cache_provider.dart';
 import 'package:ropacalapp/providers/shift_provider.dart';
 import 'package:ropacalapp/providers/simulation_provider.dart';
 import 'package:ropacalapp/providers/auth_provider.dart';
+import 'package:ropacalapp/providers/map_controller_provider.dart';
 import 'package:ropacalapp/core/enums/user_role.dart';
 import 'package:ropacalapp/models/shift_state.dart';
 import 'package:ropacalapp/features/driver/widgets/alerts_bottom_sheet.dart';
@@ -64,23 +65,38 @@ class DriverMapPage extends HookConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // 🔍 DIAGNOSTIC: Log every build
-    AppLogger.general('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-    AppLogger.general('🏗️ DriverMapPage.build() CALLED');
-    AppLogger.general('   Timestamp: ${DateTime.now().millisecondsSinceEpoch}');
-    AppLogger.general('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    // 🔍 DIAGNOSTIC: Log every build (COMMENTED - too spammy)
+    // AppLogger.general('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    // AppLogger.general('🏗️ DriverMapPage.build() CALLED');
+    // AppLogger.general('   Timestamp: ${DateTime.now().millisecondsSinceEpoch}');
 
     final binsState = ref.watch(binsListProvider); // Used for Bins tab, NOT for map markers
-    final locationState = ref.watch(currentLocationProvider);
-    final routeState = ref.watch(optimizedRouteProvider);
-    final markerCache = ref.watch(binMarkerCacheNotifierProvider);
-    final shiftState = ref.watch(shiftNotifierProvider);
-    final simulationState = ref.watch(simulationNotifierProvider);
-    final user = ref.watch(authNotifierProvider).value;
-    final mapController = useState<GoogleMapViewController?>(null);
+    // AppLogger.general('   📦 binsState: ${binsState.runtimeType}, hasValue: ${binsState.hasValue}, valueOrNull?.length: ${binsState.valueOrNull?.length}');
 
-    AppLogger.general('   shiftState.status: ${shiftState.status}');
-    AppLogger.general('   shiftState.routeBins.length: ${shiftState.routeBins.length}');
+    final locationState = ref.watch(currentLocationProvider);
+    // AppLogger.general('   📍 locationState: ${locationState.runtimeType}, hasValue: ${locationState.hasValue}, value: ${locationState.valueOrNull != null ? "(${locationState.valueOrNull!.latitude.toStringAsFixed(6)}, ${locationState.valueOrNull!.longitude.toStringAsFixed(6)})" : "null"}');
+
+    final routeState = ref.watch(optimizedRouteProvider);
+    // AppLogger.general('   🗺️ routeState: ${routeState.runtimeType}, hasValue: ${routeState.hasValue}');
+
+    final markerCache = ref.watch(binMarkerCacheNotifierProvider);
+    // AppLogger.general('   📌 markerCache: ${markerCache.runtimeType}');
+
+    // DON'T watch shiftState - we don't want to rebuild the entire page when shift changes
+    // Individual shift-aware widgets will watch it internally
+    // final shiftState = ref.watch(shiftNotifierProvider);
+    // AppLogger.general('   🚚 shiftState: status=${shiftState.status}, routeBins=${shiftState.routeBins.length}');
+
+    // SIMULATION DISABLED - Not used in production
+    // final simulationState = ref.watch(simulationNotifierProvider);
+    // AppLogger.general('   🎮 simulationState: isSimulating=${simulationState.isSimulating}');
+
+    final user = ref.watch(authNotifierProvider).value;
+    // AppLogger.general('   👤 user: ${user?.email ?? "null"}');
+
+    // AppLogger.general('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+
+    final mapController = useState<GoogleMapViewController?>(null);
     final markers = useState<Set<Marker>>({});
     final polylines = useState<Set<Polyline>>({});
     final cameraPosition = useMemoized(
@@ -125,36 +141,36 @@ class DriverMapPage extends HookConsumerWidget {
       [initialCenter], // Only recreate if initial center changes (location load)
     );
 
-    // Memoize onViewCreated callback to prevent map re-creation on every build
-    final onMapViewCreated = useCallback((GoogleMapViewController controller) async {
-      AppLogger.general('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-      AppLogger.general('🗺️ onMapViewCreated CALLED - MAP IS BEING RECREATED!');
-      AppLogger.general('   Timestamp: ${DateTime.now().millisecondsSinceEpoch}');
-      AppLogger.general('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    // Watch the map controller provider and perform setup when it becomes available
+    final mapControllerFromProvider = ref.watch(driverMapControllerProvider);
 
-      mapController.value = controller;
+    useEffect(() {
+      if (mapControllerFromProvider != null && mapController.value == null) {
+        // Sync provider controller to local state
+        mapController.value = mapControllerFromProvider;
 
-      // Enable My Location (blue dot) - Google Maps built-in feature
-      try {
-        await controller.setMyLocationEnabled(true);
-        AppLogger.map('✅ My Location (blue dot) enabled');
-      } catch (e) {
-        AppLogger.map('⚠️  Failed to enable My Location: $e');
+        // Perform one-time setup
+        () async {
+          try {
+            // Enable My Location (blue dot) - Google Maps built-in feature
+            await mapControllerFromProvider.setMyLocationEnabled(true);
+            AppLogger.map('✅ My Location (blue dot) enabled');
+
+            // Disable the default My Location button (we'll use a custom one)
+            await mapControllerFromProvider.settings.setMyLocationButtonEnabled(false);
+            AppLogger.map('✅ Default My Location button disabled (using custom button)');
+
+            AppLogger.map('✅ Using default Google Maps style (custom style disabled)');
+            AppLogger.map('🗺️  Google Map setup complete');
+            AppLogger.map('   Markers count: ${markers.value.length}');
+            AppLogger.map('   Polylines count: ${polylines.value.length}');
+          } catch (e) {
+            AppLogger.map('⚠️  Map setup error: $e');
+          }
+        }();
       }
-
-      // Disable the default My Location button (we'll use a custom one)
-      try {
-        await controller.settings.setMyLocationButtonEnabled(false);
-        AppLogger.map('✅ Default My Location button disabled (using custom button)');
-      } catch (e) {
-        AppLogger.map('⚠️  Failed to disable My Location button: $e');
-      }
-
-      AppLogger.map('✅ Using default Google Maps style (custom style disabled)');
-      AppLogger.map('🗺️  Google Map created');
-      AppLogger.map('   Markers count: ${markers.value.length}');
-      AppLogger.map('   Polylines count: ${polylines.value.length}');
-    }, []);
+      return null;
+    }, [mapControllerFromProvider]);
 
     // Load navigation arrow icon on mount
     useEffect(() {
@@ -183,89 +199,13 @@ class DriverMapPage extends HookConsumerWidget {
       };
     }, []);
 
-    // Calculate bearing from GPS movement (for current location arrow rotation)
-    useEffect(() {
-      AppLogger.navigation('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-      AppLogger.navigation('🔄 GPS BEARING EFFECT TRIGGERED');
-      AppLogger.navigation('   shiftStatus: ${shiftState.status}');
-      AppLogger.navigation('   isSimulating: ${simulationState.isSimulating}');
-      AppLogger.navigation(
-        '   locationState has value: ${locationState.value != null}',
-      );
-
-      // Skip during simulation (simulated bearing is calculated separately)
-      if (simulationState.isSimulating) {
-        AppLogger.navigation('   ⏸️  SKIPPING: Is simulating');
-        AppLogger.navigation('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-        return null;
-      }
-
-      // Need current location
-      if (locationState.value == null) {
-        AppLogger.navigation('   ⏸️  SKIPPING: No location available');
-        AppLogger.navigation('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-        return null;
-      }
-
-      final currentPos = locationState.value!;
-
-      AppLogger.navigation('   📍 Current GPS Position:');
-      AppLogger.navigation(
-        '      Lat: ${currentPos.latitude.toStringAsFixed(6)}',
-      );
-      AppLogger.navigation(
-        '      Lng: ${currentPos.longitude.toStringAsFixed(6)}',
-      );
-      AppLogger.navigation('      Timestamp: ${currentPos.timestamp}');
-
-      // If we have a previous position, calculate bearing
-      if (previousPosition.value != null) {
-        final prevPos = previousPosition.value!;
-
-        AppLogger.navigation('   📍 Previous GPS Position:');
-        AppLogger.navigation(
-          '      Lat: ${prevPos.latitude.toStringAsFixed(6)}',
-        );
-        AppLogger.navigation(
-          '      Lng: ${prevPos.longitude.toStringAsFixed(6)}',
-        );
-        AppLogger.navigation('      Timestamp: ${prevPos.timestamp}');
-
-        AppLogger.navigation('   ✅ CALLING updateBearingFromGPS()...');
-        AppLogger.navigation(
-          '      Before: bearing=${simulationState.bearing.toStringAsFixed(2)}°, smoothed=${simulationState.smoothedBearing?.toStringAsFixed(2) ?? "NULL"}',
-        );
-
-        // Calculate bearing from previous → current position
-        ref
-            .read(simulationNotifierProvider.notifier)
-            .updateBearingFromGPS(
-              prevLat: prevPos.latitude,
-              prevLng: prevPos.longitude,
-              currLat: currentPos.latitude,
-              currLng: currentPos.longitude,
-            );
-
-        // Read the updated state
-        final updatedState = ref.read(simulationNotifierProvider);
-        AppLogger.navigation(
-          '      After: bearing=${updatedState.bearing.toStringAsFixed(2)}°, smoothed=${updatedState.smoothedBearing?.toStringAsFixed(2) ?? "NULL"}',
-        );
-      } else {
-        AppLogger.navigation(
-          '   ℹ️  No previous position yet - will calculate on next update',
-        );
-      }
-
-      // Store current position as previous for next update
-      previousPosition.value = currentPos;
-      AppLogger.navigation(
-        '   💾 Stored current position as previous for next update',
-      );
-      AppLogger.navigation('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-
-      return null;
-    }, [locationState.value, simulationState.isSimulating]);
+    // SIMULATION DISABLED - GPS bearing calculation not needed
+    // useEffect(() {
+    //   AppLogger.navigation('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    //   AppLogger.navigation('🔄 GPS BEARING EFFECT TRIGGERED');
+    //   // ... GPS bearing calculation code ...
+    //   return null;
+    // }, [locationState.value]);
 
     // Update markers and polylines when data changes
     useEffect(
@@ -274,16 +214,19 @@ class DriverMapPage extends HookConsumerWidget {
         final routeBins = routeState.value;
         final location = locationState.value;
 
+        // Read shift state without watching (doesn't cause rebuilds)
+        final currentShift = ref.read(shiftNotifierProvider);
+
         // DEBUG: Check data availability
         // Use marker cache for instant marker rendering
         final newMarkers = <Marker>{};
 
         // ✅ ONLY show markers for bins in the assigned shift
         // When no shift → routeBins is empty → clean map with just blue dot
-        if (shiftState.routeBins.isNotEmpty && bins != null) {
+        if (currentShift.routeBins.isNotEmpty && bins != null) {
 
-          for (var i = 0; i < shiftState.routeBins.length; i++) {
-            final routeBin = shiftState.routeBins[i];
+          for (var i = 0; i < currentShift.routeBins.length; i++) {
+            final routeBin = currentShift.routeBins[i];
 
             if (routeBin.latitude != null && routeBin.longitude != null) {
               // Find the corresponding Bin object for the bottom sheet
@@ -312,62 +255,14 @@ class DriverMapPage extends HookConsumerWidget {
           }
         }
 
-        // Add route polyline (priority: simulation > simple lines)
+        // Add route polyline (simple lines from current location through bins)
         final routePoints = <LatLng>[];
 
         // ✅ ONLY show polylines if there's a shift with bins
         // When no shift → clean map (no route lines)
-        if (shiftState.routeBins.isNotEmpty) {
-          // Case 1: During simulation - show REMAINING route with smooth interpolation
-          if (simulationState.isSimulating &&
-            simulationState.routePolyline.isNotEmpty) {
-          AppLogger.map('   → Using SIMULATION route');
-          // For simulation: show remaining route starting from CURRENT SIMULATED position
-          if (simulationState.currentSegmentIndex <
-                  simulationState.routePolyline.length - 1 &&
-              simulationState.simulatedPosition != null) {
-            // Start polyline from simulated position (same as blue dot marker!)
-            routePoints.add(simulationState.simulatedPosition!);
-
-            // Add remaining route points (from next segment onwards)
-            final remainingPoints = simulationState.routePolyline.skip(
-              simulationState.currentSegmentIndex + 1,
-            );
-            routePoints.addAll(remainingPoints);
-          } else {
-            // At or near end of route - show full route
-            routePoints.addAll(simulationState.routePolyline);
-          }
-
-          final routePolyline = Polyline(
-            polylineId: 'route',
-            options: PolylineOptions(
-              points: routePoints,
-              strokeColor: AppColors.primaryBlue,
-              strokeWidth: 8, // Thicker during simulation for visibility
-              visible: true,
-              zIndex: 100,
-            ),
-          );
-
-          polylines.value = {routePolyline};
-
-          // Only log when segment changes (not on every frame!)
-          if (lastLoggedSegment.value != simulationState.currentSegmentIndex) {
-            lastLoggedSegment.value = simulationState.currentSegmentIndex;
-            AppLogger.map('✅ SIMULATION Route polyline updated');
-            AppLogger.map('   Remaining points: ${routePoints.length}');
-            AppLogger.map(
-              '   Current segment: ${simulationState.currentSegmentIndex}/${simulationState.routePolyline.length - 1}',
-            );
-            AppLogger.map(
-              '   Segment progress: ${(simulationState.segmentProgress * 100).toStringAsFixed(1)}%',
-            );
-          }
-        }
-        else if (routeBins != null && routeBins.isNotEmpty) {
-          // Case 2: Fallback - draw simple straight lines from current location through bins
-          AppLogger.map('   → Using FALLBACK route (manual bins)');
+        if (currentShift.routeBins.isNotEmpty && routeBins != null && routeBins.isNotEmpty) {
+          // Draw simple straight lines from current location through bins
+          AppLogger.map('   → Drawing route polyline');
           if (location != null) {
             routePoints.add(LatLng(latitude: location.latitude, longitude: location.longitude));
           }
@@ -391,71 +286,20 @@ class DriverMapPage extends HookConsumerWidget {
 
             polylines.value = {routePolyline};
 
-            AppLogger.map('✅ FALLBACK Route polyline set (simple lines)');
+            AppLogger.map('✅ Route polyline set');
             AppLogger.map('   Points: ${routePoints.length}');
           } else {
             polylines.value = {};
             AppLogger.map('❌ No route points to draw');
           }
         } else {
-          polylines.value = {};
-          // AppLogger.map('   → NO ROUTE (all sources unavailable)');
-        }
-        } else {
           // No shift bins → clean map with no route polylines
           polylines.value = {};
         }
 
-        // Add user location marker (only when NOT simulating and NOT following)
-        // During simulation, we use overlays (centered or positioned) instead
-        final userPosition =
-            simulationState.simulatedPosition ??
-            (location != null
-                ? LatLng(latitude: location.latitude, longitude: location.longitude)
-                : null);
-
-        // ✅ Show user location marker
-        // When shift exists → custom navigation arrow
-        // When no shift → use Google Maps built-in blue dot (enabled via controller.setMyLocationEnabled)
-        if (userPosition != null &&
-            !simulationState.isSimulating &&
-            shiftState.routeBins.isNotEmpty) {
-          // Show custom navigation arrow for shift-based navigation
-          if (navigationArrowIcon.value != null) {
-            // Determine rotation based on movement state
-            // If moving (speed >= 1 m/s): use GPS bearing
-            // If stationary (speed < 1 m/s): use compass heading
-            final currentSpeed = location?.speed ?? 0.0;
-            const speedThreshold = 1.0; // m/s (~3.6 km/h)
-
-            final isMoving = currentSpeed >= speedThreshold;
-            final gpsBearing =
-                simulationState.smoothedBearing ?? simulationState.bearing;
-
-            // Rotation logic: GPS bearing when moving, compass when stationary
-            final rawRotation = isMoving
-                ? gpsBearing
-                : (compassHeading.value ?? gpsBearing);
-
-            // SVG arrow points northeast (~45°) by default, so subtract offset to make it point north
-            const svgRotationOffset = 45.0;
-            final rotation = rawRotation - svgRotationOffset;
-
-            newMarkers.add(
-              Marker(
-                markerId: 'current_location_arrow',
-                options: MarkerOptions(
-                  position: userPosition,
-                  icon: navigationArrowIcon.value!,
-                  anchor: const MarkerAnchor(u: 0.5, v: 0.5),
-                  flat: true, // Keeps marker straight on ground plane - critical!
-                  rotation: rotation, // Rotation based on movement state
-                  zIndex: 1000,
-                ),
-              ),
-            );
-          }
-        }
+        // SIMULATION DISABLED - User location marker code removed
+        // Google Maps built-in blue dot is enabled via controller.setMyLocationEnabled
+        // No custom navigation arrow needed without simulation
 
         markers.value = newMarkers;
         return null;
@@ -465,254 +309,33 @@ class DriverMapPage extends HookConsumerWidget {
         locationState.value,
         routeState.value,
         markerCache,
-        simulationState.simulatedPosition,
-        simulationState.isSimulating,
-        simulationState.routePolyline,
-        simulationState.segmentProgress,
-        simulationState.currentSegmentIndex,
-        shiftState.status,
-        navigationArrowIcon.value,
-        compassHeading.value,
-        simulationState.bearing,
-        simulationState.smoothedBearing,
+        // REMOVED shiftState.status to prevent page rebuilds
+        // We'll use ref.listen() to update markers when shift changes
       ],
     );
 
-    // Route change detection during simulation (prevent crashes)
-    useEffect(() {
-      // If route changes while simulation is running, stop simulation
-      if (simulationState.isSimulating &&
-          simulationState.routePolyline.isNotEmpty) {
-        // Check if current segment index is out of bounds
-        if (simulationState.currentSegmentIndex >=
-            simulationState.routePolyline.length) {
-          AppLogger.navigation(
-            '⚠️  Route changed during simulation - stopping for safety',
-          );
-          ref.read(simulationNotifierProvider.notifier).stopSimulation();
-        }
+    // Listen to shift changes WITHOUT rebuilding the entire page
+    // This triggers marker updates when routes are assigned/completed
+    ref.listen(shiftNotifierProvider, (previous, next) {
+      AppLogger.general('🔔 Shift state changed: ${previous?.status} → ${next.status}');
+
+      // Force marker update by invalidating the bins list provider
+      // This will trigger the useEffect above to re-run
+      if (previous?.status != next.status || previous?.routeBins.length != next.routeBins.length) {
+        AppLogger.general('   → Triggering marker update');
+        ref.invalidate(binsListProvider);
       }
-      return null;
-    }, [simulationState.routePolyline]);
+    });
 
-    // Continuous first-person camera following during active shift
-    // DISABLED: Let Google Maps control the camera naturally
-    useEffect(
-      () {
-        // Disabled - no custom camera animation on home map
-        return null;
+    // SIMULATION DISABLED - Route change detection not needed
+    // useEffect(() {
+    //   // ... simulation route change detection ...
+    //   return null;
+    // }, []);
 
-        // Only run when shift is active
-        // ignore: dead_code
-        if (shiftState.status != ShiftStatus.active) {
-          // Reset bearing smoothing and auto-follow when shift ends
-          smoothedBearing.value = null;
-          isAutoFollowEnabled.value = true; // Reset for next shift
-          return null;
-        }
+    // SIMULATION DISABLED - Camera following effects removed (lines 317-468)
+    // These effects were causing rebuild loops by watching and modifying simulationState
 
-        // Need location and map controller
-        if (locationState.value == null || mapController.value == null) {
-          return null;
-        }
-
-        // Don't update if user is simulating
-        if (simulationState.isSimulating) {
-          return null;
-        }
-
-        // Don't update camera if user disabled auto-follow by panning
-        if (!isAutoFollowEnabled.value) {
-          AppLogger.map('📹 Camera auto-follow DISABLED (user panned map)');
-          return null;
-        }
-
-        final location = LatLng(
-          latitude: locationState.value!.latitude,
-          longitude: locationState.value!.longitude,
-        );
-
-        // Speed-aware bearing: use GPS when moving, compass when stationary
-        final currentSpeed = locationState.value!.speed ?? 0.0;
-        const speedThreshold = 1.0; // m/s (~3.6 km/h)
-        final isMoving = currentSpeed >= speedThreshold;
-        final gpsBearing =
-            simulationState.smoothedBearing ?? simulationState.bearing;
-
-        final rawBearing = isMoving
-            ? gpsBearing
-            : (compassHeading.value ?? gpsBearing);
-
-        // Debug logs for camera bearing
-        AppLogger.map('📹 CAMERA BEARING DEBUG (Active Shift):');
-        AppLogger.map(
-          '   currentSpeed: ${currentSpeed.toStringAsFixed(2)} m/s',
-        );
-        AppLogger.map(
-          '   isMoving: $isMoving (threshold: $speedThreshold m/s)',
-        );
-        AppLogger.map(
-          '   compassHeading: ${compassHeading.value?.toStringAsFixed(2) ?? "NULL"}°',
-        );
-        AppLogger.map('   gpsBearing: ${gpsBearing.toStringAsFixed(2)}°');
-        AppLogger.map(
-          '   → Selected bearing source: ${isMoving ? "GPS" : "COMPASS"}',
-        );
-        AppLogger.map('   → rawBearing: ${rawBearing.toStringAsFixed(2)}°');
-
-        // Apply exponential smoothing to bearing (70% old + 30% new)
-        if (smoothedBearing.value == null) {
-          smoothedBearing.value = rawBearing;
-        } else {
-          smoothedBearing.value =
-              smoothedBearing.value! * BinConstants.bearingSmoothingFactor +
-              rawBearing * (1 - BinConstants.bearingSmoothingFactor);
-        }
-
-        AppLogger.map(
-          '   → smoothedBearing: ${smoothedBearing.value!.toStringAsFixed(2)}°',
-        );
-
-        // Throttle camera updates to max 10 FPS (100ms intervals)
-        final now = DateTime.now();
-        if (now.difference(lastCameraUpdate.value).inMilliseconds <
-            BinConstants.cameraUpdateThrottleMs) {
-          return null; // Skip this update
-        }
-        lastCameraUpdate.value = now;
-
-        // Only update camera in navigation (3D) mode
-        // In 2D mode, let user control the camera
-        if (!simulationState.isNavigationMode) {
-          return null;
-        }
-
-        // Schedule camera update for next frame
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mapController.value != null) {
-            try {
-              final finalBearing = smoothedBearing.value ?? rawBearing;
-              AppLogger.map('📹 ANIMATING CAMERA:');
-              AppLogger.map(
-                '   target: (${location.latitude.toStringAsFixed(6)}, ${location.longitude.toStringAsFixed(6)})',
-              );
-              AppLogger.map('   zoom: ${BinConstants.navigationZoom}');
-              AppLogger.map('   bearing: ${finalBearing.toStringAsFixed(2)}°');
-              AppLogger.map('   tilt: ${BinConstants.navigationTilt}°');
-
-              mapController.value!.animateCamera(
-                CameraUpdate.newCameraPosition(
-                  CameraPosition(
-                    target: location,
-                    zoom: BinConstants.navigationZoom, // 18
-                    bearing: finalBearing,
-                    tilt: BinConstants.navigationTilt, // 45° first-person view
-                  ),
-                ),
-              );
-              AppLogger.map('   ✅ Camera animation sent to Google Maps');
-            } catch (e) {
-              // Controller was disposed - ignore error
-              AppLogger.map(
-                '❌ Camera animation skipped - controller disposed',
-                level: AppLogger.debug,
-              );
-            }
-          }
-        });
-
-        return null;
-      },
-      [
-        locationState.value,
-        shiftState.status,
-        mapController.value,
-        simulationState.isSimulating,
-        simulationState.isNavigationMode,
-        simulationState.smoothedBearing,
-        simulationState.bearing,
-        compassHeading.value,
-        isAutoFollowEnabled.value,
-      ],
-    );
-
-    // Camera following during simulation (only when isFollowing is true)
-    useEffect(
-      () {
-        if (!simulationState.isSimulating ||
-            simulationState.simulatedPosition == null ||
-            mapController.value == null) {
-          return null;
-        }
-
-        // Only update camera if following
-        if (!simulationState.isFollowing) {
-          return null; // Don't update camera if user panned away
-        }
-
-        // Only update camera in navigation (3D) mode when following
-        if (!simulationState.isNavigationMode) {
-          return null; // Don't update camera in 2D mode
-        }
-
-        // Get raw bearing from simulation
-        final rawBearing =
-            simulationState.smoothedBearing ?? simulationState.bearing;
-
-        // Apply exponential smoothing to bearing (70% old + 30% new)
-        if (smoothedBearing.value == null) {
-          smoothedBearing.value = rawBearing;
-        } else {
-          smoothedBearing.value =
-              smoothedBearing.value! * BinConstants.bearingSmoothingFactor +
-              rawBearing * (1 - BinConstants.bearingSmoothingFactor);
-        }
-
-        // Throttle camera updates to max 10 FPS (100ms intervals)
-        final now = DateTime.now();
-        if (now.difference(lastCameraUpdate.value).inMilliseconds <
-            BinConstants.cameraUpdateThrottleMs) {
-          return null; // Skip this update
-        }
-        lastCameraUpdate.value = now;
-
-        // Schedule camera update for next frame
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mapController.value != null &&
-              simulationState.simulatedPosition != null) {
-            try {
-              mapController.value!.animateCamera(
-                CameraUpdate.newCameraPosition(
-                  CameraPosition(
-                    target: simulationState.simulatedPosition!,
-                    zoom: BinConstants
-                        .navigationZoom, // Close zoom for navigation
-                    bearing: smoothedBearing.value ?? rawBearing,
-                    tilt: BinConstants.navigationTilt, // 3D tilted view
-                  ),
-                ),
-              );
-            } catch (e) {
-              // Controller was disposed - ignore error
-              AppLogger.map(
-                'Camera animation skipped - controller disposed',
-                level: AppLogger.debug,
-              );
-            }
-          }
-        });
-
-        return null;
-      },
-      [
-        simulationState.simulatedPosition,
-        simulationState.isSimulating,
-        simulationState.isNavigationMode,
-        simulationState.isFollowing,
-        simulationState.smoothedBearing,
-        simulationState.bearing,
-      ],
-    );
 
     // NOTE: Removed custom camera following for no-shift case
     // When there's no shift, we use vanilla Google Maps with default behavior
@@ -721,68 +344,41 @@ class DriverMapPage extends HookConsumerWidget {
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: SystemUiOverlayStyle.dark, // Dark status bar icons
       child: Scaffold(
-        body: binsState.when(
-          data: (bins) {
-            return Stack(
-              children: [
-                // Google Map wrapped in Listener to detect user pan gestures
-                Listener(
-                  onPointerDown: (event) {
-                    // User touched the screen - disable following mode
-                    if (simulationState.isFollowing &&
-                        simulationState.isSimulating) {
-                      AppLogger.navigation(
-                        '👆 User touched map - disabling simulation following',
-                      );
-                      ref
-                          .read(simulationNotifierProvider.notifier)
-                          .setFollowing(false);
-                    }
+        body: Stack(
+          children: [
+            // MAP LAYER - Never rebuilds (doesn't watch shiftState)
+            _MapLayer(
+              initialCameraPosition: initialCameraPosition,
+            ),
 
-                    // Disable auto-follow for active shift camera
-                    if (shiftState.status == ShiftStatus.active &&
-                        isAutoFollowEnabled.value) {
-                      AppLogger.map(
-                        '👆 User touched map - disabling camera auto-follow',
-                      );
-                      isAutoFollowEnabled.value = false;
-                    }
-                  },
-                  child: GoogleMapsMapView(
-                    key: const ValueKey('driver_map'),
-                    initialCameraPosition: initialCameraPosition,
-                    initialMapType: MapType.normal,
-                    // Disable zoom controls (+ and - buttons) - Android only feature
-                    initialZoomControlsEnabled: false,
-                    onViewCreated: onMapViewCreated,
-                    // Note: Camera position tracking removed as onCameraChanged is not available in this API version
-                    // Blue dot overlay may need alternative camera position tracking if required
+            // ALWAYS VISIBLE BUTTONS - Positioned outside binsState.when()
+            SafeArea(
+              child: Stack(
+                children: [
+                  // Notification bell button (top left)
+                  Positioned(
+                    top: 16,
+                    left: 16,
+                    child: MapNotificationButton(binsState: binsState),
                   ),
-                ),
-                // Blue dot overlays during simulation (smooth 60 FPS movement)
-                if (simulationState.isSimulating &&
-                    simulationState.simulatedPosition != null) ...[
-                  // Centered overlay when following
-                  if (simulationState.isFollowing)
-                    const NavigationBlueDotOverlay(),
-                  // Positioned overlay when panned away (synchronous calculation)
-                  if (!simulationState.isFollowing)
-                    PositionedBlueDotOverlay(
-                      position: simulationState.simulatedPosition!,
-                      mapController: mapController.value,
-                      cameraPosition: cameraPosition,
-                    ),
+                  // Location button (bottom right)
+                  _DynamicLocationButton(mapController: mapController.value),
                 ],
-                // All overlays wrapped in SafeArea
-                SafeArea(
+              ),
+            ),
+
+            // SHIFT-AWARE OVERLAYS - Full screen (no SafeArea, extends into status bar)
+            // These watch shift state internally to prevent parent rebuilds
+            _ShiftReadyOverlay(),
+            _ShiftInactiveOverlay(),
+            _ShiftActiveOverlay(mapController: mapController.value),
+
+            // OVERLAYS LAYER - Rebuilds when shiftState changes
+            binsState.when(
+              data: (bins) {
+                return SafeArea(
                   child: Stack(
                     children: [
-                      // Notification bell button (DoorDash-inspired - top left)
-                      Positioned(
-                        top: 16,
-                        left: 16,
-                        child: MapNotificationButton(binsState: binsState),
-                      ),
                       // COMMENTED OUT: Recenter button (restores following mode)
                       // Replaced with custom My Location button at bottom-right
                       // Positioned(
@@ -880,19 +476,13 @@ class DriverMapPage extends HookConsumerWidget {
                       //     ),
                       //   ),
                       // ),
-                      // 2D/3D toggle button (below recenter)
-                      // Show during simulation OR active shift
-                      if (simulationState.isSimulating ||
-                          shiftState.status == ShiftStatus.active)
-                        Positioned(
-                          top: 128,
-                          right: 16,
-                          child: Map2D3DToggleButton(
-                            simulationState: simulationState,
-                            locationState: locationState,
-                            mapController: mapController.value,
-                          ),
-                        ),
+                      // SIMULATION DISABLED - 2D/3D toggle button not needed
+                      // if (shiftState.status == ShiftStatus.active)
+                      //   Positioned(
+                      //     top: 128,
+                      //     right: 16,
+                      //     child: Map2D3DToggleButton(...),
+                      //   ),
                       // Stats card (only visible to admin users)
                       if (user?.role == UserRole.admin)
                         Positioned(
@@ -967,257 +557,45 @@ class DriverMapPage extends HookConsumerWidget {
                             },
                           ),
                         ),
-                      // Pre-shift overview card (when route assigned) or empty state
-                      // NEW ROUTE AVAILABLE MODAL (ShiftStatus.ready)
-                      if (shiftState.status == ShiftStatus.ready) ...[
-                        // Dark overlay
-                        Positioned.fill(
-                          child: Container(
-                            color: Colors.black.withValues(alpha: 0.5),
-                          ),
-                        ),
-                        // Acceptance modal
-                        Positioned(
-                          bottom: 0,
-                          left: 0,
-                          right: 0,
-                          child: ShiftAcceptanceBottomSheet(
-                            shiftOverview: ShiftOverview(
-                              shiftId: shiftState.assignedRouteId ?? '',
-                              startTime: DateTime.now(),
-                              estimatedEndTime: DateTime.now().add(
-                                Duration(
-                                  hours: (shiftState.totalBins * 0.25).ceil(),
-                                ),
-                              ),
-                              totalBins: shiftState.totalBins,
-                              totalDistanceKm: _calculateTotalDistance(
-                                shiftState.routeBins,
-                              ),
-                              routeBins: shiftState.routeBins,
-                              routeName: 'Route ${shiftState.assignedRouteId ?? ''}',
-                            ),
-                            onAccept: () async {
-                              AppLogger.general('🚀 SHIFT ACCEPTED - Starting shift');
-                              EasyLoading.show(
-                                status: 'Starting shift...',
-                                maskType: EasyLoadingMaskType.black,
-                              );
-
-                              try {
-                                await ref.read(shiftNotifierProvider.notifier).startShift();
-                                AppLogger.general('✅ Shift started successfully');
-                                await EasyLoading.dismiss();
-
-                                // Navigate to navigation page
-                                if (context.mounted) {
-                                  context.push('/navigation');
-                                }
-                              } catch (e) {
-                                AppLogger.general('❌ Error starting shift: $e');
-                                await EasyLoading.dismiss();
-
-                                if (context.mounted) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                      content: Text('Failed to start shift: $e'),
-                                      backgroundColor: Colors.red,
-                                    ),
-                                  );
-                                }
-                              }
-                            },
-                            onDecline: () async {
-                              // TODO: Implement decline logic
-                              AppLogger.general('❌ SHIFT DECLINED');
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text('Shift declined (not implemented)'),
-                                ),
-                              );
-                            },
-                          ),
-                        ),
-                      ],
-
-                      // Show only when status is inactive (hide during ready and active states)
-                      if (shiftState.status == ShiftStatus.inactive)
-                        Positioned(
-                          bottom: 90, // Position very close to bottom tab navigator
-                          left: 0,
-                          right: 0,
-                          child: AnimatedShiftTransitionWithSlide(
-                            useSlideAnimation: true, // Use slide-up animation for bottom content
-                            hasActiveShift: false, // Lyft-style modal handles shift acceptance now
-                            emptyState: NoShiftEmptyState(
-                              onRefresh: () async {
-                                // Refresh shift status from backend
-                                await ref.read(shiftNotifierProvider.notifier).fetchCurrentShift();
-                                if (context.mounted) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(
-                                      content: Text('Shift status refreshed'),
-                                      duration: Duration(seconds: 2),
-                                    ),
-                                  );
-                                }
-                              },
-                              // TODO: Get next shift time from backend if available
-                              nextShiftTime: null,
-                            ),
-                            // Replaced with Lyft-style full-screen modal (see useEffect above)
-                            activeRouteCard: const SizedBox.shrink(), /* PreShiftOverviewCard(
-                            shiftOverview: ShiftOverview(
-                              shiftId: shiftState.assignedRouteId ?? '',
-                              startTime: DateTime.now(),
-                              estimatedEndTime: DateTime.now().add(
-                                Duration(
-                                  hours: (shiftState.totalBins * 0.25).ceil(),
-                                ),
-                              ), // ~15 min per bin
-                              totalBins: shiftState.totalBins,
-                              totalDistanceKm: _calculateTotalDistance(
-                                shiftState.routeBins,
-                              ),
-                              routeBins: shiftState.routeBins,
-                              routeName:
-                                  'Route ${shiftState.assignedRouteId ?? ''}',
-                            ),
-                            onStartShift: () async {
-                              AppLogger.general('🚀 START SHIFT - Button pressed');
-
-                              // Show loading overlay
-                              AppLogger.general('📱 START SHIFT - Showing loading overlay');
-                              EasyLoading.show(
-                                status: 'Starting shift...',
-                                maskType: EasyLoadingMaskType.black,
-                              );
-
-                              try {
-                                // Start the shift
-                                AppLogger.general('📡 START SHIFT - Calling startShift() API');
-                                await ref
-                                    .read(shiftNotifierProvider.notifier)
-                                    .startShift();
-                                AppLogger.general('✅ START SHIFT - API call successful');
-
-                                // Hide loading
-                                AppLogger.general('📱 START SHIFT - Dismissing loading overlay');
-                                await EasyLoading.dismiss();
-
-                                // Navigate to navigation page with iOS-style slide transition
-                                AppLogger.general('🧭 START SHIFT - Navigating to GoogleNavigationPage');
-                                if (context.mounted) {
-                                  context.push('/navigation');
-                                  AppLogger.general('✅ START SHIFT - Navigation complete');
-                                } else {
-                                  AppLogger.general('❌ START SHIFT - Context not mounted, cannot navigate!');
-                                }
-                              } catch (e) {
-                                AppLogger.general('❌ START SHIFT - Error: $e');
-
-                                // Hide loading
-                                await EasyLoading.dismiss();
-
-                                // Show error
-                                if (context.mounted) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                      content: Text(
-                                        'Failed to start shift: $e',
-                                      ),
-                                      backgroundColor: Colors.red,
-                                    ),
-                                  );
-                                }
-                              }
-                            },
-                          ), */
-                            ), // End of AnimatedShiftTransition
-                        ),
-                      // Active shift bottom sheet
-                      if (shiftState.status == ShiftStatus.active)
-                        Positioned(
-                          bottom: 0,
-                          left: 0,
-                          right: 0,
-                          child: ActiveShiftBottomSheet(
-                            routeBins: shiftState.routeBins,
-                            completedBins: shiftState.completedBins,
-                            totalBins: shiftState.totalBins,
-                            onNavigateToNextBin: () {
-                              // Find next incomplete bin
-                              final nextBin = shiftState.routeBins.firstWhere(
-                                (bin) => bin.isCompleted == 0,
-                                orElse: () => shiftState.routeBins.first,
-                              );
-
-                              // Animate camera to next bin
-                              if (mapController.value != null) {
-                                try {
-                                  mapController.value!.animateCamera(
-                                    CameraUpdate.newCameraPosition(
-                                      CameraPosition(
-                                        target: LatLng(
-                                          latitude: nextBin.latitude,
-                                          longitude: nextBin.longitude,
-                                        ),
-                                        zoom: 17.0, // Closer zoom for bin view
-                                      ),
-                                    ),
-                                  );
-                                } catch (e) {
-                                  AppLogger.map(
-                                    'Map recenter skipped - controller disposed',
-                                    level: AppLogger.debug,
-                                  );
-                                }
-                              }
-                            },
-                          ),
-                        ),
-
-                      // Custom My Location button - positioned just above Today's Route card
-                      Positioned(
-                        bottom: 310,
-                        right: 16,
-                        child: MapLocationButton(
-                          mapController: mapController.value,
-                        ),
-                      ),
                     ],
                   ),
-                ),
-              ],
-            );
-          },
-          loading: () => const Center(child: CircularProgressIndicator()),
-          error: (error, stack) => Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Icon(Icons.error, size: 48, color: Colors.red),
-                const SizedBox(height: 16),
-                Text(
-                  'Error loading bins',
-                  style: Theme.of(context).textTheme.titleLarge,
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  error.toString(),
-                  textAlign: TextAlign.center,
-                  style: Theme.of(context).textTheme.bodyMedium,
-                ),
-                const SizedBox(height: 16),
-                ElevatedButton(
-                  onPressed: () => ref.invalidate(binsListProvider),
-                  child: const Text('Retry'),
-                ),
-              ],
+                );
+              },
+              loading: () => const SizedBox.shrink(),
+              error: (error, stack) => const SizedBox.shrink(),
             ),
-          ),
+          ],
         ),
       ),
+    );
+  }
+}
+
+/// Separate map layer widget that NEVER rebuilds on shift state changes
+/// This prevents the white flash when accepting a route
+class _MapLayer extends HookConsumerWidget {
+  final CameraPosition initialCameraPosition;
+
+  const _MapLayer({
+    required this.initialCameraPosition,
+  });
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return GoogleMapsMapView(
+      key: const ValueKey('driver_map'),
+      initialCameraPosition: initialCameraPosition,
+      initialMapType: MapType.normal,
+      initialZoomControlsEnabled: false,
+      onViewCreated: (GoogleMapViewController controller) {
+        // Store controller in provider for other components to access
+        ref.read(driverMapControllerProvider.notifier).state = controller;
+
+        AppLogger.general('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+        AppLogger.general('🗺️ onMapViewCreated CALLED - Storing controller in provider');
+        AppLogger.general('   Timestamp: ${DateTime.now().millisecondsSinceEpoch}');
+        AppLogger.general('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      },
     );
   }
 }
@@ -1260,4 +638,223 @@ double _calculateTotalDistance(List<dynamic> routeBins) {
 
   // print('   ✅ Total distance: ${totalKm.toStringAsFixed(2)} km');
   return totalKm;
+}
+
+/// Shift-aware overlay that shows shift acceptance modal when status is ready
+/// This widget watches shift state internally to prevent parent rebuilds
+class _ShiftReadyOverlay extends ConsumerWidget {
+  // Removed const to ensure fresh BuildContext for navigation
+  _ShiftReadyOverlay();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final shiftState = ref.watch(shiftNotifierProvider);
+
+    // LOGS COMMENTED OUT - too spammy
+    // if (shiftState.status == ShiftStatus.ready) {
+    //   AppLogger.general('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    //   AppLogger.general('🎭 _ShiftReadyOverlay: Status is READY!');
+    //   AppLogger.general('   ✅ Showing ShiftAcceptanceBottomSheet!');
+    //   AppLogger.general('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    // }
+
+    if (shiftState.status != ShiftStatus.ready) {
+      return const SizedBox.shrink();
+    }
+    return Stack(
+      children: [
+        // Dark overlay
+        Positioned.fill(
+          child: Container(
+            color: Colors.black.withValues(alpha: 0.5),
+          ),
+        ),
+        // Acceptance modal
+        Positioned(
+          bottom: 0,
+          left: 0,
+          right: 0,
+          child: ShiftAcceptanceBottomSheet(
+            shiftOverview: ShiftOverview(
+              shiftId: shiftState.assignedRouteId ?? '',
+              startTime: DateTime.now(),
+              estimatedEndTime: DateTime.now().add(
+                Duration(
+                  hours: (shiftState.totalBins * 0.25).ceil(),
+                ),
+              ),
+              totalBins: shiftState.totalBins,
+              totalDistanceKm: _calculateTotalDistance(
+                shiftState.routeBins,
+              ),
+              routeBins: shiftState.routeBins,
+              routeName: 'Route ${shiftState.assignedRouteId ?? ''}',
+            ),
+            onAccept: () async {
+              AppLogger.general('🚀 SHIFT ACCEPTED - Starting shift');
+              EasyLoading.show(
+                status: 'Starting shift...',
+                maskType: EasyLoadingMaskType.black,
+              );
+
+              try {
+                AppLogger.general('📡 Calling startShift()...');
+                await ref.read(shiftNotifierProvider.notifier).startShift();
+                AppLogger.general('✅ Shift started successfully');
+
+                // Hide loading
+                await EasyLoading.dismiss();
+
+                // No manual navigation needed!
+                // DriverMapWrapper watches shiftNotifierProvider
+                // When status changes to 'active', it automatically switches to GoogleNavigationPage
+                AppLogger.general('✅ Shift active - DriverMapWrapper will auto-switch to navigation');
+              } catch (e) {
+                AppLogger.general('❌ Error starting shift: $e');
+                AppLogger.general('   Error type: ${e.runtimeType}');
+                await EasyLoading.dismiss();
+
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Failed to start shift: $e'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                }
+              }
+            },
+            onDecline: () async {
+              AppLogger.general('❌ SHIFT DECLINED');
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Shift declined (not implemented)'),
+                ),
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// Shift-aware overlay that shows empty state when status is inactive
+/// This widget watches shift state internally to prevent parent rebuilds
+class _ShiftInactiveOverlay extends ConsumerWidget {
+  // Removed const to ensure fresh BuildContext
+  _ShiftInactiveOverlay();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final shiftState = ref.watch(shiftNotifierProvider);
+
+    if (shiftState.status != ShiftStatus.inactive) {
+      return const SizedBox.shrink();
+    }
+
+    return Positioned(
+      bottom: 90, // Position very close to bottom tab navigator
+      left: 0,
+      right: 0,
+      child: AnimatedShiftTransitionWithSlide(
+        useSlideAnimation: true, // Use slide-up animation for bottom content
+        hasActiveShift: false, // Lyft-style modal handles shift acceptance now
+        emptyState: NoShiftEmptyState(
+          onRefresh: () async {
+            // Refresh shift status from backend
+            await ref.read(shiftNotifierProvider.notifier).fetchCurrentShift();
+            if (context.mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Shift status refreshed'),
+                  duration: Duration(seconds: 2),
+                ),
+              );
+            }
+          },
+          // TODO: Get next shift time from backend if available
+          nextShiftTime: null,
+        ),
+        activeRouteCard: const SizedBox.shrink(),
+      ),
+    );
+  }
+}
+
+/// Shift-aware overlay that shows active shift bottom sheet when status is active
+/// This widget watches shift state internally to prevent parent rebuilds
+class _ShiftActiveOverlay extends ConsumerWidget {
+  final GoogleMapViewController? mapController;
+
+  const _ShiftActiveOverlay({required this.mapController});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final shiftState = ref.watch(shiftNotifierProvider);
+
+    if (shiftState.status != ShiftStatus.active) {
+      return const SizedBox.shrink();
+    }
+
+    return Positioned(
+      bottom: 0,
+      left: 0,
+      right: 0,
+      child: ActiveShiftBottomSheet(
+        routeBins: shiftState.routeBins,
+        completedBins: shiftState.completedBins,
+        totalBins: shiftState.totalBins,
+        onNavigateToNextBin: () {
+          // Find next incomplete bin
+          final nextBin = shiftState.routeBins.firstWhere(
+            (bin) => bin.isCompleted == 0,
+            orElse: () => shiftState.routeBins.first,
+          );
+
+          // Animate camera to next bin
+          if (mapController != null) {
+            try {
+              mapController!.animateCamera(
+                CameraUpdate.newCameraPosition(
+                  CameraPosition(
+                    target: LatLng(
+                      latitude: nextBin.latitude,
+                      longitude: nextBin.longitude,
+                    ),
+                    zoom: 18,
+                  ),
+                ),
+              );
+            } catch (e) {
+              AppLogger.map('❌ Error animating camera: $e');
+            }
+          }
+        },
+      ),
+    );
+  }
+}
+
+/// Fixed location button that stays at consistent position
+/// Positioned above shift ready modal / no shift card / active shift card
+class _DynamicLocationButton extends StatelessWidget {
+  final GoogleMapViewController? mapController;
+
+  const _DynamicLocationButton({required this.mapController});
+
+  @override
+  Widget build(BuildContext context) {
+    // Fixed position that works for all shift states:
+    // - Above shift ready modal (45% screen height = ~360px + 80px spacing = 440px)
+    // - Above no shift card (~150px tall at bottom: 90 = 240px total, button at 440px is well above)
+    // - Above active shift card (~310px at bottom)
+    return Positioned(
+      bottom: 440.0, // Fixed position - always visible above any bottom sheet
+      right: 16,
+      child: MapLocationButton(
+        mapController: mapController,
+      ),
+    );
+  }
 }

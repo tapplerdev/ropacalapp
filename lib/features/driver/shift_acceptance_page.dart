@@ -60,17 +60,18 @@ class ShiftAcceptancePage extends ConsumerWidget {
                 );
 
                 try {
-                  // Start the shift
+                  // Start the shift via HTTP
                   await ref.read(shiftNotifierProvider.notifier).startShift();
+
+                  AppLogger.general('✅ Shift started successfully via HTTP');
 
                   // Hide loading
                   await EasyLoading.dismiss();
 
-                  // Navigate to navigation page
-                  // Note: DriverMapWrapper will auto-switch to
-                  // GoogleNavigationPage when status changes to "active",
-                  // but we still need to navigate to /navigation for proper URL
+                  // Navigate to navigation page after successful HTTP response
+                  // No race condition since WebSocket shift_update is disabled
                   if (context.mounted) {
+                    AppLogger.general('🧭 Navigating to /navigation...');
                     context.push('/navigation');
                   }
                 } catch (e) {

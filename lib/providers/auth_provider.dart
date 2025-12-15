@@ -3,12 +3,14 @@ import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:ropacalapp/core/services/api_service.dart';
 import 'package:ropacalapp/models/user.dart';
 import 'package:ropacalapp/models/driver_location.dart';
+import 'package:ropacalapp/core/enums/user_role.dart';
 import 'package:ropacalapp/services/fcm_service.dart';
 import 'package:ropacalapp/services/shift_service.dart';
 import 'package:ropacalapp/services/websocket_service.dart';
 import 'package:ropacalapp/providers/shift_provider.dart';
 import 'package:ropacalapp/providers/drivers_provider.dart';
 import 'package:ropacalapp/providers/simulation_provider.dart';
+import 'package:ropacalapp/core/services/location_tracking_service.dart';
 import 'package:ropacalapp/core/utils/app_logger.dart';
 import 'package:ropacalapp/core/services/session_manager.dart';
 
@@ -45,9 +47,12 @@ class WebSocketManager extends _$WebSocketManager {
       ref.read(shiftNotifierProvider.notifier).updateFromWebSocket(data);
     };
 
+    // ✅ RESTORED: onShiftUpdate callback
+    // Needed because startShift() HTTP response doesn't include route_bins
+    // WebSocket shift_update includes full shift data with bins array
     _service!.onShiftUpdate = (data) {
-      AppLogger.general('📨 Shift updated via WebSocket');
-      AppLogger.general('   Using updateFromWebSocket (no full refresh)');
+      AppLogger.general('📨 Shift update via WebSocket');
+      AppLogger.general('   Using updateFromWebSocket (includes route bins)');
       ref.read(shiftNotifierProvider.notifier).updateFromWebSocket(data);
     };
 
@@ -180,6 +185,12 @@ class AuthNotifier extends _$AuthNotifier {
             ref.read(webSocketManagerProvider.notifier).connect(token);
           }
 
+          // Start background location tracking for drivers on auto-login
+          if (user.role == UserRole.driver) {
+            AppLogger.general('   📍 Starting background location tracking (driver auto-login)');
+            await ref.read(locationTrackingServiceProvider).startBackgroundTracking();
+          }
+
           AppLogger.general('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
           return user;
         }
@@ -261,6 +272,10 @@ class AuthNotifier extends _$AuthNotifier {
 
     // Disconnect WebSocket
     ref.read(webSocketManagerProvider.notifier).disconnect();
+
+    // Stop background location tracking
+    ref.read(locationTrackingServiceProvider).stopTracking();
+    AppLogger.general('🗑️  Stopped background location tracking on logout');
 
     // Reset simulation state
     ref.read(simulationNotifierProvider.notifier).reset();

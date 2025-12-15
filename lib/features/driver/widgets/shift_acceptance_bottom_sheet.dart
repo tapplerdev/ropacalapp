@@ -5,6 +5,7 @@ import 'package:ropacalapp/models/route_bin.dart';
 
 /// Timeline-based bottom sheet for shift acceptance
 /// Inspired by ride-sharing apps with compact, scannable design
+/// Bins timeline is scrollable for routes with many stops
 class ShiftAcceptanceBottomSheet extends StatelessWidget {
   const ShiftAcceptanceBottomSheet({
     super.key,
@@ -24,7 +25,7 @@ class ShiftAcceptanceBottomSheet extends StatelessWidget {
 
     return Container(
       constraints: BoxConstraints(
-        maxHeight: MediaQuery.of(context).size.height * 0.75,
+        maxHeight: MediaQuery.of(context).size.height * 0.45, // Smaller height to show ~2 bins
       ),
       decoration: const BoxDecoration(
         color: Colors.white,
@@ -39,103 +40,75 @@ class ShiftAcceptanceBottomSheet extends StatelessWidget {
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           // Drag handle
-          Container(
-            margin: const EdgeInsets.only(top: 10),
-            width: 40,
-            height: 4,
-            decoration: BoxDecoration(
-              color: Colors.grey.shade300,
-              borderRadius: BorderRadius.circular(2),
-            ),
-          ),
-
-          // Scrollable content
-          Flexible(
-            child: SingleChildScrollView(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Compact header
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // Main title
-                        const Text(
-                          'New Route Available',
-                          style: TextStyle(
-                            fontSize: 22,
-                            fontWeight: FontWeight.w700,
-                            height: 1.0,
-                            color: Color(0xFF1F2937),
-                          ),
-                        ),
-                        const SizedBox(height: 6),
-                        // Subtitle with bin count and distance
-                        Wrap(
-                          crossAxisAlignment: WrapCrossAlignment.center,
-                          spacing: 8,
-                          runSpacing: 4,
-                          children: [
-                            Text(
-                              '${shiftOverview.totalBins} $binLabel',
-                              style: TextStyle(
-                                fontSize: 15,
-                                fontWeight: FontWeight.w500,
-                                color: Colors.grey.shade600,
-                              ),
-                            ),
-                            // Only show distance if > 0
-                            if (shiftOverview.totalDistanceKm > 0) ...[
-                              Text(
-                                '•',
-                                style: TextStyle(
-                                  fontSize: 15,
-                                  color: Colors.grey.shade400,
-                                ),
-                              ),
-                              Text(
-                                '${shiftOverview.distanceFormatted} away',
-                                style: TextStyle(
-                                  fontSize: 15,
-                                  fontWeight: FontWeight.w500,
-                                  color: Colors.grey.shade600,
-                                ),
-                              ),
-                            ],
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-
-                  const SizedBox(height: 16),
-
-                  // Divider
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 20),
-                    child: Container(
-                      height: 1,
-                      color: Colors.grey.shade200,
-                    ),
-                  ),
-
-                  const SizedBox(height: 16),
-
-                  // Timeline
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 20),
-                    child: _buildTimeline(),
-                  ),
-
-                  const SizedBox(height: 20),
-                ],
+          Center(
+            child: Container(
+              margin: const EdgeInsets.only(top: 10),
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: Colors.grey.shade300,
+                borderRadius: BorderRadius.circular(2),
               ),
             ),
           ),
+
+          // Fixed header
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Main title
+                const Text(
+                  'New Route Available',
+                  style: TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.w700,
+                    height: 1.0,
+                    color: Color(0xFF1F2937),
+                  ),
+                ),
+                const SizedBox(height: 6),
+                // Subtitle with bin count (no distance)
+                Text(
+                  '${shiftOverview.totalBins} $binLabel',
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w500,
+                    color: Colors.grey.shade600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          const SizedBox(height: 16),
+
+          // Divider
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: Container(
+              height: 1,
+              color: Colors.grey.shade200,
+            ),
+          ),
+
+          const SizedBox(height: 16),
+
+          // Scrollable timeline section
+          Flexible(
+            child: SingleChildScrollView(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: _buildTimeline(),
+              ),
+            ),
+          ),
+
+          const SizedBox(height: 20),
 
           // Fixed bottom start button
           Container(

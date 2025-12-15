@@ -171,8 +171,9 @@ class ActiveShiftBottomSheet extends HookConsumerWidget {
         : null;
     final simulationState = ref.watch(simulationNotifierProvider);
     if (next == null) {
-      // All bins completed
-      return _buildAllCompleteSheet(context, ref);
+      // All bins completed - modal disabled per user request
+      // return _buildAllCompleteSheet(context, ref);
+      return const SizedBox.shrink(); // Hide the bottom sheet when all bins are done
     }
 
     // Calculate distance and ETA using straight-line distance

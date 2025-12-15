@@ -48,6 +48,32 @@ class GoogleNavigationPage extends HookConsumerWidget {
     final navNotifier = ref.read(navigationPageNotifierProvider.notifier);
     final shift = ref.watch(shiftNotifierProvider);
 
+    // Guard: Wait for route bins to be populated via WebSocket
+    // Show loading screen while waiting
+    if (shift.status == ShiftStatus.active && shift.routeBins.isEmpty) {
+      AppLogger.general('⏳ Navigation page: Waiting for route bins...');
+      AppLogger.general('   Status: ${shift.status}');
+      AppLogger.general('   Route bins length: ${shift.routeBins.length}');
+      AppLogger.general('   Total bins: ${shift.totalBins}');
+      AppLogger.general('   Route ID: ${shift.assignedRouteId}');
+
+      return Scaffold(
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const CircularProgressIndicator(),
+              const SizedBox(height: 16),
+              Text(
+                'Loading route...',
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
     // Guard: If no active shift exists on mount, navigate back to home
     // This only runs once when the page is first created
     useEffect(() {
@@ -119,11 +145,18 @@ class GoogleNavigationPage extends HookConsumerWidget {
 
     // Initialize navigator BEFORE view creation (following official SDK pattern)
     useEffect(() {
+      var isMounted = true;
+
       Future<void> initializeNavigator() async {
         AppLogger.general('🚀 [EARLY INIT] Starting navigator initialization (before view creation)...');
 
         try {
           await GoogleNavigationService.initializeNavigation(context, ref);
+          if (!isMounted) {
+            AppLogger.general('⚠️  [EARLY INIT] Widget disposed during initialization, skipping state updates');
+            return;
+          }
+
           navigatorInitialized.value = true;
           AppLogger.general('✅ [EARLY INIT] Navigator initialized successfully');
 
@@ -162,6 +195,10 @@ class GoogleNavigationPage extends HookConsumerWidget {
             // Note: Simulator location will be set in onViewCreated (after SDK is ready)
           }
         } catch (e) {
+          if (!isMounted) {
+            AppLogger.general('⚠️  [EARLY INIT] Widget disposed during error handling, skipping state updates');
+            return;
+          }
           AppLogger.general('❌ [EARLY INIT] Navigator initialization failed: $e');
           initializationError.value = e.toString();
           navigatorInitialized.value = true; // Set to true to stop loading spinner
@@ -169,7 +206,9 @@ class GoogleNavigationPage extends HookConsumerWidget {
       }
 
       initializeNavigator();
-      return null;
+      return () {
+        isMounted = false;
+      };
     }, []);
 
     // Cleanup navigation

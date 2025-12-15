@@ -19,9 +19,22 @@ class ManagerMapPage extends HookConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // 🔍 DIAGNOSTIC: Log every build
+    AppLogger.general('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    AppLogger.general('🏗️ ManagerMapPage.build() CALLED');
+    AppLogger.general('   Timestamp: ${DateTime.now().millisecondsSinceEpoch}');
+
     final driversAsync = ref.watch(driversNotifierProvider);
+    AppLogger.general('   🚗 driversAsync: ${driversAsync.runtimeType}, hasValue: ${driversAsync.hasValue}, valueOrNull?.length: ${driversAsync.valueOrNull?.length}');
+
     final binsAsync = ref.watch(binsListProvider);
+    AppLogger.general('   📦 binsAsync: ${binsAsync.runtimeType}, hasValue: ${binsAsync.hasValue}, valueOrNull?.length: ${binsAsync.valueOrNull?.length}');
+
     final locationState = ref.watch(currentLocationProvider);
+    AppLogger.general('   📍 locationState: ${locationState.runtimeType}, hasValue: ${locationState.hasValue}');
+
+    AppLogger.general('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+
     final mapController = useState<GoogleNavigationViewController?>(null);
     final cachedBinMarkers = useState<List<MarkerOptions>?>(null);
     // Cache driver marker icons to avoid recreating them (performance optimization)

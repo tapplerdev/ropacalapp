@@ -2,14 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:ropacalapp/features/driver/driver_map_page.dart';
 import 'package:ropacalapp/features/driver/google_navigation_page.dart';
-import 'package:ropacalapp/features/driver/shift_acceptance_page.dart';
 import 'package:ropacalapp/providers/shift_provider.dart';
 import 'package:ropacalapp/models/shift_state.dart';
 
 /// Wrapper that automatically switches between map states based on shift status
-/// - ready: Shows shift acceptance page (Uber/Lyft pattern)
-/// - active: Shows Google Navigation
-/// - inactive: Shows regular map
+/// - ready: Shows DriverMapPage with modal overlay (Uber/Lyft pattern)
+/// - active: Shows GoogleNavigationPage (turn-by-turn navigation)
+/// - inactive: Shows DriverMapPage (regular map)
 class DriverMapWrapper extends ConsumerWidget {
   const DriverMapWrapper({super.key});
 
@@ -17,21 +16,20 @@ class DriverMapWrapper extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final shiftState = ref.watch(shiftNotifierProvider);
 
-    // Priority 1: Shift ready → Show acceptance page
-    if (shiftState.status == ShiftStatus.ready) {
-      return const ShiftAcceptancePage();
-    }
-
-    // Priority 2: Shift active → Show navigation page
-    if (shiftState.status == ShiftStatus.active &&
-        shiftState.routeBins.isNotEmpty) {
+    // When shift is active AND route bins are loaded, automatically switch to navigation page
+    // The modal overlay in DriverMapPage will handle shift acceptance (status: ready)
+    // When driver accepts, status changes to active, triggering this auto-switch
+    // Wait for WebSocket to populate route bins before switching (prevents "Loading route..." screen)
+    if (shiftState.status == ShiftStatus.active && shiftState.routeBins.isNotEmpty) {
       return const GoogleNavigationPage();
     }
 
-    // Priority 3: Default → Show regular map
+    // Default: Show regular map with overlays
+    // When status is 'ready', DriverMapPage shows modal overlay for shift acceptance
+    // When status is 'inactive', DriverMapPage shows regular map
     return Stack(
       children: [
-        // Regular map view when no active shift
+        // Regular map view (shows modal overlay when shift is ready)
         const DriverMapPage(),
 
         // COMMENTED OUT: Floating toggle button in top-left

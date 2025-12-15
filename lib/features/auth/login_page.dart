@@ -4,7 +4,9 @@ import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:go_router/go_router.dart';
 import 'package:ropacalapp/providers/auth_provider.dart';
 import 'package:ropacalapp/providers/shift_provider.dart';
-import 'package:ropacalapp/providers/location_provider.dart';
+import 'package:ropacalapp/core/services/location_tracking_service.dart';
+import 'package:ropacalapp/models/user.dart';
+import 'package:ropacalapp/core/enums/user_role.dart';
 import 'package:ropacalapp/core/utils/app_logger.dart';
 
 class LoginPage extends HookConsumerWidget {
@@ -19,16 +21,11 @@ class LoginPage extends HookConsumerWidget {
     final isPreloading = useState(false);
     final hasStartedPreload = useState(false); // Prevent duplicate runs
 
-    // Pre-fetch location early for faster navigation startup
-    useEffect(() {
-      AppLogger.general('📍 LOGIN: Pre-fetching location for faster navigation...');
-      // This triggers the location provider to start acquiring GPS fix
-      ref.read(currentLocationProvider);
-      return null;
-    }, []);
+    // Note: Location tracking is now started in preloadAndNavigate() after login
+    // This avoids starting GPS before user is authenticated
 
     // Pre-load shift data after successful login
-    Future<void> preloadAndNavigate() async {
+    Future<void> preloadAndNavigate(User user) async {
       if (!context.mounted) return;
       if (hasStartedPreload.value) {
         return;
@@ -36,6 +33,17 @@ class LoginPage extends HookConsumerWidget {
 
       hasStartedPreload.value = true;
       isPreloading.value = true;
+
+      // Start background location tracking immediately for drivers
+      // This allows managers to see driver location and assign routes
+      try {
+        if (user.role == UserRole.driver) {
+          AppLogger.general('📍 Driver logged in - starting background location tracking');
+          await ref.read(locationTrackingServiceProvider).startBackgroundTracking();
+        }
+      } catch (e) {
+        AppLogger.general('⚠️  Failed to start background tracking: $e');
+      }
 
       // COMMENTED OUT: preloadRoute functionality not needed with Google Navigation SDK
       // Google Navigation handles all routing internally
@@ -157,7 +165,7 @@ class LoginPage extends HookConsumerWidget {
                       data: (user) {
                         if (user != null && !hasStartedPreload.value) {
                           WidgetsBinding.instance.addPostFrameCallback((_) {
-                            preloadAndNavigate();
+                            preloadAndNavigate(user);
                           });
                         }
                         return FilledButton(

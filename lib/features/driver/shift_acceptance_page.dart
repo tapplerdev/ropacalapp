@@ -55,7 +55,6 @@ class ShiftAcceptancePage extends ConsumerWidget {
 
                 // Show loading overlay
                 EasyLoading.show(
-                  status: 'Starting shift...',
                   maskType: EasyLoadingMaskType.black,
                 );
 
@@ -68,12 +67,9 @@ class ShiftAcceptancePage extends ConsumerWidget {
                   // Hide loading
                   await EasyLoading.dismiss();
 
-                  // Navigate to navigation page after successful HTTP response
-                  // No race condition since WebSocket shift_update is disabled
-                  if (context.mounted) {
-                    AppLogger.general('🧭 Navigating to /navigation...');
-                    context.push('/navigation');
-                  }
+                  // DriverMapWrapper will automatically switch to GoogleNavigationPage
+                  // when shift status becomes 'active' - no manual navigation needed!
+                  AppLogger.general('✅ Shift accepted - DriverMapWrapper will auto-switch to navigation');
                 } catch (e) {
                   AppLogger.general('❌ SHIFT START ERROR: $e');
 

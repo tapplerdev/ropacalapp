@@ -55,7 +55,7 @@ class _NoShiftEmptyStateState extends State<NoShiftEmptyState>
             borderRadius: BorderRadius.circular(20),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.12),
+                color: Colors.black.withValues(alpha: 0.12),
                 blurRadius: 16,
                 offset: const Offset(0, 4),
               ),
@@ -83,10 +83,10 @@ class _NoShiftEmptyStateState extends State<NoShiftEmptyState>
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                   decoration: BoxDecoration(
-                    color: AppColors.primaryBlue.withOpacity(0.08),
+                    color: AppColors.primaryGreen.withValues(alpha: 0.08),
                     borderRadius: BorderRadius.circular(10),
                     border: Border.all(
-                      color: AppColors.primaryBlue.withOpacity(0.2),
+                      color: AppColors.primaryGreen.withValues(alpha: 0.2),
                       width: 1,
                     ),
                   ),
@@ -103,11 +103,11 @@ class _NoShiftEmptyStateState extends State<NoShiftEmptyState>
                               width: 8,
                               height: 8,
                               decoration: BoxDecoration(
-                                color: AppColors.primaryBlue,
+                                color: AppColors.primaryGreen,
                                 shape: BoxShape.circle,
                                 boxShadow: [
                                   BoxShadow(
-                                    color: AppColors.primaryBlue.withOpacity(0.4),
+                                    color: AppColors.primaryGreen.withValues(alpha: 0.4),
                                     blurRadius: 4,
                                     spreadRadius: 1,
                                   ),
@@ -122,7 +122,7 @@ class _NoShiftEmptyStateState extends State<NoShiftEmptyState>
                         'Listening for new shifts',
                         style: TextStyle(
                           fontSize: 13,
-                          color: AppColors.primaryBlue,
+                          color: AppColors.primaryGreen,
                           fontWeight: FontWeight.w600,
                         ),
                       ),

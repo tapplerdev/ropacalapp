@@ -51,7 +51,7 @@ class RouteSummaryCard extends StatelessWidget {
     final totalTime = (drivingTime + stopTime).round();
 
     return Card(
-      color: AppColors.primaryBlue,
+      color: AppColors.primaryGreen,
       child: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
@@ -121,7 +121,7 @@ class RouteSummaryCard extends StatelessWidget {
                 label: const Text('Start Navigation'),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.white,
-                  foregroundColor: AppColors.primaryBlue,
+                  foregroundColor: AppColors.primaryGreen,
                 ),
               ),
             ),

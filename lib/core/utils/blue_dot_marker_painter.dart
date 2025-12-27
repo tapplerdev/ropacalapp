@@ -34,7 +34,7 @@ class BlueDotMarkerPainter {
     final innerRadius = outerRadius - borderWidth; // Blue circle radius
 
     // Draw shadow
-    paint.color = Colors.black.withOpacity(0.3);
+    paint.color = Colors.black.withValues(alpha: 0.3);
     paint.maskFilter = MaskFilter.blur(BlurStyle.normal, shadowBlur);
     canvas.drawCircle(center + shadowOffset, outerRadius, paint);
 

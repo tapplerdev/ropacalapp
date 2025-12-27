@@ -99,7 +99,7 @@ class ShiftDetailsModal extends StatelessWidget {
               color: Colors.white,
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.05),
+                  color: Colors.black.withValues(alpha: 0.05),
                   blurRadius: 10,
                   offset: const Offset(0, -2),
                 ),
@@ -111,7 +111,6 @@ class ShiftDetailsModal extends StatelessWidget {
                 onPressed: onStartShift,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.green,
-                  foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(vertical: 16),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
@@ -155,7 +154,7 @@ class ShiftDetailsModal extends StatelessWidget {
           label: 'Bins',
           value: '${shiftOverview.totalBins}',
           icon: Icons.delete_outline,
-          color: AppColors.primaryBlue,
+          color: AppColors.primaryGreen,
         ),
         const SizedBox(width: 12),
         _buildMetricCard(
@@ -245,13 +244,13 @@ class ShiftDetailsModal extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: AppColors.primaryBlue.withOpacity(0.08),
+        color: AppColors.primaryGreen.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.primaryBlue.withOpacity(0.2)),
+        border: Border.all(color: AppColors.primaryGreen.withValues(alpha: 0.2)),
       ),
       child: Row(
         children: [
-          Icon(Icons.access_time, color: AppColors.primaryBlue, size: 20),
+          Icon(Icons.access_time, color: AppColors.primaryGreen, size: 20),
           const SizedBox(width: 10),
           Text(
             'Estimated completion: ',
@@ -262,7 +261,7 @@ class ShiftDetailsModal extends StatelessWidget {
             style: TextStyle(
               fontSize: 13,
               fontWeight: FontWeight.bold,
-              color: AppColors.primaryBlue,
+              color: AppColors.primaryGreen,
             ),
           ),
         ],
@@ -304,14 +303,14 @@ class ShiftDetailsModal extends StatelessWidget {
                       width: 32,
                       height: 32,
                       decoration: BoxDecoration(
-                        color: AppColors.primaryBlue.withOpacity(0.15),
+                        color: AppColors.primaryGreen.withValues(alpha: 0.15),
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Center(
                         child: Text(
                           '${index + 1}',
                           style: const TextStyle(
-                            color: AppColors.primaryBlue,
+                            color: AppColors.primaryGreen,
                             fontWeight: FontWeight.bold,
                             fontSize: 13,
                           ),
@@ -369,7 +368,7 @@ class ShiftDetailsModal extends StatelessWidget {
                                 vertical: 2,
                               ),
                               decoration: BoxDecoration(
-                                color: priorityColor.withOpacity(0.15),
+                                color: priorityColor.withValues(alpha: 0.15),
                                 borderRadius: BorderRadius.circular(4),
                               ),
                               child: Text(

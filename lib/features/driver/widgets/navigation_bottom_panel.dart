@@ -53,7 +53,7 @@ class NavigationBottomPanel extends HookConsumerWidget {
             borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.1),
+                color: Colors.black.withValues(alpha: 0.1),
                 blurRadius: 10,
                 offset: const Offset(0, -2),
               ),
@@ -129,7 +129,7 @@ class NavigationBottomPanel extends HookConsumerWidget {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
-                  color: AppColors.primaryBlue.withOpacity(0.15),
+                  color: AppColors.primaryGreen.withValues(alpha: 0.15),
                   borderRadius: BorderRadius.circular(6),
                 ),
                 child: Text(
@@ -137,7 +137,7 @@ class NavigationBottomPanel extends HookConsumerWidget {
                   style: const TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.bold,
-                    color: AppColors.primaryBlue,
+                    color: AppColors.primaryGreen,
                   ),
                 ),
               ),
@@ -269,7 +269,7 @@ class NavigationBottomPanel extends HookConsumerWidget {
                       vertical: 6,
                     ),
                     decoration: BoxDecoration(
-                      color: AppColors.primaryBlue.withOpacity(0.12),
+                      color: AppColors.primaryGreen.withValues(alpha: 0.12),
                       borderRadius: BorderRadius.circular(6),
                     ),
                     child: Row(
@@ -277,7 +277,7 @@ class NavigationBottomPanel extends HookConsumerWidget {
                       children: [
                         const Icon(
                           Icons.access_time,
-                          color: AppColors.primaryBlue,
+                          color: AppColors.primaryGreen,
                           size: 14,
                         ),
                         const SizedBox(width: 5),
@@ -286,7 +286,7 @@ class NavigationBottomPanel extends HookConsumerWidget {
                           style: const TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.w600,
-                            color: AppColors.primaryBlue,
+                            color: AppColors.primaryGreen,
                           ),
                         ),
                       ],
@@ -332,14 +332,14 @@ class NavigationBottomPanel extends HookConsumerWidget {
                       width: 36,
                       height: 36,
                       decoration: BoxDecoration(
-                        color: AppColors.primaryBlue.withOpacity(0.15),
+                        color: AppColors.primaryGreen.withValues(alpha: 0.15),
                         borderRadius: BorderRadius.circular(10),
                       ),
                       child: Center(
                         child: Text(
                           '${currentBin.binNumber}',
                           style: const TextStyle(
-                            color: AppColors.primaryBlue,
+                            color: AppColors.primaryGreen,
                             fontWeight: FontWeight.bold,
                             fontSize: 18,
                           ),
@@ -377,7 +377,7 @@ class NavigationBottomPanel extends HookConsumerWidget {
                                 decoration: BoxDecoration(
                                   color: GoogleNavigationMarkerService.getFillColor(
                                     currentBin.fillPercentage,
-                                  ).withOpacity(0.2),
+                                  ).withValues(alpha: 0.2),
                                   borderRadius: BorderRadius.circular(4),
                                 ),
                                 child: Text(
@@ -424,14 +424,14 @@ class NavigationBottomPanel extends HookConsumerWidget {
                                     vertical: 3,
                                   ),
                                   decoration: BoxDecoration(
-                                    color: AppColors.primaryBlue.withOpacity(0.15),
+                                    color: AppColors.primaryGreen.withValues(alpha: 0.15),
                                     borderRadius: BorderRadius.circular(4),
                                   ),
                                   child: Text(
                                     'ETA ${GoogleNavigationHelpers.formatETA(remainingTime)}',
                                     style: const TextStyle(
                                       fontSize: 12,
-                                      color: AppColors.primaryBlue,
+                                      color: AppColors.primaryGreen,
                                       fontWeight: FontWeight.bold,
                                     ),
                                   ),
@@ -512,7 +512,6 @@ class NavigationBottomPanel extends HookConsumerWidget {
                       backgroundColor: isWithinGeofence
                           ? const Color(0xFF4CAF50)
                           : Colors.grey.shade400,
-                      foregroundColor: Colors.white,
                       disabledBackgroundColor: Colors.grey.shade400,
                       disabledForegroundColor: Colors.grey.shade100,
                       padding: const EdgeInsets.symmetric(vertical: 18),
@@ -630,7 +629,7 @@ class NavigationBottomPanel extends HookConsumerWidget {
                           decoration: BoxDecoration(
                             color: GoogleNavigationMarkerService.getFillColor(
                               bin.fillPercentage,
-                            ).withOpacity(0.2),
+                            ).withValues(alpha: 0.2),
                             borderRadius: BorderRadius.circular(4),
                           ),
                           child: Text(

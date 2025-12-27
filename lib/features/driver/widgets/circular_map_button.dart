@@ -33,14 +33,14 @@ class CircularMapButton extends StatelessWidget {
           boxShadow: [
             BoxShadow(
               color: isWhiteBg
-                  ? Colors.black.withOpacity(0.12)
-                  : bgColor.withOpacity(0.2),
+                  ? Colors.black.withValues(alpha: 0.12)
+                  : bgColor.withValues(alpha: 0.2),
               blurRadius: 12,
               offset: const Offset(0, 4),
               spreadRadius: 0,
             ),
             BoxShadow(
-              color: Colors.black.withOpacity(0.05),
+              color: Colors.black.withValues(alpha: 0.05),
               blurRadius: 4,
               offset: const Offset(0, 2),
             ),
@@ -48,7 +48,7 @@ class CircularMapButton extends StatelessWidget {
         ),
         child: Icon(
           icon,
-          color: iconColor ?? (isWhiteBg ? AppColors.primaryBlue : Colors.white),
+          color: iconColor ?? (isWhiteBg ? AppColors.primaryGreen : Colors.white),
           size: 22,
         ),
       ),

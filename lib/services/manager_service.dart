@@ -6,6 +6,38 @@ class ManagerService {
 
   ManagerService(this._apiService);
 
+  /// Get all drivers regardless of shift status
+  /// Returns drivers with status: 'active', 'paused', 'ready', or 'idle'
+  Future<List<Map<String, dynamic>>> getAllDrivers() async {
+    try {
+      print('📤 REQUEST: GET /api/manager/drivers');
+
+      final response = await _apiService.get('/api/manager/drivers');
+
+      print('📥 RESPONSE: ${response.statusCode}');
+      print('   Data: ${response.data}');
+
+      if (response.data['success'] == true) {
+        // Handle null data (no drivers)
+        final data = response.data['data'];
+        if (data == null) {
+          print('   ℹ️  No drivers found (data is null)');
+          return [];
+        }
+
+        final drivers =
+            List<Map<String, dynamic>>.from(data as List);
+        print('   ✅ Found ${drivers.length} driver(s)');
+        return drivers;
+      }
+
+      throw Exception(response.data['error'] ?? 'Failed to fetch drivers');
+    } catch (e) {
+      print('   ❌ ERROR: $e');
+      rethrow;
+    }
+  }
+
   /// Get all active drivers with their current shifts
   Future<List<Map<String, dynamic>>> getActiveDrivers() async {
     try {

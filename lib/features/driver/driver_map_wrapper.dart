@@ -1,32 +1,100 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:ropacalapp/core/utils/app_logger.dart';
 import 'package:ropacalapp/features/driver/driver_map_page.dart';
+import 'package:ropacalapp/features/driver/google_navigation_page.dart';
+import 'package:ropacalapp/features/driver/widgets/dialogs/shift_summary_dialog.dart';
+import 'package:ropacalapp/features/driver/widgets/dialogs/shift_cancellation_dialog.dart';
 import 'package:ropacalapp/providers/shift_provider.dart';
 import 'package:ropacalapp/models/shift_state.dart';
 
-/// Wrapper that shows DriverMapPage with appropriate state
+/// Wrapper that automatically switches between map states based on shift status
 /// - ready: Shows DriverMapPage with modal overlay (Uber/Lyft pattern)
+/// - active: Shows GoogleNavigationPage (turn-by-turn navigation)
 /// - inactive: Shows DriverMapPage (regular map)
-///
-/// NOTE: Active shift navigation is handled by DriverHomeScaffold
-/// (shows GoogleNavigationPage as full-screen, bypassing this wrapper)
-class DriverMapWrapper extends ConsumerWidget {
+class DriverMapWrapper extends HookConsumerWidget {
   const DriverMapWrapper({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final shiftState = ref.watch(shiftNotifierProvider);
+    final previousShift = usePrevious(shiftState);
 
-    // DIAGNOSTIC LOGGING
+    // Detect shift end and show dialog BEFORE switching pages
+    useEffect(() {
+      if (previousShift != null &&
+          previousShift.status == ShiftStatus.active &&
+          (shiftState.status == ShiftStatus.ended ||
+           shiftState.status == ShiftStatus.cancelled ||
+           shiftState.status == ShiftStatus.inactive)) {
+
+        AppLogger.general('🛑 Shift ended - showing dialog from DriverMapWrapper');
+
+        // Show dialog after current frame completes
+        WidgetsBinding.instance.addPostFrameCallback((_) async {
+          if (!context.mounted) return;
+
+          if (shiftState.status == ShiftStatus.cancelled) {
+            await showShiftCancellationDialog(context, previousShift);
+          } else if (shiftState.status == ShiftStatus.inactive) {
+            // Shift was deleted - no dialog, just log
+            AppLogger.general('📤 Shift deleted - no dialog shown');
+          } else {
+            // Normal end - show summary dialog
+            await showShiftSummaryDialog(context, previousShift);
+          }
+        });
+      }
+      return null;
+    }, [shiftState.status]);
+
+    // DIAGNOSTIC LOGGING - Track every rebuild
     AppLogger.general(
-      '🗺️ DriverMapWrapper build() - Status: ${shiftState.status}, '
-      'RouteID: ${shiftState.assignedRouteId}',
+      '[DIAGNOSTIC] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
+    );
+    AppLogger.general(
+      '[DIAGNOSTIC] 🗺️ DriverMapWrapper.build() called',
+    );
+    AppLogger.general(
+      '[DIAGNOSTIC]    Status: ${shiftState.status}',
+    );
+    AppLogger.general(
+      '[DIAGNOSTIC]    RouteID: ${shiftState.assignedRouteId}',
+    );
+    AppLogger.general(
+      '[DIAGNOSTIC]    RouteBins: ${shiftState.routeBins.length}',
+    );
+    AppLogger.general(
+      '[DIAGNOSTIC]    ShiftID: ${shiftState.shiftId}',
     );
 
-    // This wrapper now only handles inactive/ready states
-    // Active shift is handled by DriverHomeScaffold (shows GoogleNavigationPage)
-    AppLogger.general('➡️ DriverMapWrapper: Showing DriverMapPage');
+    // When shift is active AND route bins are loaded, automatically switch to navigation page
+    // The modal overlay in DriverMapPage will handle shift acceptance (status: ready)
+    // When driver accepts, status changes to active, triggering this auto-switch
+    // Wait for WebSocket to populate route bins before switching (prevents "Loading route..." screen)
+    if (shiftState.status == ShiftStatus.active && shiftState.routeBins.isNotEmpty) {
+      AppLogger.general(
+        '[DIAGNOSTIC] ✅ Condition met: status=active AND routeBins.isNotEmpty',
+      );
+      AppLogger.general(
+        '[DIAGNOSTIC] 🚀 SWITCHING TO: GoogleNavigationPage',
+      );
+      AppLogger.general(
+        '[DIAGNOSTIC] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
+      );
+      return const GoogleNavigationPage();
+    }
+
+    AppLogger.general(
+      '[DIAGNOSTIC] ℹ️  Condition NOT met for navigation (status=${shiftState.status}, bins=${shiftState.routeBins.length})',
+    );
+    AppLogger.general(
+      '[DIAGNOSTIC] 📍 SHOWING: DriverMapPage (regular map)',
+    );
+    AppLogger.general(
+      '[DIAGNOSTIC] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
+    );
 
     // Default: Show regular map with overlays
     // When status is 'ready', DriverMapPage shows modal overlay for shift acceptance
@@ -46,7 +114,7 @@ class DriverMapWrapper extends ConsumerWidget {
         //       borderRadius: BorderRadius.circular(12),
         //       boxShadow: [
         //         BoxShadow(
-        //           color: Colors.black.withOpacity(0.1),
+        //           color: Colors.black.withValues(alpha: 0.1),
         //           blurRadius: 10,
         //           offset: const Offset(0, 2),
         //         ),
@@ -67,7 +135,6 @@ class DriverMapWrapper extends ConsumerWidget {
         //                     : '📱 Switched to V1 Design (Current)',
         //               ),
         //               duration: const Duration(seconds: 2),
-        //               backgroundColor: AppColors.primaryBlue,
         //               behavior: SnackBarBehavior.floating,
         //             ),
         //           );
@@ -85,7 +152,7 @@ class DriverMapWrapper extends ConsumerWidget {
         //                 useV2Design.value
         //                     ? Icons.auto_awesome
         //                     : Icons.phonelink_setup,
-        //                 color: AppColors.primaryBlue,
+        //                 color: AppColors.primaryGreen,
         //                 size: 20,
         //               ),
         //               const SizedBox(width: 8),
@@ -93,14 +160,14 @@ class DriverMapWrapper extends ConsumerWidget {
         //                 useV2Design.value ? 'V2' : 'V1',
         //                 style: const TextStyle(
         //                   fontWeight: FontWeight.bold,
-        //                   color: AppColors.primaryBlue,
+        //                   color: AppColors.primaryGreen,
         //                   fontSize: 14,
         //                 ),
         //               ),
         //               const SizedBox(width: 4),
         //               const Icon(
         //                 Icons.swap_horiz,
-        //                 color: AppColors.primaryBlue,
+        //                 color: AppColors.primaryGreen,
         //                 size: 16,
         //               ),
         //             ],

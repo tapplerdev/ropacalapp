@@ -246,7 +246,7 @@ class _StatsCardV2 extends StatelessWidget {
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.1),
+            color: Colors.black.withValues(alpha: 0.1),
             blurRadius: 20,
             offset: const Offset(0, 4),
           ),
@@ -273,7 +273,7 @@ class _StatsCardV2 extends StatelessWidget {
                     IconButton(
                       icon: const Icon(Icons.notifications_outlined),
                       onPressed: onNotificationTap,
-                      color: AppColors.primaryBlue,
+                      color: AppColors.primaryGreen,
                     ),
                     if (highFillCount > 0)
                       Positioned(
@@ -316,7 +316,7 @@ class _StatsCardV2 extends StatelessWidget {
                     icon: Icons.delete_outline,
                     value: '$totalBins',
                     label: 'Total',
-                    color: AppColors.primaryBlue,
+                    color: AppColors.primaryGreen,
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -364,7 +364,7 @@ class _StatItemV2 extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
+        color: color.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(16),
       ),
       child: Column(
@@ -417,7 +417,7 @@ class _BottomActionBar extends StatelessWidget {
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.1),
+            color: Colors.black.withValues(alpha: 0.1),
             blurRadius: 20,
             offset: const Offset(0, -4),
           ),
@@ -458,8 +458,6 @@ class _BottomActionBar extends StatelessWidget {
             child: ElevatedButton(
               onPressed: onStartRoute,
               style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primaryBlue,
-                foregroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(vertical: 16),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(16),

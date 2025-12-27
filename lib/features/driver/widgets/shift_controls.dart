@@ -47,7 +47,7 @@ class ShiftControls extends HookConsumerWidget {
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.1),
+            color: Colors.black.withValues(alpha: 0.1),
             blurRadius: 10,
             offset: const Offset(0, 2),
           ),
@@ -112,7 +112,7 @@ class ShiftControls extends HookConsumerWidget {
                     style: TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
-                      color: AppColors.primaryBlue,
+                      color: AppColors.primaryGreen,
                     ),
                   ),
                 ],
@@ -124,7 +124,7 @@ class ShiftControls extends HookConsumerWidget {
                   value: completionPercentage,
                   backgroundColor: Colors.grey.shade200,
                   valueColor: const AlwaysStoppedAnimation(
-                    AppColors.primaryBlue,
+                    AppColors.primaryGreen,
                   ),
                   minHeight: 8,
                 ),
@@ -188,7 +188,6 @@ class ShiftControls extends HookConsumerWidget {
                   label: const Text('End Shift'),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.alertRed,
-                    foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(vertical: 12),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
@@ -231,7 +230,6 @@ class ShiftControls extends HookConsumerWidget {
             },
             style: ElevatedButton.styleFrom(
               backgroundColor: AppColors.alertRed,
-              foregroundColor: Colors.white,
             ),
             child: const Text('End Shift'),
           ),

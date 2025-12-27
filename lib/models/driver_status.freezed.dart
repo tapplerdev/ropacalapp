@@ -23,6 +23,7 @@ DriverStatus _$DriverStatusFromJson(Map<String, dynamic> json) {
 mixin _$DriverStatus {
   @JsonKey(name: 'driver_id')
   String get driverId => throw _privateConstructorUsedError;
+  @JsonKey(name: 'driver_name')
   String get name => throw _privateConstructorUsedError;
   ShiftStatus get status =>
       throw _privateConstructorUsedError; // active, paused, ready, etc.
@@ -54,7 +55,7 @@ abstract class $DriverStatusCopyWith<$Res> {
   @useResult
   $Res call({
     @JsonKey(name: 'driver_id') String driverId,
-    String name,
+    @JsonKey(name: 'driver_name') String name,
     ShiftStatus status,
     @JsonKey(name: 'shift_id') String? shiftId,
     @JsonKey(name: 'current_bin') int? currentBin,
@@ -149,7 +150,7 @@ abstract class _$$DriverStatusImplCopyWith<$Res>
   @useResult
   $Res call({
     @JsonKey(name: 'driver_id') String driverId,
-    String name,
+    @JsonKey(name: 'driver_name') String name,
     ShiftStatus status,
     @JsonKey(name: 'shift_id') String? shiftId,
     @JsonKey(name: 'current_bin') int? currentBin,
@@ -223,7 +224,7 @@ class __$$DriverStatusImplCopyWithImpl<$Res>
 class _$DriverStatusImpl implements _DriverStatus {
   const _$DriverStatusImpl({
     @JsonKey(name: 'driver_id') required this.driverId,
-    required this.name,
+    @JsonKey(name: 'driver_name') this.name = 'Unknown Driver',
     required this.status,
     @JsonKey(name: 'shift_id') this.shiftId,
     @JsonKey(name: 'current_bin') this.currentBin = 0,
@@ -238,6 +239,7 @@ class _$DriverStatusImpl implements _DriverStatus {
   @JsonKey(name: 'driver_id')
   final String driverId;
   @override
+  @JsonKey(name: 'driver_name')
   final String name;
   @override
   final ShiftStatus status;
@@ -308,7 +310,7 @@ class _$DriverStatusImpl implements _DriverStatus {
 abstract class _DriverStatus implements DriverStatus {
   const factory _DriverStatus({
     @JsonKey(name: 'driver_id') required final String driverId,
-    required final String name,
+    @JsonKey(name: 'driver_name') final String name,
     required final ShiftStatus status,
     @JsonKey(name: 'shift_id') final String? shiftId,
     @JsonKey(name: 'current_bin') final int? currentBin,
@@ -323,6 +325,7 @@ abstract class _DriverStatus implements DriverStatus {
   @JsonKey(name: 'driver_id')
   String get driverId;
   @override
+  @JsonKey(name: 'driver_name')
   String get name;
   @override
   ShiftStatus get status; // active, paused, ready, etc.

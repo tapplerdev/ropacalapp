@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.1" creator="Xcode">
+  <!--
+  Simulated driving route for testing Google Navigation
+  This simulates movement along a street path with realistic speed
+  -->
+  <wpt lat="37.33821" lon="-121.88634">
+    <name>Start Point</name>
+  </wpt>
+  <trk>
+    <name>Test Drive Route</name>
+    <trkseg>
+      <!-- Starting position -->
+      <trkpt lat="37.33821" lon="-121.88634"><ele>0.0</ele><time>2024-01-01T00:00:00Z</time></trkpt>
+
+      <!-- Moving north (every 2 seconds, ~30 mph / 13.4 m/s) -->
+      <trkpt lat="37.33833" lon="-121.88634"><ele>0.0</ele><time>2024-01-01T00:00:02Z</time></trkpt>
+      <trkpt lat="37.33845" lon="-121.88634"><ele>0.0</ele><time>2024-01-01T00:00:04Z</time></trkpt>
+      <trkpt lat="37.33857" lon="-121.88634"><ele>0.0</ele><time>2024-01-01T00:00:06Z</time></trkpt>
+      <trkpt lat="37.33869" lon="-121.88634"><ele>0.0</ele><time>2024-01-01T00:00:08Z</time></trkpt>
+      <trkpt lat="37.33881" lon="-121.88634"><ele>0.0</ele><time>2024-01-01T00:00:10Z</time></trkpt>
+
+      <!-- Turn right (east) -->
+      <trkpt lat="37.33890" lon="-121.88625"><ele>0.0</ele><time>2024-01-01T00:00:12Z</time></trkpt>
+      <trkpt lat="37.33893" lon="-121.88615"><ele>0.0</ele><time>2024-01-01T00:00:14Z</time></trkpt>
+      <trkpt lat="37.33893" lon="-121.88605"><ele>0.0</ele><time>2024-01-01T00:00:16Z</time></trkpt>
+      <trkpt lat="37.33893" lon="-121.88595"><ele>0.0</ele><time>2024-01-01T00:00:18Z</time></trkpt>
+      <trkpt lat="37.33893" lon="-121.88585"><ele>0.0</ele><time>2024-01-01T00:00:20Z</time></trkpt>
+      <trkpt lat="37.33893" lon="-121.88575"><ele>0.0</ele><time>2024-01-01T00:00:22Z</time></trkpt>
+
+      <!-- Turn right (south) -->
+      <trkpt lat="37.33885" lon="-121.88566"><ele>0.0</ele><time>2024-01-01T00:00:24Z</time></trkpt>
+      <trkpt lat="37.33877" lon="-121.88565"><ele>0.0</ele><time>2024-01-01T00:00:26Z</time></trkpt>
+      <trkpt lat="37.33869" lon="-121.88565"><ele>0.0</ele><time>2024-01-01T00:00:28Z</time></trkpt>
+      <trkpt lat="37.33861" lon="-121.88565"><ele>0.0</ele><time>2024-01-01T00:00:30Z</time></trkpt>
+      <trkpt lat="37.33853" lon="-121.88565"><ele>0.0</ele><time>2024-01-01T00:00:32Z</time></trkpt>
+      <trkpt lat="37.33845" lon="-121.88565"><ele>0.0</ele><time>2024-01-01T00:00:34Z</time></trkpt>
+
+      <!-- Turn right (west) -->
+      <trkpt lat="37.33837" lon="-121.88574"><ele>0.0</ele><time>2024-01-01T00:00:36Z</time></trkpt>
+      <trkpt lat="37.33835" lon="-121.88584"><ele>0.0</ele><time>2024-01-01T00:00:38Z</time></trkpt>
+      <trkpt lat="37.33835" lon="-121.88594"><ele>0.0</ele><time>2024-01-01T00:00:40Z</time></trkpt>
+      <trkpt lat="37.33835" lon="-121.88604"><ele>0.0</ele><time>2024-01-01T00:00:42Z</time></trkpt>
+      <trkpt lat="37.33835" lon="-121.88614"><ele>0.0</ele><time>2024-01-01T00:00:44Z</time></trkpt>
+      <trkpt lat="37.33835" lon="-121.88624"><ele>0.0</ele><time>2024-01-01T00:00:46Z</time></trkpt>
+
+      <!-- Back to start -->
+      <trkpt lat="37.33821" lon="-121.88634"><ele>0.0</ele><time>2024-01-01T00:00:48Z</time></trkpt>
+    </trkseg>
+  </trk>
+</gpx>

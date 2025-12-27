@@ -61,8 +61,8 @@ class GoogleNavigationMarkerService {
         ),
         radius: 50, // 50 meters
         strokeWidth: 2,
-        strokeColor: Colors.blue.withOpacity(0.6),
-        fillColor: Colors.blue.withOpacity(0.1),
+        strokeColor: Colors.blue.withValues(alpha: 0.6),
+        fillColor: Colors.blue.withValues(alpha: 0.1),
         zIndex: 1,
         clickable: false,
       );
@@ -89,7 +89,7 @@ class GoogleNavigationMarkerService {
     return PolylineOptions(
       points: points,
       strokeWidth: 6,
-      strokeColor: Colors.grey.withOpacity(0.6),
+      strokeColor: Colors.grey.withValues(alpha: 0.6),
       geodesic: true,
       zIndex: 0,
       clickable: false,
@@ -132,11 +132,13 @@ class GoogleNavigationMarkerService {
 
   /// Create custom driver marker icon (programmatically drawn)
   static Future<ImageDescriptor> createDriverMarkerIcon(
-    String driverName,
-  ) async {
+    String driverName, {
+    bool isFocused = false,
+    bool isPulsing = false,
+  }) async {
     try {
       AppLogger.navigation(
-        '📦 Creating driver marker for: $driverName',
+        '📦 Creating ${isFocused ? "FOCUSED " : ""}driver marker for: $driverName',
       );
 
       // Create marker programmatically (high-res for sharp display)
@@ -144,17 +146,30 @@ class GoogleNavigationMarkerService {
       final canvas = Canvas(recorder);
       const canvasSize = 120.0;
       const renderScale = 3.0; // Render at 3x for high-DPI screens
-      const circleRadius = 20.0 * renderScale;
-      const borderWidth = 3.0 * renderScale;
 
-      final center = const Offset(
+      // Keep normal size when following (isPulsing), only enlarge for one-time focus
+      final shouldEnlarge = isFocused && !isPulsing;
+      final circleRadius = shouldEnlarge ? 28.0 * renderScale : 20.0 * renderScale;
+      final borderWidth = shouldEnlarge ? 4.0 * renderScale : 3.0 * renderScale;
+
+      final center = Offset(
         canvasSize * renderScale / 2,
         circleRadius,
       );
 
-      // Draw blue circle background
+      // Draw highlight ring for one-time focused driver (not for following mode)
+      if (shouldEnlarge) {
+        final highlightPaint = Paint()
+          ..color = Colors.green.withValues(alpha: 0.3)
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 6.0 * renderScale;
+        canvas.drawCircle(center, circleRadius + 8.0 * renderScale, highlightPaint);
+      }
+
+      // Draw circle background (green if focused for one-time, blue otherwise)
+      // Note: Following mode keeps blue color - no visual change needed
       final paint = Paint()
-        ..color = Colors.blue
+        ..color = shouldEnlarge ? Colors.green.shade600 : Colors.blue
         ..style = PaintingStyle.fill;
 
       canvas.drawCircle(center, circleRadius, paint);
@@ -172,13 +187,15 @@ class GoogleNavigationMarkerService {
           ? driverName[0].toUpperCase()
           : '?';
 
+      final fontSize = shouldEnlarge ? 22.0 * renderScale : 16.0 * renderScale; // Larger text only for one-time focus
+
       final textPainter = TextPainter(
         text: TextSpan(
           text: initial,
-          style: const TextStyle(
+          style: TextStyle(
             color: Colors.white,
             fontWeight: FontWeight.bold,
-            fontSize: 16.0 * renderScale,
+            fontSize: fontSize,
             fontFamily: 'sans-serif',
           ),
         ),

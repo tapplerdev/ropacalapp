@@ -47,12 +47,12 @@ class BinDetailsBottomSheet extends StatelessWidget {
                   Container(
                     padding: const EdgeInsets.all(10),
                     decoration: BoxDecoration(
-                      color: AppColors.primaryBlue.withOpacity(0.1),
+                      color: AppColors.primaryGreen.withValues(alpha: 0.1),
                       shape: BoxShape.circle,
                     ),
                     child: const Icon(
                       Icons.delete_outline,
-                      color: AppColors.primaryBlue,
+                      color: AppColors.primaryGreen,
                       size: 28,
                     ),
                   ),
@@ -203,9 +203,9 @@ class BinDetailsBottomSheet extends StatelessWidget {
                       icon: const Icon(Icons.navigation, size: 18),
                       label: const Text('Navigate'),
                       style: OutlinedButton.styleFrom(
-                        foregroundColor: AppColors.primaryBlue,
+                        foregroundColor: AppColors.primaryGreen,
                         side: const BorderSide(
-                          color: AppColors.primaryBlue,
+                          color: AppColors.primaryGreen,
                           width: 1.5,
                         ),
                         padding: const EdgeInsets.symmetric(vertical: 14),
@@ -226,8 +226,6 @@ class BinDetailsBottomSheet extends StatelessWidget {
                       icon: const Icon(Icons.info_outline, size: 18),
                       label: const Text('Details'),
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.primaryBlue,
-                        foregroundColor: Colors.white,
                         padding: const EdgeInsets.symmetric(vertical: 14),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12),

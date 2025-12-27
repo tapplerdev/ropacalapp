@@ -6,24 +6,11 @@ part of 'active_driver.dart';
 // JsonSerializableGenerator
 // **************************************************************************
 
-_$DriverLocationImpl _$$DriverLocationImplFromJson(Map<String, dynamic> json) =>
-    _$DriverLocationImpl(
-      latitude: (json['latitude'] as num).toDouble(),
-      longitude: (json['longitude'] as num).toDouble(),
-    );
-
-Map<String, dynamic> _$$DriverLocationImplToJson(
-  _$DriverLocationImpl instance,
-) => <String, dynamic>{
-  'latitude': instance.latitude,
-  'longitude': instance.longitude,
-};
-
 _$ActiveDriverImpl _$$ActiveDriverImplFromJson(Map<String, dynamic> json) =>
     _$ActiveDriverImpl(
       driverId: json['driver_id'] as String,
-      driverName: json['driver_name'] as String,
-      shiftId: json['shift_id'] as String,
+      driverName: json['driver_name'] as String? ?? 'Unknown Driver',
+      shiftId: json['shift_id'] as String? ?? '',
       routeId: json['route_id'] as String?,
       status: $enumDecode(_$ShiftStatusEnumMap, json['status']),
       startTime: const UnixTimestampConverter().fromJson(

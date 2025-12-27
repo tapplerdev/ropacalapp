@@ -22,13 +22,13 @@ class MapLocationButton extends StatelessWidget {
         shape: BoxShape.circle,
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.12),
+            color: Colors.black.withValues(alpha: 0.12),
             blurRadius: 12,
             offset: const Offset(0, 4),
             spreadRadius: 0,
           ),
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withValues(alpha: 0.05),
             blurRadius: 4,
             offset: const Offset(0, 2),
           ),
@@ -61,7 +61,7 @@ class MapLocationButton extends StatelessWidget {
             alignment: Alignment.center,
             child: Icon(
               Icons.my_location,
-              color: AppColors.primaryBlue,
+              color: AppColors.primaryGreen,
               size: Responsive.iconSize(
                 context,
                 mobile: 22,

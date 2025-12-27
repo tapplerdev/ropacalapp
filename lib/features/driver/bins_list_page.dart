@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
@@ -19,16 +20,25 @@ class BinsListPage extends HookConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final responsive = ResponsiveHelper(context);
     final binsState = ref.watch(binsListProvider);
-    final searchQuery = useState('');
+    final searchInput = useState(''); // User's raw input
+    final debouncedSearchQuery = useState(''); // Debounced value used for filtering
     final selectedFilter = useState(BinFilter.all);
+
+    // Debounce search input
+    useEffect(() {
+      final timer = Timer(const Duration(milliseconds: 300), () {
+        debouncedSearchQuery.value = searchInput.value;
+      });
+      return timer.cancel;
+    }, [searchInput.value]);
 
     List<Bin> filterBins(List<Bin> bins) {
       var filtered = bins;
 
-      // Apply search filter
-      if (searchQuery.value.isNotEmpty) {
+      // Apply search filter (using debounced value)
+      if (debouncedSearchQuery.value.isNotEmpty) {
         filtered = filtered.where((bin) {
-          final query = searchQuery.value.toLowerCase();
+          final query = debouncedSearchQuery.value.toLowerCase();
           return bin.binNumber.toString().contains(query) ||
               bin.currentStreet.toLowerCase().contains(query) ||
               bin.city.toLowerCase().contains(query);
@@ -56,8 +66,12 @@ class BinsListPage extends HookConsumerWidget {
     }
 
     return Scaffold(
+      backgroundColor: Colors.white,
       appBar: AppBar(
-        title: const Text('All Bins'),
+        title: const Text('Bins'),
+        backgroundColor: Colors.white,
+        surfaceTintColor: Colors.transparent,
+        scrolledUnderElevation: 0,
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
@@ -70,22 +84,59 @@ class BinsListPage extends HookConsumerWidget {
           // Search bar
           Padding(
             padding: EdgeInsets.all(responsive.gapLarge),
-            child: TextField(
-              onChanged: (value) => searchQuery.value = value,
-              decoration: InputDecoration(
-                hintText: 'Search by bin #, street, or city',
-                prefixIcon: const Icon(Icons.search),
-                suffixIcon: searchQuery.value.isNotEmpty
-                    ? IconButton(
-                        icon: const Icon(Icons.clear),
-                        onPressed: () => searchQuery.value = '',
-                      )
-                    : null,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(responsive.borderRadius),
+            child: Container(
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.12),
+                    offset: const Offset(0, 4),
+                    blurRadius: 20,
+                    spreadRadius: 0,
+                  ),
+                ],
+              ),
+              child: TextField(
+                onChanged: (value) => searchInput.value = value,
+                decoration: InputDecoration(
+                  hintText: 'Search by bin #, street, or city',
+                  hintStyle: const TextStyle(
+                    color: Color(0xFF8E8E93),
+                    fontSize: 16,
+                  ),
+                  prefixIcon: const Icon(
+                    Icons.search,
+                    color: Color(0xFF8E8E93),
+                  ),
+                  suffixIcon: searchInput.value.isNotEmpty
+                      ? IconButton(
+                          icon: const Icon(Icons.clear),
+                          onPressed: () {
+                            searchInput.value = '';
+                            debouncedSearchQuery.value = '';
+                          },
+                        )
+                      : null,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide.none,
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide.none,
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide.none,
+                  ),
+                  filled: true,
+                  fillColor: Colors.white,
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 14,
+                  ),
                 ),
-                filled: true,
-                fillColor: Colors.grey.shade100,
               ),
             ),
           ),
@@ -96,28 +147,22 @@ class BinsListPage extends HookConsumerWidget {
             padding: EdgeInsets.symmetric(horizontal: responsive.gapLarge),
             child: Row(
               children: [
-                FilterChip(
-                  label: const Text('All'),
-                  selected: selectedFilter.value == BinFilter.all,
-                  onSelected: (_) => selectedFilter.value = BinFilter.all,
-                  backgroundColor: Colors.grey.shade200,
-                  selectedColor: AppColors.primaryBlue.withOpacity(0.2),
+                _FilterButton(
+                  label: 'All',
+                  isSelected: selectedFilter.value == BinFilter.all,
+                  onTap: () => selectedFilter.value = BinFilter.all,
                 ),
                 SizedBox(width: responsive.gapMediumSmall),
-                FilterChip(
-                  label: const Text('High Fill (>70%)'),
-                  selected: selectedFilter.value == BinFilter.highFill,
-                  onSelected: (_) => selectedFilter.value = BinFilter.highFill,
-                  backgroundColor: Colors.grey.shade200,
-                  selectedColor: AppColors.warningOrange.withOpacity(0.2),
+                _FilterButton(
+                  label: 'High Fill (>70%)',
+                  isSelected: selectedFilter.value == BinFilter.highFill,
+                  onTap: () => selectedFilter.value = BinFilter.highFill,
                 ),
                 SizedBox(width: responsive.gapMediumSmall),
-                FilterChip(
-                  label: const Text('Checked Today'),
-                  selected: selectedFilter.value == BinFilter.checked,
-                  onSelected: (_) => selectedFilter.value = BinFilter.checked,
-                  backgroundColor: Colors.grey.shade200,
-                  selectedColor: AppColors.successGreen.withOpacity(0.2),
+                _FilterButton(
+                  label: 'Checked Today',
+                  isSelected: selectedFilter.value == BinFilter.checked,
+                  onTap: () => selectedFilter.value = BinFilter.checked,
                 ),
               ],
             ),
@@ -131,42 +176,66 @@ class BinsListPage extends HookConsumerWidget {
               data: (bins) {
                 final filteredBins = filterBins(bins);
 
-                if (filteredBins.isEmpty) {
-                  return Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          Icons.inbox_outlined,
-                          size: responsive.scale(64),
-                          color: Colors.grey.shade400,
-                        ),
-                        SizedBox(height: responsive.gapLarge),
-                        Text(
-                          'No bins found',
-                          style: Theme.of(context).textTheme.titleMedium
-                              ?.copyWith(color: Colors.grey.shade600),
-                        ),
-                        SizedBox(height: responsive.gapMediumSmall),
-                        Text(
-                          'Try adjusting your filters or search',
-                          style: Theme.of(context).textTheme.bodyMedium
-                              ?.copyWith(color: Colors.grey.shade500),
-                        ),
-                      ],
-                    ),
-                  );
-                }
-
-                return ListView.builder(
-                  padding: EdgeInsets.symmetric(
-                    horizontal: responsive.gapLarge,
-                  ),
-                  itemCount: filteredBins.length,
-                  itemBuilder: (context, index) {
-                    final bin = filteredBins[index];
-                    return _BinListItem(bin: bin);
+                return AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 300),
+                  switchInCurve: Curves.easeInOut,
+                  switchOutCurve: Curves.easeInOut,
+                  transitionBuilder: (child, animation) {
+                    return FadeTransition(
+                      opacity: animation,
+                      child: SlideTransition(
+                        position: Tween<Offset>(
+                          begin: const Offset(0.0, 0.02),
+                          end: Offset.zero,
+                        ).animate(animation),
+                        child: child,
+                      ),
+                    );
                   },
+                  child: KeyedSubtree(
+                    key: ValueKey<String>(
+                      '${selectedFilter.value.name}',
+                    ),
+                    child: filteredBins.isEmpty
+                        ? Center(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(
+                                  Icons.inbox_outlined,
+                                  size: responsive.scale(64),
+                                  color: Colors.grey.shade400,
+                                ),
+                                SizedBox(height: responsive.gapLarge),
+                                Text(
+                                  'No bins found',
+                                  style: Theme.of(context)
+                                      .textTheme
+                                      .titleMedium
+                                      ?.copyWith(color: Colors.grey.shade600),
+                                ),
+                                SizedBox(height: responsive.gapMediumSmall),
+                                Text(
+                                  'Try adjusting your filters or search',
+                                  style: Theme.of(context)
+                                      .textTheme
+                                      .bodyMedium
+                                      ?.copyWith(color: Colors.grey.shade500),
+                                ),
+                              ],
+                            ),
+                          )
+                        : ListView.builder(
+                            padding: EdgeInsets.symmetric(
+                              horizontal: responsive.gapLarge,
+                            ),
+                            itemCount: filteredBins.length,
+                            itemBuilder: (context, index) {
+                              final bin = filteredBins[index];
+                              return _BinListItem(bin: bin);
+                            },
+                          ),
+                  ),
                 );
               },
               loading: () => const Center(child: CircularProgressIndicator()),
@@ -208,11 +277,23 @@ class _BinListItem extends StatelessWidget {
     final fillPercentage = bin.fillPercentage ?? 0;
     final fillColor = BinHelpers.getFillColor(fillPercentage);
 
-    return Card(
+    return Container(
       margin: EdgeInsets.only(bottom: responsive.gapMedium),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.08),
+            offset: const Offset(0, 4),
+            blurRadius: 16,
+            spreadRadius: 0,
+          ),
+        ],
+      ),
       child: InkWell(
         onTap: () => context.push('/bin/${bin.id}'),
-        borderRadius: BorderRadius.circular(responsive.gapLarge),
+        borderRadius: BorderRadius.circular(16),
         child: Padding(
           padding: EdgeInsets.all(responsive.gapLarge),
           child: Row(
@@ -222,18 +303,14 @@ class _BinListItem extends StatelessWidget {
                 width: responsive.iconLarge,
                 height: responsive.iconLarge,
                 decoration: BoxDecoration(
-                  color: fillColor.withOpacity(0.1),
+                  color: fillColor,
                   shape: BoxShape.circle,
-                  border: Border.all(
-                    color: fillColor,
-                    width: responsive.scale(2),
-                  ),
                 ),
                 child: Center(
                   child: Text(
                     bin.binNumber.toString(),
                     style: TextStyle(
-                      color: fillColor,
+                      color: Colors.white,
                       fontWeight: FontWeight.bold,
                       fontSize: responsive.fontMedium,
                     ),
@@ -271,7 +348,7 @@ class _BinListItem extends StatelessWidget {
                             vertical: responsive.gapSmall,
                           ),
                           decoration: BoxDecoration(
-                            color: fillColor.withOpacity(0.1),
+                            color: fillColor.withValues(alpha: 0.1),
                             borderRadius: BorderRadius.circular(
                               responsive.scale(6),
                             ),
@@ -305,7 +382,7 @@ class _BinListItem extends StatelessWidget {
                               vertical: responsive.gapSmall,
                             ),
                             decoration: BoxDecoration(
-                              color: AppColors.successGreen.withOpacity(0.1),
+                              color: AppColors.successGreen.withValues(alpha: 0.1),
                               borderRadius: BorderRadius.circular(
                                 responsive.scale(6),
                               ),
@@ -339,6 +416,46 @@ class _BinListItem extends StatelessWidget {
               // Arrow icon
               Icon(Icons.chevron_right, color: Colors.grey.shade400),
             ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Custom filter button with clean chip design
+class _FilterButton extends StatelessWidget {
+  final String label;
+  final bool isSelected;
+  final VoidCallback onTap;
+
+  const _FilterButton({
+    required this.label,
+    required this.isSelected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final responsive = ResponsiveHelper(context);
+
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: EdgeInsets.symmetric(
+          horizontal: responsive.gapLarge,
+          vertical: responsive.gapMediumSmall,
+        ),
+        decoration: BoxDecoration(
+          color: isSelected ? AppColors.brandGreen : Colors.transparent,
+          borderRadius: BorderRadius.circular(responsive.scale(20)),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+            color: isSelected ? Colors.white : Colors.grey.shade600,
           ),
         ),
       ),

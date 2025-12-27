@@ -22,7 +22,7 @@ DriverLocation _$DriverLocationFromJson(Map<String, dynamic> json) {
 /// @nodoc
 mixin _$DriverLocation {
   @JsonKey(name: 'driver_id')
-  String get driverId => throw _privateConstructorUsedError;
+  String? get driverId => throw _privateConstructorUsedError;
   double get latitude => throw _privateConstructorUsedError;
   double get longitude => throw _privateConstructorUsedError;
   double? get heading =>
@@ -32,12 +32,12 @@ mixin _$DriverLocation {
       throw _privateConstructorUsedError; // GPS accuracy in meters
   @JsonKey(name: 'shift_id')
   String? get shiftId => throw _privateConstructorUsedError;
-  int get timestamp =>
+  int? get timestamp =>
       throw _privateConstructorUsedError; // Client-side timestamp (milliseconds)
   @JsonKey(name: 'is_connected')
   bool? get isConnected => throw _privateConstructorUsedError; // WebSocket connection status (null = connected for broadcasts)
   @JsonKey(name: 'updated_at')
-  int get updatedAt => throw _privateConstructorUsedError;
+  int? get updatedAt => throw _privateConstructorUsedError;
 
   /// Serializes this DriverLocation to a JSON map.
   Map<String, dynamic> toJson() => throw _privateConstructorUsedError;
@@ -57,16 +57,16 @@ abstract class $DriverLocationCopyWith<$Res> {
   ) = _$DriverLocationCopyWithImpl<$Res, DriverLocation>;
   @useResult
   $Res call({
-    @JsonKey(name: 'driver_id') String driverId,
+    @JsonKey(name: 'driver_id') String? driverId,
     double latitude,
     double longitude,
     double? heading,
     double? speed,
     double? accuracy,
     @JsonKey(name: 'shift_id') String? shiftId,
-    int timestamp,
+    int? timestamp,
     @JsonKey(name: 'is_connected') bool? isConnected,
-    @JsonKey(name: 'updated_at') int updatedAt,
+    @JsonKey(name: 'updated_at') int? updatedAt,
   });
 }
 
@@ -85,23 +85,23 @@ class _$DriverLocationCopyWithImpl<$Res, $Val extends DriverLocation>
   @pragma('vm:prefer-inline')
   @override
   $Res call({
-    Object? driverId = null,
+    Object? driverId = freezed,
     Object? latitude = null,
     Object? longitude = null,
     Object? heading = freezed,
     Object? speed = freezed,
     Object? accuracy = freezed,
     Object? shiftId = freezed,
-    Object? timestamp = null,
+    Object? timestamp = freezed,
     Object? isConnected = freezed,
-    Object? updatedAt = null,
+    Object? updatedAt = freezed,
   }) {
     return _then(
       _value.copyWith(
-            driverId: null == driverId
+            driverId: freezed == driverId
                 ? _value.driverId
                 : driverId // ignore: cast_nullable_to_non_nullable
-                      as String,
+                      as String?,
             latitude: null == latitude
                 ? _value.latitude
                 : latitude // ignore: cast_nullable_to_non_nullable
@@ -126,18 +126,18 @@ class _$DriverLocationCopyWithImpl<$Res, $Val extends DriverLocation>
                 ? _value.shiftId
                 : shiftId // ignore: cast_nullable_to_non_nullable
                       as String?,
-            timestamp: null == timestamp
+            timestamp: freezed == timestamp
                 ? _value.timestamp
                 : timestamp // ignore: cast_nullable_to_non_nullable
-                      as int,
+                      as int?,
             isConnected: freezed == isConnected
                 ? _value.isConnected
                 : isConnected // ignore: cast_nullable_to_non_nullable
                       as bool?,
-            updatedAt: null == updatedAt
+            updatedAt: freezed == updatedAt
                 ? _value.updatedAt
                 : updatedAt // ignore: cast_nullable_to_non_nullable
-                      as int,
+                      as int?,
           )
           as $Val,
     );
@@ -154,16 +154,16 @@ abstract class _$$DriverLocationImplCopyWith<$Res>
   @override
   @useResult
   $Res call({
-    @JsonKey(name: 'driver_id') String driverId,
+    @JsonKey(name: 'driver_id') String? driverId,
     double latitude,
     double longitude,
     double? heading,
     double? speed,
     double? accuracy,
     @JsonKey(name: 'shift_id') String? shiftId,
-    int timestamp,
+    int? timestamp,
     @JsonKey(name: 'is_connected') bool? isConnected,
-    @JsonKey(name: 'updated_at') int updatedAt,
+    @JsonKey(name: 'updated_at') int? updatedAt,
   });
 }
 
@@ -181,23 +181,23 @@ class __$$DriverLocationImplCopyWithImpl<$Res>
   @pragma('vm:prefer-inline')
   @override
   $Res call({
-    Object? driverId = null,
+    Object? driverId = freezed,
     Object? latitude = null,
     Object? longitude = null,
     Object? heading = freezed,
     Object? speed = freezed,
     Object? accuracy = freezed,
     Object? shiftId = freezed,
-    Object? timestamp = null,
+    Object? timestamp = freezed,
     Object? isConnected = freezed,
-    Object? updatedAt = null,
+    Object? updatedAt = freezed,
   }) {
     return _then(
       _$DriverLocationImpl(
-        driverId: null == driverId
+        driverId: freezed == driverId
             ? _value.driverId
             : driverId // ignore: cast_nullable_to_non_nullable
-                  as String,
+                  as String?,
         latitude: null == latitude
             ? _value.latitude
             : latitude // ignore: cast_nullable_to_non_nullable
@@ -222,18 +222,18 @@ class __$$DriverLocationImplCopyWithImpl<$Res>
             ? _value.shiftId
             : shiftId // ignore: cast_nullable_to_non_nullable
                   as String?,
-        timestamp: null == timestamp
+        timestamp: freezed == timestamp
             ? _value.timestamp
             : timestamp // ignore: cast_nullable_to_non_nullable
-                  as int,
+                  as int?,
         isConnected: freezed == isConnected
             ? _value.isConnected
             : isConnected // ignore: cast_nullable_to_non_nullable
                   as bool?,
-        updatedAt: null == updatedAt
+        updatedAt: freezed == updatedAt
             ? _value.updatedAt
             : updatedAt // ignore: cast_nullable_to_non_nullable
-                  as int,
+                  as int?,
       ),
     );
   }
@@ -243,16 +243,16 @@ class __$$DriverLocationImplCopyWithImpl<$Res>
 @JsonSerializable()
 class _$DriverLocationImpl implements _DriverLocation {
   const _$DriverLocationImpl({
-    @JsonKey(name: 'driver_id') required this.driverId,
+    @JsonKey(name: 'driver_id') this.driverId,
     required this.latitude,
     required this.longitude,
     this.heading,
     this.speed,
     this.accuracy,
     @JsonKey(name: 'shift_id') this.shiftId,
-    required this.timestamp,
+    this.timestamp,
     @JsonKey(name: 'is_connected') this.isConnected = true,
-    @JsonKey(name: 'updated_at') required this.updatedAt,
+    @JsonKey(name: 'updated_at') this.updatedAt,
   });
 
   factory _$DriverLocationImpl.fromJson(Map<String, dynamic> json) =>
@@ -260,7 +260,7 @@ class _$DriverLocationImpl implements _DriverLocation {
 
   @override
   @JsonKey(name: 'driver_id')
-  final String driverId;
+  final String? driverId;
   @override
   final double latitude;
   @override
@@ -278,7 +278,7 @@ class _$DriverLocationImpl implements _DriverLocation {
   @JsonKey(name: 'shift_id')
   final String? shiftId;
   @override
-  final int timestamp;
+  final int? timestamp;
   // Client-side timestamp (milliseconds)
   @override
   @JsonKey(name: 'is_connected')
@@ -286,7 +286,7 @@ class _$DriverLocationImpl implements _DriverLocation {
   // WebSocket connection status (null = connected for broadcasts)
   @override
   @JsonKey(name: 'updated_at')
-  final int updatedAt;
+  final int? updatedAt;
 
   @override
   String toString() {
@@ -352,16 +352,16 @@ class _$DriverLocationImpl implements _DriverLocation {
 
 abstract class _DriverLocation implements DriverLocation {
   const factory _DriverLocation({
-    @JsonKey(name: 'driver_id') required final String driverId,
+    @JsonKey(name: 'driver_id') final String? driverId,
     required final double latitude,
     required final double longitude,
     final double? heading,
     final double? speed,
     final double? accuracy,
     @JsonKey(name: 'shift_id') final String? shiftId,
-    required final int timestamp,
+    final int? timestamp,
     @JsonKey(name: 'is_connected') final bool? isConnected,
-    @JsonKey(name: 'updated_at') required final int updatedAt,
+    @JsonKey(name: 'updated_at') final int? updatedAt,
   }) = _$DriverLocationImpl;
 
   factory _DriverLocation.fromJson(Map<String, dynamic> json) =
@@ -369,7 +369,7 @@ abstract class _DriverLocation implements DriverLocation {
 
   @override
   @JsonKey(name: 'driver_id')
-  String get driverId;
+  String? get driverId;
   @override
   double get latitude;
   @override
@@ -384,13 +384,13 @@ abstract class _DriverLocation implements DriverLocation {
   @JsonKey(name: 'shift_id')
   String? get shiftId;
   @override
-  int get timestamp; // Client-side timestamp (milliseconds)
+  int? get timestamp; // Client-side timestamp (milliseconds)
   @override
   @JsonKey(name: 'is_connected')
   bool? get isConnected; // WebSocket connection status (null = connected for broadcasts)
   @override
   @JsonKey(name: 'updated_at')
-  int get updatedAt;
+  int? get updatedAt;
 
   /// Create a copy of DriverLocation
   /// with the given fields replaced by the non-null parameter values.

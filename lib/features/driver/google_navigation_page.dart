@@ -28,6 +28,23 @@ import 'package:ropacalapp/models/route_step.dart';
 import 'package:ropacalapp/models/shift_state.dart';
 import 'package:latlong2/latlong.dart' as latlong;
 
+/// Helper function to detect if running on a physical iOS device (not simulator)
+bool isPhysicalDevice() {
+  // On iOS, identifierForVendor is null in simulator
+  // Also check if the device model contains "Simulator"
+  if (Platform.isIOS) {
+    try {
+      // This is a simple heuristic - in simulator, certain device info is different
+      // For now, we'll use a more direct approach with sysctl
+      return !Platform.environment.containsKey('SIMULATOR_DEVICE_NAME');
+    } catch (e) {
+      // If detection fails, assume physical device (safer for real devices)
+      return true;
+    }
+  }
+  return true; // Android or other platforms
+}
+
 /// Google Maps Navigation page with turn-by-turn navigation for bin collection routes
 class GoogleNavigationPage extends HookConsumerWidget {
   const GoogleNavigationPage({super.key});
@@ -238,10 +255,16 @@ class GoogleNavigationPage extends HookConsumerWidget {
           AppLogger.general('   ⚠️  Error clearing destinations (likely already cleared): $e');
         }
 
-        // DON'T call cleanup() - it clears T&C acceptance state!
-        // Keeping the session alive allows reuse without re-showing T&C dialog
-        // The session is lightweight and can be reused across multiple shifts
-        AppLogger.general('   ✅ Disposal complete (session kept alive for reuse)');
+        // Call cleanup() to properly terminate the navigation session
+        // Note: T&C state is preserved - it won't re-prompt on next initialization
+        try {
+          GoogleMapsNavigator.cleanup();
+          AppLogger.general('   🧹 Navigation session cleaned up (T&C state preserved)');
+        } catch (e) {
+          AppLogger.general('   ⚠️  Error cleaning up navigation session: $e');
+        }
+
+        AppLogger.general('   ✅ Disposal complete');
       };
     }, []);
 
@@ -316,6 +339,9 @@ class GoogleNavigationPage extends HookConsumerWidget {
             )
           else if (userLocation.value != null)
             GoogleMapsNavigationView(
+                // CRITICAL iOS FIX: Always enable navigation UI for bin collection routes
+                // This must be set at view creation - cannot be changed later on iOS
+                initialNavigationUIEnabledPreference: NavigationUIEnabledPreference.automatic,
                 // Add bottom padding to prevent map content from being hidden behind bottom nav bar and panel
                 initialPadding: EdgeInsets.only(
                   bottom: kBottomNavigationBarHeight + MediaQuery.of(context).padding.bottom + 100,
@@ -346,6 +372,10 @@ class GoogleNavigationPage extends HookConsumerWidget {
                 await controller.setRecenterButtonEnabled(true);
                 AppLogger.general('✅ [VIEW CREATED] Recenter button enabled');
 
+                // Disable the my-location button (grey button below audio button)
+                await controller.settings.setMyLocationButtonEnabled(false);
+                AppLogger.general('✅ [VIEW CREATED] My location button disabled');
+
                 await controller.setReportIncidentButtonEnabled(false);
                 AppLogger.general('✅ [VIEW CREATED] Report incident button disabled');
 
@@ -364,10 +394,11 @@ class GoogleNavigationPage extends HookConsumerWidget {
 
                 // iOS simulator fallback: Set default location after timeout if GPS unavailable
                 // This follows Google's official example pattern (navigation.dart:269-283)
-                if (Platform.isIOS) {
+                // ONLY for iOS Simulator, NOT physical devices
+                if (Platform.isIOS && !isPhysicalDevice()) {
                   Future.delayed(const Duration(milliseconds: 1500), () async {
                     if (navState.navigationLocation == null) {
-                      AppLogger.general('⚠️  [iOS] GPS location unavailable after 1.5s timeout');
+                      AppLogger.general('⚠️  [iOS Simulator] GPS location unavailable after 1.5s timeout');
 
                       // Try to get location from map controller first
                       final LatLng? currentLocation = await controller.getMyLocation();
@@ -378,14 +409,16 @@ class GoogleNavigationPage extends HookConsumerWidget {
 
                       try {
                         await GoogleMapsNavigator.simulator.setUserLocation(fallbackLocation);
-                        AppLogger.general('✅ [iOS] Fallback simulator location set: $fallbackLocation');
+                        AppLogger.general('✅ [iOS Simulator] Fallback simulator location set: $fallbackLocation');
                       } catch (e) {
-                        AppLogger.general('⚠️  [iOS] Failed to set simulator location: $e');
+                        AppLogger.general('⚠️  [iOS Simulator] Failed to set simulator location: $e');
                       }
                     } else {
-                      AppLogger.general('✅ [iOS] GPS location acquired, no simulator fallback needed');
+                      AppLogger.general('✅ [iOS Simulator] GPS location acquired, no simulator fallback needed');
                     }
                   });
+                } else if (Platform.isIOS) {
+                  AppLogger.general('📱 [iOS Physical Device] Using real GPS, skipping simulator location override');
                 }
               },
               initialCameraPosition: CameraPosition(
@@ -404,7 +437,7 @@ class GoogleNavigationPage extends HookConsumerWidget {
           // Turn-by-turn navigation card
           if (navState.isNavigating && navState.currentStep != null)
             Positioned(
-              top: Responsive.spacing(context, mobile: 140),
+              top: Responsive.spacing(context, mobile: 120),
               left: Responsive.spacing(context, mobile: 16),
               right: Responsive.spacing(context, mobile: 16),
               child: TurnByTurnNavigationCard(
@@ -436,7 +469,7 @@ class GoogleNavigationPage extends HookConsumerWidget {
 
           // Audio button - positioned above recenter button
           Positioned(
-            bottom: Responsive.spacing(context, mobile: 400),
+            bottom: Responsive.spacing(context, mobile: 360),
             right: Responsive.spacing(context, mobile: 16),
             child: CircularMapButton(
               icon: navState.isAudioMuted ? Icons.volume_off : Icons.volume_up,
@@ -976,54 +1009,132 @@ class GoogleNavigationPage extends HookConsumerWidget {
     NavigationPageNotifier navNotifier,
     bool isDark,
   ) async {
-    AppLogger.general('🚀 [SETUP] Starting 6-step navigation setup...');
+    AppLogger.general('🚀 [SETUP] Starting navigation setup...');
 
     try {
+      // STEP 0: Check if guidance is already running (app reopen scenario)
+      AppLogger.general('🔍 [STEP 0/7] Checking if navigation is already running...');
+      final bool isGuidanceAlreadyRunning = await GoogleMapsNavigator.isGuidanceRunning();
+
+      if (isGuidanceAlreadyRunning) {
+        AppLogger.general('✅ [STEP 0/7] Navigation is ALREADY RUNNING (app was reopened)');
+        AppLogger.general('ℹ️  Skipping route setup - will restore UI state only');
+
+        // Configure map settings (needed even for restored session)
+        await controller.settings.setCompassEnabled(false);
+        await controller.settings.setTrafficEnabled(false);
+
+        // Enable navigation UI (REQUIRED for camera following and route rendering)
+        await controller.setNavigationUIEnabled(true);
+        AppLogger.general('✅ Navigation UI enabled');
+
+        // Disable Google's navigation header and footer (we use custom UI)
+        await controller.setNavigationHeaderEnabled(false);
+        await controller.setNavigationFooterEnabled(false);
+
+        // Setup listeners (needed for UI updates)
+        _setupNavigationListeners(context, ref, shift, navNotifier);
+
+        // Restore markers for remaining bins
+        final tempMarkerMap = <String, RouteBin>{};
+        final markers = await GoogleNavigationMarkerService.createCustomBinMarkers(
+          shift.remainingBins,
+          tempMarkerMap,
+        );
+        await controller.addMarkers(markers);
+        navNotifier.updateMarkerToBinMap(tempMarkerMap);
+        AppLogger.general('📍 Restored ${markers.length} custom markers');
+
+        // Restore geofence circles
+        final circles = await GoogleNavigationMarkerService.createGeofenceCircles(
+          shift.remainingBins,
+        );
+        await controller.addCircles(circles);
+        navNotifier.updateGeofenceCircles(circles);
+        AppLogger.general('⭕ Restored ${circles.length} geofence circles');
+
+        // Enable camera following mode with flat perspective (override iOS default)
+        await controller.followMyLocation(
+          CameraPerspective.topDownHeadingUp,
+          zoomLevel: 17,
+        );
+        AppLogger.general('📹 Camera following restored with flat perspective');
+
+        // Mark navigation as ready
+        navNotifier.setNavigationReady(true);
+        navNotifier.setNavigating(true);
+
+        AppLogger.general('🎉 [RESTORE] Navigation session restored successfully!');
+        return;
+      }
+
+      AppLogger.general('✅ [STEP 0/7] Navigation not running - will perform full setup');
+
       // STEP 1: Configure map settings
-      AppLogger.general('📱 [STEP 1/6] Configuring map settings...');
+      AppLogger.general('📱 [STEP 1/7] Configuring map settings...');
 
       await controller.settings.setCompassEnabled(false);
       await controller.settings.setTrafficEnabled(false);
 
-      // Hide Google's navigation header (green banner) and footer (ETA card)
-      // Keep navigation UI enabled for route/puck rendering, but hide the UI components
+      // Enable navigation UI (REQUIRED for camera following, route rendering, and puck movement)
+      await controller.setNavigationUIEnabled(true);
+      AppLogger.general('   ✅ Navigation UI enabled (required for camera following)');
+
+      // Disable Google's navigation header (green banner) and footer (ETA card)
+      // We use custom UI instead
       await controller.setNavigationHeaderEnabled(false);
       await controller.setNavigationFooterEnabled(false);
-      AppLogger.general('   🎨 Disabled Google navigation header & footer');
+      AppLogger.general('   🎨 Disabled Google navigation header & footer (using custom UI)');
 
-      AppLogger.general('✅ [STEP 1/6] Map settings configured');
+      AppLogger.general('✅ [STEP 1/7] Map settings configured');
 
       // STEP 2: Apply map style (COMMENTED OUT - using default Google Maps style)
-      // AppLogger.general('🎨 [STEP 2/6] Applying map style...');
+      // AppLogger.general('🎨 [STEP 2/7] Applying map style...');
       // await _applyMapStyle(controller, isDark);
-      // AppLogger.general('✅ [STEP 2/6] Map style applied');
-      AppLogger.general('✅ [STEP 2/6] Using default Google Maps style (custom style disabled)');
+      // AppLogger.general('✅ [STEP 2/7] Map style applied');
+      AppLogger.general('✅ [STEP 2/7] Using default Google Maps style (custom style disabled)');
 
       // STEP 3: Setup navigation listeners (for location updates, turn-by-turn, etc.)
-      AppLogger.general('👂 [STEP 3/6] Setting up navigation listeners...');
+      AppLogger.general('👂 [STEP 3/7] Setting up navigation listeners...');
+
+      // Wait for first road-snapped location before calculating route (SDK best practice)
+      final locationReceived = Completer<void>();
       _setupNavigationListeners(
         context,
         ref,
         shift,
         navNotifier,
+        onFirstLocationReceived: () {
+          if (!locationReceived.isCompleted) {
+            locationReceived.complete();
+          }
+        },
       );
-      AppLogger.general('✅ [STEP 3/6] Listeners configured');
+      AppLogger.general('✅ [STEP 3/7] Listeners configured');
 
-      // STEP 4: Calculate route immediately (Google's recommended pattern)
-      AppLogger.general('🗺️  [STEP 4/6] Calculating route to destinations...');
+      // STEP 4: Wait for first location, then calculate route (Google's recommended pattern)
+      AppLogger.general('📍 [STEP 4/7] Waiting for first road-snapped location...');
+      await locationReceived.future.timeout(
+        const Duration(seconds: 10),
+        onTimeout: () {
+          AppLogger.general('⚠️  Location timeout, proceeding with route calculation anyway');
+        },
+      );
+
+      AppLogger.general('🗺️  [STEP 4/7] Calculating route to destinations...');
       await _setDestinationsFromShift(context, ref, shift, navNotifier);
-      AppLogger.general('✅ [STEP 4/6] Route calculation initiated');
+      AppLogger.general('✅ [STEP 4/7] Route calculation initiated');
 
       // STEP 5: Add custom markers
-      AppLogger.general('📍 [STEP 5/6] Creating and adding custom bin markers...');
+      AppLogger.general('📍 [STEP 5/7] Creating and adding custom bin markers...');
       final tempMarkerMap = <String, RouteBin>{};
       final markers = await GoogleNavigationMarkerService.createCustomBinMarkers(shift.remainingBins, tempMarkerMap);
       await controller.addMarkers(markers);
       navNotifier.updateMarkerToBinMap(tempMarkerMap);
-      AppLogger.general('✅ [STEP 5/6] Added ${markers.length} custom markers');
+      AppLogger.general('✅ [STEP 5/7] Added ${markers.length} custom markers');
 
       // STEP 6: Create geofence circles and completed route polyline
-      AppLogger.general('⭕ [STEP 6/6] Adding geofence circles and polylines...');
+      AppLogger.general('⭕ [STEP 6/7] Adding geofence circles and polylines...');
       final circles = await GoogleNavigationMarkerService.createGeofenceCircles(shift.remainingBins);
       await controller.addCircles(circles);
       navNotifier.updateGeofenceCircles(circles);
@@ -1039,13 +1150,21 @@ class GoogleNavigationPage extends HookConsumerWidget {
           AppLogger.general('   Added completed route polyline');
         }
       }
-      AppLogger.general('✅ [STEP 6/6] Circles and polylines added');
+      AppLogger.general('✅ [STEP 6/7] Circles and polylines added');
+
+      // STEP 7: Enable camera following mode with flat perspective (override iOS default)
+      AppLogger.general('📹 [STEP 7/7] Enabling camera following mode...');
+      await controller.followMyLocation(
+        CameraPerspective.topDownHeadingUp,  // Flat view, heading at top (like Android)
+        zoomLevel: 17,
+      );
+      AppLogger.general('✅ [STEP 7/7] Camera following enabled with flat perspective');
 
       navNotifier.setNavigationReady(true);
       navNotifier.setNavigating(true);
       AppLogger.general('✅ Navigation ready');
 
-      AppLogger.general('🎉 [SETUP] All 6 steps completed successfully!');
+      AppLogger.general('🎉 [SETUP] All 7 steps completed successfully!');
     } catch (e) {
       AppLogger.general('❌ [SETUP] Error during setup: $e');
       rethrow;
@@ -1057,9 +1176,13 @@ class GoogleNavigationPage extends HookConsumerWidget {
     BuildContext context,
     WidgetRef ref,
     ShiftState shift,
-    NavigationPageNotifier navNotifier,
-  ) {
+    NavigationPageNotifier navNotifier, {
+    VoidCallback? onFirstLocationReceived,
+  }) {
     AppLogger.general('👂 Setting up navigation listeners...');
+
+    // Track if we've received the first location (for route calculation timing)
+    bool hasReceivedFirstLocation = false;
 
     // Listen to NavInfo updates (turn-by-turn data)
     GoogleMapsNavigator.setNavInfoListener((navInfoEvent) {
@@ -1094,8 +1217,16 @@ class GoogleNavigationPage extends HookConsumerWidget {
       navNotifier.updateTotalDistanceRemaining(navInfo.distanceToFinalDestinationMeters?.toDouble());
     });
 
-    // Listen to location updates (for display purposes only)
+    // Listen to location updates (SDK best practice: wait for first location before route calculation)
     GoogleMapsNavigator.setRoadSnappedLocationUpdatedListener((location) {
+      // Call callback on first location received (allows route calculation to proceed)
+      if (!hasReceivedFirstLocation && onFirstLocationReceived != null) {
+        hasReceivedFirstLocation = true;
+        AppLogger.general('📍 First road-snapped location received - ready for route calculation');
+        onFirstLocationReceived();
+      }
+
+      // Update navigation location for display
       navNotifier.updateNavigationLocation(location.location);
     });
 

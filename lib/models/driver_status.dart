@@ -10,7 +10,7 @@ part 'driver_status.g.dart';
 class DriverStatus with _$DriverStatus {
   const factory DriverStatus({
     @JsonKey(name: 'driver_id') required String driverId,
-    required String name,
+    @JsonKey(name: 'driver_name') @Default('Unknown Driver') String name,
     required ShiftStatus status, // active, paused, ready, etc.
     @JsonKey(name: 'shift_id') String? shiftId,
     @JsonKey(name: 'current_bin') @Default(0) int? currentBin,

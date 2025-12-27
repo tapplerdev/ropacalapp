@@ -15,179 +15,6 @@ final _privateConstructorUsedError = UnsupportedError(
   'It seems like you constructed your class using `MyClass._()`. This constructor is only meant to be used by freezed and you are not supposed to need it nor use it.\nPlease check the documentation here for more information: https://github.com/rrousselGit/freezed#adding-getters-and-methods-to-our-models',
 );
 
-DriverLocation _$DriverLocationFromJson(Map<String, dynamic> json) {
-  return _DriverLocation.fromJson(json);
-}
-
-/// @nodoc
-mixin _$DriverLocation {
-  double get latitude => throw _privateConstructorUsedError;
-  double get longitude => throw _privateConstructorUsedError;
-
-  /// Serializes this DriverLocation to a JSON map.
-  Map<String, dynamic> toJson() => throw _privateConstructorUsedError;
-
-  /// Create a copy of DriverLocation
-  /// with the given fields replaced by the non-null parameter values.
-  @JsonKey(includeFromJson: false, includeToJson: false)
-  $DriverLocationCopyWith<DriverLocation> get copyWith =>
-      throw _privateConstructorUsedError;
-}
-
-/// @nodoc
-abstract class $DriverLocationCopyWith<$Res> {
-  factory $DriverLocationCopyWith(
-    DriverLocation value,
-    $Res Function(DriverLocation) then,
-  ) = _$DriverLocationCopyWithImpl<$Res, DriverLocation>;
-  @useResult
-  $Res call({double latitude, double longitude});
-}
-
-/// @nodoc
-class _$DriverLocationCopyWithImpl<$Res, $Val extends DriverLocation>
-    implements $DriverLocationCopyWith<$Res> {
-  _$DriverLocationCopyWithImpl(this._value, this._then);
-
-  // ignore: unused_field
-  final $Val _value;
-  // ignore: unused_field
-  final $Res Function($Val) _then;
-
-  /// Create a copy of DriverLocation
-  /// with the given fields replaced by the non-null parameter values.
-  @pragma('vm:prefer-inline')
-  @override
-  $Res call({Object? latitude = null, Object? longitude = null}) {
-    return _then(
-      _value.copyWith(
-            latitude: null == latitude
-                ? _value.latitude
-                : latitude // ignore: cast_nullable_to_non_nullable
-                      as double,
-            longitude: null == longitude
-                ? _value.longitude
-                : longitude // ignore: cast_nullable_to_non_nullable
-                      as double,
-          )
-          as $Val,
-    );
-  }
-}
-
-/// @nodoc
-abstract class _$$DriverLocationImplCopyWith<$Res>
-    implements $DriverLocationCopyWith<$Res> {
-  factory _$$DriverLocationImplCopyWith(
-    _$DriverLocationImpl value,
-    $Res Function(_$DriverLocationImpl) then,
-  ) = __$$DriverLocationImplCopyWithImpl<$Res>;
-  @override
-  @useResult
-  $Res call({double latitude, double longitude});
-}
-
-/// @nodoc
-class __$$DriverLocationImplCopyWithImpl<$Res>
-    extends _$DriverLocationCopyWithImpl<$Res, _$DriverLocationImpl>
-    implements _$$DriverLocationImplCopyWith<$Res> {
-  __$$DriverLocationImplCopyWithImpl(
-    _$DriverLocationImpl _value,
-    $Res Function(_$DriverLocationImpl) _then,
-  ) : super(_value, _then);
-
-  /// Create a copy of DriverLocation
-  /// with the given fields replaced by the non-null parameter values.
-  @pragma('vm:prefer-inline')
-  @override
-  $Res call({Object? latitude = null, Object? longitude = null}) {
-    return _then(
-      _$DriverLocationImpl(
-        latitude: null == latitude
-            ? _value.latitude
-            : latitude // ignore: cast_nullable_to_non_nullable
-                  as double,
-        longitude: null == longitude
-            ? _value.longitude
-            : longitude // ignore: cast_nullable_to_non_nullable
-                  as double,
-      ),
-    );
-  }
-}
-
-/// @nodoc
-@JsonSerializable()
-class _$DriverLocationImpl implements _DriverLocation {
-  const _$DriverLocationImpl({required this.latitude, required this.longitude});
-
-  factory _$DriverLocationImpl.fromJson(Map<String, dynamic> json) =>
-      _$$DriverLocationImplFromJson(json);
-
-  @override
-  final double latitude;
-  @override
-  final double longitude;
-
-  @override
-  String toString() {
-    return 'DriverLocation(latitude: $latitude, longitude: $longitude)';
-  }
-
-  @override
-  bool operator ==(Object other) {
-    return identical(this, other) ||
-        (other.runtimeType == runtimeType &&
-            other is _$DriverLocationImpl &&
-            (identical(other.latitude, latitude) ||
-                other.latitude == latitude) &&
-            (identical(other.longitude, longitude) ||
-                other.longitude == longitude));
-  }
-
-  @JsonKey(includeFromJson: false, includeToJson: false)
-  @override
-  int get hashCode => Object.hash(runtimeType, latitude, longitude);
-
-  /// Create a copy of DriverLocation
-  /// with the given fields replaced by the non-null parameter values.
-  @JsonKey(includeFromJson: false, includeToJson: false)
-  @override
-  @pragma('vm:prefer-inline')
-  _$$DriverLocationImplCopyWith<_$DriverLocationImpl> get copyWith =>
-      __$$DriverLocationImplCopyWithImpl<_$DriverLocationImpl>(
-        this,
-        _$identity,
-      );
-
-  @override
-  Map<String, dynamic> toJson() {
-    return _$$DriverLocationImplToJson(this);
-  }
-}
-
-abstract class _DriverLocation implements DriverLocation {
-  const factory _DriverLocation({
-    required final double latitude,
-    required final double longitude,
-  }) = _$DriverLocationImpl;
-
-  factory _DriverLocation.fromJson(Map<String, dynamic> json) =
-      _$DriverLocationImpl.fromJson;
-
-  @override
-  double get latitude;
-  @override
-  double get longitude;
-
-  /// Create a copy of DriverLocation
-  /// with the given fields replaced by the non-null parameter values.
-  @override
-  @JsonKey(includeFromJson: false, includeToJson: false)
-  _$$DriverLocationImplCopyWith<_$DriverLocationImpl> get copyWith =>
-      throw _privateConstructorUsedError;
-}
-
 ActiveDriver _$ActiveDriverFromJson(Map<String, dynamic> json) {
   return _ActiveDriver.fromJson(json);
 }
@@ -202,7 +29,7 @@ mixin _$ActiveDriver {
   @JsonKey(name: 'driver_name')
   String get driverName => throw _privateConstructorUsedError;
 
-  /// Shift ID
+  /// Shift ID (null for idle drivers)
   @JsonKey(name: 'shift_id')
   String get shiftId => throw _privateConstructorUsedError;
 
@@ -458,8 +285,8 @@ class __$$ActiveDriverImplCopyWithImpl<$Res>
 class _$ActiveDriverImpl extends _ActiveDriver {
   const _$ActiveDriverImpl({
     @JsonKey(name: 'driver_id') required this.driverId,
-    @JsonKey(name: 'driver_name') required this.driverName,
-    @JsonKey(name: 'shift_id') required this.shiftId,
+    @JsonKey(name: 'driver_name') this.driverName = 'Unknown Driver',
+    @JsonKey(name: 'shift_id') this.shiftId = '',
     @JsonKey(name: 'route_id') this.routeId,
     required this.status,
     @JsonKey(name: 'start_time') @UnixTimestampConverter() this.startTime,
@@ -482,7 +309,7 @@ class _$ActiveDriverImpl extends _ActiveDriver {
   @JsonKey(name: 'driver_name')
   final String driverName;
 
-  /// Shift ID
+  /// Shift ID (null for idle drivers)
   @override
   @JsonKey(name: 'shift_id')
   final String shiftId;
@@ -584,8 +411,8 @@ class _$ActiveDriverImpl extends _ActiveDriver {
 abstract class _ActiveDriver extends ActiveDriver {
   const factory _ActiveDriver({
     @JsonKey(name: 'driver_id') required final String driverId,
-    @JsonKey(name: 'driver_name') required final String driverName,
-    @JsonKey(name: 'shift_id') required final String shiftId,
+    @JsonKey(name: 'driver_name') final String driverName,
+    @JsonKey(name: 'shift_id') final String shiftId,
     @JsonKey(name: 'route_id') final String? routeId,
     required final ShiftStatus status,
     @JsonKey(name: 'start_time')
@@ -611,7 +438,7 @@ abstract class _ActiveDriver extends ActiveDriver {
   @JsonKey(name: 'driver_name')
   String get driverName;
 
-  /// Shift ID
+  /// Shift ID (null for idle drivers)
   @override
   @JsonKey(name: 'shift_id')
   String get shiftId;

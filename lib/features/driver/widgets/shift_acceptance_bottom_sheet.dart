@@ -120,7 +120,6 @@ class ShiftAcceptanceBottomSheet extends StatelessWidget {
                 onPressed: onAccept,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.successGreen,
-                  foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(vertical: 16),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
@@ -373,7 +372,7 @@ class ShiftAcceptanceBottomSheet extends StatelessWidget {
     } else if (fillPercentage >= 50) {
       return Colors.orange.shade600;
     } else {
-      return AppColors.primaryBlue;
+      return AppColors.primaryGreen;
     }
   }
 }

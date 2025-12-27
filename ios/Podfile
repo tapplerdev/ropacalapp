@@ -42,6 +42,8 @@ post_install do |installer|
   installer.pods_project.targets.each do |target|
     flutter_additional_ios_build_settings(target)
     target.build_configurations.each do |config|
+      # Set minimum iOS deployment target to 16.0 for Google Navigation SDK
+      config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '16.0'
       # Disable code signing for pods (modern Flutter best practice)
       config.build_settings['CODE_SIGNING_REQUIRED'] = 'NO'
       config.build_settings['CODE_SIGNING_ALLOWED'] = 'NO'

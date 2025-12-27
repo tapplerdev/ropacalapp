@@ -277,7 +277,7 @@ class DriverMapPage extends HookConsumerWidget {
               polylineId: 'route',
               options: PolylineOptions(
                 points: routePoints,
-                strokeColor: AppColors.primaryBlue,
+                strokeColor: AppColors.primaryGreen,
                 strokeWidth: 4,
                 visible: true,
                 zIndex: 100,
@@ -389,12 +389,12 @@ class DriverMapPage extends HookConsumerWidget {
                       //       color:
                       //           (simulationState.isFollowing ||
                       //               isAutoFollowEnabled.value)
-                      //           ? AppColors.primaryBlue
+                      //           ? AppColors.primaryGreen
                       //           : Colors.white,
                       //       shape: BoxShape.circle,
                       //       boxShadow: [
                       //         BoxShadow(
-                      //           color: Colors.black.withOpacity(0.1),
+                      //           color: Colors.black.withValues(alpha: 0.1),
                       //           blurRadius: 8,
                       //           offset: const Offset(0, 2),
                       //         ),

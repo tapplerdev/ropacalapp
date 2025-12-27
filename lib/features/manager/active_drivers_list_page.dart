@@ -1,55 +1,35 @@
-import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:ropacalapp/core/theme/app_colors.dart';
 import 'package:ropacalapp/models/active_driver.dart';
 import 'package:ropacalapp/models/shift_state.dart';
-import 'package:ropacalapp/providers/active_drivers_provider.dart';
+import 'package:ropacalapp/providers/drivers_provider.dart';
 
 /// Active Drivers List Page - Shows all drivers with active shifts
-class ActiveDriversListPage extends ConsumerStatefulWidget {
+/// WebSocket-enabled for real-time updates
+class ActiveDriversListPage extends ConsumerWidget {
   const ActiveDriversListPage({super.key});
 
   @override
-  ConsumerState<ActiveDriversListPage> createState() =>
-      _ActiveDriversListPageState();
-}
-
-class _ActiveDriversListPageState
-    extends ConsumerState<ActiveDriversListPage> {
-  Timer? _refreshTimer;
-
-  @override
-  void initState() {
-    super.initState();
-    // Auto-refresh every 30 seconds
-    _refreshTimer = Timer.periodic(const Duration(seconds: 30), (_) {
-      ref.read(activeDriversProvider.notifier).refresh();
-    });
-  }
-
-  @override
-  void dispose() {
-    _refreshTimer?.cancel();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final activeDriversAsync = ref.watch(activeDriversProvider);
 
     return Scaffold(
+      backgroundColor: Colors.grey.shade50,
       appBar: AppBar(
         title: const Text('Active Drivers'),
-        backgroundColor: AppColors.primaryBlue,
-        foregroundColor: Colors.white,
+        backgroundColor: Colors.grey.shade50, // Match body background
+        surfaceTintColor: Colors.transparent,
+        scrolledUnderElevation: 0,
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
             onPressed: () {
-              ref.read(activeDriversProvider.notifier).refresh();
+              // Refresh the underlying driversNotifierProvider
+              ref.read(driversNotifierProvider.notifier).refresh();
             },
             tooltip: 'Refresh',
           ),
@@ -91,7 +71,7 @@ class _ActiveDriversListPageState
 
           return RefreshIndicator(
             onRefresh: () async {
-              await ref.read(activeDriversProvider.notifier).refresh();
+              await ref.read(driversNotifierProvider.notifier).refresh();
             },
             child: ListView.builder(
               padding: const EdgeInsets.all(16),
@@ -136,13 +116,11 @@ class _ActiveDriversListPageState
               const SizedBox(height: 24),
               ElevatedButton.icon(
                 onPressed: () {
-                  ref.read(activeDriversProvider.notifier).refresh();
+                  ref.read(driversNotifierProvider.notifier).refresh();
                 },
                 icon: const Icon(Icons.refresh),
                 label: const Text('Retry'),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.primaryBlue,
-                  foregroundColor: Colors.white,
                 ),
               ),
             ],
@@ -161,19 +139,25 @@ class _DriverCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final timeFormat = DateFormat('h:mm a');
-
-    return Card(
+    return Container(
       margin: const EdgeInsets.only(bottom: 16),
-      elevation: 2,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.08),
+            offset: const Offset(0, 4),
+            blurRadius: 16,
+            spreadRadius: 0,
+          ),
+        ],
       ),
       child: InkWell(
         onTap: () {
           context.push('/manager/drivers/${driver.driverId}');
         },
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(16),
         child: Padding(
           padding: const EdgeInsets.all(16),
           child: Column(
@@ -186,15 +170,10 @@ class _DriverCard extends StatelessWidget {
                   Expanded(
                     child: Row(
                       children: [
-                        CircleAvatar(
-                          backgroundColor: AppColors.primaryBlue,
-                          child: Text(
-                            driver.driverName[0].toUpperCase(),
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
+                        SvgPicture.asset(
+                          'assets/icons/male-avatar.svg',
+                          width: 40,
+                          height: 40,
                         ),
                         const SizedBox(width: 12),
                         Expanded(
@@ -210,92 +189,84 @@ class _DriverCard extends StatelessWidget {
                       ],
                     ),
                   ),
-                  _StatusBadge(status: driver.status),
+                  _StatusBadge(driver: driver),
                 ],
               ),
 
               const SizedBox(height: 12),
 
-              // Route name
-              if (driver.routeId != null)
-                Row(
-                  children: [
-                    const Icon(
-                      Icons.route,
-                      size: 16,
-                      color: Colors.grey,
+              // Route name with efficiency indicator
+              Row(
+                children: [
+                  // Efficiency dot
+                  Container(
+                    width: 8,
+                    height: 8,
+                    decoration: BoxDecoration(
+                      color: _getEfficiencyColor(driver),
+                      shape: BoxShape.circle,
                     ),
-                    const SizedBox(width: 8),
-                    Text(
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
                       driver.routeDisplayName,
                       style: TextStyle(
-                        fontSize: 14,
-                        color: Colors.grey.shade700,
+                        fontSize: 15,
+                        color: Colors.grey.shade800,
                         fontWeight: FontWeight.w600,
                       ),
                     ),
-                  ],
-                ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
 
-              if (driver.startTime != null) ...[
-                const SizedBox(height: 8),
-                Row(
-                  children: [
-                    const Icon(
-                      Icons.access_time,
-                      size: 16,
-                      color: Colors.grey,
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      'Started at ${timeFormat.format(driver.startTime!)}',
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: Colors.grey.shade700,
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-
-              const SizedBox(height: 16),
-
-              // Stats Row
+              // Progress and time elapsed
               Row(
                 children: [
-                  // Bins completed
-                  _StatChip(
-                    icon: Icons.delete_outline,
-                    label: '${driver.completedBins}/${driver.totalBins} bins',
-                    color: driver.completedBins >= driver.totalBins
-                        ? AppColors.successGreen
-                        : AppColors.primaryBlue,
+                  Icon(
+                    Icons.inventory_2_outlined,
+                    size: 16,
+                    color: Colors.grey.shade600,
                   ),
-                  const SizedBox(width: 12),
-
-                  // Duration
-                  if (driver.startTime != null)
-                    _StatChip(
-                      icon: Icons.timer_outlined,
-                      label: _formatDuration(driver.activeDuration),
-                      color: Colors.orange,
+                  const SizedBox(width: 6),
+                  Text(
+                    '${driver.completedBins}/${driver.totalBins} bins',
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: Colors.grey.shade700,
+                      fontWeight: FontWeight.w500,
                     ),
+                  ),
+                  const SizedBox(width: 16),
+                  Icon(
+                    Icons.schedule,
+                    size: 16,
+                    color: Colors.grey.shade600,
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    _formatDuration(driver.activeDuration),
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: Colors.grey.shade700,
+                    ),
+                  ),
                 ],
               ),
 
               // Progress bar
               if (driver.totalBins > 0) ...[
-                const SizedBox(height: 12),
+                const SizedBox(height: 10),
                 ClipRRect(
                   borderRadius: BorderRadius.circular(4),
                   child: LinearProgressIndicator(
                     value: driver.completionPercentage,
-                    minHeight: 8,
+                    minHeight: 6,
                     backgroundColor: Colors.grey.shade200,
                     valueColor: AlwaysStoppedAnimation<Color>(
-                      driver.completedBins >= driver.totalBins
-                          ? AppColors.successGreen
-                          : AppColors.primaryBlue,
+                      _getEfficiencyColor(driver),
                     ),
                   ),
                 ),
@@ -316,22 +287,37 @@ class _DriverCard extends StatelessWidget {
     }
     return '${minutes}m';
   }
+
+  Color _getEfficiencyColor(ActiveDriver driver) {
+    // Calculate efficiency based on completion percentage
+    if (driver.totalBins == 0) return Colors.grey;
+
+    final completionRate = driver.completionPercentage;
+
+    if (completionRate >= 0.8) {
+      return AppColors.successGreen; // On track or ahead
+    } else if (completionRate >= 0.5) {
+      return Colors.orange; // Slightly behind
+    } else {
+      return Colors.red; // Behind schedule
+    }
+  }
 }
 
 /// Status badge showing driver shift status
 class _StatusBadge extends StatelessWidget {
-  final ShiftStatus status;
+  final ActiveDriver driver;
 
-  const _StatusBadge({required this.status});
+  const _StatusBadge({required this.driver});
 
   @override
   Widget build(BuildContext context) {
-    final statusInfo = _getStatusInfo(status);
+    final statusInfo = _getStatusInfo();
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
-        color: statusInfo.color.withOpacity(0.1),
+        color: statusInfo.color.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(20),
         border: Border.all(
           color: statusInfo.color,
@@ -360,12 +346,12 @@ class _StatusBadge extends StatelessWidget {
     );
   }
 
-  _StatusInfo _getStatusInfo(ShiftStatus status) {
-    switch (status) {
+  _StatusInfo _getStatusInfo() {
+    switch (driver.status) {
       case ShiftStatus.active:
         return _StatusInfo(
           label: 'Active',
-          color: AppColors.primaryBlue,
+          color: AppColors.primaryGreen,
           icon: Icons.play_circle_filled,
         );
       case ShiftStatus.paused:
@@ -380,11 +366,17 @@ class _StatusBadge extends StatelessWidget {
           color: Colors.blue.shade700,
           icon: Icons.schedule,
         );
+      case ShiftStatus.inactive:
+        return _StatusInfo(
+          label: 'Idle',
+          color: Colors.grey.shade600,
+          icon: Icons.event_available,
+        );
       default:
         return _StatusInfo(
-          label: status.toString().split('.').last,
+          label: driver.status.toString().split('.').last,
           color: Colors.grey.shade600,
-          icon: Icons.info,
+          icon: Icons.help_outline,
         );
     }
   }
@@ -400,47 +392,4 @@ class _StatusInfo {
     required this.color,
     required this.icon,
   });
-}
-
-/// Small stat chip with icon + label
-class _StatChip extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final Color color;
-
-  const _StatChip({
-    required this.icon,
-    required this.label,
-    required this.color,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            icon,
-            size: 16,
-            color: color,
-          ),
-          const SizedBox(width: 6),
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-              color: color,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
 }

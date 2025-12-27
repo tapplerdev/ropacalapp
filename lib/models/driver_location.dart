@@ -7,16 +7,16 @@ part 'driver_location.g.dart';
 @freezed
 class DriverLocation with _$DriverLocation {
   const factory DriverLocation({
-    @JsonKey(name: 'driver_id') required String driverId,
+    @JsonKey(name: 'driver_id') String? driverId,
     required double latitude,
     required double longitude,
     double? heading, // Direction of travel (0-360 degrees)
     double? speed, // Speed in m/s
     double? accuracy, // GPS accuracy in meters
     @JsonKey(name: 'shift_id') String? shiftId,
-    required int timestamp, // Client-side timestamp (milliseconds)
+    int? timestamp, // Client-side timestamp (milliseconds)
     @JsonKey(name: 'is_connected') @Default(true) bool? isConnected, // WebSocket connection status (null = connected for broadcasts)
-    @JsonKey(name: 'updated_at') required int updatedAt, // Last update timestamp (seconds)
+    @JsonKey(name: 'updated_at') int? updatedAt, // Last update timestamp (seconds)
   }) = _DriverLocation;
 
   factory DriverLocation.fromJson(Map<String, dynamic> json) =>

@@ -8,16 +8,16 @@ part of 'driver_location.dart';
 
 _$DriverLocationImpl _$$DriverLocationImplFromJson(Map<String, dynamic> json) =>
     _$DriverLocationImpl(
-      driverId: json['driver_id'] as String,
+      driverId: json['driver_id'] as String?,
       latitude: (json['latitude'] as num).toDouble(),
       longitude: (json['longitude'] as num).toDouble(),
       heading: (json['heading'] as num?)?.toDouble(),
       speed: (json['speed'] as num?)?.toDouble(),
       accuracy: (json['accuracy'] as num?)?.toDouble(),
       shiftId: json['shift_id'] as String?,
-      timestamp: (json['timestamp'] as num).toInt(),
+      timestamp: (json['timestamp'] as num?)?.toInt(),
       isConnected: json['is_connected'] as bool? ?? true,
-      updatedAt: (json['updated_at'] as num).toInt(),
+      updatedAt: (json['updated_at'] as num?)?.toInt(),
     );
 
 Map<String, dynamic> _$$DriverLocationImplToJson(

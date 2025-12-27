@@ -2,6 +2,10 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>BGTaskSchedulerPermittedIdentifiers</key>
+	<array>
+		<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+	</array>
 	<key>CADisableMinimumFrameDurationOnPhone</key>
 	<true/>
 	<key>CFBundleDevelopmentRegion</key>
@@ -36,12 +40,21 @@
 	<string>We need your location to show nearby bins and optimize your route</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>We need your location to show nearby bins and optimize your route</string>
+	<key>NSCameraUsageDescription</key>
+	<string>We need camera access to take photos of bins during check-in</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>We need photo library access to save bin photos</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>We need permission to save bin photos to your photo library</string>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
+	<key>UIUserInterfaceStyle</key>
+	<string>Light</string>
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>location</string>
 		<string>fetch</string>
+		<string>processing</string>
 		<string>remote-notification</string>
 	</array>
 	<key>UILaunchStoryboardName</key>

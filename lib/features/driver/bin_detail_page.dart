@@ -73,7 +73,6 @@ class BinDetailPage extends HookConsumerWidget {
       pinned: true,
       centerTitle: true,
       backgroundColor: AppColors.darkBackground,
-      foregroundColor: Colors.white,
       flexibleSpace: LayoutBuilder(
         builder: (BuildContext context, BoxConstraints constraints) {
           // Calculate collapse factor (0.0 = collapsed, 1.0 = expanded)
@@ -110,7 +109,7 @@ class BinDetailPage extends HookConsumerWidget {
                       Icon(
                         Icons.delete_outline,
                         size: responsive.iconAppBar,
-                        color: Colors.white.withOpacity(0.9),
+                        color: Colors.white.withValues(alpha: 0.9),
                       ),
                       SizedBox(height: responsive.gapMedium),
                       Container(

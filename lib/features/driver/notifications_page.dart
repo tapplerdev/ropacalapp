@@ -11,6 +11,9 @@ class NotificationsPage extends StatelessWidget {
       backgroundColor: Colors.grey.shade50,
       appBar: AppBar(
         title: const Text('Notifications'),
+        backgroundColor: Colors.white,
+        surfaceTintColor: Colors.transparent,
+        scrolledUnderElevation: 0,
       ),
       body: ListView(
         padding: const EdgeInsets.only(top: 8),
@@ -19,8 +22,8 @@ class NotificationsPage extends StatelessWidget {
           _buildSectionHeader('Today'),
           _buildNotificationCard(
             icon: Icons.route,
-            iconColor: AppColors.primaryBlue,
-            iconBgColor: AppColors.primaryBlue.withOpacity(0.1),
+            iconColor: AppColors.primaryGreen,
+            iconBgColor: AppColors.primaryGreen.withValues(alpha: 0.1),
             title: 'New route assigned',
             description: 'You have 3 bins to collect on Main Street route',
             time: '10 min ago',
@@ -58,8 +61,8 @@ class NotificationsPage extends StatelessWidget {
           ),
           _buildNotificationCard(
             icon: Icons.schedule,
-            iconColor: AppColors.primaryBlue,
-            iconBgColor: AppColors.primaryBlue.withOpacity(0.1),
+            iconColor: AppColors.primaryGreen,
+            iconBgColor: AppColors.primaryGreen.withValues(alpha: 0.1),
             title: 'Shift starting soon',
             description: 'Your shift starts in 30 minutes',
             time: 'Yesterday, 8:30 AM',
@@ -124,7 +127,7 @@ class NotificationsPage extends StatelessWidget {
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.04),
+            color: Colors.black.withValues(alpha: 0.04),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
@@ -179,7 +182,7 @@ class NotificationsPage extends StatelessWidget {
                               width: 8,
                               height: 8,
                               decoration: BoxDecoration(
-                                color: AppColors.primaryBlue,
+                                color: AppColors.primaryGreen,
                                 shape: BoxShape.circle,
                               ),
                             ),

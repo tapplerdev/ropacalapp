@@ -19,8 +19,6 @@ class ShiftDemoPage extends ConsumerWidget {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Shift Management Demo'),
-        backgroundColor: AppColors.primaryBlue,
-        foregroundColor: Colors.white,
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
@@ -95,8 +93,6 @@ class ShiftDemoPage extends ConsumerWidget {
                       icon: const Icon(Icons.assignment),
                       label: const Text('Assign Route (Manager)'),
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.primaryBlue,
-                        foregroundColor: Colors.white,
                       ),
                     ),
                     const SizedBox(height: 8),
@@ -247,7 +243,7 @@ class _StatusCard extends StatelessWidget {
     }
 
     return Card(
-      color: statusColor.withOpacity(0.1),
+      color: statusColor.withValues(alpha: 0.1),
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Row(

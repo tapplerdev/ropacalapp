@@ -303,8 +303,16 @@ class ShiftNotifier extends _$ShiftNotifier {
     }
   }
 
-  /// Mark a bin as completed with updated fill percentage
-  Future<void> completeBin(String binId, int updatedFillPercentage) async {
+  /// Mark a bin as completed with updated fill percentage and optional photo
+  Future<void> completeBin(
+    String binId,
+    int? updatedFillPercentage, { // Now nullable for incident reports
+    String? photoUrl,
+    bool hasIncident = false,
+    String? incidentType,
+    String? incidentPhotoUrl,
+    String? incidentDescription,
+  }) async {
     if (state.status != ShiftStatus.active) {
       AppLogger.general('⚠️ Cannot complete bin - shift not active');
       return;
@@ -312,11 +320,25 @@ class ShiftNotifier extends _$ShiftNotifier {
 
     try {
       final shiftService = ref.read(shiftServiceProvider);
-      await shiftService.completeBin(binId, updatedFillPercentage);
-
-      AppLogger.general(
-        '✅ Bin completed via API (fill: $updatedFillPercentage%), waiting for WebSocket update...',
+      await shiftService.completeBin(
+        binId,
+        updatedFillPercentage,
+        photoUrl: photoUrl,
+        hasIncident: hasIncident,
+        incidentType: incidentType,
+        incidentPhotoUrl: incidentPhotoUrl,
+        incidentDescription: incidentDescription,
       );
+
+      if (hasIncident) {
+        AppLogger.general(
+          '🚨 Bin completed with incident report (type: $incidentType)${photoUrl != null ? ' with photo' : ''}, waiting for WebSocket update...',
+        );
+      } else {
+        AppLogger.general(
+          '✅ Bin completed via API (fill: $updatedFillPercentage%)${photoUrl != null ? ' with photo' : ''}, waiting for WebSocket update...',
+        );
+      }
 
       // Note: WebSocket will receive shift_update and call updateFromWebSocket()
       // No need to manually refresh - this avoids read-after-write consistency issues

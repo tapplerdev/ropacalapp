@@ -5,13 +5,16 @@ import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:ropacalapp/core/constants/bin_constants.dart';
+import 'package:ropacalapp/core/services/cloudinary_service.dart';
 import 'package:ropacalapp/core/theme/app_colors.dart';
+import 'package:ropacalapp/core/utils/app_logger.dart';
 import 'package:ropacalapp/models/route_bin.dart';
 import 'package:ropacalapp/providers/shift_provider.dart';
+import 'package:ropacalapp/features/driver/widgets/incident_components.dart';
 
-/// Modern two-step check-in dialog with glassmorphism design
-/// Step 1: Capture photo (camera or gallery)
-/// Step 2: Adjust fill level with visual feedback
+/// Modern check-in dialog with incident reporting support
+/// Normal flow: Step 1 (photo) → Step 2 (fill level) → Submit
+/// Incident flow: Step 1 (photo) → Report Issue → Step 2 (incident type) → Step 3 (incident details) → Submit
 class CheckInDialogV2 extends HookConsumerWidget {
   final RouteBin bin;
   final VoidCallback? onCheckedIn;
@@ -24,10 +27,17 @@ class CheckInDialogV2 extends HookConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final currentStep = useState(1); // 1 = photo, 2 = fill level
+    // Main flow state
+    final currentStep = useState(1); // 1=photo, 2=fill/incident_type, 3=incident_details
     final capturedImage = useState<XFile?>(null);
     final fillPercentage = useState(bin.fillPercentage);
     final isSubmitting = useState(false);
+
+    // Incident state
+    final hasIncident = useState(false);
+    final selectedIncidentType = useState<String?>(null);
+    final incidentPhoto = useState<XFile?>(null);
+    final incidentDescription = useState<String>('');
 
     return BackdropFilter(
       filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
@@ -41,24 +51,24 @@ class CheckInDialogV2 extends HookConsumerWidget {
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
               colors: [
-                Colors.white.withOpacity(0.95),
-                Colors.white.withOpacity(0.90),
+                Colors.white.withValues(alpha: 0.95),
+                Colors.white.withValues(alpha: 0.90),
               ],
             ),
             borderRadius: BorderRadius.circular(28),
             border: Border.all(
-              color: Colors.white.withOpacity(0.3),
+              color: Colors.white.withValues(alpha: 0.3),
               width: 1.5,
             ),
             boxShadow: [
               BoxShadow(
-                color: AppColors.primaryBlue.withOpacity(0.1),
+                color: AppColors.primaryGreen.withValues(alpha: 0.1),
                 blurRadius: 40,
                 offset: const Offset(0, 20),
                 spreadRadius: -5,
               ),
               BoxShadow(
-                color: Colors.black.withOpacity(0.1),
+                color: Colors.black.withValues(alpha: 0.1),
                 blurRadius: 20,
                 offset: const Offset(0, 10),
               ),
@@ -70,7 +80,13 @@ class CheckInDialogV2 extends HookConsumerWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 // Modern header with progress
-                _buildModernHeader(context, bin, currentStep.value),
+                _buildModernHeader(
+                  context,
+                  bin,
+                  currentStep.value,
+                  hasIncident.value,
+                  selectedIncidentType.value,
+                ),
 
                 // Animated content switcher
                 AnimatedSwitcher(
@@ -87,14 +103,16 @@ class CheckInDialogV2 extends HookConsumerWidget {
                       ),
                     );
                   },
-                  child: currentStep.value == 1
-                      ? _buildModernPhotoCapture(context, capturedImage)
-                      : _buildModernFillLevel(
-                          context,
-                          bin,
-                          capturedImage.value,
-                          fillPercentage,
-                        ),
+                  child: _buildStepContent(
+                    context,
+                    currentStep.value,
+                    capturedImage,
+                    fillPercentage,
+                    hasIncident.value,
+                    selectedIncidentType,
+                    incidentPhoto,
+                    incidentDescription,
+                  ),
                 ),
 
                 // Modern footer with action buttons
@@ -105,6 +123,10 @@ class CheckInDialogV2 extends HookConsumerWidget {
                   capturedImage,
                   fillPercentage,
                   isSubmitting,
+                  hasIncident,
+                  selectedIncidentType,
+                  incidentPhoto,
+                  incidentDescription,
                   onCheckedIn,
                 ),
               ],
@@ -115,8 +137,66 @@ class CheckInDialogV2 extends HookConsumerWidget {
     );
   }
 
+  /// Route to correct step content
+  Widget _buildStepContent(
+    BuildContext context,
+    int step,
+    ValueNotifier<XFile?> capturedImage,
+    ValueNotifier<int> fillPercentage,
+    bool hasIncident,
+    ValueNotifier<String?> selectedIncidentType,
+    ValueNotifier<XFile?> incidentPhoto,
+    ValueNotifier<String> incidentDescription,
+  ) {
+    // Step 1: Always photo capture
+    if (step == 1) {
+      return _buildModernPhotoCapture(context, capturedImage);
+    }
+
+    // Step 2: Incident type selection OR fill level
+    if (step == 2) {
+      if (hasIncident) {
+        return IncidentTypeSelector(selectedIncidentType: selectedIncidentType);
+      } else {
+        return _buildModernFillLevel(context, bin, capturedImage.value, fillPercentage);
+      }
+    }
+
+    // Step 3: Incident details (only if hasIncident)
+    if (step == 3 && hasIncident) {
+      return IncidentDetailsForm(
+        incidentPhoto: incidentPhoto,
+        incidentDescription: incidentDescription,
+        incidentType: selectedIncidentType.value,
+      );
+    }
+
+    return Container();
+  }
+
   /// Build modern header with gradient and animated progress
-  Widget _buildModernHeader(BuildContext context, RouteBin bin, int step) {
+  Widget _buildModernHeader(
+    BuildContext context,
+    RouteBin bin,
+    int step,
+    bool hasIncident,
+    String? incidentType,
+  ) {
+    // Calculate dynamic subtitle based on current state
+    String subtitle;
+    if (step == 1) {
+      subtitle = 'Take bin photo';
+    } else if (step == 2 && hasIncident) {
+      subtitle = 'Report an issue';
+    } else if (step == 3 && hasIncident) {
+      subtitle = incidentType != null ? _formatIncidentType(incidentType) : 'Add incident details';
+    } else {
+      subtitle = 'Update fill level';
+    }
+
+    // Calculate total steps dynamically
+    int totalSteps = hasIncident ? 3 : 2;
+
     return Container(
       padding: const EdgeInsets.fromLTRB(24, 24, 24, 20),
       decoration: BoxDecoration(
@@ -124,8 +204,8 @@ class CheckInDialogV2 extends HookConsumerWidget {
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
-            AppColors.primaryBlue.withOpacity(0.08),
-            AppColors.primaryBlue.withOpacity(0.03),
+            AppColors.primaryGreen.withValues(alpha: 0.08),
+            AppColors.primaryGreen.withValues(alpha: 0.03),
           ],
         ),
       ),
@@ -143,14 +223,14 @@ class CheckInDialogV2 extends HookConsumerWidget {
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
                         colors: [
-                          AppColors.primaryBlue,
-                          AppColors.primaryBlue.withOpacity(0.8),
+                          AppColors.primaryGreen,
+                          AppColors.primaryGreen.withValues(alpha: 0.8),
                         ],
                       ),
                       borderRadius: BorderRadius.circular(14),
                       boxShadow: [
                         BoxShadow(
-                          color: AppColors.primaryBlue.withOpacity(0.3),
+                          color: AppColors.primaryGreen.withValues(alpha: 0.3),
                           blurRadius: 12,
                           offset: const Offset(0, 4),
                         ),
@@ -177,7 +257,7 @@ class CheckInDialogV2 extends HookConsumerWidget {
                       ),
                       const SizedBox(height: 2),
                       Text(
-                        step == 1 ? 'Take bin photo' : 'Update fill level',
+                        subtitle,
                         style: TextStyle(
                           fontSize: 14,
                           color: Colors.grey.shade600,
@@ -195,21 +275,21 @@ class CheckInDialogV2 extends HookConsumerWidget {
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
                     colors: [
-                      AppColors.primaryBlue,
-                      AppColors.primaryBlue.withOpacity(0.85),
+                      AppColors.primaryGreen,
+                      AppColors.primaryGreen.withValues(alpha: 0.85),
                     ],
                   ),
                   borderRadius: BorderRadius.circular(20),
                   boxShadow: [
                     BoxShadow(
-                      color: AppColors.primaryBlue.withOpacity(0.3),
+                      color: AppColors.primaryGreen.withValues(alpha: 0.3),
                       blurRadius: 8,
                       offset: const Offset(0, 2),
                     ),
                   ],
                 ),
                 child: Text(
-                  '$step/2',
+                  '$step/$totalSteps',
                   style: const TextStyle(
                     fontSize: 15,
                     fontWeight: FontWeight.bold,
@@ -227,17 +307,33 @@ class CheckInDialogV2 extends HookConsumerWidget {
           ClipRRect(
             borderRadius: BorderRadius.circular(10),
             child: LinearProgressIndicator(
-              value: step / 2,
+              value: step / totalSteps,
               minHeight: 6,
               backgroundColor: Colors.grey.shade200,
               valueColor: AlwaysStoppedAnimation<Color>(
-                AppColors.primaryBlue,
+                AppColors.primaryGreen,
               ),
             ),
           ),
         ],
       ),
     );
+  }
+
+  /// Format incident type for display
+  String _formatIncidentType(String type) {
+    switch (type) {
+      case 'missing':
+        return 'Missing Bin';
+      case 'damaged':
+        return 'Damaged';
+      case 'vandalized':
+        return 'Vandalized';
+      case 'inaccessible':
+        return 'Inaccessible';
+      default:
+        return type;
+    }
   }
 
   /// Build modern photo capture UI with camera and gallery options
@@ -318,98 +414,81 @@ class CheckInDialogV2 extends HookConsumerWidget {
       child: Column(
         children: [
           if (capturedImage.value == null)
-            // No photo yet - show camera and gallery options
-            Column(
-              children: [
-                // Large camera button
-                GestureDetector(
-                  onTap: pickImageFromCamera,
-                  child: Container(
-                    height: 320,
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                        colors: [
-                          AppColors.primaryBlue.withOpacity(0.08),
-                          AppColors.primaryBlue.withOpacity(0.04),
-                        ],
-                      ),
-                      borderRadius: BorderRadius.circular(24),
-                      border: Border.all(
-                        color: AppColors.primaryBlue.withOpacity(0.2),
-                        width: 2,
-                      ),
-                    ),
-                    child: Stack(
-                      children: [
-                        // Background pattern
-                        Positioned.fill(
-                          child: CustomPaint(
-                            painter: _DotPatternPainter(),
-                          ),
-                        ),
-                        // Content
-                        Center(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              // Camera icon with gradient
-                              Container(
-                                width: 100,
-                                height: 100,
-                                decoration: BoxDecoration(
-                                  gradient: LinearGradient(
-                                    colors: [
-                                      AppColors.primaryBlue,
-                                      AppColors.primaryBlue.withOpacity(0.8),
-                                    ],
-                                  ),
-                                  shape: BoxShape.circle,
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: AppColors.primaryBlue.withOpacity(0.3),
-                                      blurRadius: 24,
-                                      offset: const Offset(0, 8),
-                                    ),
-                                  ],
-                                ),
-                                child: const Icon(
-                                  Icons.camera_alt_rounded,
-                                  size: 48,
-                                  color: Colors.white,
-                                ),
-                              ),
-                              const SizedBox(height: 24),
-                              const Text(
-                                'Tap to take photo',
-                                style: TextStyle(
-                                  fontSize: 20,
-                                  fontWeight: FontWeight.bold,
-                                  color: AppColors.primaryBlue,
-                                  letterSpacing: -0.5,
-                                ),
-                              ),
-                              const SizedBox(height: 8),
-                              Text(
-                                'Take a clear photo of the bin',
-                                style: TextStyle(
-                                  fontSize: 15,
-                                  color: Colors.grey.shade600,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
+            // No photo yet - show camera button
+            GestureDetector(
+              onTap: pickImageFromCamera,
+              child: Container(
+                height: 320,
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      AppColors.primaryGreen.withValues(alpha: 0.08),
+                      AppColors.primaryGreen.withValues(alpha: 0.04),
+                    ],
+                  ),
+                  borderRadius: BorderRadius.circular(24),
+                  border: Border.all(
+                    color: AppColors.primaryGreen.withValues(alpha: 0.2),
+                    width: 2,
                   ),
                 ),
-              ],
+                child: Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Container(
+                        width: 100,
+                        height: 100,
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: [
+                              AppColors.primaryGreen,
+                              AppColors.primaryGreen.withValues(alpha: 0.8),
+                            ],
+                          ),
+                          shape: BoxShape.circle,
+                          boxShadow: [
+                            BoxShadow(
+                              color: AppColors.primaryGreen.withValues(alpha: 0.3),
+                              blurRadius: 24,
+                              offset: const Offset(0, 8),
+                            ),
+                          ],
+                        ),
+                        child: const Icon(
+                          Icons.camera_alt_rounded,
+                          size: 48,
+                          color: Colors.white,
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+                      const Text(
+                        'Tap to take photo',
+                        style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.primaryGreen,
+                          letterSpacing: -0.5,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Take a clear photo of the bin',
+                        style: TextStyle(
+                          fontSize: 15,
+                          color: Colors.grey.shade600,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
             )
           else
-            // Photo captured - show preview with modern styling
+            // Photo captured - show preview
             Column(
               children: [
                 ClipRRect(
@@ -422,7 +501,7 @@ class CheckInDialogV2 extends HookConsumerWidget {
                         width: double.infinity,
                         fit: BoxFit.cover,
                       ),
-                      // Gradient overlay for better button visibility
+                      // Gradient overlay
                       Positioned(
                         bottom: 0,
                         left: 0,
@@ -435,7 +514,7 @@ class CheckInDialogV2 extends HookConsumerWidget {
                               end: Alignment.bottomCenter,
                               colors: [
                                 Colors.transparent,
-                                Colors.black.withOpacity(0.6),
+                                Colors.black.withValues(alpha: 0.6),
                               ],
                             ),
                           ),
@@ -452,7 +531,7 @@ class CheckInDialogV2 extends HookConsumerWidget {
                             shape: BoxShape.circle,
                             boxShadow: [
                               BoxShadow(
-                                color: Colors.green.withOpacity(0.4),
+                                color: Colors.green.withValues(alpha: 0.4),
                                 blurRadius: 12,
                                 offset: const Offset(0, 4),
                               ),
@@ -486,10 +565,10 @@ class CheckInDialogV2 extends HookConsumerWidget {
                           ),
                         ),
                         style: OutlinedButton.styleFrom(
-                          foregroundColor: AppColors.primaryBlue,
+                          foregroundColor: AppColors.primaryGreen,
                           padding: const EdgeInsets.symmetric(vertical: 16),
                           side: BorderSide(
-                            color: AppColors.primaryBlue.withOpacity(0.3),
+                            color: AppColors.primaryGreen.withValues(alpha: 0.3),
                             width: 2,
                           ),
                           shape: RoundedRectangleBorder(
@@ -511,10 +590,10 @@ class CheckInDialogV2 extends HookConsumerWidget {
                           ),
                         ),
                         style: OutlinedButton.styleFrom(
-                          foregroundColor: AppColors.primaryBlue,
+                          foregroundColor: AppColors.primaryGreen,
                           padding: const EdgeInsets.symmetric(vertical: 16),
                           side: BorderSide(
-                            color: AppColors.primaryBlue.withOpacity(0.3),
+                            color: AppColors.primaryGreen.withValues(alpha: 0.3),
                             width: 2,
                           ),
                           shape: RoundedRectangleBorder(
@@ -588,7 +667,7 @@ class CheckInDialogV2 extends HookConsumerWidget {
               activeTrackColor: _getSliderColor(fillPercentage.value),
               inactiveTrackColor: Colors.grey.shade200,
               thumbColor: _getSliderColor(fillPercentage.value),
-              overlayColor: _getSliderColor(fillPercentage.value).withOpacity(0.2),
+              overlayColor: _getSliderColor(fillPercentage.value).withValues(alpha: 0.2),
             ),
             child: Slider(
               value: fillPercentage.value.toDouble(),
@@ -639,13 +718,13 @@ class CheckInDialogV2 extends HookConsumerWidget {
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
                       colors: [
-                        _getSliderColor(bin.fillPercentage).withOpacity(0.08),
-                        _getSliderColor(bin.fillPercentage).withOpacity(0.04),
+                        _getSliderColor(bin.fillPercentage).withValues(alpha: 0.08),
+                        _getSliderColor(bin.fillPercentage).withValues(alpha: 0.04),
                       ],
                     ),
                     borderRadius: BorderRadius.circular(16),
                     border: Border.all(
-                      color: _getSliderColor(bin.fillPercentage).withOpacity(0.2),
+                      color: _getSliderColor(bin.fillPercentage).withValues(alpha: 0.2),
                       width: 1.5,
                     ),
                   ),
@@ -694,18 +773,18 @@ class CheckInDialogV2 extends HookConsumerWidget {
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
                       colors: [
-                        _getSliderColor(fillPercentage.value).withOpacity(0.12),
-                        _getSliderColor(fillPercentage.value).withOpacity(0.06),
+                        _getSliderColor(fillPercentage.value).withValues(alpha: 0.12),
+                        _getSliderColor(fillPercentage.value).withValues(alpha: 0.06),
                       ],
                     ),
                     borderRadius: BorderRadius.circular(16),
                     border: Border.all(
-                      color: _getSliderColor(fillPercentage.value).withOpacity(0.3),
+                      color: _getSliderColor(fillPercentage.value).withValues(alpha: 0.3),
                       width: 2,
                     ),
                     boxShadow: [
                       BoxShadow(
-                        color: _getSliderColor(fillPercentage.value).withOpacity(0.15),
+                        color: _getSliderColor(fillPercentage.value).withValues(alpha: 0.15),
                         blurRadius: 12,
                         offset: const Offset(0, 4),
                       ),
@@ -751,12 +830,16 @@ class CheckInDialogV2 extends HookConsumerWidget {
     ValueNotifier<XFile?> capturedImage,
     ValueNotifier<int> fillPercentage,
     ValueNotifier<bool> isSubmitting,
+    ValueNotifier<bool> hasIncident,
+    ValueNotifier<String?> selectedIncidentType,
+    ValueNotifier<XFile?> incidentPhoto,
+    ValueNotifier<String> incidentDescription,
     VoidCallback? onCheckedIn,
   ) {
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        color: Colors.grey.shade50.withOpacity(0.5),
+        color: Colors.grey.shade50.withValues(alpha: 0.5),
         border: Border(
           top: BorderSide(
             color: Colors.grey.shade200,
@@ -764,248 +847,299 @@ class CheckInDialogV2 extends HookConsumerWidget {
           ),
         ),
       ),
-      child: Row(
+      child: Column(
         children: [
-          // Back / Cancel button
-          if (currentStep.value == 1)
-            Expanded(
-              child: OutlinedButton(
-                onPressed: isSubmitting.value
-                    ? null
-                    : () => Navigator.pop(context),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: Colors.grey.shade700,
-                  padding: const EdgeInsets.symmetric(vertical: 18),
-                  side: BorderSide(
-                    color: Colors.grey.shade300,
-                    width: 2,
-                  ),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                ),
-                child: const Text(
-                  'Cancel',
-                  style: TextStyle(
-                    fontSize: 17,
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: 0.2,
-                  ),
-                ),
-              ),
-            )
-          else
-            Expanded(
-              child: OutlinedButton(
-                onPressed: isSubmitting.value
-                    ? null
-                    : () => currentStep.value = 1,
-                child: const Text(
-                  'Back',
-                  style: TextStyle(
-                    fontSize: 17,
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: 0.2,
-                  ),
-                ),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: Colors.grey.shade700,
-                  padding: const EdgeInsets.symmetric(vertical: 18),
-                  side: BorderSide(
-                    color: Colors.grey.shade300,
-                    width: 2,
-                  ),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                ),
-              ),
+          // Report Issue button (available immediately on step 1, not already reporting)
+          if (currentStep.value == 1 && !hasIncident.value)
+            ReportIssueButton(
+              onPressed: () {
+                hasIncident.value = true;
+                currentStep.value = 2;
+              },
             ),
 
-          const SizedBox(width: 12),
-
-          // Continue / Submit button with gradient
-          Expanded(
-            flex: currentStep.value == 1 ? 1 : 1,
-            child: currentStep.value == 1
-                ? Container(
-                    decoration: BoxDecoration(
-                      gradient: capturedImage.value != null
-                          ? LinearGradient(
-                              colors: [
-                                AppColors.primaryBlue,
-                                AppColors.primaryBlue.withOpacity(0.85),
-                              ],
-                            )
-                          : null,
+          // Navigation buttons
+          Row(
+            children: [
+              // Back / Cancel button
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: isSubmitting.value
+                      ? null
+                      : () {
+                          if (currentStep.value == 1) {
+                            Navigator.pop(context);
+                          } else if (currentStep.value == 2 && hasIncident.value) {
+                            // Going back from incident type selection
+                            hasIncident.value = false;
+                            currentStep.value = 1;
+                          } else {
+                            currentStep.value--;
+                          }
+                        },
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: Colors.grey.shade700,
+                    padding: const EdgeInsets.symmetric(vertical: 18),
+                    side: BorderSide(
+                      color: Colors.grey.shade300,
+                      width: 2,
+                    ),
+                    shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(16),
-                      boxShadow: capturedImage.value != null
-                          ? [
-                              BoxShadow(
-                                color: AppColors.primaryBlue.withOpacity(0.4),
-                                blurRadius: 12,
-                                offset: const Offset(0, 6),
-                              ),
-                            ]
-                          : null,
-                    ),
-                    child: ElevatedButton(
-                      onPressed: capturedImage.value == null
-                          ? null
-                          : () => currentStep.value = 2,
-                      child: const Text(
-                        'Continue',
-                        style: TextStyle(
-                          fontSize: 17,
-                          fontWeight: FontWeight.bold,
-                          letterSpacing: 0.2,
-                        ),
-                      ),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: capturedImage.value != null
-                            ? Colors.transparent
-                            : Colors.grey.shade300,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 18),
-                        shadowColor: Colors.transparent,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                      ),
-                    ),
-                  )
-                : Container(
-                    decoration: BoxDecoration(
-                      gradient: !isSubmitting.value
-                          ? const LinearGradient(
-                              colors: [
-                                Colors.green,
-                                Color(0xFF43A047),
-                              ],
-                            )
-                          : null,
-                      borderRadius: BorderRadius.circular(16),
-                      boxShadow: !isSubmitting.value
-                          ? [
-                              BoxShadow(
-                                color: Colors.green.withOpacity(0.4),
-                                blurRadius: 12,
-                                offset: const Offset(0, 6),
-                              ),
-                            ]
-                          : null,
-                    ),
-                    child: ElevatedButton(
-                      onPressed: isSubmitting.value
-                          ? null
-                          : () async {
-                              isSubmitting.value = true;
-                              try {
-                                // Complete bin with updated fill percentage
-                                await ref
-                                    .read(shiftNotifierProvider.notifier)
-                                    .completeBin(
-                                      bin.binId,
-                                      fillPercentage.value,
-                                    );
-
-                                if (context.mounted) {
-                                  Navigator.pop(context);
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                      content: const Row(
-                                        children: [
-                                          Icon(
-                                            Icons.check_circle_outline,
-                                            color: Colors.white,
-                                          ),
-                                          SizedBox(width: 12),
-                                          Text(
-                                            'Bin completed successfully',
-                                            style: TextStyle(
-                                              fontWeight: FontWeight.w600,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                      backgroundColor: Colors.green,
-                                      behavior: SnackBarBehavior.floating,
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(12),
-                                      ),
-                                    ),
-                                  );
-
-                                  // Trigger callback to advance to next bin
-                                  onCheckedIn?.call();
-                                }
-                              } catch (e) {
-                                if (context.mounted) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                      content: Row(
-                                        children: [
-                                          const Icon(
-                                            Icons.error_outline,
-                                            color: Colors.white,
-                                          ),
-                                          const SizedBox(width: 12),
-                                          Expanded(
-                                            child: Text(
-                                              'Error: $e',
-                                              style: const TextStyle(
-                                                fontWeight: FontWeight.w600,
-                                              ),
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                      backgroundColor: Colors.red.shade600,
-                                      behavior: SnackBarBehavior.floating,
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(12),
-                                      ),
-                                    ),
-                                  );
-                                }
-                              } finally {
-                                isSubmitting.value = false;
-                              }
-                            },
-                      child: isSubmitting.value
-                          ? const SizedBox(
-                              width: 20,
-                              height: 20,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2.5,
-                                color: Colors.white,
-                              ),
-                            )
-                          : const Text(
-                              'Complete Bin',
-                              style: TextStyle(
-                                fontSize: 17,
-                                fontWeight: FontWeight.bold,
-                                letterSpacing: 0.2,
-                              ),
-                            ),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: !isSubmitting.value
-                            ? Colors.transparent
-                            : Colors.grey.shade300,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 18),
-                        shadowColor: Colors.transparent,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                      ),
                     ),
                   ),
+                  child: Text(
+                    currentStep.value == 1 ? 'Cancel' : 'Back',
+                    style: const TextStyle(
+                      fontSize: 17,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 0.2,
+                    ),
+                  ),
+                ),
+              ),
+
+              const SizedBox(width: 12),
+
+              // Continue / Next / Submit button
+              Expanded(
+                child: _buildPrimaryButton(
+                  context,
+                  ref,
+                  currentStep,
+                  capturedImage,
+                  fillPercentage,
+                  isSubmitting,
+                  hasIncident,
+                  selectedIncidentType,
+                  incidentPhoto,
+                  incidentDescription,
+                  onCheckedIn,
+                ),
+              ),
+            ],
           ),
         ],
       ),
     );
+  }
+
+  /// Build primary action button (Continue/Next/Submit)
+  Widget _buildPrimaryButton(
+    BuildContext context,
+    WidgetRef ref,
+    ValueNotifier<int> currentStep,
+    ValueNotifier<XFile?> capturedImage,
+    ValueNotifier<int> fillPercentage,
+    ValueNotifier<bool> isSubmitting,
+    ValueNotifier<bool> hasIncident,
+    ValueNotifier<String?> selectedIncidentType,
+    ValueNotifier<XFile?> incidentPhoto,
+    ValueNotifier<String> incidentDescription,
+    VoidCallback? onCheckedIn,
+  ) {
+    // Determine if can proceed
+    bool canProceed = false;
+    String buttonText = 'Continue';
+
+    if (currentStep.value == 1) {
+      canProceed = capturedImage.value != null;
+      buttonText = 'Continue';
+    } else if (currentStep.value == 2 && hasIncident.value) {
+      canProceed = selectedIncidentType.value != null;
+      buttonText = 'Next';
+    } else if (currentStep.value == 3 && hasIncident.value) {
+      // Incident details - at least photo OR description required
+      canProceed = incidentPhoto.value != null || incidentDescription.value.isNotEmpty;
+      buttonText = 'Submit Report';
+    } else if (currentStep.value == 2 && !hasIncident.value) {
+      // Normal flow - fill level
+      canProceed = true;
+      buttonText = 'Complete Bin';
+    }
+
+    return Container(
+      decoration: BoxDecoration(
+        gradient: canProceed && !isSubmitting.value
+            ? LinearGradient(
+                colors: [
+                  AppColors.primaryGreen,
+                  AppColors.primaryGreen.withValues(alpha: 0.85),
+                ],
+              )
+            : null,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: canProceed && !isSubmitting.value
+            ? [
+                BoxShadow(
+                  color: AppColors.primaryGreen.withValues(alpha: 0.4),
+                  blurRadius: 12,
+                  offset: const Offset(0, 6),
+                ),
+              ]
+            : null,
+      ),
+      child: ElevatedButton(
+        onPressed: canProceed && !isSubmitting.value
+            ? () => _handlePrimaryAction(
+                  context,
+                  ref,
+                  currentStep,
+                  capturedImage,
+                  fillPercentage,
+                  isSubmitting,
+                  hasIncident,
+                  selectedIncidentType,
+                  incidentPhoto,
+                  incidentDescription,
+                  onCheckedIn,
+                )
+            : null,
+        style: ElevatedButton.styleFrom(
+          backgroundColor: canProceed ? Colors.transparent : Colors.grey.shade300,
+          shadowColor: Colors.transparent,
+          padding: const EdgeInsets.symmetric(vertical: 18),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+        ),
+        child: isSubmitting.value
+            ? const SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2.5,
+                  color: Colors.white,
+                ),
+              )
+            : Text(
+                buttonText,
+                style: const TextStyle(
+                  fontSize: 17,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 0.2,
+                ),
+              ),
+      ),
+    );
+  }
+
+  /// Handle primary action button click
+  Future<void> _handlePrimaryAction(
+    BuildContext context,
+    WidgetRef ref,
+    ValueNotifier<int> currentStep,
+    ValueNotifier<XFile?> capturedImage,
+    ValueNotifier<int> fillPercentage,
+    ValueNotifier<bool> isSubmitting,
+    ValueNotifier<bool> hasIncident,
+    ValueNotifier<String?> selectedIncidentType,
+    ValueNotifier<XFile?> incidentPhoto,
+    ValueNotifier<String> incidentDescription,
+    VoidCallback? onCheckedIn,
+  ) async {
+    // Step 1: Continue to next step
+    if (currentStep.value == 1 && !hasIncident.value) {
+      currentStep.value = 2;
+      return;
+    }
+
+    // Step 2 (incident): Continue to details
+    if (currentStep.value == 2 && hasIncident.value) {
+      currentStep.value = 3;
+      return;
+    }
+
+    // Final submit (either step 2 normal or step 3 incident)
+    isSubmitting.value = true;
+
+    try {
+      AppLogger.general('[DIAGNOSTIC] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      AppLogger.general('[DIAGNOSTIC] 📸 CHECK-IN DIALOG: Submit button pressed');
+      AppLogger.general('[DIAGNOSTIC]    Bin ID: ${bin.binId}');
+      AppLogger.general('[DIAGNOSTIC]    Has Incident: ${hasIncident.value}');
+
+      final cloudinaryService = CloudinaryService();
+      if (!cloudinaryService.isInitialized) {
+        await cloudinaryService.initialize();
+      }
+
+      // Upload bin photo
+      String? binPhotoUrl;
+      if (capturedImage.value != null) {
+        AppLogger.general('[DIAGNOSTIC] 🌥️ Uploading bin photo...');
+        binPhotoUrl = await cloudinaryService.uploadImage(File(capturedImage.value!.path));
+        AppLogger.general('[DIAGNOSTIC]    Bin photo URL: $binPhotoUrl');
+      }
+
+      // Upload incident photo if present
+      String? incidentPhotoUrl;
+      if (incidentPhoto.value != null) {
+        AppLogger.general('[DIAGNOSTIC] 🌥️ Uploading incident photo...');
+        incidentPhotoUrl = await cloudinaryService.uploadImage(File(incidentPhoto.value!.path));
+        AppLogger.general('[DIAGNOSTIC]    Incident photo URL: $incidentPhotoUrl');
+      }
+
+      // Call completeBin with incident data
+      AppLogger.general('[DIAGNOSTIC] 📡 Calling completeBin API...');
+      await ref.read(shiftNotifierProvider.notifier).completeBin(
+            bin.binId,
+            hasIncident.value ? null : fillPercentage.value, // NULL if incident
+            photoUrl: binPhotoUrl,
+            hasIncident: hasIncident.value,
+            incidentType: selectedIncidentType.value,
+            incidentPhotoUrl: incidentPhotoUrl,
+            incidentDescription: incidentDescription.value.isEmpty ? null : incidentDescription.value,
+          );
+
+      AppLogger.general('[DIAGNOSTIC] ✅ API call successful');
+
+      if (context.mounted) {
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                const Icon(Icons.check_circle_outline, color: Colors.white),
+                const SizedBox(width: 12),
+                Text(
+                  hasIncident.value ? 'Incident reported successfully' : 'Bin completed successfully',
+                  style: const TextStyle(fontWeight: FontWeight.w600),
+                ),
+              ],
+            ),
+            backgroundColor: Colors.green,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          ),
+        );
+
+        onCheckedIn?.call();
+      }
+    } catch (e, stack) {
+      AppLogger.general('[DIAGNOSTIC] ❌ Error: $e');
+      AppLogger.general('[DIAGNOSTIC]    Stack: $stack');
+
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                const Icon(Icons.error_outline, color: Colors.white),
+                const SizedBox(width: 12),
+                Expanded(child: Text('Error: $e')),
+              ],
+            ),
+            backgroundColor: Colors.red.shade600,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          ),
+        );
+      }
+    } finally {
+      isSubmitting.value = false;
+      AppLogger.general('[DIAGNOSTIC] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    }
   }
 
   /// Get slider color based on fill percentage
@@ -1025,7 +1159,7 @@ class _DotPatternPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
-      ..color = AppColors.primaryBlue.withOpacity(0.08)
+      ..color = AppColors.primaryGreen.withValues(alpha: 0.08)
       ..style = PaintingStyle.fill;
 
     const spacing = 20.0;

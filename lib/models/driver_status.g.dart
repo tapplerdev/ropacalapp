@@ -9,7 +9,7 @@ part of 'driver_status.dart';
 _$DriverStatusImpl _$$DriverStatusImplFromJson(Map<String, dynamic> json) =>
     _$DriverStatusImpl(
       driverId: json['driver_id'] as String,
-      name: json['name'] as String,
+      name: json['driver_name'] as String? ?? 'Unknown Driver',
       status: $enumDecode(_$ShiftStatusEnumMap, json['status']),
       shiftId: json['shift_id'] as String?,
       currentBin: (json['current_bin'] as num?)?.toInt() ?? 0,
@@ -24,7 +24,7 @@ _$DriverStatusImpl _$$DriverStatusImplFromJson(Map<String, dynamic> json) =>
 Map<String, dynamic> _$$DriverStatusImplToJson(_$DriverStatusImpl instance) =>
     <String, dynamic>{
       'driver_id': instance.driverId,
-      'name': instance.name,
+      'driver_name': instance.name,
       'status': _$ShiftStatusEnumMap[instance.status]!,
       'shift_id': instance.shiftId,
       'current_bin': instance.currentBin,

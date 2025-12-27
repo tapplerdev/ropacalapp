@@ -63,14 +63,11 @@ Future<void> showShiftSummaryDialog(
         ElevatedButton(
           onPressed: () {
             Navigator.of(dialogContext).pop();
-            // Navigate back to driver home with reverse slide animation
-            if (context.mounted && Navigator.of(context).canPop()) {
-              Navigator.of(context).pop();
-            }
+            // DriverMapWrapper will automatically switch back to DriverMapPage
+            // No manual navigation needed!
           },
           style: ElevatedButton.styleFrom(
             backgroundColor: Colors.green,
-            foregroundColor: Colors.white,
           ),
           child: const Text('Back to Home'),
         ),

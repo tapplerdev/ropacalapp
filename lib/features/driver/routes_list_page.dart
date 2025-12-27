@@ -18,8 +18,9 @@ class RoutesListPage extends ConsumerWidget {
     return Scaffold(
       appBar: AppBar(
         title: const Text('My Routes'),
-        backgroundColor: AppColors.primaryBlue,
-        foregroundColor: Colors.white,
+        backgroundColor: Colors.white,
+        surfaceTintColor: Colors.transparent,
+        scrolledUnderElevation: 0,
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
@@ -116,8 +117,6 @@ class RoutesListPage extends ConsumerWidget {
                 icon: const Icon(Icons.refresh),
                 label: const Text('Retry'),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.primaryBlue,
-                  foregroundColor: Colors.white,
                 ),
               ),
             ],
@@ -221,7 +220,7 @@ class _ShiftCard extends StatelessWidget {
                         '${shift.completedBins}/${shift.totalBins} bins',
                     color: shift.isComplete
                         ? AppColors.successGreen
-                        : AppColors.primaryBlue,
+                        : AppColors.primaryGreen,
                   ),
                   const SizedBox(width: 12),
 
@@ -246,7 +245,7 @@ class _ShiftCard extends StatelessWidget {
                     valueColor: AlwaysStoppedAnimation<Color>(
                       shift.isComplete
                           ? AppColors.successGreen
-                          : AppColors.primaryBlue,
+                          : AppColors.primaryGreen,
                     ),
                   ),
                 ),
@@ -282,7 +281,7 @@ class _StatusBadge extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
-        color: statusInfo.color.withOpacity(0.1),
+        color: statusInfo.color.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(20),
         border: Border.all(
           color: statusInfo.color,
@@ -328,7 +327,7 @@ class _StatusBadge extends StatelessWidget {
       case ShiftStatus.active:
         return _StatusInfo(
           label: 'Active',
-          color: AppColors.primaryBlue,
+          color: AppColors.primaryGreen,
           icon: Icons.play_circle_filled,
         );
       case ShiftStatus.paused:
@@ -382,7 +381,7 @@ class _StatChip extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
+        color: color.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(8),
       ),
       child: Row(

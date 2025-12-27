@@ -6,10 +6,8 @@ import 'package:ropacalapp/core/exceptions/shift_ended_exception.dart';
 import 'package:ropacalapp/core/theme/app_colors.dart';
 import 'package:ropacalapp/core/utils/app_logger.dart';
 import 'package:ropacalapp/models/active_driver.dart';
-import 'package:ropacalapp/models/driver_status.dart';
 import 'package:ropacalapp/models/route_bin.dart';
 import 'package:ropacalapp/models/shift_state.dart';
-import 'package:ropacalapp/providers/active_drivers_provider.dart';
 import 'package:ropacalapp/providers/drivers_provider.dart';
 
 /// Driver Shift Detail Page - Shows detailed information about a driver's active shift
@@ -52,7 +50,7 @@ class _DriverShiftDetailPageState
     final shiftDetailAsync = ref.watch(driverShiftDetailProvider(widget.driverId));
 
     // PRIMARY: Check if driver's shift has ended via WebSocket (instant detection)
-    DriverStatus? driver;
+    ActiveDriver? driver;
     try {
       driver = driversAsync.valueOrNull?.firstWhere(
         (d) => d.driverId == widget.driverId,
@@ -73,18 +71,17 @@ class _DriverShiftDetailPageState
       return Scaffold(
         appBar: AppBar(
           title: const Text('Driver Shift Details'),
-          backgroundColor: AppColors.primaryBlue,
-          foregroundColor: Colors.white,
         ),
-        body: _ShiftEndedView(driverName: driver.name),
+        body: _ShiftEndedView(driverName: driver.driverName),
       );
     }
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('Driver Shift Details'),
-        backgroundColor: AppColors.primaryBlue,
-        foregroundColor: Colors.white,
+        backgroundColor: Colors.white,
+        surfaceTintColor: Colors.transparent,
+        scrolledUnderElevation: 0,
       ),
       body: shiftDetailAsync.when(
         data: (shiftDetail) {
@@ -184,8 +181,6 @@ class _DriverShiftDetailPageState
                   icon: const Icon(Icons.refresh),
                   label: const Text('Retry'),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.primaryBlue,
-                    foregroundColor: Colors.white,
                   ),
                 ),
               ],
@@ -234,8 +229,6 @@ class _ShiftEndedView extends StatelessWidget {
           ElevatedButton(
             onPressed: () => Navigator.pop(context),
             style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.primaryBlue,
-              foregroundColor: Colors.white,
               padding: const EdgeInsets.symmetric(
                 horizontal: 32,
                 vertical: 16,
@@ -267,8 +260,8 @@ class _DriverSummaryCard extends StatelessWidget {
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: [
-            AppColors.primaryBlue,
-            AppColors.primaryBlue.withOpacity(0.8),
+            AppColors.primaryGreen,
+            AppColors.primaryGreen.withValues(alpha: 0.8),
           ],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
@@ -276,7 +269,7 @@ class _DriverSummaryCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: AppColors.primaryBlue.withOpacity(0.3),
+            color: AppColors.primaryGreen.withValues(alpha: 0.3),
             blurRadius: 12,
             offset: const Offset(0, 4),
           ),

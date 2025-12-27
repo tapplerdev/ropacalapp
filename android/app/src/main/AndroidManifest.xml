@@ -10,6 +10,8 @@
 
     <!-- Camera permission for image_picker plugin -->
     <uses-permission android:name="android.permission.CAMERA" />
+    <!-- Storage permission for gallery access (Android 12 and below) -->
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />
 
     <application
         android:label="ropacalapp"

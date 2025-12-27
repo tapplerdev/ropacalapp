@@ -21,8 +21,8 @@ _$ShiftHistoryImpl _$$ShiftHistoryImplFromJson(Map<String, dynamic> json) =>
       totalPauseSeconds: (json['total_pause_seconds'] as num?)?.toInt() ?? 0,
       totalBins: (json['total_bins'] as num?)?.toInt() ?? 0,
       completedBins: (json['completed_bins'] as num?)?.toInt() ?? 0,
-      createdAt: (json['created_at'] as num).toInt(),
-      updatedAt: (json['updated_at'] as num).toInt(),
+      createdAt: (json['created_at'] as num?)?.toInt(),
+      updatedAt: (json['updated_at'] as num?)?.toInt(),
     );
 
 Map<String, dynamic> _$$ShiftHistoryImplToJson(_$ShiftHistoryImpl instance) =>

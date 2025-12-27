@@ -57,7 +57,7 @@ class NavigationActionButtons extends StatelessWidget {
           right: 16,
           child: FloatingActionButton(
             heroTag: 'simulate_route',
-            backgroundColor: isSimulating ? Colors.red : AppColors.primaryBlue,
+            backgroundColor: isSimulating ? Colors.red : AppColors.primaryGreen,
             onPressed: onToggleSimulation,
             child: Icon(
               isSimulating ? Icons.stop : Icons.play_arrow,

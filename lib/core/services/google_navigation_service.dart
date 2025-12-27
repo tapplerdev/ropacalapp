@@ -30,10 +30,13 @@ class GoogleNavigationService {
         AppLogger.general('✅ Terms previously accepted, reusing session');
       }
 
-      // Initialize navigation session
+      // Initialize navigation session with task removed behavior
+      // TaskRemovedBehavior.continueService keeps navigation running when app is swiped away (Android)
       // This can be called multiple times safely - reuses session if exists
-      await GoogleMapsNavigator.initializeNavigationSession();
-      AppLogger.general('✅ Navigation session initialized');
+      await GoogleMapsNavigator.initializeNavigationSession(
+        taskRemovedBehavior: TaskRemovedBehavior.continueService,
+      );
+      AppLogger.general('✅ Navigation session initialized (continueService on task remove)');
 
       // Set audio guidance to enabled by default
       await GoogleMapsNavigator.setAudioGuidance(

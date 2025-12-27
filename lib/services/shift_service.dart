@@ -154,23 +154,34 @@ class ShiftService {
     }
   }
 
-  /// Complete a bin with updated fill percentage
+  /// Complete a bin with updated fill percentage and optional photo
   Future<Map<String, dynamic>> completeBin(
     String binId,
-    int updatedFillPercentage,
-  ) async {
+    int? updatedFillPercentage, { // Now nullable for incidents
+    String? photoUrl,
+    bool hasIncident = false,
+    String? incidentType,
+    String? incidentPhotoUrl,
+    String? incidentDescription,
+  }) async {
     try {
       print('📤 REQUEST: POST /api/driver/shift/complete-bin');
-      print(
-        '   Body: {"bin_id": "$binId", "updated_fill_percentage": $updatedFillPercentage}',
-      );
+
+      final requestData = {
+        'bin_id': binId,
+        if (updatedFillPercentage != null) 'updated_fill_percentage': updatedFillPercentage,
+        if (photoUrl != null) 'photo_url': photoUrl,
+        if (hasIncident) 'has_incident': hasIncident,
+        if (incidentType != null) 'incident_type': incidentType,
+        if (incidentPhotoUrl != null) 'incident_photo_url': incidentPhotoUrl,
+        if (incidentDescription != null) 'incident_description': incidentDescription,
+      };
+
+      print('   Body: $requestData');
 
       final response = await _apiService.post(
         '/api/driver/shift/complete-bin',
-        {
-          'bin_id': binId,
-          'updated_fill_percentage': updatedFillPercentage,
-        },
+        requestData,
       );
 
       print('📥 RESPONSE: ${response.statusCode}');
@@ -178,9 +189,15 @@ class ShiftService {
 
       if (response.data['success'] == true) {
         final data = response.data['data'] as Map<String, dynamic>;
-        print(
-          '   ✅ Bin completed: ${data['completed_bins']}/${data['total_bins']} (fill: $updatedFillPercentage%)',
-        );
+        if (hasIncident) {
+          print(
+            '   🚨 Incident reported: ${data['completed_bins']}/${data['total_bins']} (type: $incidentType)',
+          );
+        } else {
+          print(
+            '   ✅ Bin completed: ${data['completed_bins']}/${data['total_bins']} (fill: $updatedFillPercentage%)${photoUrl != null ? ' with photo' : ''}',
+          );
+        }
         return data;
       }
 

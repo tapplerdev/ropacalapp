@@ -24,13 +24,13 @@ class MapNotificationButton extends ConsumerWidget {
         shape: BoxShape.circle,
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.12),
+            color: Colors.black.withValues(alpha: 0.12),
             blurRadius: 12,
             offset: const Offset(0, 4),
             spreadRadius: 0,
           ),
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withValues(alpha: 0.05),
             blurRadius: 4,
             offset: const Offset(0, 2),
           ),
@@ -58,7 +58,7 @@ class MapNotificationButton extends ConsumerWidget {
               children: [
                 Icon(
                   Icons.notifications_outlined,
-                  color: AppColors.primaryBlue,
+                  color: AppColors.primaryGreen,
                   size: Responsive.iconSize(
                     context,
                     mobile: 22,

@@ -66,7 +66,7 @@ class MapMarkerUtils {
 
     // Draw border
     final borderPaint = Paint()
-      ..color = Colors.black.withOpacity(0.2)
+      ..color = Colors.black.withValues(alpha: 0.2)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 3.0
       ..isAntiAlias = true;
@@ -133,7 +133,7 @@ class MapMarkerUtils {
 
     // Draw shadow
     final shadowPaint = Paint()
-      ..color = Colors.black.withOpacity(0.3)
+      ..color = Colors.black.withValues(alpha: 0.3)
       ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4)
       ..isAntiAlias = true;
     canvas.drawCircle(const Offset(radius, radius + 2), radius, shadowPaint);
@@ -147,7 +147,7 @@ class MapMarkerUtils {
 
     // Draw blue circle
     final circlePaint = Paint()
-      ..color = AppColors.primaryBlue
+      ..color = AppColors.primaryGreen
       ..style = PaintingStyle.fill
       ..isAntiAlias = true;
     canvas.drawCircle(const Offset(radius, radius), radius - 8.0, circlePaint);
@@ -209,7 +209,7 @@ class MapMarkerUtils {
 
     // Draw shadow (matching overlay BoxShadow)
     final shadowPaint = Paint()
-      ..color = Colors.black.withOpacity(0.3)
+      ..color = Colors.black.withValues(alpha: 0.3)
       ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6)
       ..isAntiAlias = true;
     canvas.drawCircle(

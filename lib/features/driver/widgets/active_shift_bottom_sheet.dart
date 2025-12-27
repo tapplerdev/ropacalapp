@@ -209,7 +209,7 @@ class ActiveShiftBottomSheet extends HookConsumerWidget {
           borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.08),
+              color: Colors.black.withValues(alpha: 0.08),
               blurRadius: 8,
               offset: const Offset(0, -2),
             ),
@@ -278,7 +278,7 @@ class ActiveShiftBottomSheet extends HookConsumerWidget {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
-                    color: AppColors.primaryBlue,
+                    color: AppColors.primaryGreen,
                     borderRadius: BorderRadius.circular(6),
                   ),
                   child: Text(
@@ -396,7 +396,7 @@ class ActiveShiftBottomSheet extends HookConsumerWidget {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                   decoration: BoxDecoration(
-                    color: AppColors.primaryBlue.withOpacity(0.12),
+                    color: AppColors.primaryGreen.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(6),
                   ),
                   child: Row(
@@ -404,7 +404,7 @@ class ActiveShiftBottomSheet extends HookConsumerWidget {
                     children: [
                       Icon(
                         Icons.access_time,
-                        color: AppColors.primaryBlue,
+                        color: AppColors.primaryGreen,
                         size: 14,
                       ),
                       const SizedBox(width: 5),
@@ -413,7 +413,7 @@ class ActiveShiftBottomSheet extends HookConsumerWidget {
                         style: const TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w600,
-                          color: AppColors.primaryBlue,
+                          color: AppColors.primaryGreen,
                         ),
                       ),
                     ],
@@ -462,14 +462,14 @@ class ActiveShiftBottomSheet extends HookConsumerWidget {
                     width: 56,
                     height: 56,
                     decoration: BoxDecoration(
-                      color: AppColors.primaryBlue.withOpacity(0.15),
+                      color: AppColors.primaryGreen.withValues(alpha: 0.15),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Center(
                       child: Text(
                         '${next.binNumber}',
                         style: const TextStyle(
-                          color: AppColors.primaryBlue,
+                          color: AppColors.primaryGreen,
                           fontWeight: FontWeight.bold,
                           fontSize: 22,
                         ),
@@ -505,7 +505,7 @@ class ActiveShiftBottomSheet extends HookConsumerWidget {
                                 vertical: 3,
                               ),
                               decoration: BoxDecoration(
-                                color: _getFillColor(next.fillPercentage).withOpacity(0.2),
+                                color: _getFillColor(next.fillPercentage).withValues(alpha: 0.2),
                                 borderRadius: BorderRadius.circular(4),
                               ),
                               child: Text(
@@ -548,14 +548,14 @@ class ActiveShiftBottomSheet extends HookConsumerWidget {
                                   vertical: 3,
                                 ),
                                 decoration: BoxDecoration(
-                                  color: AppColors.primaryBlue.withOpacity(0.15),
+                                  color: AppColors.primaryGreen.withValues(alpha: 0.15),
                                   borderRadius: BorderRadius.circular(4),
                                 ),
                                 child: Text(
                                   'ETA ${_formatETA(googleRemainingTime!.inMinutes)}',
                                   style: const TextStyle(
                                     fontSize: 12,
-                                    color: AppColors.primaryBlue,
+                                    color: AppColors.primaryGreen,
                                     fontWeight: FontWeight.bold,
                                   ),
                                 ),
@@ -603,7 +603,6 @@ class ActiveShiftBottomSheet extends HookConsumerWidget {
                   },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF4CAF50), // Green matching screenshot
-                    foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(vertical: 18),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
@@ -729,7 +728,7 @@ class ActiveShiftBottomSheet extends HookConsumerWidget {
                               vertical: 4,
                             ),
                             decoration: BoxDecoration(
-                              color: _getFillColor(bin.fillPercentage).withOpacity(0.2),
+                              color: _getFillColor(bin.fillPercentage).withValues(alpha: 0.2),
                               borderRadius: BorderRadius.circular(4),
                             ),
                             child: Text(
@@ -854,7 +853,6 @@ class ActiveShiftBottomSheet extends HookConsumerWidget {
                   label: const Text('End Shift'),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.green,
-                    foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(vertical: 16),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
@@ -873,7 +871,7 @@ class ActiveShiftBottomSheet extends HookConsumerWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
+        color: color.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(8),
       ),
       child: Row(
@@ -932,7 +930,6 @@ class ActiveShiftBottomSheet extends HookConsumerWidget {
             onPressed: () => Navigator.pop(context, true),
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.red,
-              foregroundColor: Colors.white,
             ),
             child: const Text('End Shift'),
           ),

@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.1" creator="Xcode">
+  <!--
+  Dallas location simulation - Starting near 8722 Greenville Ave
+  Coordinates: 32.8634° N, 96.7698° W
+  -->
+  <wpt lat="32.8634" lon="-96.7698">
+    <name>Dallas Start - Near Greenville Ave</name>
+  </wpt>
+  <trk>
+    <name>Dallas Drive Route</name>
+    <trkseg>
+      <!-- Starting position near your bin location -->
+      <trkpt lat="32.8634" lon="-96.7698"><ele>0.0</ele><time>2024-01-01T00:00:00Z</time></trkpt>
+
+      <!-- Moving north on Greenville Ave -->
+      <trkpt lat="32.8636" lon="-96.7698"><ele>0.0</ele><time>2024-01-01T00:00:02Z</time></trkpt>
+      <trkpt lat="32.8638" lon="-96.7698"><ele>0.0</ele><time>2024-01-01T00:00:04Z</time></trkpt>
+      <trkpt lat="32.8640" lon="-96.7698"><ele>0.0</ele><time>2024-01-01T00:00:06Z</time></trkpt>
+      <trkpt lat="32.8642" lon="-96.7698"><ele>0.0</ele><time>2024-01-01T00:00:08Z</time></trkpt>
+      <trkpt lat="32.8644" lon="-96.7698"><ele>0.0</ele><time>2024-01-01T00:00:10Z</time></trkpt>
+      <trkpt lat="32.8646" lon="-96.7698"><ele>0.0</ele><time>2024-01-01T00:00:12Z</time></trkpt>
+      <trkpt lat="32.8648" lon="-96.7698"><ele>0.0</ele><time>2024-01-01T00:00:14Z</time></trkpt>
+      <trkpt lat="32.8650" lon="-96.7698"><ele>0.0</ele><time>2024-01-01T00:00:16Z</time></trkpt>
+
+      <!-- Turn right (heading east) -->
+      <trkpt lat="32.8652" lon="-96.7696"><ele>0.0</ele><time>2024-01-01T00:00:18Z</time></trkpt>
+      <trkpt lat="32.8652" lon="-96.7694"><ele>0.0</ele><time>2024-01-01T00:00:20Z</time></trkpt>
+      <trkpt lat="32.8652" lon="-96.7692"><ele>0.0</ele><time>2024-01-01T00:00:22Z</time></trkpt>
+      <trkpt lat="32.8652" lon="-96.7690"><ele>0.0</ele><time>2024-01-01T00:00:24Z</time></trkpt>
+      <trkpt lat="32.8652" lon="-96.7688"><ele>0.0</ele><time>2024-01-01T00:00:26Z</time></trkpt>
+
+      <!-- Turn right (heading south) -->
+      <trkpt lat="32.8650" lon="-96.7686"><ele>0.0</ele><time>2024-01-01T00:00:28Z</time></trkpt>
+      <trkpt lat="32.8648" lon="-96.7686"><ele>0.0</ele><time>2024-01-01T00:00:30Z</time></trkpt>
+      <trkpt lat="32.8646" lon="-96.7686"><ele>0.0</ele><time>2024-01-01T00:00:32Z</time></trkpt>
+      <trkpt lat="32.8644" lon="-96.7686"><ele>0.0</ele><time>2024-01-01T00:00:34Z</time></trkpt>
+      <trkpt lat="32.8642" lon="-96.7686"><ele>0.0</ele><time>2024-01-01T00:00:36Z</time></trkpt>
+      <trkpt lat="32.8640" lon="-96.7686"><ele>0.0</ele><time>2024-01-01T00:00:38Z</time></trkpt>
+
+      <!-- Turn right (heading west) -->
+      <trkpt lat="32.8638" lon="-96.7688"><ele>0.0</ele><time>2024-01-01T00:00:40Z</time></trkpt>
+      <trkpt lat="32.8638" lon="-96.7690"><ele>0.0</ele><time>2024-01-01T00:00:42Z</time></trkpt>
+      <trkpt lat="32.8638" lon="-96.7692"><ele>0.0</ele><time>2024-01-01T00:00:44Z</time></trkpt>
+      <trkpt lat="32.8638" lon="-96.7694"><ele>0.0</ele><time>2024-01-01T00:00:46Z</time></trkpt>
+      <trkpt lat="32.8638" lon="-96.7696"><ele>0.0</ele><time>2024-01-01T00:00:48Z</time></trkpt>
+
+      <!-- Back near start -->
+      <trkpt lat="32.8636" lon="-96.7698"><ele>0.0</ele><time>2024-01-01T00:00:50Z</time></trkpt>
+      <trkpt lat="32.8634" lon="-96.7698"><ele>0.0</ele><time>2024-01-01T00:00:52Z</time></trkpt>
+    </trkseg>
+  </trk>
+</gpx>

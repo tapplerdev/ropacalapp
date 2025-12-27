@@ -31,7 +31,7 @@ class TurnByTurnNavigationCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.15),
+            color: Colors.black.withValues(alpha: 0.15),
             blurRadius: 20,
             offset: const Offset(0, 4),
           ),
@@ -42,27 +42,27 @@ class TurnByTurnNavigationCard extends StatelessWidget {
         children: [
           // Main navigation instruction
           Padding(
-            padding: const EdgeInsets.all(20),
+            padding: const EdgeInsets.all(16),
             child: Row(
               children: [
                 // Maneuver icon
                 Container(
-                  width: 64,
-                  height: 64,
+                  width: 52,
+                  height: 52,
                   decoration: BoxDecoration(
-                    color: AppColors.primaryBlue.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(12),
+                    color: AppColors.primaryGreen.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(10),
                   ),
                   child: Icon(
                     _getManeuverIcon(
                       currentStep!.maneuverType,
                       currentStep!.modifier,
                     ),
-                    size: 36,
-                    color: AppColors.primaryBlue,
+                    size: 30,
+                    color: AppColors.primaryGreen,
                   ),
                 ),
-                const SizedBox(width: 16),
+                const SizedBox(width: 14),
 
                 // Instruction text
                 Expanded(
@@ -73,18 +73,18 @@ class TurnByTurnNavigationCard extends StatelessWidget {
                       Text(
                         _formatDistance(distanceToNextManeuver),
                         style: const TextStyle(
-                          fontSize: 28,
+                          fontSize: 24,
                           fontWeight: FontWeight.bold,
                           color: Colors.black87,
                         ),
                       ),
-                      const SizedBox(height: 4),
+                      const SizedBox(height: 2),
 
                       // Instruction
                       Text(
                         currentStep!.instruction,
                         style: const TextStyle(
-                          fontSize: 16,
+                          fontSize: 14,
                           color: Colors.black54,
                         ),
                         maxLines: 2,
@@ -100,7 +100,7 @@ class TurnByTurnNavigationCard extends StatelessWidget {
           // ETA and distance footer
           if (estimatedTimeRemaining != null || totalDistanceRemaining != null)
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               decoration: BoxDecoration(
                 color: Colors.grey.shade50,
                 borderRadius: const BorderRadius.only(
@@ -205,12 +205,15 @@ class TurnByTurnNavigationCard extends StatelessWidget {
 
   /// Format distance in meters to readable string
   String _formatDistance(double meters) {
-    if (meters < 100) {
-      return '${meters.round()} m';
-    } else if (meters < 1000) {
-      return '${(meters / 50).round() * 50} m';
+    // Clamp to minimum of 0 to avoid negative distances
+    final clampedMeters = meters.clamp(0.0, double.infinity);
+
+    if (clampedMeters < 100) {
+      return '${clampedMeters.round()} m';
+    } else if (clampedMeters < 1000) {
+      return '${(clampedMeters / 50).round() * 50} m';
     } else {
-      return '${(meters / 1000).toStringAsFixed(1)} km';
+      return '${(clampedMeters / 1000).toStringAsFixed(1)} km';
     }
   }
 

@@ -1,21 +1,10 @@
 import 'package:freezed_annotation/freezed_annotation.dart';
 import 'package:ropacalapp/core/utils/unix_timestamp_converter.dart';
+import 'package:ropacalapp/models/driver_location.dart';
 import 'package:ropacalapp/models/shift_state.dart';
 
 part 'active_driver.freezed.dart';
 part 'active_driver.g.dart';
-
-/// Represents a driver's current location
-@freezed
-class DriverLocation with _$DriverLocation {
-  const factory DriverLocation({
-    required double latitude,
-    required double longitude,
-  }) = _DriverLocation;
-
-  factory DriverLocation.fromJson(Map<String, dynamic> json) =>
-      _$DriverLocationFromJson(json);
-}
 
 /// Represents an active driver with their current shift status
 @freezed
@@ -25,10 +14,10 @@ class ActiveDriver with _$ActiveDriver {
     @JsonKey(name: 'driver_id') required String driverId,
 
     /// Driver name
-    @JsonKey(name: 'driver_name') required String driverName,
+    @JsonKey(name: 'driver_name') @Default('Unknown Driver') String driverName,
 
-    /// Shift ID
-    @JsonKey(name: 'shift_id') required String shiftId,
+    /// Shift ID (null for idle drivers)
+    @JsonKey(name: 'shift_id') @Default('') String shiftId,
 
     /// Assigned route ID
     @JsonKey(name: 'route_id') String? routeId,

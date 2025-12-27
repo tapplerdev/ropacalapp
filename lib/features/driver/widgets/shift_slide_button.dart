@@ -35,7 +35,7 @@ class _ShiftSlideButtonState extends State<ShiftSlideButton> {
       height: 64,
       decoration: BoxDecoration(
         color: isEnabled
-            ? AppColors.successGreen.withOpacity(0.1)
+            ? AppColors.successGreen.withValues(alpha: 0.1)
             : Colors.grey.shade200,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
@@ -55,7 +55,7 @@ class _ShiftSlideButtonState extends State<ShiftSlideButton> {
                 fontSize: 16,
                 fontWeight: FontWeight.w600,
                 color: isEnabled
-                    ? AppColors.successGreen.withOpacity(0.6)
+                    ? AppColors.successGreen.withValues(alpha: 0.6)
                     : Colors.grey.shade500,
               ),
             ),
@@ -106,7 +106,7 @@ class _ShiftSlideButtonState extends State<ShiftSlideButton> {
                     borderRadius: BorderRadius.circular(12),
                     boxShadow: [
                       BoxShadow(
-                        color: AppColors.successGreen.withOpacity(0.3),
+                        color: AppColors.successGreen.withValues(alpha: 0.3),
                         blurRadius: 8,
                         offset: const Offset(0, 2),
                       ),

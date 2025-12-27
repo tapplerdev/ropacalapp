@@ -41,7 +41,7 @@ class PreShiftOverviewCard extends StatelessWidget {
             borderRadius: BorderRadius.circular(20),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.12),
+                color: Colors.black.withValues(alpha: 0.12),
                 blurRadius: 16,
                 offset: const Offset(0, 4),
               ),
@@ -70,7 +70,7 @@ class PreShiftOverviewCard extends StatelessWidget {
                     _buildInlineStat(
                       icon: Icons.delete_outline,
                       label: '${shiftOverview.totalBins} Bins',
-                      color: AppColors.primaryBlue,
+                      color: AppColors.primaryGreen,
                     ),
                     Text(
                       '•',
@@ -110,8 +110,6 @@ class PreShiftOverviewCard extends StatelessWidget {
                       child: ElevatedButton(
                         onPressed: onStartShift,
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: AppColors.primaryBlue,
-                          foregroundColor: Colors.white,
                           padding: const EdgeInsets.symmetric(vertical: 14),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(12),
@@ -134,7 +132,7 @@ class PreShiftOverviewCard extends StatelessWidget {
                       child: OutlinedButton(
                         onPressed: () => _showDetailsModal(context),
                         style: OutlinedButton.styleFrom(
-                          foregroundColor: AppColors.primaryBlue,
+                          foregroundColor: AppColors.primaryGreen,
                           side: BorderSide(
                             color: Colors.grey.shade300,
                             width: 1.5,

@@ -131,7 +131,7 @@ class AlertCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Card(
-      color: iconColor.withOpacity(0.1),
+      color: iconColor.withValues(alpha: 0.1),
       child: InkWell(
         onTap: () {
           // Show list of affected bins
@@ -148,7 +148,7 @@ class AlertCard extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: iconColor.withOpacity(0.2),
+                  color: iconColor.withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Icon(icon, color: iconColor, size: 24),
@@ -215,7 +215,7 @@ class BinListBottomSheet extends StatelessWidget {
                 final bin = bins[index];
                 return ListTile(
                   leading: CircleAvatar(
-                    backgroundColor: AppColors.alertRed.withOpacity(0.1),
+                    backgroundColor: AppColors.alertRed.withValues(alpha: 0.1),
                     child: Text(
                       bin.binNumber.toString(),
                       style: const TextStyle(

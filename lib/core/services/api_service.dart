@@ -414,7 +414,7 @@ class ApiService {
     }
   }
 
-  Future<void> convertPotentialLocationToBin({
+  Future<Bin> convertPotentialLocationToBin({
     required String potentialLocationId,
   }) async {
     try {
@@ -427,6 +427,13 @@ class ApiService {
       AppLogger.api(
         '📍 convertPotentialLocationToBin: Response status ${response.statusCode}',
       );
+
+      // Parse and return the created bin from the response
+      final bin = Bin.fromJson(response.data as Map<String, dynamic>);
+      AppLogger.api(
+        '📍 convertPotentialLocationToBin: Created Bin #${bin.binNumber}',
+      );
+      return bin;
     } catch (e) {
       AppLogger.api(
         '📍 convertPotentialLocationToBin: Exception caught: $e',
@@ -461,6 +468,14 @@ class ApiService {
   Future<Response> patch(String path, Map<String, dynamic> data) async {
     try {
       return await _dio.patch(path, data: data);
+    } catch (e) {
+      throw _handleError(e);
+    }
+  }
+
+  Future<Response> put(String path, Map<String, dynamic> data) async {
+    try {
+      return await _dio.put(path, data: data);
     } catch (e) {
       throw _handleError(e);
     }

@@ -20,9 +20,7 @@ class ConvertLocationDialog extends HookConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final binNumberController = useTextEditingController();
     final isConverting = useState(false);
-    final formKey = useMemoized(() => GlobalKey<FormState>());
 
     return Dialog(
       backgroundColor: Colors.transparent,
@@ -102,7 +100,7 @@ class ConvertLocationDialog extends HookConsumerWidget {
                         const SizedBox(height: 2),
                         Text(
                           isPending
-                              ? 'Review and assign bin number'
+                              ? 'Auto-assigns next available bin number'
                               : 'Already converted',
                           style: const TextStyle(
                             fontSize: 13,
@@ -277,89 +275,37 @@ class ConvertLocationDialog extends HookConsumerWidget {
                       ),
                     ],
 
-                    // Conversion Form
+                    // Conversion Info
                     if (isPending) ...[
                       const SizedBox(height: 24),
                       const Divider(),
                       const SizedBox(height: 24),
-                      Form(
-                        key: formKey,
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+                      Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: Colors.blue[50],
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: Colors.blue[200]!,
+                            width: 1,
+                          ),
+                        ),
+                        child: Row(
                           children: [
-                            Text(
-                              'Assign Bin Number',
-                              style: TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w600,
-                                color: Colors.grey[800],
-                              ),
+                            Icon(
+                              Icons.info_outline,
+                              color: Colors.blue[700],
+                              size: 24,
                             ),
-                            const SizedBox(height: 8),
-                            Container(
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                borderRadius: BorderRadius.circular(14),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.black.withValues(alpha: 0.04),
-                                    blurRadius: 10,
-                                    offset: const Offset(0, 2),
-                                  ),
-                                ],
-                              ),
-                              child: TextFormField(
-                                controller: binNumberController,
-                                keyboardType: TextInputType.number,
-                                textInputAction: TextInputAction.done,
-                                inputFormatters: [
-                                  FilteringTextInputFormatter.digitsOnly,
-                                ],
-                                enabled: !isConverting.value,
-                                style: const TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w500,
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Text(
+                                'This will automatically create a new bin at this location with the next available bin number.',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  color: Colors.blue[900],
+                                  height: 1.4,
                                 ),
-                                decoration: InputDecoration(
-                                  hintText: 'e.g., 1234',
-                                  hintStyle: TextStyle(
-                                    color: Colors.grey[400],
-                                    fontWeight: FontWeight.normal,
-                                  ),
-                                  prefixIcon: Icon(
-                                    Icons.numbers,
-                                    color: AppColors.primaryGreen,
-                                    size: 22,
-                                  ),
-                                  filled: true,
-                                  fillColor: Colors.white,
-                                  contentPadding: const EdgeInsets.symmetric(
-                                    horizontal: 16,
-                                    vertical: 18,
-                                  ),
-                                  border: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(14),
-                                    borderSide: BorderSide.none,
-                                  ),
-                                  focusedBorder: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(14),
-                                    borderSide: BorderSide.none,
-                                  ),
-                                  errorStyle: const TextStyle(
-                                    fontSize: 12,
-                                    height: 0.8,
-                                  ),
-                                ),
-                                validator: (value) {
-                                  if (value == null || value.trim().isEmpty) {
-                                    return 'Bin number is required';
-                                  }
-                                  final number = int.tryParse(value);
-                                  if (number == null || number <= 0) {
-                                    return 'Please enter a valid bin number';
-                                  }
-                                  return null;
-                                },
                               ),
                             ),
                           ],
@@ -403,84 +349,75 @@ class ConvertLocationDialog extends HookConsumerWidget {
                               onPressed: isConverting.value
                                   ? null
                                   : () async {
-                                      if (formKey.currentState!.validate()) {
-                                        isConverting.value = true;
-                                        try {
-                                          await ref
-                                              .read(
-                                                potentialLocationsListNotifierProvider
-                                                    .notifier,
-                                              )
-                                              .convertToBin(
-                                                potentialLocationId:
-                                                    location.id,
-                                                binNumber: int.parse(
-                                                  binNumberController.text,
-                                                ),
-                                              );
+                                      isConverting.value = true;
+                                      try {
+                                        await ref
+                                            .read(
+                                              potentialLocationsListNotifierProvider
+                                                  .notifier,
+                                            )
+                                            .convertToBin(
+                                              potentialLocationId: location.id,
+                                            );
 
-                                          if (context.mounted) {
-                                            Navigator.of(context).pop();
-                                            ScaffoldMessenger.of(context)
-                                                .showSnackBar(
-                                              SnackBar(
-                                                content: Row(
-                                                  children: [
-                                                    Container(
-                                                      padding:
-                                                          const EdgeInsets.all(
-                                                        6,
+                                        if (context.mounted) {
+                                          Navigator.of(context).pop();
+                                          ScaffoldMessenger.of(context)
+                                              .showSnackBar(
+                                            SnackBar(
+                                              content: Row(
+                                                children: [
+                                                  Container(
+                                                    padding:
+                                                        const EdgeInsets.all(6),
+                                                    decoration: BoxDecoration(
+                                                      color: Colors.white
+                                                          .withValues(
+                                                        alpha: 0.2,
                                                       ),
-                                                      decoration: BoxDecoration(
-                                                        color: Colors.white
-                                                            .withValues(
-                                                          alpha: 0.2,
-                                                        ),
-                                                        shape: BoxShape.circle,
-                                                      ),
-                                                      child: const Icon(
-                                                        Icons.check,
-                                                        color: Colors.white,
-                                                        size: 16,
+                                                      shape: BoxShape.circle,
+                                                    ),
+                                                    child: const Icon(
+                                                      Icons.check,
+                                                      color: Colors.white,
+                                                      size: 16,
+                                                    ),
+                                                  ),
+                                                  const SizedBox(width: 12),
+                                                  const Expanded(
+                                                    child: Text(
+                                                      'Location converted to bin successfully!',
+                                                      style: TextStyle(
+                                                        fontWeight:
+                                                            FontWeight.w500,
                                                       ),
                                                     ),
-                                                    const SizedBox(width: 12),
-                                                    const Expanded(
-                                                      child: Text(
-                                                        'Location converted to bin successfully!',
-                                                        style: TextStyle(
-                                                          fontWeight:
-                                                              FontWeight.w500,
-                                                        ),
-                                                      ),
-                                                    ),
-                                                  ],
-                                                ),
-                                                backgroundColor:
-                                                    Colors.green[600],
-                                                behavior:
-                                                    SnackBarBehavior.floating,
-                                                shape: RoundedRectangleBorder(
-                                                  borderRadius:
-                                                      BorderRadius.circular(12),
-                                                ),
-                                                margin: const EdgeInsets.all(16),
+                                                  ),
+                                                ],
                                               ),
-                                            );
-                                          }
-                                        } catch (e) {
-                                          isConverting.value = false;
-                                          if (context.mounted) {
-                                            ScaffoldMessenger.of(context)
-                                                .showSnackBar(
-                                              SnackBar(
-                                                content: Text(
-                                                  'Error converting location: $e',
-                                                ),
-                                                backgroundColor: Colors.red[600],
+                                              backgroundColor: Colors.green[600],
+                                              behavior:
+                                                  SnackBarBehavior.floating,
+                                              shape: RoundedRectangleBorder(
+                                                borderRadius:
+                                                    BorderRadius.circular(12),
                                               ),
-                                            );
-                                          }
+                                              margin: const EdgeInsets.all(16),
+                                            ),
+                                          );
+                                        }
+                                      } catch (e) {
+                                        isConverting.value = false;
+                                        if (context.mounted) {
+                                          ScaffoldMessenger.of(context)
+                                              .showSnackBar(
+                                            SnackBar(
+                                              content: Text(
+                                                'Error converting location: $e',
+                                              ),
+                                              backgroundColor: Colors.red[600],
+                                            ),
+                                          );
                                         }
                                       }
                                     },

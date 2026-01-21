@@ -104,27 +104,36 @@ class GoogleNavigationMarkerService {
     // Determine fill color based on fill percentage
     final fillColor = getFillColor(fillPercentage);
 
-    // Use PinMarkerPainter to draw the marker
+    // Render at 3x resolution for sharp display on high-DPI screens
+    // Physical size: 60x60 logical pixels (for tap accuracy)
+    // Actual render: 180x180 pixels (for quality)
+    const canvasSize = 60.0;
+    const renderScale = 3.0;
+
+    // Use PinMarkerPainter to draw the marker at high resolution
     final painter = PinMarkerPainter(
       binNumber: binNumber,
       fillPercentage: fillPercentage,
       fillColor: fillColor,
     );
-    painter.paint(canvas, const Size(120, 120));
+    painter.paint(canvas, Size(canvasSize * renderScale, canvasSize * renderScale));
 
     final picture = recorder.endRecording();
-    final image = await picture.toImage(120, 120);
+    final image = await picture.toImage(
+      (canvasSize * renderScale).toInt(),
+      (canvasSize * renderScale).toInt(),
+    );
     final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
 
     if (bytes == null) {
       throw Exception('Failed to create marker icon');
     }
 
+    // Use imagePixelRatio to tell system this is a 3x image
+    // This displays at 60x60 logical pixels but with 180x180 actual pixels
     final registeredImage = await registerBitmapImage(
       bitmap: bytes,
-      imagePixelRatio: 1.0,
-      width: 120,
-      height: 120,
+      imagePixelRatio: 3.0,
     );
 
     return registeredImage;
@@ -144,7 +153,8 @@ class GoogleNavigationMarkerService {
       // Create marker programmatically (high-res for sharp display)
       final recorder = ui.PictureRecorder();
       final canvas = Canvas(recorder);
-      const canvasSize = 120.0;
+      // Reduced canvas size from 120 to 60 to minimize tap overlap
+      const canvasSize = 60.0;
       const renderScale = 3.0; // Render at 3x for high-DPI screens
 
       // Keep normal size when following (isPulsing), only enlarge for one-time focus
@@ -250,7 +260,8 @@ class GoogleNavigationMarkerService {
 
       final recorder = ui.PictureRecorder();
       final canvas = Canvas(recorder);
-      const canvasSize = 120.0;
+      // Reduced canvas size from 120 to 60 to minimize tap overlap
+      const canvasSize = 60.0;
       const renderScale = 3.0;
 
       final pinHeight = 50.0 * renderScale;

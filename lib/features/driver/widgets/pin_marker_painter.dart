@@ -20,10 +20,12 @@ class PinMarkerPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    // Pin dimensions
-    const circleRadius = 20.0;
-    const stemHeight = 20.0;
-    const borderWidth = 3.0;
+    // Pin dimensions - scale based on canvas size
+    // Base size is 60x60, so scale proportionally
+    final scale = size.width / 60.0;
+    final circleRadius = 20.0 * scale;
+    final stemHeight = 20.0 * scale;
+    final borderWidth = 3.0 * scale;
 
     final circleCenter = Offset(size.width / 2, circleRadius);
     final pinBottom = Offset(size.width / 2, circleRadius * 2 + stemHeight);
@@ -43,18 +45,20 @@ class PinMarkerPainter extends CustomPainter {
 
   /// Draw drop shadow for depth effect
   void _drawShadow(Canvas canvas, Offset circleCenter, double radius, Offset bottom) {
+    final scale = radius / 20.0; // Calculate scale based on radius
+
     final shadowPath = Path()
       ..addOval(Rect.fromCircle(center: circleCenter, radius: radius))
       ..moveTo(circleCenter.dx - radius / 2, circleCenter.dy + radius)
       ..quadraticBezierTo(
         bottom.dx,
-        bottom.dy - 5,
+        bottom.dy - 5 * scale,
         bottom.dx,
         bottom.dy,
       )
       ..quadraticBezierTo(
         bottom.dx,
-        bottom.dy - 5,
+        bottom.dy - 5 * scale,
         circleCenter.dx + radius / 2,
         circleCenter.dy + radius,
       )
@@ -62,27 +66,29 @@ class PinMarkerPainter extends CustomPainter {
 
     final shadowPaint = Paint()
       ..color = Colors.black.withValues(alpha: 0.3)
-      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3);
+      ..maskFilter = MaskFilter.blur(BlurStyle.normal, 3 * scale);
 
     canvas.save();
-    canvas.translate(2, 2); // Offset shadow slightly
+    canvas.translate(2 * scale, 2 * scale); // Offset shadow slightly
     canvas.drawPath(shadowPath, shadowPaint);
     canvas.restore();
   }
 
   /// Draw tapered stem from circle to point
   void _drawStem(Canvas canvas, Offset circleCenter, double radius, Offset bottom) {
+    final scale = radius / 20.0; // Calculate scale based on radius
+
     final stemPath = Path()
       ..moveTo(circleCenter.dx - radius / 2, circleCenter.dy + radius)
       ..quadraticBezierTo(
-        bottom.dx - 2,
-        bottom.dy - 5,
+        bottom.dx - 2 * scale,
+        bottom.dy - 5 * scale,
         bottom.dx,
         bottom.dy,
       )
       ..quadraticBezierTo(
-        bottom.dx + 2,
-        bottom.dy - 5,
+        bottom.dx + 2 * scale,
+        bottom.dy - 5 * scale,
         circleCenter.dx + radius / 2,
         circleCenter.dy + radius,
       )
@@ -120,11 +126,13 @@ class PinMarkerPainter extends CustomPainter {
 
   /// Draw bin number text centered in circle
   void _drawBinNumber(Canvas canvas, Offset center, double radius) {
+    final scale = radius / 20.0; // Calculate scale based on radius
+
     final textSpan = TextSpan(
       text: binNumber.toString(),
       style: TextStyle(
         color: Colors.black,
-        fontSize: _getOptimalFontSize(binNumber),
+        fontSize: _getOptimalFontSize(binNumber) * scale,
         fontWeight: FontWeight.bold,
       ),
     );
@@ -146,7 +154,7 @@ class PinMarkerPainter extends CustomPainter {
     textPainter.paint(canvas, textOffset);
   }
 
-  /// Get optimal font size based on number of digits
+  /// Get optimal font size based on number of digits (base size for 60x60 canvas)
   double _getOptimalFontSize(int number) {
     if (number < 10) return 16.0;      // Single digit
     if (number < 100) return 14.0;     // Two digits

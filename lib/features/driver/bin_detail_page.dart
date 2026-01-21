@@ -1,16 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
+import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:intl/intl.dart';
 import 'package:ropacalapp/core/constants/bin_constants.dart';
 import 'package:ropacalapp/core/enums/bin_status.dart';
 import 'package:ropacalapp/core/theme/app_colors.dart';
 import 'package:ropacalapp/core/utils/bin_helpers.dart';
-import 'package:ropacalapp/core/utils/responsive_helper.dart';
-import 'package:ropacalapp/features/driver/widgets/check_in_dialog.dart';
 import 'package:ropacalapp/features/driver/widgets/move_dialog.dart';
-import 'package:ropacalapp/features/driver/widgets/tab_button.dart';
 import 'package:ropacalapp/models/bin.dart';
 import 'package:ropacalapp/providers/bins_provider.dart';
+import 'package:ropacalapp/providers/drivers_provider.dart';
 
 class BinDetailPage extends HookConsumerWidget {
   final String binId;
@@ -20,40 +20,48 @@ class BinDetailPage extends HookConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final binsState = ref.watch(binsListProvider);
-    final selectedTab = useState(0);
 
     return Scaffold(
+      backgroundColor: Colors.white,
+      appBar: AppBar(
+        backgroundColor: Colors.white,
+        surfaceTintColor: Colors.transparent,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+      ),
       body: binsState.when(
         data: (bins) {
           final bin = bins.firstWhere((b) => b.id == binId);
 
-          return CustomScrollView(
-            slivers: [
-              _buildAppBar(context, bin),
-              SliverToBoxAdapter(
-                child: Column(
-                  children: [
-                    _buildFillLevelCard(context, bin),
-                    _buildInfoCard(context, bin),
-                    SizedBox(height: ResponsiveHelper(context).gapLarge),
-                    _buildActionButtons(context, ref, bin),
-                    SizedBox(height: ResponsiveHelper(context).gapLarge),
-                    _buildHistoryTabs(context, selectedTab),
-                    SizedBox(height: ResponsiveHelper(context).gapLarge),
-                    _buildHistoryContent(context, selectedTab.value, bin),
-                    const SizedBox(height: 32),
-                  ],
-                ),
+          return SingleChildScrollView(
+            child: Padding(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildHeader(bin),
+                  const SizedBox(height: 24),
+                  _buildFillLevelCard(context, bin),
+                  const SizedBox(height: 16),
+                  _buildInfoCard(context, bin),
+                  const SizedBox(height: 20),
+                  _buildActionButtons(context, bin),
+                  const SizedBox(height: 32),
+                ],
               ),
-            ],
+            ),
           );
         },
-        loading: () => const Center(child: CircularProgressIndicator()),
+        loading: () => const Center(
+          child: CircularProgressIndicator(
+            valueColor: AlwaysStoppedAnimation<Color>(AppColors.primaryGreen),
+          ),
+        ),
         error: (error, stack) => Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Icon(Icons.error, size: 48, color: Colors.red),
+              const Icon(Icons.error_outline, size: 48, color: Colors.red),
               const SizedBox(height: 16),
               Text('Error: $error'),
             ],
@@ -63,228 +71,230 @@ class BinDetailPage extends HookConsumerWidget {
     );
   }
 
-  Widget _buildAppBar(BuildContext context, Bin bin) {
-    final responsive = ResponsiveHelper(context);
-    const expandedHeight = 200.0;
-    const collapsedHeight = kToolbarHeight;
-
-    return SliverAppBar(
-      expandedHeight: expandedHeight,
-      pinned: true,
-      centerTitle: true,
-      backgroundColor: AppColors.darkBackground,
-      flexibleSpace: LayoutBuilder(
-        builder: (BuildContext context, BoxConstraints constraints) {
-          // Calculate collapse factor (0.0 = collapsed, 1.0 = expanded)
-          final collapseFactor =
-              ((constraints.maxHeight - collapsedHeight) /
-                      (expandedHeight - collapsedHeight))
-                  .clamp(0.0, 1.0);
-
-          // Fade out icon and badge when collapsing
-          final contentOpacity = collapseFactor.clamp(0.0, 1.0);
-
-          return FlexibleSpaceBar(
-            centerTitle: true,
-            titlePadding: EdgeInsets.only(
-              left: responsive.cardMargin,
-              right: responsive.cardMargin,
-              bottom: responsive.cardMargin,
+  Widget _buildHeader(Bin bin) {
+    return Row(
+      children: [
+        Text(
+          'Bin #${bin.binNumber}',
+          style: const TextStyle(
+            fontSize: 28,
+            fontWeight: FontWeight.bold,
+            color: Colors.black87,
+          ),
+        ),
+        const SizedBox(width: 12),
+        Container(
+          padding: const EdgeInsets.symmetric(
+            horizontal: 12,
+            vertical: 6,
+          ),
+          decoration: BoxDecoration(
+            color: bin.status == BinStatus.active
+                ? AppColors.successGreen
+                : AppColors.alertRed,
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Text(
+            bin.status == BinStatus.active ? 'ACTIVE' : 'MISSING',
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 12,
+              fontWeight: FontWeight.bold,
+              letterSpacing: 0.5,
             ),
-            title: Text(
-              'Bin #${bin.binNumber}',
-              style: const TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            background: Container(
-              decoration: const BoxDecoration(color: AppColors.darkBackground),
-              child: SafeArea(
-                child: Opacity(
-                  opacity: contentOpacity,
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(
-                        Icons.delete_outline,
-                        size: responsive.iconAppBar,
-                        color: Colors.white.withValues(alpha: 0.9),
-                      ),
-                      SizedBox(height: responsive.gapMedium),
-                      Container(
-                        padding: EdgeInsets.symmetric(
-                          horizontal: responsive.gapMedium,
-                          vertical: responsive.scale(6),
-                        ),
-                        decoration: BoxDecoration(
-                          color: bin.status == BinStatus.active
-                              ? AppColors.successGreen
-                              : AppColors.alertRed,
-                          borderRadius: BorderRadius.circular(
-                            responsive.borderRadius,
-                          ),
-                        ),
-                        child: Text(
-                          bin.status == BinStatus.active ? 'ACTIVE' : 'MISSING',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: responsive.scale(12),
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                      SizedBox(height: responsive.appBarBottomSpacing),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          );
-        },
-      ),
+          ),
+        ),
+      ],
     );
   }
 
   Widget _buildFillLevelCard(BuildContext context, Bin bin) {
     final fillPercentage = bin.fillPercentage ?? 0;
-    final color = BinHelpers.getFillColor(fillPercentage);
-    final responsive = ResponsiveHelper(context);
+    final fillColor = BinHelpers.getFillColor(fillPercentage);
+    final fillDescription = BinHelpers.getFillDescription(fillPercentage);
 
-    return Card(
-      margin: EdgeInsets.all(responsive.cardMarginLarge),
-      child: Padding(
-        padding: EdgeInsets.all(responsive.cardPaddingLarge),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  'Fill Level',
-                  style: Theme.of(context).textTheme.titleMedium,
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: fillColor.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: fillColor.withValues(alpha: 0.2),
+          width: 1,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Text(
+                'Fill Level',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.grey.shade700,
+                  letterSpacing: 0.3,
                 ),
+              ),
+              const Spacer(),
+              Text(
+                '$fillPercentage%',
+                style: TextStyle(
+                  fontSize: 36,
+                  fontWeight: FontWeight.bold,
+                  color: fillColor,
+                  height: 1,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(8),
+            child: LinearProgressIndicator(
+              value: fillPercentage / 100,
+              backgroundColor: Colors.white.withValues(alpha: 0.7),
+              valueColor: AlwaysStoppedAnimation(fillColor),
+              minHeight: 10,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            fillDescription,
+            style: TextStyle(
+              fontSize: 14,
+              color: Colors.grey.shade600,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          if (bin.lastChecked != null) ...[
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Icon(
+                  Icons.access_time,
+                  size: 16,
+                  color: Colors.grey[600],
+                ),
+                const SizedBox(width: 6),
                 Text(
-                  '$fillPercentage%',
-                  style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                    color: color,
-                    fontWeight: FontWeight.bold,
+                  'Last checked ${_formatDateTime(bin.lastChecked!.toIso8601String())}',
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: Colors.grey[700],
                   ),
                 ),
               ],
             ),
-            SizedBox(height: responsive.gapLarge),
-            ClipRRect(
-              borderRadius: BorderRadius.circular(responsive.borderRadiusSmall),
-              child: LinearProgressIndicator(
-                value: fillPercentage / 100,
-                minHeight: responsive.progressIndicatorHeight,
-                backgroundColor: Colors.grey[200],
-                valueColor: AlwaysStoppedAnimation<Color>(color),
-              ),
-            ),
-            SizedBox(height: responsive.gapMediumSmall),
-            Text(
-              _getFillDescription(fillPercentage),
-              style: Theme.of(
-                context,
-              ).textTheme.bodySmall?.copyWith(color: color),
-            ),
-            if (bin.lastChecked != null) ...[
-              SizedBox(height: responsive.gapMedium),
-              Row(
-                children: [
-                  Icon(
-                    Icons.access_time,
-                    size: responsive.iconSmall,
-                    color: Colors.grey[600],
-                  ),
-                  SizedBox(width: responsive.gapSmall),
-                  Text(
-                    'Last checked ${_formatDate(bin.lastChecked!)}',
-                    style: Theme.of(context).textTheme.bodySmall,
-                  ),
-                ],
-              ),
-            ],
           ],
-        ),
+        ],
       ),
     );
   }
 
   Widget _buildInfoCard(BuildContext context, Bin bin) {
-    final responsive = ResponsiveHelper(context);
-
-    return Card(
-      margin: EdgeInsets.symmetric(horizontal: responsive.locationCardMargin),
-      child: Padding(
-        padding: EdgeInsets.all(responsive.cardPaddingXXLarge),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Location', style: Theme.of(context).textTheme.titleMedium),
-            SizedBox(height: responsive.gapLarge),
-            _buildInfoRow(
-              context,
-              Icons.location_on,
-              'Address',
-              '${bin.currentStreet}\n${bin.city}, ${bin.zip}',
-            ),
-            if (bin.latitude != null && bin.longitude != null) ...[
-              Divider(height: responsive.scale(32)),
-              _buildInfoRow(
-                context,
-                Icons.map,
-                'Coordinates',
-                '${bin.latitude}, ${bin.longitude}',
-              ),
-            ],
-            if (bin.lastMoved != null) ...[
-              Divider(height: responsive.scale(32)),
-              _buildInfoRow(
-                context,
-                Icons.local_shipping,
-                'Last Moved',
-                _formatDate(bin.lastMoved!),
-              ),
-            ],
-          ],
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: Colors.grey.shade50,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: Colors.grey.shade200,
+          width: 1,
         ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: AppColors.primaryGreen.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(
+                  Icons.location_on_rounded,
+                  color: AppColors.primaryGreen,
+                  size: 20,
+                ),
+              ),
+              const SizedBox(width: 10),
+              const Text(
+                'Location',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black87,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          _buildInfoRow(
+            Icons.home_outlined,
+            'Address',
+            bin.currentStreet,
+          ),
+          const SizedBox(height: 12),
+          _buildInfoRow(
+            Icons.location_city_outlined,
+            'City',
+            '${bin.city}, ${bin.zip}',
+          ),
+          if (bin.latitude != null && bin.longitude != null) ...[
+            const SizedBox(height: 12),
+            _buildInfoRow(
+              Icons.my_location_outlined,
+              'Coordinates',
+              '${bin.latitude!.toStringAsFixed(4)}, ${bin.longitude!.toStringAsFixed(4)}',
+            ),
+          ],
+          if (bin.lastMoved != null) ...[
+            const SizedBox(height: 12),
+            _buildInfoRow(
+              Icons.local_shipping_outlined,
+              'Last Moved',
+              _formatDateTime(bin.lastMoved!.toIso8601String()),
+            ),
+          ],
+        ],
       ),
     );
   }
 
-  Widget _buildInfoRow(
-    BuildContext context,
-    IconData icon,
-    String label,
-    String value,
-  ) {
-    final responsive = ResponsiveHelper(context);
-
+  Widget _buildInfoRow(IconData icon, String label, String value) {
     return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Icon(
           icon,
-          size: responsive.iconMediumSmall,
-          color: Theme.of(context).colorScheme.primary,
+          size: 16,
+          color: Colors.grey.shade500,
         ),
-        SizedBox(width: responsive.gapLarge),
+        const SizedBox(width: 8),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
                 label,
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                style: TextStyle(
+                  fontSize: 11,
+                  color: Colors.grey.shade600,
+                  fontWeight: FontWeight.w500,
                 ),
               ),
-              SizedBox(height: responsive.gapXSmall),
-              Text(value, style: Theme.of(context).textTheme.bodyMedium),
+              const SizedBox(height: 2),
+              Text(
+                value,
+                style: const TextStyle(
+                  fontSize: 14,
+                  color: Colors.black87,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
             ],
           ),
         ),
@@ -292,162 +302,82 @@ class BinDetailPage extends HookConsumerWidget {
     );
   }
 
-  Widget _buildActionButtons(BuildContext context, WidgetRef ref, Bin bin) {
-    final responsive = ResponsiveHelper(context);
-
-    return Padding(
-      padding: EdgeInsets.symmetric(
-        horizontal: responsive.buttonPaddingHorizontalLarge,
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: InkWell(
-              onTap: () => _showCheckInDialog(context, ref, bin),
-              borderRadius: BorderRadius.circular(responsive.borderRadius),
-              child: Container(
-                padding: EdgeInsets.symmetric(
-                  vertical: responsive.tabButtonPadding,
-                ),
-                decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.primaryContainer,
-                  borderRadius: BorderRadius.circular(responsive.borderRadius),
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(
-                      Icons.check_circle_outline,
-                      size: responsive.iconMedium,
-                      color: Theme.of(context).colorScheme.primary,
-                    ),
-                    SizedBox(width: responsive.gapSmallMedium),
-                    Text(
-                      'Check In',
-                      style: TextStyle(
-                        fontSize: responsive.fontSmall,
-                        color: Theme.of(context).colorScheme.primary,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ],
-                ),
+  Widget _buildActionButtons(BuildContext context, Bin bin) {
+    return Column(
+      children: [
+        _buildActionButton(
+          context: context,
+          icon: Icons.local_shipping_outlined,
+          label: 'Move Bin',
+          color: AppColors.primaryGreen,
+          onTap: () => _showMoveDialog(context, bin),
+        ),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            Expanded(
+              child: _buildActionButton(
+                context: context,
+                icon: Icons.history_rounded,
+                label: 'Check History',
+                color: Colors.blue.shade600,
+                onTap: () => _showCheckHistoryModal(context, bin),
               ),
             ),
-          ),
-          SizedBox(width: responsive.gapMediumSmall),
-          Expanded(
-            child: InkWell(
-              onTap: () => _showMoveDialog(context, ref, bin),
-              borderRadius: BorderRadius.circular(responsive.borderRadius),
-              child: Container(
-                padding: EdgeInsets.symmetric(
-                  vertical: responsive.tabButtonPadding,
-                ),
-                decoration: BoxDecoration(
-                  color: Colors.grey[200],
-                  borderRadius: BorderRadius.circular(responsive.borderRadius),
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(
-                      Icons.local_shipping,
-                      size: responsive.iconMedium,
-                      color: Colors.grey[600],
-                    ),
-                    SizedBox(width: responsive.gapSmallMedium),
-                    Text(
-                      'Move Bin',
-                      style: TextStyle(
-                        fontSize: responsive.fontSmall,
-                        color: Colors.grey[600],
-                        fontWeight: FontWeight.normal,
-                      ),
-                    ),
-                  ],
-                ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _buildActionButton(
+                context: context,
+                icon: Icons.drive_eta_outlined,
+                label: 'Move History',
+                color: Colors.orange.shade700,
+                onTap: () => _showMoveHistoryModal(context, bin),
               ),
             ),
-          ),
-        ],
-      ),
+          ],
+        ),
+      ],
     );
   }
 
-  Widget _buildHistoryTabs(
-    BuildContext context,
-    ValueNotifier<int> selectedTab,
-  ) {
-    final responsive = ResponsiveHelper(context);
-
-    return Padding(
-      padding: EdgeInsets.symmetric(
-        horizontal: responsive.buttonPaddingHorizontalLarge,
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: TabButton(
-              label: 'Check History',
-              icon: Icons.history,
-              isSelected: selectedTab.value == 0,
-              onTap: () => selectedTab.value = 0,
+  Widget _buildActionButton({
+    required BuildContext context,
+    required IconData icon,
+    required String label,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: color.withValues(alpha: 0.3),
+              width: 1.5,
             ),
           ),
-          SizedBox(width: responsive.gapMediumSmall),
-          Expanded(
-            child: TabButton(
-              label: 'Move History',
-              icon: Icons.local_shipping,
-              isSelected: selectedTab.value == 1,
-              onTap: () => selectedTab.value = 1,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildHistoryContent(BuildContext context, int selectedTab, Bin bin) {
-    if (selectedTab == 0) {
-      return _buildCheckHistory(context, bin);
-    } else {
-      return _buildMoveHistory(context, bin);
-    }
-  }
-
-  Widget _buildCheckHistory(BuildContext context, Bin bin) {
-    final responsive = ResponsiveHelper(context);
-
-    // Placeholder - will be populated with real data from provider
-    return Padding(
-      padding: EdgeInsets.symmetric(
-        horizontal: responsive.buttonPaddingHorizontalLarge,
-      ),
-      child: Card(
-        child: Padding(
-          padding: EdgeInsets.all(responsive.cardPaddingLarge),
-          child: Column(
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Icon(
-                Icons.history,
-                size: responsive.iconLarge,
-                color: Colors.grey[400],
+                icon,
+                color: color,
+                size: 20,
               ),
-              SizedBox(height: responsive.gapMedium),
+              const SizedBox(width: 8),
               Text(
-                'No check history yet',
-                style: Theme.of(
-                  context,
-                ).textTheme.bodyMedium?.copyWith(color: Colors.grey[600]),
-              ),
-              SizedBox(height: responsive.gapMediumSmall),
-              Text(
-                'Check-ins will appear here',
-                style: Theme.of(
-                  context,
-                ).textTheme.bodySmall?.copyWith(color: Colors.grey[500]),
+                label,
+                style: TextStyle(
+                  color: color,
+                  fontSize: 15,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ],
           ),
@@ -456,81 +386,771 @@ class BinDetailPage extends HookConsumerWidget {
     );
   }
 
-  Widget _buildMoveHistory(BuildContext context, Bin bin) {
-    final responsive = ResponsiveHelper(context);
-
-    // Placeholder - will be populated with real data from provider
-    return Padding(
-      padding: EdgeInsets.symmetric(
-        horizontal: responsive.buttonPaddingHorizontalLarge,
-      ),
-      child: Card(
-        child: Padding(
-          padding: EdgeInsets.all(responsive.cardPaddingLarge),
-          child: Column(
-            children: [
-              Icon(
-                Icons.local_shipping,
-                size: responsive.iconLarge,
-                color: Colors.grey[400],
-              ),
-              SizedBox(height: responsive.gapMedium),
-              Text(
-                'No move history yet',
-                style: Theme.of(
-                  context,
-                ).textTheme.bodyMedium?.copyWith(color: Colors.grey[600]),
-              ),
-              SizedBox(height: responsive.gapMediumSmall),
-              Text(
-                'Bin movements will appear here',
-                style: Theme.of(
-                  context,
-                ).textTheme.bodySmall?.copyWith(color: Colors.grey[500]),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  void _showCheckInDialog(BuildContext context, WidgetRef ref, Bin bin) {
-    showDialog(
-      context: context,
-      builder: (context) => CheckInDialog(bin: bin),
-    );
-  }
-
-  void _showMoveDialog(BuildContext context, WidgetRef ref, Bin bin) {
+  void _showMoveDialog(BuildContext context, Bin bin) {
     showDialog(
       context: context,
       builder: (context) => MoveDialog(bin: bin),
     );
   }
 
-  String _getFillDescription(int percentage) {
-    if (percentage > BinConstants.criticalFillThreshold) {
-      return 'High fill - needs attention';
-    }
-    if (percentage > BinConstants.mediumFillThreshold) {
-      return 'Moderate fill';
-    }
-    return 'Low fill - good condition';
+  void _showCheckHistoryModal(BuildContext context, Bin bin) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => _CheckHistoryModalContent(bin: bin),
+    );
   }
 
-  String _formatDate(DateTime date) {
-    final now = DateTime.now();
-    final diff = now.difference(date);
+  void _showMoveHistoryModal(BuildContext context, Bin bin) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => _MoveHistoryModalContent(bin: bin),
+    );
+  }
 
-    if (diff.inDays > 0) {
-      return '${diff.inDays}d ago';
-    } else if (diff.inHours > 0) {
-      return '${diff.inHours}h ago';
-    } else if (diff.inMinutes > 0) {
-      return '${diff.inMinutes}m ago';
-    } else {
-      return 'Just now';
+  String _formatDateTime(String isoDate) {
+    try {
+      final date = DateTime.parse(isoDate);
+      final now = DateTime.now();
+      final difference = now.difference(date);
+
+      if (difference.inDays == 0) {
+        return 'Today at ${DateFormat('h:mm a').format(date)}';
+      } else if (difference.inDays == 1) {
+        return 'Yesterday at ${DateFormat('h:mm a').format(date)}';
+      } else if (difference.inDays < 7) {
+        return '${difference.inDays} days ago';
+      } else {
+        return DateFormat('MMM d, yyyy').format(date);
+      }
+    } catch (e) {
+      return 'Unknown';
+    }
+  }
+}
+
+class _MoveHistoryModalContent extends HookConsumerWidget {
+  final Bin bin;
+
+  const _MoveHistoryModalContent({required this.bin});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final moveHistoryFuture = useMemoized(
+      () => ref.read(managerServiceProvider).getBinMoveHistory(bin.id),
+      [bin.id],
+    );
+    final moveHistorySnapshot = useFuture(moveHistoryFuture);
+
+    return DraggableScrollableSheet(
+      initialChildSize: 0.95,
+      minChildSize: 0.5,
+      maxChildSize: 0.95,
+      builder: (context, scrollController) => Container(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        child: Column(
+          children: [
+            // Drag handle
+            Container(
+              margin: const EdgeInsets.symmetric(vertical: 12),
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: Colors.grey.shade300,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            // Header
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: Colors.orange.shade50,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Icon(
+                      Icons.local_shipping_outlined,
+                      color: Colors.orange.shade700,
+                      size: 24,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  const Text(
+                    'Move History',
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black87,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const Divider(height: 1),
+            // Content
+            Expanded(
+              child: _buildContent(context, scrollController, moveHistorySnapshot),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildContent(
+    BuildContext context,
+    ScrollController scrollController,
+    AsyncSnapshot<List<Map<String, dynamic>>> snapshot,
+  ) {
+    if (snapshot.connectionState == ConnectionState.waiting) {
+      return const Center(
+        child: CircularProgressIndicator(
+          color: AppColors.primaryGreen,
+        ),
+      );
+    }
+
+    if (snapshot.hasError) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                Icons.error_outline,
+                size: 48,
+                color: Colors.red.shade700,
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Failed to load move history',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.grey[700],
+                ),
+              ),
+              const SizedBox(height: 8),
+              SelectableText.rich(
+                TextSpan(
+                  text: snapshot.error.toString(),
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: Colors.red[600],
+                  ),
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    final moves = snapshot.data ?? [];
+
+    if (moves.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                color: Colors.orange.shade50,
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                Icons.local_shipping_outlined,
+                size: 48,
+                color: Colors.orange.shade700,
+              ),
+            ),
+            const SizedBox(height: 24),
+            Text(
+              'No Move History',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: Colors.grey[700],
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Bin movements will appear here',
+              style: TextStyle(
+                fontSize: 14,
+                color: Colors.grey[600],
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return ListView.separated(
+      controller: scrollController,
+      padding: const EdgeInsets.all(20),
+      itemCount: moves.length,
+      separatorBuilder: (context, index) => const SizedBox(height: 16),
+      itemBuilder: (context, index) {
+        final move = moves[index];
+        return _buildMoveItem(move, index == moves.length - 1);
+      },
+    );
+  }
+
+  Widget _buildMoveItem(Map<String, dynamic> move, bool isLast) {
+    final movedAt = move['movedOnIso'] as String?;
+    final fromStreet = move['fromStreet'] as String? ?? 'Unknown';
+    final fromCity = move['fromCity'] as String? ?? '';
+    final toStreet = move['toStreet'] as String? ?? 'Unknown';
+    final toCity = move['toCity'] as String? ?? '';
+    final moveType = move['moveType'] as String? ?? 'shift'; // 'shift' or 'manual'
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.grey.shade50,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: Colors.grey.shade200,
+          width: 1,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Date header
+          Row(
+            children: [
+              Icon(
+                Icons.calendar_today_outlined,
+                size: 16,
+                color: Colors.grey.shade600,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                movedAt != null ? _formatMoveDate(movedAt) : 'Unknown date',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.grey.shade700,
+                ),
+              ),
+              const Spacer(),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 8,
+                  vertical: 4,
+                ),
+                decoration: BoxDecoration(
+                  color: moveType == 'manual'
+                      ? Colors.amber.shade50
+                      : Colors.blue.shade50,
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(
+                    color: moveType == 'manual'
+                        ? Colors.amber.shade300
+                        : Colors.blue.shade300,
+                    width: 1,
+                  ),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      moveType == 'manual' ? '👤' : '🚛',
+                      style: const TextStyle(fontSize: 12),
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      moveType == 'manual' ? 'MANUAL' : 'SHIFT',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                        color: moveType == 'manual'
+                            ? Colors.amber.shade900
+                            : Colors.blue.shade700,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          // From location
+          _buildLocationRow(
+            icon: Icons.my_location,
+            iconColor: Colors.orange.shade700,
+            label: 'From',
+            street: fromStreet,
+            city: fromCity,
+          ),
+          const SizedBox(height: 12),
+          // Arrow
+          Padding(
+            padding: const EdgeInsets.only(left: 8),
+            child: Icon(
+              Icons.arrow_downward,
+              size: 20,
+              color: Colors.grey.shade400,
+            ),
+          ),
+          const SizedBox(height: 12),
+          // To location
+          _buildLocationRow(
+            icon: Icons.location_on,
+            iconColor: AppColors.primaryGreen,
+            label: 'To',
+            street: toStreet,
+            city: toCity,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLocationRow({
+    required IconData icon,
+    required Color iconColor,
+    required String label,
+    required String street,
+    required String city,
+  }) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          padding: const EdgeInsets.all(6),
+          decoration: BoxDecoration(
+            color: iconColor.withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Icon(
+            icon,
+            size: 16,
+            color: iconColor,
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 11,
+                  color: Colors.grey.shade600,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                street,
+                style: const TextStyle(
+                  fontSize: 14,
+                  color: Colors.black87,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              if (city.isNotEmpty) ...[
+                const SizedBox(height: 2),
+                Text(
+                  city,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.grey.shade600,
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  String _formatMoveDate(String isoDate) {
+    try {
+      final date = DateTime.parse(isoDate);
+      final now = DateTime.now();
+      final difference = now.difference(date);
+
+      if (difference.inDays == 0) {
+        return 'Today at ${DateFormat('h:mm a').format(date)}';
+      } else if (difference.inDays == 1) {
+        return 'Yesterday at ${DateFormat('h:mm a').format(date)}';
+      } else if (difference.inDays < 7) {
+        return '${difference.inDays} days ago';
+      } else {
+        return DateFormat('MMM d, yyyy \'at\' h:mm a').format(date);
+      }
+    } catch (e) {
+      return 'Unknown';
+    }
+  }
+}
+
+class _CheckHistoryModalContent extends HookConsumerWidget {
+  final Bin bin;
+
+  const _CheckHistoryModalContent({required this.bin});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final checkHistoryFuture = useMemoized(
+      () => ref.read(managerServiceProvider).getBinCheckHistory(bin.id),
+      [bin.id],
+    );
+    final checkHistorySnapshot = useFuture(checkHistoryFuture);
+
+    return DraggableScrollableSheet(
+      initialChildSize: 0.95,
+      minChildSize: 0.5,
+      maxChildSize: 0.95,
+      builder: (context, scrollController) => Container(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        child: Column(
+          children: [
+            // Drag handle
+            Container(
+              margin: const EdgeInsets.symmetric(vertical: 12),
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: Colors.grey.shade300,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            // Header
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: Colors.blue.shade50,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Icon(
+                      Icons.history_rounded,
+                      color: Colors.blue.shade600,
+                      size: 24,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  const Text(
+                    'Check History',
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black87,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const Divider(height: 1),
+            // Content
+            Expanded(
+              child: _buildContent(context, scrollController, checkHistorySnapshot),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildContent(
+    BuildContext context,
+    ScrollController scrollController,
+    AsyncSnapshot<List<Map<String, dynamic>>> snapshot,
+  ) {
+    if (snapshot.connectionState == ConnectionState.waiting) {
+      return const Center(
+        child: CircularProgressIndicator(
+          color: AppColors.primaryGreen,
+        ),
+      );
+    }
+
+    if (snapshot.hasError) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                Icons.error_outline,
+                size: 48,
+                color: Colors.red.shade700,
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Failed to load check history',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.grey[700],
+                ),
+              ),
+              const SizedBox(height: 8),
+              SelectableText.rich(
+                TextSpan(
+                  text: snapshot.error.toString(),
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: Colors.red[600],
+                  ),
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    final checks = snapshot.data ?? [];
+
+    if (checks.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                color: Colors.blue.shade50,
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                Icons.history_rounded,
+                size: 48,
+                color: Colors.blue.shade600,
+              ),
+            ),
+            const SizedBox(height: 24),
+            Text(
+              'No Check History',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: Colors.grey[700],
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Check-ins will appear here',
+              style: TextStyle(
+                fontSize: 14,
+                color: Colors.grey[600],
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return ListView.separated(
+      controller: scrollController,
+      padding: const EdgeInsets.all(20),
+      itemCount: checks.length,
+      separatorBuilder: (context, index) => const SizedBox(height: 16),
+      itemBuilder: (context, index) {
+        final check = checks[index];
+        return _buildCheckItem(check);
+      },
+    );
+  }
+
+  Widget _buildCheckItem(Map<String, dynamic> check) {
+    final checkedOnIso = check['checkedOnIso'] as String?;
+    final fillPercentage = check['fillPercentage'] as int?;
+    final checkedByName = check['checkedByName'] as String?;
+    final checkedFrom = check['checkedFrom'] as String? ?? 'Unknown location';
+    final photoUrl = check['photoUrl'] as String?;
+
+    final fillColor = fillPercentage != null
+        ? BinHelpers.getFillColor(fillPercentage)
+        : Colors.grey;
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.grey.shade50,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: Colors.grey.shade200,
+          width: 1,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Date and driver info header
+          Row(
+            children: [
+              Icon(
+                Icons.calendar_today_outlined,
+                size: 16,
+                color: Colors.grey.shade600,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      checkedOnIso != null
+                          ? _formatCheckDate(checkedOnIso)
+                          : 'Unknown date',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.grey.shade700,
+                      ),
+                    ),
+                    if (checkedByName != null) ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        'by $checkedByName',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey.shade600,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              // Fill percentage badge
+              if (fillPercentage != null)
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 6,
+                  ),
+                  decoration: BoxDecoration(
+                    color: fillColor.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: fillColor.withValues(alpha: 0.3),
+                      width: 1,
+                    ),
+                  ),
+                  child: Text(
+                    '$fillPercentage%',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                      color: fillColor,
+                    ),
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          // Location info
+          Row(
+            children: [
+              Icon(
+                Icons.location_on_outlined,
+                size: 16,
+                color: Colors.grey.shade500,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  checkedFrom,
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: Colors.grey.shade700,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          // Photo thumbnail if available
+          if (photoUrl != null) ...[
+            const SizedBox(height: 12),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(8),
+              child: Image.network(
+                photoUrl,
+                height: 150,
+                width: double.infinity,
+                fit: BoxFit.cover,
+                errorBuilder: (context, error, stackTrace) => Container(
+                  height: 150,
+                  color: Colors.grey.shade200,
+                  child: Center(
+                    child: Icon(
+                      Icons.broken_image_outlined,
+                      color: Colors.grey.shade400,
+                      size: 48,
+                    ),
+                  ),
+                ),
+                loadingBuilder: (context, child, loadingProgress) {
+                  if (loadingProgress == null) return child;
+                  return Container(
+                    height: 150,
+                    color: Colors.grey.shade200,
+                    child: Center(
+                      child: CircularProgressIndicator(
+                        value: loadingProgress.expectedTotalBytes != null
+                            ? loadingProgress.cumulativeBytesLoaded /
+                                loadingProgress.expectedTotalBytes!
+                            : null,
+                        color: AppColors.primaryGreen,
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  String _formatCheckDate(String isoDate) {
+    try {
+      final date = DateTime.parse(isoDate);
+      final now = DateTime.now();
+      final difference = now.difference(date);
+
+      if (difference.inDays == 0) {
+        return 'Today at ${DateFormat('h:mm a').format(date)}';
+      } else if (difference.inDays == 1) {
+        return 'Yesterday at ${DateFormat('h:mm a').format(date)}';
+      } else if (difference.inDays < 7) {
+        return '${difference.inDays} days ago';
+      } else {
+        return DateFormat('MMM d, yyyy \'at\' h:mm a').format(date);
+      }
+    } catch (e) {
+      return 'Unknown';
     }
   }
 }

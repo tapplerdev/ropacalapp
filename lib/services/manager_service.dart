@@ -105,4 +105,141 @@ class ManagerService {
       rethrow;
     }
   }
+
+  /// Schedule a bin move (relocation or pickup)
+  /// Returns the created move request data
+  Future<Map<String, dynamic>> scheduleBinMove({
+    required String binId,
+    required String moveType, // 'relocation' or 'pickup_only'
+    String? disposalAction, // 'retire' or 'store' (required for pickup_only)
+    String? newStreet,
+    String? newCity,
+    String? newZip,
+    double? newLatitude,
+    double? newLongitude,
+    String? reason,
+    String? notes,
+  }) async {
+    try {
+      print('📤 REQUEST: POST /api/manager/bins/schedule-move');
+      print('   Move Type: $moveType');
+      print('   Bin ID: $binId');
+
+      final now = DateTime.now();
+      final scheduledDate = now.millisecondsSinceEpoch ~/ 1000;
+
+      final requestBody = <String, dynamic>{
+        'bin_id': binId,
+        'scheduled_date': scheduledDate,
+        'move_type': moveType,
+      };
+
+      // Add optional fields
+      if (disposalAction != null) {
+        requestBody['disposal_action'] = disposalAction;
+      }
+      if (newStreet != null) requestBody['new_street'] = newStreet;
+      if (newCity != null) requestBody['new_city'] = newCity;
+      if (newZip != null) requestBody['new_zip'] = newZip;
+      if (newLatitude != null) requestBody['new_latitude'] = newLatitude;
+      if (newLongitude != null) requestBody['new_longitude'] = newLongitude;
+      if (reason != null) requestBody['reason'] = reason;
+      if (notes != null) requestBody['notes'] = notes;
+
+      print('   Request Body: $requestBody');
+
+      final response = await _apiService.post(
+        '/api/manager/bins/schedule-move',
+        requestBody,
+      );
+
+      print('📥 RESPONSE: ${response.statusCode}');
+      print('   Data: ${response.data}');
+
+      // The endpoint returns the move request directly (no success wrapper)
+      return response.data as Map<String, dynamic>;
+    } catch (e) {
+      print('   ❌ ERROR: $e');
+      rethrow;
+    }
+  }
+
+  /// Get move history for a specific bin
+  Future<List<Map<String, dynamic>>> getBinMoveHistory(String binId) async {
+    try {
+      print('📤 REQUEST: GET /api/bins/$binId/moves');
+
+      final response = await _apiService.get('/api/bins/$binId/moves');
+
+      print('📥 RESPONSE: ${response.statusCode}');
+      print('   Data: ${response.data}');
+
+      // The endpoint returns an array directly (no success wrapper)
+      final moves = List<Map<String, dynamic>>.from(response.data as List);
+      print('   ✅ Found ${moves.length} move(s)');
+      return moves;
+    } catch (e) {
+      print('   ❌ ERROR: $e');
+      rethrow;
+    }
+  }
+
+  /// Get check history for a specific bin
+  Future<List<Map<String, dynamic>>> getBinCheckHistory(String binId) async {
+    try {
+      print('📤 REQUEST: GET /api/bins/$binId/checks');
+
+      final response = await _apiService.get('/api/bins/$binId/checks');
+
+      print('📥 RESPONSE: ${response.statusCode}');
+      print('   Data: ${response.data}');
+
+      // The endpoint returns an array directly (no success wrapper)
+      final checks = List<Map<String, dynamic>>.from(response.data as List);
+      print('   ✅ Found ${checks.length} check(s)');
+      return checks;
+    } catch (e) {
+      print('   ❌ ERROR: $e');
+      rethrow;
+    }
+  }
+
+  /// Assign a move request to a specific user for manual completion
+  Future<void> assignMoveToUser(String moveRequestId, String userId) async {
+    try {
+      print('📤 REQUEST: PUT /api/manager/bins/move-requests/$moveRequestId/assign-to-user');
+      print('   User ID: $userId');
+
+      final response = await _apiService.put(
+        '/api/manager/bins/move-requests/$moveRequestId/assign-to-user',
+        {'user_id': userId},
+      );
+
+      print('📥 RESPONSE: ${response.statusCode}');
+      print('   Data: ${response.data}');
+      print('   ✅ Move assigned to user successfully');
+    } catch (e) {
+      print('   ❌ ERROR: $e');
+      rethrow;
+    }
+  }
+
+  /// Manually complete a move request
+  Future<void> manuallyCompleteMoveRequest(String moveRequestId) async {
+    try {
+      print('📤 REQUEST: PUT /api/manager/bins/move-requests/$moveRequestId/complete-manually');
+
+      final response = await _apiService.put(
+        '/api/manager/bins/move-requests/$moveRequestId/complete-manually',
+        {},
+      );
+
+      print('📥 RESPONSE: ${response.statusCode}');
+      print('   Data: ${response.data}');
+      print('   ✅ Move completed manually');
+    } catch (e) {
+      print('   ❌ ERROR: $e');
+      rethrow;
+    }
+  }
 }

@@ -980,10 +980,52 @@ class MoveDialog extends HookConsumerWidget {
   }
 
   Widget _buildUserSelector(WidgetRef ref, ValueNotifier<String?> selectedUserId) {
-    final driversAsync = ref.watch(driversNotifierProvider);
+    final managerService = ref.read(managerServiceProvider);
 
-    return driversAsync.when(
-      data: (drivers) {
+    return FutureBuilder<List<Map<String, dynamic>>>(
+      future: managerService.getAllUsers(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(
+            child: Padding(
+              padding: EdgeInsets.all(16.0),
+              child: CircularProgressIndicator(strokeWidth: 2),
+            ),
+          );
+        }
+
+        if (snapshot.hasError) {
+          return Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.red.shade50,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.red.shade200),
+            ),
+            child: Text(
+              'Error loading users: ${snapshot.error}',
+              style: TextStyle(color: Colors.red.shade900, fontSize: 13),
+            ),
+          );
+        }
+
+        final users = snapshot.data ?? [];
+
+        if (users.isEmpty) {
+          return Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.orange.shade50,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.orange.shade200),
+            ),
+            child: Text(
+              'No users available',
+              style: TextStyle(color: Colors.orange.shade900, fontSize: 13),
+            ),
+          );
+        }
+
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -1000,41 +1042,30 @@ class MoveDialog extends HookConsumerWidget {
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(14),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.06),
-                    blurRadius: 10,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
+                border: Border.all(color: Colors.grey.shade200),
               ),
               child: DropdownButtonFormField<String>(
                 value: selectedUserId.value,
+                isExpanded: true,
                 decoration: InputDecoration(
                   hintText: 'Choose a user...',
                   hintStyle: TextStyle(
                     color: Colors.grey[400],
-                    fontWeight: FontWeight.normal,
+                    fontSize: 14,
                   ),
                   prefixIcon: Icon(
-                    Icons.person,
+                    Icons.person_outline,
                     color: AppColors.primaryGreen,
                     size: 20,
                   ),
                   filled: true,
                   fillColor: Colors.white,
                   contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 16,
+                    horizontal: 12,
+                    vertical: 12,
                   ),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(14),
-                    borderSide: BorderSide(color: Colors.grey.shade200),
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(14),
-                    borderSide: BorderSide(color: Colors.grey.shade200),
-                  ),
+                  border: InputBorder.none,
+                  enabledBorder: InputBorder.none,
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(14),
                     borderSide: BorderSide(
@@ -1043,15 +1074,79 @@ class MoveDialog extends HookConsumerWidget {
                     ),
                   ),
                 ),
-                items: drivers.map((driver) {
+                icon: Icon(
+                  Icons.keyboard_arrow_down_rounded,
+                  color: Colors.grey[600],
+                  size: 24,
+                ),
+                dropdownColor: Colors.white,
+                style: const TextStyle(
+                  color: Colors.black87,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                ),
+                items: users.map((user) {
+                  final userName = user['name'] as String;
+                  final userRole = user['role'] as String;
+                  final userId = user['id'] as String;
+
+                  // Role icon
+                  IconData roleIcon;
+                  Color roleColor;
+                  if (userRole == 'admin') {
+                    roleIcon = Icons.shield;
+                    roleColor = Colors.purple;
+                  } else if (userRole == 'manager') {
+                    roleIcon = Icons.manage_accounts;
+                    roleColor = Colors.blue;
+                  } else {
+                    roleIcon = Icons.local_shipping;
+                    roleColor = Colors.green;
+                  }
+
                   return DropdownMenuItem<String>(
-                    value: driver.driverId,
-                    child: Text(
-                      driver.driverName,
-                      style: const TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w500,
-                      ),
+                    value: userId,
+                    child: Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(6),
+                          decoration: BoxDecoration(
+                            color: roleColor.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Icon(
+                            roleIcon,
+                            size: 16,
+                            color: roleColor,
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                userName,
+                                style: const TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.black87,
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              Text(
+                                userRole.toUpperCase(),
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w500,
+                                  color: roleColor,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
                     ),
                   );
                 }).toList(),
@@ -1063,11 +1158,6 @@ class MoveDialog extends HookConsumerWidget {
           ],
         );
       },
-      loading: () => const Center(child: CircularProgressIndicator()),
-      error: (error, stack) => Text(
-        'Error loading users: $error',
-        style: const TextStyle(color: Colors.red),
-      ),
     );
   }
 

@@ -244,4 +244,29 @@ class ManagerService {
       rethrow;
     }
   }
+
+  /// Get all users (drivers, managers, admins)
+  Future<List<Map<String, dynamic>>> getAllUsers() async {
+    try {
+      print('📤 REQUEST: GET /api/users');
+
+      final response = await _apiService.get('/api/users');
+
+      print('📥 RESPONSE: ${response.statusCode}');
+      print('   Data: ${response.data}');
+
+      if (response.data['success'] == true) {
+        final users = List<Map<String, dynamic>>.from(
+          response.data['users'] as List,
+        );
+        print('   ✅ Found ${users.length} user(s)');
+        return users;
+      }
+
+      return [];
+    } catch (e) {
+      print('   ❌ ERROR: $e');
+      rethrow;
+    }
+  }
 }

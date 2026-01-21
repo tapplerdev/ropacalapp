@@ -23,6 +23,12 @@ class WebSocketService {
   Function(Map<String, dynamic>)? onDriverLocationUpdate;
   Function(Map<String, dynamic>)? onDriverShiftChange;
   Function(Map<String, dynamic>)? onMoveRequestAssigned;
+  Function(Map<String, dynamic>)? onPotentialLocationCreated;
+  Function(Map<String, dynamic>)? onPotentialLocationConverted;
+  Function(Map<String, dynamic>)? onPotentialLocationDeleted;
+  Function(Map<String, dynamic>)? onBinCreated;
+  Function(Map<String, dynamic>)? onBinUpdated;
+  Function(Map<String, dynamic>)? onBinDeleted;
   Function()? onConnected;
   Function()? onDisconnected;
 
@@ -147,6 +153,36 @@ class WebSocketService {
           AppLogger.general('   Callback status: ${onMoveRequestAssigned != null ? "✅ SET" : "❌ NULL"}');
           AppLogger.general('   Move request data: ${data['data']}');
           onMoveRequestAssigned?.call(data['data'] as Map<String, dynamic>);
+          break;
+        case 'potential_location_created':
+          AppLogger.general('   📍 POTENTIAL LOCATION CREATED MESSAGE');
+          AppLogger.general('   Callback status: ${onPotentialLocationCreated != null ? "✅ SET" : "❌ NULL"}');
+          onPotentialLocationCreated?.call(data['data'] as Map<String, dynamic>);
+          break;
+        case 'potential_location_converted':
+          AppLogger.general('   🔄 POTENTIAL LOCATION CONVERTED MESSAGE');
+          AppLogger.general('   Callback status: ${onPotentialLocationConverted != null ? "✅ SET" : "❌ NULL"}');
+          onPotentialLocationConverted?.call(data['data'] as Map<String, dynamic>);
+          break;
+        case 'potential_location_deleted':
+          AppLogger.general('   🗑️  POTENTIAL LOCATION DELETED MESSAGE');
+          AppLogger.general('   Callback status: ${onPotentialLocationDeleted != null ? "✅ SET" : "❌ NULL"}');
+          onPotentialLocationDeleted?.call(data['data'] as Map<String, dynamic>);
+          break;
+        case 'bin_created':
+          AppLogger.general('   📦 BIN CREATED MESSAGE');
+          AppLogger.general('   Callback status: ${onBinCreated != null ? "✅ SET" : "❌ NULL"}');
+          onBinCreated?.call(data['data'] as Map<String, dynamic>);
+          break;
+        case 'bin_updated':
+          AppLogger.general('   🔄 BIN UPDATED MESSAGE');
+          AppLogger.general('   Callback status: ${onBinUpdated != null ? "✅ SET" : "❌ NULL"}');
+          onBinUpdated?.call(data['data'] as Map<String, dynamic>);
+          break;
+        case 'bin_deleted':
+          AppLogger.general('   🗑️  BIN DELETED MESSAGE');
+          AppLogger.general('   Callback status: ${onBinDeleted != null ? "✅ SET" : "❌ NULL"}');
+          onBinDeleted?.call(data['data'] as Map<String, dynamic>);
           break;
         default:
           AppLogger.general(

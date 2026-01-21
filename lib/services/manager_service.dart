@@ -119,6 +119,7 @@ class ManagerService {
     double? newLongitude,
     String? reason,
     String? notes,
+    String? shiftId, // Optional: Assign to specific shift immediately
   }) async {
     try {
       print('📤 REQUEST: POST /api/manager/bins/schedule-move');
@@ -145,6 +146,7 @@ class ManagerService {
       if (newLongitude != null) requestBody['new_longitude'] = newLongitude;
       if (reason != null) requestBody['reason'] = reason;
       if (notes != null) requestBody['notes'] = notes;
+      if (shiftId != null) requestBody['shift_id'] = shiftId;
 
       print('   Request Body: $requestBody');
 

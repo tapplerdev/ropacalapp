@@ -382,7 +382,7 @@ class _BinCheckHistoryProviderElement
   String get binId => (origin as BinCheckHistoryProvider).binId;
 }
 
-String _$binsListHash() => r'cb5794f0a7949a91a8e0e51852441a119cb2b2ef';
+String _$binsListHash() => r'f2b764fb6bbd4b8689b496ad9bb6aa591aac908f';
 
 /// See also [BinsList].
 @ProviderFor(BinsList)

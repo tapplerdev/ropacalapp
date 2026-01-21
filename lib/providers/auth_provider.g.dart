@@ -25,7 +25,7 @@ final apiServiceProvider = Provider<ApiService>.internal(
 @Deprecated('Will be removed in 3.0. Use Ref instead')
 // ignore: unused_element
 typedef ApiServiceRef = ProviderRef<ApiService>;
-String _$webSocketManagerHash() => r'10b1d3b984bc0a54ba0969e31ffc61bdcbd14609';
+String _$webSocketManagerHash() => r'625e9663e0974c1ce47bfaede4c589c89d25a7c0';
 
 /// WebSocket service provider (global singleton)
 ///

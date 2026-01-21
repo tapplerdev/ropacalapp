@@ -52,6 +52,30 @@ class BinsList extends _$BinsList {
     }
   }
 
+  /// Add a new bin to the list locally (for optimistic updates)
+  void addBin(Bin newBin) {
+    AppLogger.bins('📦 BinsList: Adding new bin #${newBin.binNumber} locally');
+
+    // Extract current data
+    final currentBins = state.valueOrNull;
+    if (currentBins == null) {
+      AppLogger.bins('   ⚠️ No data to add to');
+      return;
+    }
+
+    AppLogger.bins('   Current bins: ${currentBins.length}');
+
+    // Create new list with added bin
+    final updatedBins = [...currentBins, newBin];
+
+    AppLogger.bins('   Updated bins: ${updatedBins.length}');
+
+    // Explicitly set new state with AsyncValue.data to force update
+    state = AsyncValue.data(updatedBins);
+
+    AppLogger.bins('   ✅ State updated, triggering rebuild');
+  }
+
   Future<void> createCheck({
     required String binId,
     required String checkedFrom,

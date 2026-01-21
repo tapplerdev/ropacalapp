@@ -9,6 +9,7 @@ import 'package:ropacalapp/core/services/geocoding_service.dart';
 import 'package:ropacalapp/core/utils/app_logger.dart';
 import 'package:ropacalapp/core/theme/app_colors.dart';
 import 'package:ropacalapp/models/bin.dart';
+import 'package:ropacalapp/models/shift_state.dart';
 import 'package:ropacalapp/providers/drivers_provider.dart';
 import 'package:ropacalapp/providers/bins_provider.dart';
 
@@ -30,6 +31,7 @@ class MoveDialog extends HookConsumerWidget {
     // Assignment type: 'shift' or 'manual'
     final assignmentType = useState<String>('shift');
     final selectedUserId = useState<String?>(null);
+    final selectedShiftId = useState<String?>(null);
 
     return Dialog(
       backgroundColor: Colors.transparent,
@@ -181,6 +183,12 @@ class MoveDialog extends HookConsumerWidget {
                     _buildAssignmentTypeToggle(assignmentType),
 
                     const SizedBox(height: 16),
+
+                    // Shift Selection (only show if shift)
+                    if (assignmentType.value == 'shift') ...[
+                      _buildShiftSelector(ref, selectedShiftId),
+                      const SizedBox(height: 16),
+                    ],
 
                     // User Selection (only show if manual)
                     if (assignmentType.value == 'manual') ...[
@@ -348,6 +356,31 @@ class MoveDialog extends HookConsumerWidget {
                                 return;
                               }
 
+                              // Validate shift selection for shift assignment
+                              if (assignmentType.value == 'shift' &&
+                                  selectedShiftId.value == null) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: const Row(
+                                      children: [
+                                        Icon(Icons.warning_amber_rounded,
+                                            color: Colors.white),
+                                        SizedBox(width: 12),
+                                        Expanded(
+                                            child: Text('Please select a shift')),
+                                      ],
+                                    ),
+                                    backgroundColor: Colors.orange[600],
+                                    behavior: SnackBarBehavior.floating,
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    margin: const EdgeInsets.all(16),
+                                  ),
+                                );
+                                return;
+                              }
+
                               // Validate user selection for manual assignment
                               if (assignmentType.value == 'manual' &&
                                   selectedUserId.value == null) {
@@ -387,6 +420,9 @@ class MoveDialog extends HookConsumerWidget {
                                   newZip: zipController.text.trim(),
                                   newLatitude: selectedLatitude.value,
                                   newLongitude: selectedLongitude.value,
+                                  shiftId: assignmentType.value == 'shift'
+                                    ? selectedShiftId.value
+                                    : null,
                                 );
 
                                 // If manual assignment, assign to the selected user
@@ -1029,6 +1065,128 @@ class MoveDialog extends HookConsumerWidget {
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (error, stack) => Text(
         'Error loading users: $error',
+        style: const TextStyle(color: Colors.red),
+      ),
+    );
+  }
+
+  Widget _buildShiftSelector(WidgetRef ref, ValueNotifier<String?> selectedShiftId) {
+    final driversAsync = ref.watch(driversNotifierProvider);
+
+    return driversAsync.when(
+      data: (drivers) {
+        // Filter for active shifts only (mobile app only assigns to active shifts)
+        final activeShifts = drivers.where((driver) => driver.status == ShiftStatus.active).toList();
+
+        if (activeShifts.isEmpty) {
+          return Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.orange.shade50,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: Colors.orange.shade200),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.info_outline, color: Colors.orange.shade700, size: 20),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    'No active shifts available. Assign manually or create shift on dashboard.',
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: Colors.orange.shade900,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          );
+        }
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Select Active Shift',
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: Colors.grey[800],
+              ),
+            ),
+            const SizedBox(height: 8),
+            Container(
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(14),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.06),
+                    blurRadius: 10,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: DropdownButtonFormField<String>(
+                value: selectedShiftId.value,
+                decoration: InputDecoration(
+                  hintText: 'Choose a shift...',
+                  hintStyle: TextStyle(
+                    color: Colors.grey[400],
+                    fontWeight: FontWeight.normal,
+                  ),
+                  prefixIcon: Icon(
+                    Icons.local_shipping_rounded,
+                    color: AppColors.primaryGreen,
+                    size: 20,
+                  ),
+                  filled: true,
+                  fillColor: Colors.white,
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 16,
+                  ),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(14),
+                    borderSide: BorderSide(color: Colors.grey.shade200),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(14),
+                    borderSide: BorderSide(color: Colors.grey.shade200),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(14),
+                    borderSide: BorderSide(
+                      color: AppColors.primaryGreen,
+                      width: 2,
+                    ),
+                  ),
+                ),
+                items: activeShifts.map((driver) {
+                  return DropdownMenuItem<String>(
+                    value: driver.shiftId,
+                    child: Text(
+                      '${driver.driverName} - ${driver.routeDisplayName} (Active)',
+                      style: const TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  );
+                }).toList(),
+                onChanged: (value) {
+                  selectedShiftId.value = value;
+                },
+              ),
+            ),
+          ],
+        );
+      },
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (error, stack) => Text(
+        'Error loading shifts: $error',
         style: const TextStyle(color: Colors.red),
       ),
     );

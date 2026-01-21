@@ -10,6 +10,8 @@ import 'package:ropacalapp/services/websocket_service.dart';
 import 'package:ropacalapp/providers/shift_provider.dart';
 import 'package:ropacalapp/providers/drivers_provider.dart';
 import 'package:ropacalapp/providers/simulation_provider.dart';
+import 'package:ropacalapp/providers/potential_locations_list_provider.dart';
+import 'package:ropacalapp/providers/bins_provider.dart';
 import 'package:ropacalapp/core/services/location_tracking_service.dart';
 import 'package:ropacalapp/core/utils/app_logger.dart';
 import 'package:ropacalapp/core/services/session_manager.dart';
@@ -140,6 +142,39 @@ class WebSocketManager extends _$WebSocketManager {
         AppLogger.general('   Stack: $stack');
         AppLogger.general('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
       }
+    };
+
+    // Potential locations events - invalidate provider to trigger refetch
+    _service!.onPotentialLocationCreated = (data) {
+      AppLogger.general('📡 WebSocket: Potential location created, invalidating provider');
+      ref.invalidate(potentialLocationsListNotifierProvider);
+    };
+
+    _service!.onPotentialLocationConverted = (data) {
+      AppLogger.general('📡 WebSocket: Potential location converted, invalidating both providers');
+      ref.invalidate(potentialLocationsListNotifierProvider);
+      ref.invalidate(binsListProvider);
+    };
+
+    _service!.onPotentialLocationDeleted = (data) {
+      AppLogger.general('📡 WebSocket: Potential location deleted, invalidating provider');
+      ref.invalidate(potentialLocationsListNotifierProvider);
+    };
+
+    // Bin events - invalidate provider to trigger refetch
+    _service!.onBinCreated = (data) {
+      AppLogger.general('📡 WebSocket: Bin created, invalidating provider');
+      ref.invalidate(binsListProvider);
+    };
+
+    _service!.onBinUpdated = (data) {
+      AppLogger.general('📡 WebSocket: Bin updated, invalidating provider');
+      ref.invalidate(binsListProvider);
+    };
+
+    _service!.onBinDeleted = (data) {
+      AppLogger.general('📡 WebSocket: Bin deleted, invalidating provider');
+      ref.invalidate(binsListProvider);
     };
 
     _service!.onConnected = () {

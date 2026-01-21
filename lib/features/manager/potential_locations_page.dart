@@ -18,21 +18,15 @@ class PotentialLocationsPage extends HookConsumerWidget {
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
-        title: const Text('Potential Locations'),
+        title: const Text(
+          'Potential Locations',
+          style: TextStyle(
+            fontSize: 18,
+          ),
+        ),
         backgroundColor: Colors.white,
         surfaceTintColor: Colors.transparent,
         scrolledUnderElevation: 0,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: () {
-              ref
-                  .read(potentialLocationsListNotifierProvider.notifier)
-                  .refresh();
-            },
-            tooltip: 'Refresh',
-          ),
-        ],
       ),
       body: potentialLocationsAsync.when(
         data: (locations) {

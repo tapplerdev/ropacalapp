@@ -173,19 +173,14 @@ class ManagerMapPage extends HookConsumerWidget {
             [drivers],
           );
 
-          // Effect 1a: Add bin markers ONCE when bins load and map is ready
+          // Effect 1a: Add/remove bin markers (add new bins, remove deleted bins)
           useEffect(
             () {
-              if (binsAsync.hasValue &&
-                  mapController.value != null &&
-                  binMarkers.value.isEmpty) {
-                AppLogger.map('🎨 Adding bin markers to map (one-time operation)...');
+              if (binsAsync.hasValue && mapController.value != null) {
+                AppLogger.map('🎨 Syncing bin markers with current bin list...');
 
                 () async {
                   try {
-                    final binMarkerOptions = <MarkerOptions>[];
-                    final bins = <Bin>[];
-
                     await binsAsync.whenOrNull(
                       data: (binsList) async {
                         // Filter bins with valid coordinates
@@ -194,77 +189,138 @@ class ManagerMapPage extends HookConsumerWidget {
                                 bin.latitude != null && bin.longitude != null)
                             .toList();
 
-                        for (final bin in validBins) {
-                          // Create custom bin marker icon
-                          final icon =
-                              await GoogleNavigationMarkerService.createBinMarkerIcon(
-                            bin.binNumber,
-                            bin.fillPercentage ?? 0,
-                          );
+                        // Get current bin IDs from provider
+                        final currentBinIds = validBins.map((b) => b.id).toSet();
 
-                          binMarkerOptions.add(
-                            MarkerOptions(
-                              position: LatLng(
-                                latitude: bin.latitude!,
-                                longitude: bin.longitude!,
-                              ),
-                              icon: icon,
-                              anchor: const MarkerAnchor(u: 0.5, v: 0.5),
-                              zIndex: 9999.0,
-                              consumeTapEvents: true,
-                              infoWindow: InfoWindow(
-                                title: 'Bin #${bin.binNumber}',
-                                snippet:
-                                    '${bin.currentStreet} - ${bin.fillPercentage ?? 0}% full',
-                              ),
-                            ),
-                          );
-                          bins.add(bin);
+                        // Get existing bin IDs that already have markers
+                        final existingBinIds = binMarkersMap.value.values.map((b) => b.id).toSet();
+
+                        // Find bins to remove (have markers but not in current list)
+                        final binsToRemove = existingBinIds.difference(currentBinIds);
+
+                        // Find new bins that don't have markers yet
+                        final newBins = validBins
+                            .where((bin) => !existingBinIds.contains(bin.id))
+                            .toList();
+
+                        // Remove deleted bin markers
+                        if (binsToRemove.isNotEmpty) {
+                          AppLogger.map('   🗑️ Removing ${binsToRemove.length} deleted bin markers');
+
+                          // Find markers to remove
+                          final markersToRemove = binMarkersMap.value.entries
+                              .where((entry) => binsToRemove.contains(entry.value.id))
+                              .map((entry) => binMarkers.value.firstWhere(
+                                    (marker) => marker.markerId == entry.key,
+                                  ))
+                              .toList();
+
+                          // Remove from map
+                          await mapController.value!.removeMarkers(markersToRemove);
+
+                          // Update state - remove from both lists
+                          final updatedMarkers = binMarkers.value
+                              .where((marker) => !markersToRemove.contains(marker))
+                              .toList();
+                          final updatedMarkerMap = Map<String, Bin>.from(binMarkersMap.value);
+                          for (final binId in binsToRemove) {
+                            updatedMarkerMap.removeWhere((_, bin) => bin.id == binId);
+                          }
+
+                          binMarkers.value = updatedMarkers;
+                          binMarkersMap.value = updatedMarkerMap;
+
+                          AppLogger.map('   ✅ Removed ${markersToRemove.length} bin markers (remaining: ${updatedMarkers.length})');
                         }
 
-                        // Add markers to map and get back Marker objects with stable IDs
-                        final addedMarkers = await mapController.value!.addMarkers(binMarkerOptions);
-
-                        // Filter out nulls and create markerId → Bin map
-                        final markers = addedMarkers.whereType<Marker>().toList();
-                        final markerMap = <String, Bin>{};
-                        for (int i = 0; i < markers.length; i++) {
-                          markerMap[markers[i].markerId] = bins[i];
+                        if (newBins.isEmpty && binsToRemove.isEmpty) {
+                          AppLogger.map('   No changes needed (${validBins.length} total bins, all synced)');
+                          return;
                         }
 
-                        binMarkers.value = markers;
-                        binMarkersMap.value = markerMap;
+                        if (newBins.isNotEmpty) {
+                          AppLogger.map('   ➕ Adding ${newBins.length} new bin markers (${existingBinIds.length} existing)');
 
-                        AppLogger.map('✅ Added ${markers.length} bin markers with stable IDs');
+                          final binMarkerOptions = <MarkerOptions>[];
+                          final binsToAdd = <Bin>[];
+
+                          for (final bin in newBins) {
+                            // Create custom bin marker icon
+                            final icon =
+                                await GoogleNavigationMarkerService.createBinMarkerIcon(
+                              bin.binNumber,
+                              bin.fillPercentage ?? 0,
+                            );
+
+                            binMarkerOptions.add(
+                              MarkerOptions(
+                                position: LatLng(
+                                  latitude: bin.latitude!,
+                                  longitude: bin.longitude!,
+                                ),
+                                icon: icon,
+                                anchor: const MarkerAnchor(u: 0.5, v: 0.5),
+                                zIndex: 9999.0,
+                                consumeTapEvents: true,
+                                infoWindow: InfoWindow(
+                                  title: 'Bin #${bin.binNumber}',
+                                  snippet:
+                                      '${bin.currentStreet} - ${bin.fillPercentage ?? 0}% full',
+                                ),
+                              ),
+                            );
+                            binsToAdd.add(bin);
+                          }
+
+                          // Add new markers to map
+                          final addedMarkers = await mapController.value!.addMarkers(binMarkerOptions);
+
+                          // Filter out nulls
+                          final newMarkers = addedMarkers.whereType<Marker>().toList();
+
+                          // Update state by appending new markers to existing ones
+                          final updatedMarkers = [...binMarkers.value, ...newMarkers];
+                          final updatedMarkerMap = {...binMarkersMap.value};
+
+                          for (int i = 0; i < newMarkers.length; i++) {
+                            updatedMarkerMap[newMarkers[i].markerId] = binsToAdd[i];
+                          }
+
+                          binMarkers.value = updatedMarkers;
+                          binMarkersMap.value = updatedMarkerMap;
+
+                          AppLogger.map('   ✅ Added ${newMarkers.length} new bin markers (total: ${updatedMarkers.length})');
+                        }
                       },
                     );
                   } catch (e) {
-                    AppLogger.map('❌ Failed to add bin markers: $e');
+                    AppLogger.map('❌ Failed to sync bin markers: $e');
                   }
                 }();
               }
               return null;
             },
-            [binsAsync.hasValue, mapController.value != null],
+            [binsAsync.hasValue, mapController.value != null, binsAsync],
           );
 
-          // Effect 1b: Add/update potential location markers ONLY when location IDs change
-          // Create a stable key based on location IDs to avoid retriggering on AsyncValue rebuilds
-          final locationIdsKey = potentialLocationsAsync.maybeWhen(
-            data: (locations) => locations
-                .where((loc) =>
-                    loc.convertedToBinId == null &&
-                    loc.latitude != null &&
-                    loc.longitude != null)
-                .map((loc) => loc.id)
-                .join(','),
-            orElse: () => '',
-          );
+          // Effect 1b: Add/update potential location markers when provider data changes
+          // Extract data directly for dependency tracking
+          final potentialLocationsData = potentialLocationsAsync.valueOrNull;
+          final potentialLocationsCount = potentialLocationsData?.length ?? 0;
+
+          AppLogger.map('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+          AppLogger.map('🔑 LOCATION MARKERS DEPENDENCY CHECK');
+          AppLogger.map('   potentialLocationsCount: $potentialLocationsCount');
+          AppLogger.map('   Pending locations: ${potentialLocationsData?.where((loc) => loc.convertedToBinId == null).length ?? 0}');
+          AppLogger.map('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
 
           useEffect(
             () {
-              if (potentialLocationsAsync.hasValue && mapController.value != null && locationIdsKey.isNotEmpty) {
-                AppLogger.map('🎨 Managing potential location markers (location list changed)...');
+              if (potentialLocationsAsync.hasValue && mapController.value != null) {
+                AppLogger.map('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+                AppLogger.map('🔄 POTENTIAL LOCATION MARKERS EFFECT TRIGGERED');
+                AppLogger.map('   Provider has value: ${potentialLocationsAsync.hasValue}');
+                AppLogger.map('   Map controller exists: ${mapController.value != null}');
 
                 () async {
                   try {
@@ -273,6 +329,8 @@ class ManagerMapPage extends HookConsumerWidget {
 
                     await potentialLocationsAsync.whenOrNull(
                       data: (locationsList) async {
+                        AppLogger.map('   Total locations in provider: ${locationsList.length}');
+
                         // Only show pending locations (not converted ones)
                         final pendingLocations = locationsList
                             .where((loc) =>
@@ -280,6 +338,9 @@ class ManagerMapPage extends HookConsumerWidget {
                                 loc.latitude != null &&
                                 loc.longitude != null)
                             .toList();
+
+                        AppLogger.map('   Pending locations: ${pendingLocations.length}');
+                        AppLogger.map('   Pending IDs: ${pendingLocations.map((l) => l.id).join(", ")}');
 
                         for (final location in pendingLocations) {
                           // Create custom marker icon
@@ -310,11 +371,13 @@ class ManagerMapPage extends HookConsumerWidget {
 
                         // Remove old location markers if any exist
                         if (locationMarkers.value.isNotEmpty) {
-                          AppLogger.map('   Removing ${locationMarkers.value.length} old location markers');
+                          AppLogger.map('   🗑️ Removing ${locationMarkers.value.length} old location markers from map');
                           await mapController.value!.removeMarkers(locationMarkers.value);
+                          AppLogger.map('   ✅ Old markers removed');
                         }
 
                         // Add new markers to map
+                        AppLogger.map('   ➕ Adding ${locationMarkerOptions.length} new markers to map');
                         final addedMarkers = await mapController.value!.addMarkers(locationMarkerOptions);
 
                         // Filter out nulls and create markerId → Location map
@@ -327,7 +390,9 @@ class ManagerMapPage extends HookConsumerWidget {
                         locationMarkers.value = markers;
                         locationMarkersMap.value = markerMap;
 
-                        AppLogger.map('✅ Managed ${markers.length} potential location markers with stable IDs');
+                        AppLogger.map('✅ POTENTIAL LOCATION MARKERS UPDATED');
+                        AppLogger.map('   Final marker count: ${markers.length}');
+                        AppLogger.map('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
                       },
                     );
                   } catch (e) {
@@ -337,7 +402,7 @@ class ManagerMapPage extends HookConsumerWidget {
               }
               return null;
             },
-            [locationIdsKey, mapController.value != null], // Only retrigger when location IDs change!
+            [potentialLocationsCount, mapController.value != null], // Depend on count change!
           );
 
           // Effect 2: Start animations when driver positions change

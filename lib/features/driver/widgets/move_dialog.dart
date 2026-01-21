@@ -33,6 +33,13 @@ class MoveDialog extends HookConsumerWidget {
     final selectedUserId = useState<String?>(null);
     final selectedShiftId = useState<String?>(null);
 
+    // Check if active shifts are available
+    final driversAsync = ref.watch(driversNotifierProvider);
+    final hasActiveShifts = driversAsync.maybeWhen(
+      data: (drivers) => drivers.where((d) => d.status == ShiftStatus.active).isNotEmpty,
+      orElse: () => false,
+    );
+
     return Dialog(
       backgroundColor: Colors.transparent,
       insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 60),
@@ -306,7 +313,8 @@ class MoveDialog extends HookConsumerWidget {
                   Expanded(
                     flex: 2,
                     child: ElevatedButton(
-                      onPressed: isSubmitting.value
+                      onPressed: isSubmitting.value ||
+                              (assignmentType.value == 'shift' && !hasActiveShifts)
                           ? null
                           : () async {
                               if (streetController.text.trim().isEmpty) {
@@ -520,19 +528,12 @@ class MoveDialog extends HookConsumerWidget {
                                 color: Colors.white,
                               ),
                             )
-                          : const Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(Icons.check_rounded, size: 18),
-                                SizedBox(width: 8),
-                                Text(
-                                  'Move Bin',
-                                  style: TextStyle(
-                                    fontSize: 15,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ],
+                          : const Text(
+                              'Move Bin',
+                              style: TextStyle(
+                                fontSize: 15,
+                                fontWeight: FontWeight.bold,
+                              ),
                             ),
                     ),
                   ),
@@ -598,7 +599,7 @@ class MoveDialog extends HookConsumerWidget {
               fillColor: Colors.white,
               contentPadding: const EdgeInsets.symmetric(
                 horizontal: 16,
-                vertical: 16,
+                vertical: 12,
               ),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(14),
@@ -830,7 +831,7 @@ class MoveDialog extends HookConsumerWidget {
               fillColor: Colors.white,
               contentPadding: const EdgeInsets.symmetric(
                 horizontal: 16,
-                vertical: 16,
+                vertical: 12,
               ),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(14),

@@ -1047,6 +1047,7 @@ class MoveDialog extends HookConsumerWidget {
               child: DropdownButtonFormField<String>(
                 value: selectedUserId.value,
                 isExpanded: true,
+                menuMaxHeight: 250,
                 decoration: InputDecoration(
                   hintText: 'Choose a user...',
                   hintStyle: TextStyle(
@@ -1108,42 +1109,41 @@ class MoveDialog extends HookConsumerWidget {
                     value: userId,
                     child: Row(
                       children: [
-                        Container(
-                          padding: const EdgeInsets.all(6),
-                          decoration: BoxDecoration(
-                            color: roleColor.withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Icon(
-                            roleIcon,
-                            size: 16,
-                            color: roleColor,
-                          ),
+                        Icon(
+                          roleIcon,
+                          size: 18,
+                          color: roleColor,
                         ),
                         const SizedBox(width: 10),
                         Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Text(
-                                userName,
-                                style: const TextStyle(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w600,
-                                  color: Colors.black87,
-                                ),
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                              Text(
-                                userRole.toUpperCase(),
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w500,
-                                  color: roleColor,
-                                ),
-                              ),
-                            ],
+                          child: Text(
+                            userName,
+                            style: const TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w500,
+                              color: Colors.black87,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            color: roleColor.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Text(
+                            userRole.toUpperCase(),
+                            style: TextStyle(
+                              fontSize: 9,
+                              fontWeight: FontWeight.bold,
+                              color: roleColor,
+                              letterSpacing: 0.5,
+                            ),
                           ),
                         ),
                       ],

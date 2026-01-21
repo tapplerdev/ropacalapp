@@ -833,81 +833,107 @@ class MoveDialog extends HookConsumerWidget {
         ),
         const SizedBox(height: 8),
         Container(
+          padding: const EdgeInsets.all(4),
           decoration: BoxDecoration(
             color: Colors.grey.shade100,
             borderRadius: BorderRadius.circular(12),
             border: Border.all(color: Colors.grey.shade200),
           ),
-          child: Row(
+          child: Stack(
             children: [
-              Expanded(
-                child: GestureDetector(
-                  onTap: () => assignmentType.value = 'shift',
+              // Animated sliding indicator
+              AnimatedAlign(
+                duration: const Duration(milliseconds: 200),
+                curve: Curves.easeInOut,
+                alignment: assignmentType.value == 'shift'
+                    ? Alignment.centerLeft
+                    : Alignment.centerRight,
+                child: FractionallySizedBox(
+                  widthFactor: 0.5,
                   child: Container(
-                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    height: 44,
                     decoration: BoxDecoration(
-                      color: assignmentType.value == 'shift'
-                          ? Colors.blue.shade600
-                          : Colors.transparent,
+                      color: AppColors.primaryGreen,
                       borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text(
-                          '🚛',
-                          style: const TextStyle(fontSize: 16),
-                        ),
-                        const SizedBox(width: 6),
-                        Text(
-                          'Assign to Shift',
-                          style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.bold,
-                            color: assignmentType.value == 'shift'
-                                ? Colors.white
-                                : Colors.grey.shade700,
-                          ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: AppColors.primaryGreen.withValues(alpha: 0.3),
+                          blurRadius: 8,
+                          offset: const Offset(0, 2),
                         ),
                       ],
                     ),
                   ),
                 ),
               ),
-              const SizedBox(width: 4),
-              Expanded(
-                child: GestureDetector(
-                  onTap: () => assignmentType.value = 'manual',
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    decoration: BoxDecoration(
-                      color: assignmentType.value == 'manual'
-                          ? Colors.amber.shade700
-                          : Colors.transparent,
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text(
-                          '👤',
-                          style: const TextStyle(fontSize: 16),
+              // Toggle options
+              Row(
+                children: [
+                  Expanded(
+                    child: GestureDetector(
+                      onTap: () => assignmentType.value = 'shift',
+                      child: Container(
+                        height: 44,
+                        decoration: BoxDecoration(
+                          color: Colors.transparent,
+                          borderRadius: BorderRadius.circular(10),
                         ),
-                        const SizedBox(width: 6),
-                        Text(
-                          'Assign to User',
-                          style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.bold,
-                            color: assignmentType.value == 'manual'
-                                ? Colors.white
-                                : Colors.grey.shade700,
-                          ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(
+                              '🚛',
+                              style: const TextStyle(fontSize: 16),
+                            ),
+                            const SizedBox(width: 6),
+                            Text(
+                              'Assign to Shift',
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.bold,
+                                color: assignmentType.value == 'shift'
+                                    ? Colors.white
+                                    : Colors.grey.shade700,
+                              ),
+                            ),
+                          ],
                         ),
-                      ],
+                      ),
                     ),
                   ),
-                ),
+                  Expanded(
+                    child: GestureDetector(
+                      onTap: () => assignmentType.value = 'manual',
+                      child: Container(
+                        height: 44,
+                        decoration: BoxDecoration(
+                          color: Colors.transparent,
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(
+                              '👤',
+                              style: const TextStyle(fontSize: 16),
+                            ),
+                            const SizedBox(width: 6),
+                            Text(
+                              'Assign to User',
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.bold,
+                                color: assignmentType.value == 'manual'
+                                    ? Colors.white
+                                    : Colors.grey.shade700,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ],
           ),

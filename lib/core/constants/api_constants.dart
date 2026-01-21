@@ -25,6 +25,9 @@ class ApiConstants {
   static String moveHistoryEndpoint(String id) => '/api/bins/$id/moves';
   static String checkHistoryEndpoint(String id) => '/api/bins/$id/checks';
 
+  // Potential locations endpoints
+  static const String potentialLocationsEndpoint = '/api/potential-locations';
+
   // Route optimization
   static const String routeEndpoint = '/api/route';
 }

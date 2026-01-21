@@ -238,6 +238,111 @@ class GoogleNavigationMarkerService {
     }
   }
 
+  /// Create custom potential location marker icon
+  static Future<ImageDescriptor> createPotentialLocationMarkerIcon({
+    bool isPending = true,
+    bool withPulse = false,
+  }) async {
+    try {
+      AppLogger.navigation(
+        '📍 Creating potential location marker (pending: $isPending)',
+      );
+
+      final recorder = ui.PictureRecorder();
+      final canvas = Canvas(recorder);
+      const canvasSize = 120.0;
+      const renderScale = 3.0;
+
+      final pinHeight = 50.0 * renderScale;
+      final circleRadius = 18.0 * renderScale;
+
+      final center = Offset(
+        canvasSize * renderScale / 2,
+        circleRadius + 5.0 * renderScale,
+      );
+
+      // Pin color: Orange for pending, gray for converted
+      final pinColor = isPending
+          ? const Color(0xFFFF9500) // iOS orange
+          : Colors.grey.shade600;
+
+      // Draw pulse effect for pending locations
+      if (isPending && withPulse) {
+        final pulsePaint = Paint()
+          ..color = pinColor.withValues(alpha: 0.2)
+          ..style = PaintingStyle.fill;
+        canvas.drawCircle(center, circleRadius * 1.6, pulsePaint);
+      }
+
+      // Draw pin shape (circle + teardrop)
+      final pinPaint = Paint()
+        ..color = pinColor
+        ..style = PaintingStyle.fill;
+
+      // Draw circle part
+      canvas.drawCircle(center, circleRadius, pinPaint);
+
+      // Draw teardrop/point part
+      final path = Path();
+      path.moveTo(center.dx, center.dy + circleRadius);
+      path.lineTo(center.dx - circleRadius * 0.5, center.dy + circleRadius);
+      path.lineTo(center.dx, center.dy + pinHeight - circleRadius);
+      path.lineTo(center.dx + circleRadius * 0.5, center.dy + circleRadius);
+      path.close();
+      canvas.drawPath(path, pinPaint);
+
+      // Draw white border around circle
+      final borderPaint = Paint()
+        ..color = Colors.white
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 3.0 * renderScale;
+      canvas.drawCircle(center, circleRadius - 1.5 * renderScale, borderPaint);
+
+      // Draw icon inside (add location icon)
+      final iconSize = 16.0 * renderScale;
+      final iconPaint = Paint()
+        ..color = Colors.white
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2.0 * renderScale
+        ..strokeCap = StrokeCap.round;
+
+      // Draw plus sign
+      canvas.drawLine(
+        Offset(center.dx, center.dy - iconSize / 3),
+        Offset(center.dx, center.dy + iconSize / 3),
+        iconPaint,
+      );
+      canvas.drawLine(
+        Offset(center.dx - iconSize / 3, center.dy),
+        Offset(center.dx + iconSize / 3, center.dy),
+        iconPaint,
+      );
+
+      final picture = recorder.endRecording();
+      final image = await picture.toImage(
+        (canvasSize * renderScale).toInt(),
+        (canvasSize * renderScale).toInt(),
+      );
+      final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
+
+      if (bytes == null) {
+        throw Exception('Failed to create potential location marker icon');
+      }
+
+      final registeredImage = await registerBitmapImage(
+        bitmap: bytes,
+        imagePixelRatio: 3.0,
+      );
+
+      AppLogger.navigation('✅ Potential location marker created');
+      return registeredImage;
+    } catch (e, stack) {
+      AppLogger.navigation('❌ Error creating potential location marker: $e');
+      AppLogger.navigation('Stack: $stack');
+      rethrow;
+    }
+  }
+
   /// Get fill color based on fill percentage
   static Color getFillColor(int fillPercentage) {
     if (fillPercentage >= 80) {

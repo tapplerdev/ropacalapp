@@ -13,6 +13,7 @@ import 'package:ropacalapp/features/driver/route_detail_page.dart';
 import 'package:ropacalapp/features/manager/active_drivers_list_page.dart';
 import 'package:ropacalapp/features/manager/driver_shift_detail_page.dart';
 import 'package:ropacalapp/features/manager/driver_detail_page.dart';
+import 'package:ropacalapp/features/manager/potential_locations_page.dart';
 import 'package:ropacalapp/providers/auth_provider.dart';
 
 // Placeholder page for admin dashboard (will be implemented in Phase 4)
@@ -188,6 +189,11 @@ final goRouterProvider = Provider<GoRouter>((ref) {
         path: '/manager/active-drivers',
         name: 'active-drivers',
         builder: (context, state) => const ActiveDriversListPage(),
+      ),
+      GoRoute(
+        path: '/manager/potential-locations',
+        name: 'potential-locations',
+        builder: (context, state) => const PotentialLocationsPage(),
       ),
       GoRoute(
         path: '/manager/drivers/:driverId',

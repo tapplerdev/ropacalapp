@@ -82,20 +82,16 @@ class LoginPage extends HookConsumerWidget {
         AppLogger.general('⚠️  Failed to start background tracking: $e');
       }
 
-      // COMMENTED OUT: preloadRoute functionality not needed with Google Navigation SDK
-      // Google Navigation handles all routing internally
-      // try {
-      //   final success = await ref
-      //       .read(shiftNotifierProvider.notifier)
-      //       .preloadRoute();
-      //   if (success) {
-      //     AppLogger.general('✅ Route pre-loaded successfully, navigating to home');
-      //   } else {
-      //     AppLogger.general('⚠️  Route pre-load failed, navigating anyway');
-      //   }
-      // } catch (e) {
-      //   AppLogger.general('❌ Pre-load error: $e');
-      // }
+      // Fetch current shift from backend after login
+      // This ensures we have the latest shift state (not cached data)
+      try {
+        AppLogger.general('🔄 Fetching current shift from backend...');
+        await ref.read(shiftNotifierProvider.notifier).fetchCurrentShift();
+        AppLogger.general('✅ Current shift fetched successfully');
+      } catch (e) {
+        AppLogger.general('❌ Failed to fetch current shift: $e');
+        // Continue to home page anyway - shift will be inactive
+      }
 
       // Navigate directly to home
       if (context.mounted) {

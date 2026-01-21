@@ -7,12 +7,17 @@ import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:ropacalapp/providers/drivers_provider.dart';
 import 'package:ropacalapp/providers/bins_provider.dart';
 import 'package:ropacalapp/providers/focused_driver_provider.dart';
+import 'package:ropacalapp/providers/potential_locations_list_provider.dart';
 import 'package:ropacalapp/models/active_driver.dart';
 import 'package:ropacalapp/models/shift_state.dart';
+import 'package:ropacalapp/models/potential_location.dart';
+import 'package:ropacalapp/models/bin.dart';
 import 'package:ropacalapp/core/utils/app_logger.dart';
 import 'package:ropacalapp/providers/location_provider.dart';
 import 'package:ropacalapp/features/driver/widgets/circular_map_button.dart';
 import 'package:ropacalapp/features/driver/notifications_page.dart';
+import 'package:ropacalapp/features/driver/widgets/bin_details_bottom_sheet.dart';
+import 'package:ropacalapp/features/manager/widgets/potential_location_bottom_sheet.dart';
 import 'package:ropacalapp/core/services/google_navigation_marker_service.dart';
 import 'package:ropacalapp/core/services/marker_animation_service.dart';
 import 'package:ropacalapp/core/theme/app_colors.dart';
@@ -38,6 +43,9 @@ class ManagerMapPage extends HookConsumerWidget {
 
     final binsAsync = ref.watch(binsListProvider);
     AppLogger.general('   📦 binsAsync: ${binsAsync.runtimeType}, hasValue: ${binsAsync.hasValue}, valueOrNull?.length: ${binsAsync.valueOrNull?.length}');
+
+    final potentialLocationsAsync = ref.watch(potentialLocationsListNotifierProvider);
+    AppLogger.general('   📍 potentialLocationsAsync: ${potentialLocationsAsync.runtimeType}, hasValue: ${potentialLocationsAsync.hasValue}, valueOrNull?.length: ${potentialLocationsAsync.valueOrNull?.length}');
 
     final locationState = ref.watch(currentLocationProvider);
     AppLogger.general('   📍 locationState: ${locationState.runtimeType}, hasValue: ${locationState.hasValue}');
@@ -98,11 +106,24 @@ class ManagerMapPage extends HookConsumerWidget {
     AppLogger.general('✅ Initial data loaded - proceeding with map render');
 
     final mapController = useState<GoogleNavigationViewController?>(null);
-    final cachedBinMarkers = useState<List<MarkerOptions>?>(null);
-    // Cache driver marker icons to avoid recreating them (performance optimization)
+
+    // Bin markers (added once, never cleared)
+    final binMarkers = useState<List<Marker>>([]);
+    final binMarkersMap = useState<Map<String, Bin>>({}); // markerId → Bin
+
+    // Potential location markers (added once, updated when list changes)
+    final locationMarkers = useState<List<Marker>>([]);
+    final locationMarkersMap = useState<Map<String, PotentialLocation>>({}); // markerId → Location
+
+    // Driver markers (updated at 60fps during animation)
+    final driverMarkers = useState<Map<String, Marker>>({}); // driverId → Marker
+
+    // Cache driver marker icons to avoid recreating them
     final cachedDriverIcons = useState<Map<String, ImageDescriptor>>({});
+
     // Track current driver positions for animation
     final currentDriverPositions = useState<Map<String, LatLng>>({});
+
     // Track the last programmatic camera target (for detecting manual pan/zoom)
     final lastProgrammaticTarget = useState<LatLng?>(null);
 
@@ -152,20 +173,23 @@ class ManagerMapPage extends HookConsumerWidget {
             [drivers],
           );
 
-          // Effect 1: Cache bin markers ONCE when bins first load
+          // Effect 1a: Add bin markers ONCE when bins load and map is ready
           useEffect(
             () {
-              if (binsAsync.hasValue && cachedBinMarkers.value == null) {
-                AppLogger.map('🎨 Creating bin markers cache (one-time operation)...');
+              if (binsAsync.hasValue &&
+                  mapController.value != null &&
+                  binMarkers.value.isEmpty) {
+                AppLogger.map('🎨 Adding bin markers to map (one-time operation)...');
 
                 () async {
                   try {
                     final binMarkerOptions = <MarkerOptions>[];
+                    final bins = <Bin>[];
 
                     await binsAsync.whenOrNull(
-                      data: (bins) async {
+                      data: (binsList) async {
                         // Filter bins with valid coordinates
-                        final validBins = bins
+                        final validBins = binsList
                             .where((bin) =>
                                 bin.latitude != null && bin.longitude != null)
                             .toList();
@@ -195,21 +219,125 @@ class ManagerMapPage extends HookConsumerWidget {
                               ),
                             ),
                           );
+                          bins.add(bin);
                         }
 
-                        AppLogger.map('✅ Cached ${validBins.length} bin markers (will reuse for all updates)');
+                        // Add markers to map and get back Marker objects with stable IDs
+                        final addedMarkers = await mapController.value!.addMarkers(binMarkerOptions);
+
+                        // Filter out nulls and create markerId → Bin map
+                        final markers = addedMarkers.whereType<Marker>().toList();
+                        final markerMap = <String, Bin>{};
+                        for (int i = 0; i < markers.length; i++) {
+                          markerMap[markers[i].markerId] = bins[i];
+                        }
+
+                        binMarkers.value = markers;
+                        binMarkersMap.value = markerMap;
+
+                        AppLogger.map('✅ Added ${markers.length} bin markers with stable IDs');
                       },
                     );
-
-                    cachedBinMarkers.value = binMarkerOptions;
                   } catch (e) {
-                    AppLogger.map('❌ Failed to cache bin markers: $e');
+                    AppLogger.map('❌ Failed to add bin markers: $e');
                   }
                 }();
               }
               return null;
             },
-            [binsAsync.hasValue],
+            [binsAsync.hasValue, mapController.value != null],
+          );
+
+          // Effect 1b: Add/update potential location markers ONLY when location IDs change
+          // Create a stable key based on location IDs to avoid retriggering on AsyncValue rebuilds
+          final locationIdsKey = potentialLocationsAsync.maybeWhen(
+            data: (locations) => locations
+                .where((loc) =>
+                    loc.convertedToBinId == null &&
+                    loc.latitude != null &&
+                    loc.longitude != null)
+                .map((loc) => loc.id)
+                .join(','),
+            orElse: () => '',
+          );
+
+          useEffect(
+            () {
+              if (potentialLocationsAsync.hasValue && mapController.value != null && locationIdsKey.isNotEmpty) {
+                AppLogger.map('🎨 Managing potential location markers (location list changed)...');
+
+                () async {
+                  try {
+                    final locationMarkerOptions = <MarkerOptions>[];
+                    final locations = <PotentialLocation>[];
+
+                    await potentialLocationsAsync.whenOrNull(
+                      data: (locationsList) async {
+                        // Only show pending locations (not converted ones)
+                        final pendingLocations = locationsList
+                            .where((loc) =>
+                                loc.convertedToBinId == null &&
+                                loc.latitude != null &&
+                                loc.longitude != null)
+                            .toList();
+
+                        for (final location in pendingLocations) {
+                          // Create custom marker icon
+                          final icon = await GoogleNavigationMarkerService
+                              .createPotentialLocationMarkerIcon(
+                            isPending: true,
+                            withPulse: false,
+                          );
+
+                          locationMarkerOptions.add(
+                            MarkerOptions(
+                              position: LatLng(
+                                latitude: location.latitude!,
+                                longitude: location.longitude!,
+                              ),
+                              icon: icon,
+                              anchor: const MarkerAnchor(u: 0.5, v: 1.0), // Bottom center (pin point)
+                              zIndex: 9998.0, // Below bins but above Google markers
+                              consumeTapEvents: true,
+                              infoWindow: InfoWindow(
+                                title: 'Potential Location',
+                                snippet: '${location.street}, ${location.city}',
+                              ),
+                            ),
+                          );
+                          locations.add(location);
+                        }
+
+                        // Remove old location markers if any exist
+                        if (locationMarkers.value.isNotEmpty) {
+                          AppLogger.map('   Removing ${locationMarkers.value.length} old location markers');
+                          await mapController.value!.removeMarkers(locationMarkers.value);
+                        }
+
+                        // Add new markers to map
+                        final addedMarkers = await mapController.value!.addMarkers(locationMarkerOptions);
+
+                        // Filter out nulls and create markerId → Location map
+                        final markers = addedMarkers.whereType<Marker>().toList();
+                        final markerMap = <String, PotentialLocation>{};
+                        for (int i = 0; i < markers.length; i++) {
+                          markerMap[markers[i].markerId] = locations[i];
+                        }
+
+                        locationMarkers.value = markers;
+                        locationMarkersMap.value = markerMap;
+
+                        AppLogger.map('✅ Managed ${markers.length} potential location markers with stable IDs');
+                      },
+                    );
+                  } catch (e) {
+                    AppLogger.map('❌ Failed to manage potential location markers: $e');
+                  }
+                }();
+              }
+              return null;
+            },
+            [locationIdsKey, mapController.value != null], // Only retrigger when location IDs change!
           );
 
           // Effect 2: Start animations when driver positions change
@@ -294,7 +422,7 @@ class ManagerMapPage extends HookConsumerWidget {
               }
 
               if (focusedDriver != null && focusedDriver.currentLocation != null) {
-                final location = focusedDriver!.currentLocation!;
+                final location = focusedDriver.currentLocation!;
                 final targetPosition = LatLng(
                   latitude: location.latitude,
                   longitude: location.longitude,
@@ -410,19 +538,123 @@ class ManagerMapPage extends HookConsumerWidget {
             [isFollowing, mapController.value],
           );
 
-          // Effect 4: Update markers (continuously during animation, or once when animation completes)
-          // CRITICAL: Only depends on animation state, not activeDrivers positions
-          // This prevents constant retriggering on position updates
+          // Effect 3a: Manage driver marker lifecycle (add/remove when driver list changes)
           useEffect(
             () {
-              if (mapController.value == null || cachedBinMarkers.value == null) {
+              if (mapController.value == null) {
                 return null;
               }
 
-              AppLogger.map('🔧 Effect 3: Setting up marker update logic (hasActiveAnimations=$hasActiveAnimations)');
+              // Get list of current driver IDs
+              final currentDriverIds = activeDrivers.map((d) => d.driverId).toSet();
+              final existingDriverIds = driverMarkers.value.keys.toSet();
 
-              // Function to update markers on map
-              Future<void> updateMarkersOnMap() async {
+              () async {
+                try {
+                  // Find new drivers (in current but not in existing)
+                  final newDriverIds = currentDriverIds.difference(existingDriverIds);
+
+                  // Find removed drivers (in existing but not in current)
+                  final removedDriverIds = existingDriverIds.difference(currentDriverIds);
+
+                  // Remove markers for offline drivers
+                  if (removedDriverIds.isNotEmpty) {
+                    final markersToRemove = removedDriverIds
+                        .map((id) => driverMarkers.value[id])
+                        .whereType<Marker>()
+                        .toList();
+
+                    if (markersToRemove.isNotEmpty) {
+                      await mapController.value!.removeMarkers(markersToRemove);
+                      AppLogger.map('🗑️ Removed ${markersToRemove.length} offline driver markers');
+                    }
+
+                    // Update driver markers map
+                    final updatedMap = Map<String, Marker>.from(driverMarkers.value);
+                    for (final id in removedDriverIds) {
+                      updatedMap.remove(id);
+                    }
+                    driverMarkers.value = updatedMap;
+                  }
+
+                  // Add markers for new drivers
+                  if (newDriverIds.isNotEmpty) {
+                    final newMarkerOptions = <MarkerOptions>[];
+                    final newDriversList = <ActiveDriver>[];
+
+                    for (final driverId in newDriverIds) {
+                      final driver = activeDrivers.firstWhere((d) => d.driverId == driverId);
+                      final location = driver.currentLocation!;
+
+                      // Create driver icon
+                      final icon = await GoogleNavigationMarkerService.createDriverMarkerIcon(
+                        driver.driverName,
+                        isFocused: false,
+                        isPulsing: false,
+                      );
+
+                      // Cache the icon
+                      cachedDriverIcons.value = {
+                        ...cachedDriverIcons.value,
+                        driverId: icon,
+                      };
+
+                      newMarkerOptions.add(
+                        MarkerOptions(
+                          position: LatLng(
+                            latitude: location.latitude,
+                            longitude: location.longitude,
+                          ),
+                          infoWindow: InfoWindow(
+                            title: driver.driverName,
+                            snippet: '${driver.completedBins ?? 0}/${driver.totalBins ?? 0} bins completed',
+                          ),
+                          icon: icon,
+                          anchor: const MarkerAnchor(u: 0.5, v: 0.5),
+                          flat: true,
+                          zIndex: 10000.0,
+                        ),
+                      );
+                      newDriversList.add(driver);
+                    }
+
+                    // Add new markers to map
+                    final addedMarkers = await mapController.value!.addMarkers(newMarkerOptions);
+
+                    // Store markers with driver IDs
+                    final updatedMap = Map<String, Marker>.from(driverMarkers.value);
+                    for (int i = 0; i < addedMarkers.length; i++) {
+                      final marker = addedMarkers[i];
+                      if (marker != null) {
+                        updatedMap[newDriversList[i].driverId] = marker;
+                      }
+                    }
+                    driverMarkers.value = updatedMap;
+
+                    AppLogger.map('➕ Added ${addedMarkers.length} new driver markers');
+                  }
+                } catch (e) {
+                  AppLogger.map('❌ Error managing driver markers: $e');
+                }
+              }();
+
+              return null;
+            },
+            [activeDrivers.map((d) => d.driverId).join(','), mapController.value],
+          );
+
+          // Effect 4: Update driver marker positions at 60fps (using updateMarkers)
+          // This only updates positions, never adds/removes markers
+          useEffect(
+            () {
+              if (mapController.value == null || driverMarkers.value.isEmpty) {
+                return null;
+              }
+
+              AppLogger.map('🔧 Effect 4: Setting up driver position update logic (hasActiveAnimations=$hasActiveAnimations)');
+
+              // Function to update driver marker positions
+              Future<void> updateDriverPositions() async {
                 // Prevent concurrent updates
                 if (isUpdatingMarkers.value) {
                   return;
@@ -430,14 +662,17 @@ class ManagerMapPage extends HookConsumerWidget {
 
                 try {
                   isUpdatingMarkers.value = true;
-                  final allMarkerOptions = <MarkerOptions>[];
 
                   // Get current positions (either animated or final)
                   final interpolatedPositions = animationService.getInterpolatedPositions();
 
-                  // IMPORTANT: Get activeDrivers from current state, not from dependency
-                  // This allows us to get latest driver data without retriggering effect
+                  // Create updated markers for each driver
+                  final updatedMarkers = <Marker>[];
+
                   for (final driver in activeDrivers) {
+                    final existingMarker = driverMarkers.value[driver.driverId];
+                    if (existingMarker == null) continue; // Skip if marker not yet added
+
                     final location = driver.currentLocation!;
                     final isFocused = driver.driverId == focusedDriverId;
 
@@ -449,19 +684,17 @@ class ManagerMapPage extends HookConsumerWidget {
                         );
 
                     // Get or create cached driver icon
-                    // For focused driver, create a highlighted version
-                    // For following driver, create a pulsing version
                     final isFollowingThisDriver = driver.driverId == focusedDriverId && isFollowing;
                     final cacheKey = isFollowingThisDriver
                         ? '${driver.driverId}_following'
                         : isFocused
                             ? '${driver.driverId}_focused'
                             : driver.driverId;
+
                     ImageDescriptor? driverIcon = cachedDriverIcons.value[cacheKey];
                     if (driverIcon == null) {
                       AppLogger.map('🎨 Creating ${isFollowingThisDriver ? "FOLLOWING " : isFocused ? "FOCUSED " : ""}icon for driver: ${driver.driverName}');
-                      driverIcon = await GoogleNavigationMarkerService
-                          .createDriverMarkerIcon(
+                      driverIcon = await GoogleNavigationMarkerService.createDriverMarkerIcon(
                         driver.driverName,
                         isFocused: isFocused,
                         isPulsing: isFollowingThisDriver,
@@ -472,30 +705,29 @@ class ManagerMapPage extends HookConsumerWidget {
                       };
                     }
 
-                    allMarkerOptions.add(
-                      MarkerOptions(
+                    // Create updated marker with new position/icon
+                    final updatedMarker = existingMarker.copyWith(
+                      options: MarkerOptions(
                         position: position,
                         infoWindow: InfoWindow(
                           title: driver.driverName,
-                          snippet:
-                              '${driver.completedBins ?? 0}/${driver.totalBins ?? 0} bins completed',
+                          snippet: '${driver.completedBins ?? 0}/${driver.totalBins ?? 0} bins completed',
                         ),
                         icon: driverIcon,
                         anchor: const MarkerAnchor(u: 0.5, v: 0.5),
                         flat: true,
-                        zIndex: isFocused ? 10001.0 : 10000.0, // Focused driver on top
+                        zIndex: isFocused ? 10001.0 : 10000.0,
                       ),
                     );
+                    updatedMarkers.add(updatedMarker);
                   }
 
-                  // Reuse cached bin markers
-                  allMarkerOptions.addAll(cachedBinMarkers.value!);
-
-                  // Update map (this is called at 60fps during animation)
-                  await mapController.value!.clearMarkers();
-                  await mapController.value!.addMarkers(allMarkerOptions);
+                  // Update only driver markers (bins/locations untouched!)
+                  if (updatedMarkers.isNotEmpty) {
+                    await mapController.value!.updateMarkers(updatedMarkers);
+                  }
                 } catch (e) {
-                  AppLogger.map('Failed to update markers: $e');
+                  AppLogger.map('Failed to update driver positions: $e');
                 } finally {
                   isUpdatingMarkers.value = false;
                 }
@@ -503,13 +735,13 @@ class ManagerMapPage extends HookConsumerWidget {
 
               // Use Timer.periodic for 60fps updates when animating
               if (hasActiveAnimations) {
-                AppLogger.map('🎬 Starting 60fps timer for marker updates');
+                AppLogger.map('🎬 Starting 60fps timer for driver position updates');
 
                 final timer = Timer.periodic(
                   const Duration(milliseconds: 16), // ~60fps (16ms per frame)
                   (_) {
                     if (!isUpdatingMarkers.value) {
-                      updateMarkersOnMap();
+                      updateDriverPositions();
                     }
                   },
                 );
@@ -520,14 +752,16 @@ class ManagerMapPage extends HookConsumerWidget {
                 };
               } else {
                 // No animation - just update once
-                AppLogger.map('📍 No animation, updating markers once');
-                updateMarkersOnMap();
+                AppLogger.map('📍 No animation, updating driver positions once');
+                updateDriverPositions();
                 return null;
               }
             },
-            // CRITICAL: Don't depend on activeDrivers! Only animation state matters.
-            // activeDrivers is captured in closure and will always have latest value
-            [cachedBinMarkers.value, mapController.value, hasActiveAnimations],
+            [
+              mapController.value,
+              hasActiveAnimations,
+              driverMarkers.value.isNotEmpty,
+            ],
           );
 
           return Stack(
@@ -554,6 +788,48 @@ class ManagerMapPage extends HookConsumerWidget {
 
                   // Disable Google's native My Location button (use our custom one instead)
                   await controller.settings.setMyLocationButtonEnabled(false);
+                },
+                onMarkerClicked: (markerId) {
+                  AppLogger.map('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+                  AppLogger.map('🎯 MARKER CLICKED: $markerId');
+                  AppLogger.map('   Current bin markers: ${binMarkers.value.length} (IDs: ${binMarkers.value.take(5).map((m) => m.markerId).join(", ")}...)');
+                  AppLogger.map('   Current location markers: ${locationMarkers.value.length} (IDs: ${locationMarkers.value.map((m) => m.markerId).join(", ")})');
+                  AppLogger.map('   Current driver markers: ${driverMarkers.value.length}');
+
+                  // Direct lookup using stable marker IDs!
+                  // Check if it's a bin marker
+                  final bin = binMarkersMap.value[markerId];
+                  if (bin != null) {
+                    AppLogger.map('📦 Bin marker tapped: Bin #${bin.binNumber}');
+                    AppLogger.map('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+                    showModalBottomSheet(
+                      context: context,
+                      isScrollControlled: true,
+                      backgroundColor: Colors.transparent,
+                      builder: (context) => BinDetailsBottomSheet(bin: bin),
+                    );
+                    return;
+                  }
+
+                  // Check if it's a potential location marker
+                  final location = locationMarkersMap.value[markerId];
+                  if (location != null) {
+                    AppLogger.map('📍 Potential location marker tapped: ${location.street}');
+                    AppLogger.map('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+                    showModalBottomSheet(
+                      context: context,
+                      isScrollControlled: true,
+                      backgroundColor: Colors.transparent,
+                      builder: (context) => PotentialLocationBottomSheet(
+                        location: location,
+                      ),
+                    );
+                    return;
+                  }
+
+                  // It's a driver marker - ignore
+                  AppLogger.map('   → Driver marker, ignoring');
+                  AppLogger.map('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
                 },
               ),
 
@@ -627,6 +903,19 @@ class ManagerMapPage extends HookConsumerWidget {
                         builder: (context) => const NotificationsPage(),
                       ),
                     );
+                  },
+                ),
+              ),
+
+              // Potential Locations button - positioned below notification button
+              Positioned(
+                top: MediaQuery.of(context).padding.top + 72,
+                left: 16,
+                child: CircularMapButton(
+                  icon: Icons.add_location_alt_outlined,
+                  iconColor: Colors.grey.shade700,
+                  onTap: () {
+                    context.push('/manager/potential-locations');
                   },
                 ),
               ),

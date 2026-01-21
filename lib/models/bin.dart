@@ -18,6 +18,7 @@ class Bin with _$Bin {
     @JsonKey(name: 'fill_percentage') int? fillPercentage,
     @Default(false) bool checked,
     @JsonKey(name: 'move_requested') @Default(false) bool moveRequested,
+    @JsonKey(name: 'move_request_id') String? moveRequestId,
     double? latitude,
     double? longitude,
   }) = _Bin;

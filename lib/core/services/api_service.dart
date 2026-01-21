@@ -5,6 +5,7 @@ import 'package:ropacalapp/core/utils/app_logger.dart';
 import 'package:ropacalapp/models/bin.dart';
 import 'package:ropacalapp/models/bin_check.dart';
 import 'package:ropacalapp/models/bin_move.dart';
+import 'package:ropacalapp/models/potential_location.dart';
 import 'package:ropacalapp/models/user.dart';
 
 class ApiService {
@@ -350,6 +351,90 @@ class ApiService {
           .toList();
       return bins;
     } catch (e) {
+      throw _handleError(e);
+    }
+  }
+
+  // Potential locations endpoints
+  Future<PotentialLocation> createPotentialLocation({
+    required String street,
+    required String city,
+    required String zip,
+    double? latitude,
+    double? longitude,
+    String? notes,
+  }) async {
+    try {
+      AppLogger.api(
+        '📍 createPotentialLocation: Making request to ${ApiConstants.potentialLocationsEndpoint}',
+      );
+      final response = await _dio.post(
+        ApiConstants.potentialLocationsEndpoint,
+        data: {
+          'street': street,
+          'city': city,
+          'zip': zip,
+          if (latitude != null) 'latitude': latitude,
+          if (longitude != null) 'longitude': longitude,
+          if (notes != null) 'notes': notes,
+        },
+      );
+      AppLogger.api(
+        '📍 createPotentialLocation: Response status ${response.statusCode}',
+      );
+      return PotentialLocation.fromJson(
+        response.data as Map<String, dynamic>,
+      );
+    } catch (e) {
+      AppLogger.api('📍 createPotentialLocation: Exception caught: $e');
+      throw _handleError(e);
+    }
+  }
+
+  Future<List<PotentialLocation>> getPotentialLocations() async {
+    try {
+      AppLogger.api(
+        '📍 getPotentialLocations: Making request to ${ApiConstants.potentialLocationsEndpoint}',
+      );
+      final response = await _dio.get(
+        ApiConstants.potentialLocationsEndpoint,
+      );
+      AppLogger.api(
+        '📍 getPotentialLocations: Response status ${response.statusCode}',
+      );
+
+      final List<dynamic> data = response.data as List<dynamic>;
+      return data
+          .map((json) =>
+              PotentialLocation.fromJson(json as Map<String, dynamic>))
+          .toList();
+    } catch (e) {
+      AppLogger.api('📍 getPotentialLocations: Exception caught: $e');
+      throw _handleError(e);
+    }
+  }
+
+  Future<void> convertPotentialLocationToBin({
+    required String potentialLocationId,
+    required int binNumber,
+  }) async {
+    try {
+      AppLogger.api(
+        '📍 convertPotentialLocationToBin: Converting location $potentialLocationId to bin $binNumber',
+      );
+      final response = await _dio.post(
+        '${ApiConstants.potentialLocationsEndpoint}/$potentialLocationId/convert',
+        data: {
+          'binNumber': binNumber,
+        },
+      );
+      AppLogger.api(
+        '📍 convertPotentialLocationToBin: Response status ${response.statusCode}',
+      );
+    } catch (e) {
+      AppLogger.api(
+        '📍 convertPotentialLocationToBin: Exception caught: $e',
+      );
       throw _handleError(e);
     }
   }

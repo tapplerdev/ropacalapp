@@ -122,6 +122,26 @@ class WebSocketManager extends _$WebSocketManager {
       }
     };
 
+    _service!.onMoveRequestAssigned = (data) {
+      try {
+        AppLogger.general('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+        AppLogger.general('📦 AUTH_PROVIDER: onMoveRequestAssigned CALLBACK TRIGGERED');
+        AppLogger.general('   Move request assigned to shift - refreshing route');
+        AppLogger.general('   Data: $data');
+
+        AppLogger.general('   🔄 Fetching current shift to get updated route...');
+        ref.read(shiftNotifierProvider.notifier).fetchCurrentShift();
+        AppLogger.general('   ✅ Shift refresh triggered');
+        AppLogger.general('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      } catch (e, stack) {
+        AppLogger.general('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+        AppLogger.general('❌❌❌ ERROR in onMoveRequestAssigned callback');
+        AppLogger.general('   Error: $e');
+        AppLogger.general('   Stack: $stack');
+        AppLogger.general('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      }
+    };
+
     _service!.onConnected = () {
       AppLogger.general('✅ WebSocket connected');
     };

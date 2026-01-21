@@ -22,6 +22,7 @@ _$BinImpl _$$BinImplFromJson(Map<String, dynamic> json) => _$BinImpl(
   fillPercentage: (json['fill_percentage'] as num?)?.toInt(),
   checked: json['checked'] as bool? ?? false,
   moveRequested: json['move_requested'] as bool? ?? false,
+  moveRequestId: json['move_request_id'] as String?,
   latitude: (json['latitude'] as num?)?.toDouble(),
   longitude: (json['longitude'] as num?)?.toDouble(),
 );
@@ -38,6 +39,7 @@ Map<String, dynamic> _$$BinImplToJson(_$BinImpl instance) => <String, dynamic>{
   'fill_percentage': instance.fillPercentage,
   'checked': instance.checked,
   'move_requested': instance.moveRequested,
+  'move_request_id': instance.moveRequestId,
   'latitude': instance.latitude,
   'longitude': instance.longitude,
 };
@@ -45,4 +47,8 @@ Map<String, dynamic> _$$BinImplToJson(_$BinImpl instance) => <String, dynamic>{
 const _$BinStatusEnumMap = {
   BinStatus.active: 'active',
   BinStatus.missing: 'missing',
+  BinStatus.pendingMove: 'pending_move',
+  BinStatus.relocate: 'relocate',
+  BinStatus.retire: 'retire',
+  BinStatus.warehouseStorage: 'warehouse_storage',
 };

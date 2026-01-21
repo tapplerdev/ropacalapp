@@ -1,15 +1,13 @@
 import 'package:json_annotation/json_annotation.dart';
 
 @JsonEnum(valueField: 'value')
-enum BinStatus {
-  active('active'),
-  missing('missing'),
+enum MoveRequestStatus {
   pendingMove('pending_move'),
   relocate('relocate'),
   retire('retire'),
   warehouseStorage('warehouse_storage');
 
-  const BinStatus(this.value);
+  const MoveRequestStatus(this.value);
 
   final String value;
 }

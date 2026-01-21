@@ -38,6 +38,8 @@ mixin _$Bin {
   bool get checked => throw _privateConstructorUsedError;
   @JsonKey(name: 'move_requested')
   bool get moveRequested => throw _privateConstructorUsedError;
+  @JsonKey(name: 'move_request_id')
+  String? get moveRequestId => throw _privateConstructorUsedError;
   double? get latitude => throw _privateConstructorUsedError;
   double? get longitude => throw _privateConstructorUsedError;
 
@@ -67,6 +69,7 @@ abstract class $BinCopyWith<$Res> {
     @JsonKey(name: 'fill_percentage') int? fillPercentage,
     bool checked,
     @JsonKey(name: 'move_requested') bool moveRequested,
+    @JsonKey(name: 'move_request_id') String? moveRequestId,
     double? latitude,
     double? longitude,
   });
@@ -97,6 +100,7 @@ class _$BinCopyWithImpl<$Res, $Val extends Bin> implements $BinCopyWith<$Res> {
     Object? fillPercentage = freezed,
     Object? checked = null,
     Object? moveRequested = null,
+    Object? moveRequestId = freezed,
     Object? latitude = freezed,
     Object? longitude = freezed,
   }) {
@@ -146,6 +150,10 @@ class _$BinCopyWithImpl<$Res, $Val extends Bin> implements $BinCopyWith<$Res> {
                 ? _value.moveRequested
                 : moveRequested // ignore: cast_nullable_to_non_nullable
                       as bool,
+            moveRequestId: freezed == moveRequestId
+                ? _value.moveRequestId
+                : moveRequestId // ignore: cast_nullable_to_non_nullable
+                      as String?,
             latitude: freezed == latitude
                 ? _value.latitude
                 : latitude // ignore: cast_nullable_to_non_nullable
@@ -178,6 +186,7 @@ abstract class _$$BinImplCopyWith<$Res> implements $BinCopyWith<$Res> {
     @JsonKey(name: 'fill_percentage') int? fillPercentage,
     bool checked,
     @JsonKey(name: 'move_requested') bool moveRequested,
+    @JsonKey(name: 'move_request_id') String? moveRequestId,
     double? latitude,
     double? longitude,
   });
@@ -205,6 +214,7 @@ class __$$BinImplCopyWithImpl<$Res> extends _$BinCopyWithImpl<$Res, _$BinImpl>
     Object? fillPercentage = freezed,
     Object? checked = null,
     Object? moveRequested = null,
+    Object? moveRequestId = freezed,
     Object? latitude = freezed,
     Object? longitude = freezed,
   }) {
@@ -254,6 +264,10 @@ class __$$BinImplCopyWithImpl<$Res> extends _$BinCopyWithImpl<$Res, _$BinImpl>
             ? _value.moveRequested
             : moveRequested // ignore: cast_nullable_to_non_nullable
                   as bool,
+        moveRequestId: freezed == moveRequestId
+            ? _value.moveRequestId
+            : moveRequestId // ignore: cast_nullable_to_non_nullable
+                  as String?,
         latitude: freezed == latitude
             ? _value.latitude
             : latitude // ignore: cast_nullable_to_non_nullable
@@ -282,6 +296,7 @@ class _$BinImpl implements _Bin {
     @JsonKey(name: 'fill_percentage') this.fillPercentage,
     this.checked = false,
     @JsonKey(name: 'move_requested') this.moveRequested = false,
+    @JsonKey(name: 'move_request_id') this.moveRequestId,
     this.latitude,
     this.longitude,
   });
@@ -319,13 +334,16 @@ class _$BinImpl implements _Bin {
   @JsonKey(name: 'move_requested')
   final bool moveRequested;
   @override
+  @JsonKey(name: 'move_request_id')
+  final String? moveRequestId;
+  @override
   final double? latitude;
   @override
   final double? longitude;
 
   @override
   String toString() {
-    return 'Bin(id: $id, binNumber: $binNumber, currentStreet: $currentStreet, city: $city, zip: $zip, lastMoved: $lastMoved, lastChecked: $lastChecked, status: $status, fillPercentage: $fillPercentage, checked: $checked, moveRequested: $moveRequested, latitude: $latitude, longitude: $longitude)';
+    return 'Bin(id: $id, binNumber: $binNumber, currentStreet: $currentStreet, city: $city, zip: $zip, lastMoved: $lastMoved, lastChecked: $lastChecked, status: $status, fillPercentage: $fillPercentage, checked: $checked, moveRequested: $moveRequested, moveRequestId: $moveRequestId, latitude: $latitude, longitude: $longitude)';
   }
 
   @override
@@ -350,6 +368,8 @@ class _$BinImpl implements _Bin {
             (identical(other.checked, checked) || other.checked == checked) &&
             (identical(other.moveRequested, moveRequested) ||
                 other.moveRequested == moveRequested) &&
+            (identical(other.moveRequestId, moveRequestId) ||
+                other.moveRequestId == moveRequestId) &&
             (identical(other.latitude, latitude) ||
                 other.latitude == latitude) &&
             (identical(other.longitude, longitude) ||
@@ -371,6 +391,7 @@ class _$BinImpl implements _Bin {
     fillPercentage,
     checked,
     moveRequested,
+    moveRequestId,
     latitude,
     longitude,
   );
@@ -402,6 +423,7 @@ abstract class _Bin implements Bin {
     @JsonKey(name: 'fill_percentage') final int? fillPercentage,
     final bool checked,
     @JsonKey(name: 'move_requested') final bool moveRequested,
+    @JsonKey(name: 'move_request_id') final String? moveRequestId,
     final double? latitude,
     final double? longitude,
   }) = _$BinImpl;
@@ -436,6 +458,9 @@ abstract class _Bin implements Bin {
   @override
   @JsonKey(name: 'move_requested')
   bool get moveRequested;
+  @override
+  @JsonKey(name: 'move_request_id')
+  String? get moveRequestId;
   @override
   double? get latitude;
   @override

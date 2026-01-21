@@ -15,9 +15,7 @@ class PotentialLocationBottomSheet extends HookConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final binNumberController = useTextEditingController();
     final isSubmitting = useState(false);
-    final formKey = useMemoized(() => GlobalKey<FormState>());
 
     final isPending = location.convertedToBinId == null;
 
@@ -206,122 +204,99 @@ class PotentialLocationBottomSheet extends HookConsumerWidget {
                 const Divider(),
                 const SizedBox(height: 16),
 
-                // Convert form
-                Form(
-                  key: formKey,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'Convert to Bin',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                        ),
+                // Convert section
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Convert to Bin',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
                       ),
-                      const SizedBox(height: 12),
-                      TextFormField(
-                        controller: binNumberController,
-                        keyboardType: TextInputType.number,
-                        decoration: InputDecoration(
-                          labelText: 'Bin Number',
-                          hintText: 'Enter bin number',
-                          border: OutlineInputBorder(
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'This will automatically create a new bin at this location with the next available bin number.',
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: Colors.grey.shade600,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Convert button
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed: isSubmitting.value
+                            ? null
+                            : () async {
+                                isSubmitting.value = true;
+                                try {
+                                  await ref
+                                      .read(
+                                        potentialLocationsListNotifierProvider.notifier,
+                                      )
+                                      .convertToBin(
+                                        potentialLocationId: location.id,
+                                      );
+
+                                  if (context.mounted) {
+                                    Navigator.pop(context);
+                                    ScaffoldMessenger.of(context)
+                                        .showSnackBar(
+                                      const SnackBar(
+                                        content: Text(
+                                          'Successfully converted to bin',
+                                        ),
+                                        backgroundColor: AppColors.successGreen,
+                                      ),
+                                    );
+                                  }
+                                } catch (e) {
+                                  if (context.mounted) {
+                                    ScaffoldMessenger.of(context)
+                                        .showSnackBar(
+                                      SnackBar(
+                                        content: Text('Error: $e'),
+                                        backgroundColor: Colors.red,
+                                      ),
+                                    );
+                                  }
+                                } finally {
+                                  isSubmitting.value = false;
+                                }
+                              },
+                        style: ElevatedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          backgroundColor: AppColors.primaryGreen,
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(12),
                           ),
-                          prefixIcon: const Icon(Icons.tag),
                         ),
-                        validator: (value) {
-                          if (value == null || value.trim().isEmpty) {
-                            return 'Bin number is required';
-                          }
-                          final number = int.tryParse(value);
-                          if (number == null || number <= 0) {
-                            return 'Please enter a valid bin number';
-                          }
-                          return null;
-                        },
-                      ),
-                      const SizedBox(height: 16),
-
-                      // Convert button
-                      SizedBox(
-                        width: double.infinity,
-                        child: ElevatedButton(
-                          onPressed: isSubmitting.value
-                              ? null
-                              : () async {
-                                  if (formKey.currentState!.validate()) {
-                                    isSubmitting.value = true;
-                                    try {
-                                      await ref
-                                          .read(
-                                            potentialLocationsListNotifierProvider.notifier,
-                                          )
-                                          .convertToBin(
-                                            potentialLocationId: location.id,
-                                            binNumber: int.parse(
-                                              binNumberController.text,
-                                            ),
-                                          );
-
-                                      if (context.mounted) {
-                                        Navigator.pop(context);
-                                        ScaffoldMessenger.of(context)
-                                            .showSnackBar(
-                                          SnackBar(
-                                            content: Text(
-                                              'Converted to Bin #${binNumberController.text}',
-                                            ),
-                                            backgroundColor: AppColors.successGreen,
-                                          ),
-                                        );
-                                      }
-                                    } catch (e) {
-                                      if (context.mounted) {
-                                        ScaffoldMessenger.of(context)
-                                            .showSnackBar(
-                                          SnackBar(
-                                            content: Text('Error: $e'),
-                                            backgroundColor: Colors.red,
-                                          ),
-                                        );
-                                      }
-                                    } finally {
-                                      isSubmitting.value = false;
-                                    }
-                                  }
-                                },
-                          style: ElevatedButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(vertical: 14),
-                            backgroundColor: AppColors.primaryGreen,
-                            foregroundColor: Colors.white,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                          ),
-                          child: isSubmitting.value
-                              ? const SizedBox(
-                                  width: 20,
-                                  height: 20,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                    valueColor: AlwaysStoppedAnimation<Color>(
-                                      Colors.white,
-                                    ),
-                                  ),
-                                )
-                              : const Text(
-                                  'Convert to Bin',
-                                  style: TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w600,
+                        child: isSubmitting.value
+                            ? const SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  valueColor: AlwaysStoppedAnimation<Color>(
+                                    Colors.white,
                                   ),
                                 ),
-                        ),
+                              )
+                            : const Text(
+                                'Convert to Bin',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
               ] else if (location.binNumber != null) ...[
                 const SizedBox(height: 16),

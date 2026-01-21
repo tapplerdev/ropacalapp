@@ -42,16 +42,14 @@ class PotentialLocationsListNotifier
   /// Convert a potential location to a bin
   Future<void> convertToBin({
     required String potentialLocationId,
-    required int binNumber,
   }) async {
     try {
       AppLogger.general(
-        '🗺️ PotentialLocationsListNotifier: Converting location $potentialLocationId to bin $binNumber',
+        '🗺️ PotentialLocationsListNotifier: Converting location $potentialLocationId to bin',
       );
       final apiService = ref.read(apiServiceProvider);
       await apiService.convertPotentialLocationToBin(
         potentialLocationId: potentialLocationId,
-        binNumber: binNumber,
       );
 
       // Refresh the list after conversion

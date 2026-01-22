@@ -616,9 +616,13 @@ class _MoveHistoryModalContent extends HookConsumerWidget {
     final moveType = moveRequest['move_type'] as String? ?? 'relocation';
     final scheduledDateIso = moveRequest['scheduled_date_iso'] as String?;
     final requestedByName = moveRequest['requested_by_name'] as String?;
+    final driverName = moveRequest['driver_name'] as String?;
     final reason = moveRequest['reason'] as String?;
     final notes = moveRequest['notes'] as String?;
     final disposalAction = moveRequest['disposal_action'] as String?;
+    final originalStreet = moveRequest['original_street'] as String?;
+    final originalCity = moveRequest['original_city'] as String?;
+    final originalZip = moveRequest['original_zip'] as String?;
     final newStreet = moveRequest['new_street'] as String?;
     final newCity = moveRequest['new_city'] as String?;
     final newZip = moveRequest['new_zip'] as String?;
@@ -796,10 +800,37 @@ class _MoveHistoryModalContent extends HookConsumerWidget {
             ),
             const SizedBox(height: 12),
           ],
-          // New location (for relocations)
-          if (moveType == 'relocation' && newStreet != null) ...[
+          // Assigned to
+          Row(
+            children: [
+              Icon(
+                Icons.person_pin_outlined,
+                size: 16,
+                color: Colors.grey.shade500,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                driverName != null
+                    ? 'Assigned to $driverName'
+                    : 'Not yet assigned',
+                style: TextStyle(
+                  fontSize: 13,
+                  color: driverName != null
+                      ? Colors.grey.shade700
+                      : Colors.grey.shade500,
+                  fontStyle:
+                      driverName != null ? FontStyle.normal : FontStyle.italic,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          // Relocation details (from → to)
+          if (moveType == 'relocation' &&
+              originalStreet != null &&
+              newStreet != null) ...[
             Container(
-              padding: const EdgeInsets.all(10),
+              padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(8),
@@ -808,48 +839,111 @@ class _MoveHistoryModalContent extends HookConsumerWidget {
                   width: 1,
                 ),
               ),
-              child: Row(
+              child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Icon(
-                    Icons.location_on_outlined,
-                    size: 16,
-                    color: AppColors.primaryGreen,
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'New Location',
-                          style: TextStyle(
-                            fontSize: 11,
-                            color: Colors.grey.shade600,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          newStreet,
-                          style: const TextStyle(
-                            fontSize: 13,
-                            color: Colors.black87,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        if (newCity != null && newZip != null) ...[
-                          const SizedBox(height: 2),
-                          Text(
-                            '$newCity $newZip',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: Colors.grey.shade600,
+                  // From location
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Icon(
+                        Icons.my_location,
+                        size: 16,
+                        color: Colors.orange.shade700,
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'From',
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: Colors.grey.shade600,
+                                fontWeight: FontWeight.w500,
+                              ),
                             ),
-                          ),
-                        ],
-                      ],
+                            const SizedBox(height: 2),
+                            Text(
+                              originalStreet,
+                              style: const TextStyle(
+                                fontSize: 13,
+                                color: Colors.black87,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            if (originalCity != null && originalZip != null) ...[
+                              const SizedBox(height: 2),
+                              Text(
+                                '$originalCity $originalZip',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.grey.shade600,
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  // Arrow
+                  Padding(
+                    padding: const EdgeInsets.only(left: 8),
+                    child: Icon(
+                      Icons.arrow_downward,
+                      size: 18,
+                      color: Colors.grey.shade400,
                     ),
+                  ),
+                  const SizedBox(height: 8),
+                  // To location
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Icon(
+                        Icons.location_on,
+                        size: 16,
+                        color: AppColors.primaryGreen,
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'To',
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: Colors.grey.shade600,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              newStreet,
+                              style: const TextStyle(
+                                fontSize: 13,
+                                color: Colors.black87,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            if (newCity != null && newZip != null) ...[
+                              const SizedBox(height: 2),
+                              Text(
+                                '$newCity $newZip',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.grey.shade600,
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),

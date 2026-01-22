@@ -3,7 +3,7 @@ import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:ropacalapp/core/theme/app_colors.dart';
-import 'package:ropacalapp/providers/bins_provider.dart';
+import 'package:ropacalapp/providers/drivers_provider.dart';
 
 class MoveRequestsPage extends HookConsumerWidget {
   const MoveRequestsPage({super.key});
@@ -13,7 +13,9 @@ class MoveRequestsPage extends HookConsumerWidget {
     final moveRequestsFuture = useMemoized(
       () => ref.read(managerServiceProvider).getAllMoveRequests(),
     );
-    final moveRequestsSnapshot = useFuture(moveRequestsFuture);
+    final moveRequestsSnapshot = useFuture<List<Map<String, dynamic>>>(
+      moveRequestsFuture,
+    );
 
     return Scaffold(
       backgroundColor: Colors.white,

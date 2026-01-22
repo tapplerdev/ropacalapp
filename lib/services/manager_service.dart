@@ -329,4 +329,23 @@ class ManagerService {
       rethrow;
     }
   }
+
+  /// Cancel a move request
+  Future<void> cancelMoveRequest(String moveRequestId) async {
+    try {
+      print('📤 REQUEST: PUT /api/manager/bins/move-requests/$moveRequestId/cancel');
+
+      final response = await _apiService.put(
+        '/api/manager/bins/move-requests/$moveRequestId/cancel',
+        {},
+      );
+
+      print('📥 RESPONSE: ${response.statusCode}');
+      print('   Data: ${response.data}');
+      print('   ✅ Move request cancelled successfully');
+    } catch (e) {
+      print('   ❌ ERROR: $e');
+      rethrow;
+    }
+  }
 }

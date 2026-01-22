@@ -45,7 +45,7 @@ class BinDetailPage extends HookConsumerWidget {
                   const SizedBox(height: 16),
                   _buildInfoCard(context, bin),
                   const SizedBox(height: 20),
-                  _buildActionButtons(context, bin),
+                  _buildActionButtons(context, bin, ref),
                   const SizedBox(height: 32),
                 ],
               ),
@@ -302,7 +302,7 @@ class BinDetailPage extends HookConsumerWidget {
     );
   }
 
-  Widget _buildActionButtons(BuildContext context, Bin bin) {
+  Widget _buildActionButtons(BuildContext context, Bin bin, WidgetRef ref) {
     return Column(
       children: [
         _buildActionButton(
@@ -310,7 +310,7 @@ class BinDetailPage extends HookConsumerWidget {
           icon: Icons.local_shipping_outlined,
           label: 'Move Bin',
           color: AppColors.primaryGreen,
-          onTap: () => _showMoveDialog(context, bin),
+          onTap: () => _showMoveDialog(context, bin, ref),
         ),
         const SizedBox(height: 12),
         Row(
@@ -386,11 +386,576 @@ class BinDetailPage extends HookConsumerWidget {
     );
   }
 
-  void _showMoveDialog(BuildContext context, Bin bin) {
+  Future<void> _showMoveDialog(BuildContext context, Bin bin, WidgetRef ref) async {
+    try {
+      // Check for active move requests
+      final managerService = ref.read(managerServiceProvider);
+      final activeRequests = await managerService.getBinMoveRequests(
+        bin.id,
+        status: null, // Get all statuses
+      );
+
+      // Filter to only active requests (not completed or cancelled)
+      final active = activeRequests.where((r) {
+        final status = r['status'] as String?;
+        return status != 'completed' && status != 'cancelled';
+      }).toList();
+
+      if (active.isEmpty) {
+        // No active requests - proceed normally
+        if (context.mounted) {
+          showDialog(
+            context: context,
+            builder: (context) => MoveDialog(bin: bin),
+          );
+        }
+        return;
+      }
+
+      // Has active requests - show appropriate warning
+      final inProgress = active.where((r) => r['status'] == 'in_progress').toList();
+      final assigned = active.where((r) => r['status'] == 'assigned').toList();
+      final pending = active.where((r) => r['status'] == 'pending').toList();
+
+      if (context.mounted) {
+        if (inProgress.isNotEmpty) {
+          _showInProgressDialog(context, bin, inProgress[0], ref);
+        } else if (assigned.isNotEmpty && pending.isEmpty) {
+          if (assigned.length == 1) {
+            _showSingleAssignedDialog(context, bin, assigned[0], ref);
+          } else {
+            _showMultipleAssignedDialog(context, bin, assigned, ref);
+          }
+        } else if (pending.isNotEmpty && assigned.isEmpty) {
+          if (pending.length == 1) {
+            _showSinglePendingDialog(context, bin, pending[0], ref);
+          } else {
+            _showMultiplePendingDialog(context, bin, pending, ref);
+          }
+        } else {
+          // Mixed statuses
+          _showMixedStatusDialog(context, bin, active, ref);
+        }
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error checking move requests: $e')),
+        );
+      }
+    }
+  }
+
+  // Dialog Scenarios
+
+  void _showInProgressDialog(
+    BuildContext context,
+    Bin bin,
+    Map<String, dynamic> moveRequest,
+    WidgetRef ref,
+  ) {
+    final driverName = moveRequest['driver_name'] as String? ?? 'A driver';
+    final newStreet = moveRequest['new_street'] as String?;
+    final newCity = moveRequest['new_city'] as String?;
+    final newZip = moveRequest['new_zip'] as String?;
+    final moveRequestId = moveRequest['id'] as String;
+
     showDialog(
       context: context,
-      builder: (context) => MoveDialog(bin: bin),
+      builder: (context) => AlertDialog(
+        title: const Row(
+          children: [
+            Text('🚚', style: TextStyle(fontSize: 24)),
+            SizedBox(width: 8),
+            Text('Move In Progress'),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('$driverName is currently moving this bin to:'),
+            if (newStreet != null) ...[
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade100,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.location_on, size: 20),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(newStreet,
+                              style: const TextStyle(fontWeight: FontWeight.bold)),
+                          if (newCity != null && newZip != null)
+                            Text('$newCity $newZip',
+                                style: TextStyle(
+                                    fontSize: 13, color: Colors.grey.shade700)),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+            const SizedBox(height: 12),
+            const Text('Cancel this move to create a new one?'),
+            const SizedBox(height: 8),
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.orange.shade50,
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.warning_amber, size: 16, color: Colors.orange.shade700),
+                  const SizedBox(width: 8),
+                  const Expanded(
+                    child: Text('Driver will be notified',
+                        style: TextStyle(fontSize: 13)),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Go Back'),
+          ),
+          TextButton(
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            onPressed: () async {
+              Navigator.of(context).pop();
+              await _cancelAndContinue(context, bin, moveRequestId, ref);
+            },
+            child: const Text('Cancel Move & Continue'),
+          ),
+        ],
+      ),
     );
+  }
+
+  void _showSingleAssignedDialog(
+    BuildContext context,
+    Bin bin,
+    Map<String, dynamic> moveRequest,
+    WidgetRef ref,
+  ) {
+    final driverName = moveRequest['driver_name'] as String? ?? 'Unknown';
+    final scheduledDateIso = moveRequest['scheduled_date_iso'] as String?;
+    final moveType = moveRequest['move_type'] as String? ?? 'relocation';
+    final moveRequestId = moveRequest['id'] as String;
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Row(
+          children: [
+            Text('📍', style: TextStyle(fontSize: 24)),
+            SizedBox(width: 8),
+            Text('Driver Assigned'),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('This bin is assigned to:'),
+            const SizedBox(height: 12),
+            _buildInfoChip(Icons.person, 'Driver', driverName),
+            if (scheduledDateIso != null) ...[
+              const SizedBox(height: 8),
+              _buildInfoChip(Icons.calendar_today, 'Scheduled',
+                  _formatDateTime(scheduledDateIso)),
+            ],
+            const SizedBox(height: 8),
+            _buildInfoChip(
+                Icons.local_shipping,
+                'Type',
+                moveType == 'pickup_only' ? 'Pickup Only' : 'Relocation'),
+            const SizedBox(height: 12),
+            const Text('What would you like to do?'),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Go Back'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.of(context).pop();
+              _showMoveHistoryModal(context, bin);
+            },
+            child: const Text('View All'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.of(context).pop();
+              showDialog(context: context, builder: (context) => MoveDialog(bin: bin));
+            },
+            child: const Text('Keep Both'),
+          ),
+          TextButton(
+            onPressed: () async {
+              Navigator.of(context).pop();
+              await _cancelAndContinue(context, bin, moveRequestId, ref);
+            },
+            child: const Text('Cancel & Replace'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showMultipleAssignedDialog(
+    BuildContext context,
+    Bin bin,
+    List<Map<String, dynamic>> moveRequests,
+    WidgetRef ref,
+  ) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Row(
+          children: [
+            const Text('📍', style: TextStyle(fontSize: 24)),
+            const SizedBox(width: 8),
+            Text('${moveRequests.length} Requests Assigned to Drivers'),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            ...moveRequests.take(3).map((r) {
+              final driverName = r['driver_name'] as String? ?? 'Unknown';
+              final moveType = r['move_type'] as String? ?? 'relocation';
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Text(
+                  '• $driverName - ${moveType == 'pickup_only' ? 'Pickup Only' : 'Relocation'}',
+                ),
+              );
+            }),
+            const SizedBox(height: 12),
+            const Text('Creating another request may cause conflicts.'),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Go Back'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.of(context).pop();
+              showDialog(context: context, builder: (context) => MoveDialog(bin: bin));
+            },
+            child: const Text('Continue Anyway'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.of(context).pop();
+              _showMoveHistoryModal(context, bin);
+            },
+            child: const Text('View/Cancel'),
+          ),
+          TextButton(
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            onPressed: () async {
+              Navigator.of(context).pop();
+              await _cancelAllAndContinue(context, bin, moveRequests, ref);
+            },
+            child: const Text('Cancel All'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showSinglePendingDialog(
+    BuildContext context,
+    Bin bin,
+    Map<String, dynamic> moveRequest,
+    WidgetRef ref,
+  ) {
+    final moveType = moveRequest['move_type'] as String? ?? 'relocation';
+    final scheduledDateIso = moveRequest['scheduled_date_iso'] as String?;
+    final requestedByName = moveRequest['requested_by_name'] as String?;
+    final moveRequestId = moveRequest['id'] as String;
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Row(
+          children: [
+            Text('📋', style: TextStyle(fontSize: 24)),
+            SizedBox(width: 8),
+            Text('Pending Move Request'),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('This bin has 1 pending move request:'),
+            const SizedBox(height: 12),
+            _buildInfoChip(
+                Icons.local_shipping,
+                'Type',
+                moveType == 'pickup_only' ? 'Pickup Only' : 'Relocation'),
+            if (scheduledDateIso != null) ...[
+              const SizedBox(height: 8),
+              _buildInfoChip(Icons.calendar_today, 'Scheduled',
+                  _formatDateTime(scheduledDateIso)),
+            ],
+            if (requestedByName != null) ...[
+              const SizedBox(height: 8),
+              _buildInfoChip(Icons.person, 'Requested by', requestedByName),
+            ],
+            const SizedBox(height: 12),
+            const Text('Continue creating another request?'),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Go Back'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.of(context).pop();
+              showDialog(context: context, builder: (context) => MoveDialog(bin: bin));
+            },
+            child: const Text('Continue Anyway'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.of(context).pop();
+              _showMoveHistoryModal(context, bin);
+            },
+            child: const Text('View All'),
+          ),
+          TextButton(
+            onPressed: () async {
+              Navigator.of(context).pop();
+              await _cancelAndContinue(context, bin, moveRequestId, ref);
+            },
+            child: const Text('Cancel Existing'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showMultiplePendingDialog(
+    BuildContext context,
+    Bin bin,
+    List<Map<String, dynamic>> moveRequests,
+    WidgetRef ref,
+  ) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Row(
+          children: [
+            const Text('📋', style: TextStyle(fontSize: 24)),
+            const SizedBox(width: 8),
+            Text('${moveRequests.length} Pending Move Requests'),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('This bin has multiple pending move requests:'),
+            const SizedBox(height: 12),
+            ...moveRequests.take(3).map((r) {
+              final moveType = r['move_type'] as String? ?? 'relocation';
+              final scheduledDateIso = r['scheduled_date_iso'] as String?;
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 4),
+                child: Text(
+                  '• ${moveType == 'pickup_only' ? 'Pickup Only' : 'Relocation'} - ${scheduledDateIso != null ? _formatDateTime(scheduledDateIso) : 'Unknown'}',
+                  style: const TextStyle(fontSize: 14),
+                ),
+              );
+            }),
+            const SizedBox(height: 12),
+            const Text('Review existing requests before creating another?'),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Go Back'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.of(context).pop();
+              showDialog(context: context, builder: (context) => MoveDialog(bin: bin));
+            },
+            child: const Text('Continue Anyway'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.of(context).pop();
+              _showMoveHistoryModal(context, bin);
+            },
+            child: const Text('View/Cancel'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showMixedStatusDialog(
+    BuildContext context,
+    Bin bin,
+    List<Map<String, dynamic>> moveRequests,
+    WidgetRef ref,
+  ) {
+    final assigned = moveRequests.where((r) => r['status'] == 'assigned').length;
+    final pending = moveRequests.where((r) => r['status'] == 'pending').length;
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Row(
+          children: [
+            const Text('⚠️', style: TextStyle(fontSize: 24)),
+            const SizedBox(width: 8),
+            Text('${moveRequests.length} Active Move Requests'),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('This bin has multiple active requests:'),
+            const SizedBox(height: 12),
+            if (assigned > 0)
+              Text('📍 ASSIGNED: $assigned request${assigned > 1 ? 's' : ''}'),
+            if (pending > 0)
+              Text('📋 PENDING: $pending unassigned request${pending > 1 ? 's' : ''}'),
+            const SizedBox(height: 12),
+            const Text('Review and manage existing requests before creating another.'),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Go Back'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.of(context).pop();
+              showDialog(context: context, builder: (context) => MoveDialog(bin: bin));
+            },
+            child: const Text('Continue Anyway'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.of(context).pop();
+              _showMoveHistoryModal(context, bin);
+            },
+            child: const Text('View All'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Helper methods
+
+  Widget _buildInfoChip(IconData icon, String label, String value) {
+    return Container(
+      padding: const EdgeInsets.all(8),
+      decoration: BoxDecoration(
+        color: Colors.grey.shade100,
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, size: 16, color: Colors.grey.shade600),
+          const SizedBox(width: 8),
+          Text('$label: ', style: const TextStyle(fontSize: 13)),
+          Expanded(
+            child: Text(value,
+                style:
+                    const TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _cancelAndContinue(
+    BuildContext context,
+    Bin bin,
+    String moveRequestId,
+    WidgetRef ref,
+  ) async {
+    try {
+      final managerService = ref.read(managerServiceProvider);
+      await managerService.cancelMoveRequest(moveRequestId);
+
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Move request cancelled')),
+        );
+        showDialog(
+          context: context,
+          builder: (context) => MoveDialog(bin: bin),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error cancelling request: $e')),
+        );
+      }
+    }
+  }
+
+  Future<void> _cancelAllAndContinue(
+    BuildContext context,
+    Bin bin,
+    List<Map<String, dynamic>> moveRequests,
+    WidgetRef ref,
+  ) async {
+    try {
+      final managerService = ref.read(managerServiceProvider);
+      for (final request in moveRequests) {
+        await managerService.cancelMoveRequest(request['id'] as String);
+      }
+
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('${moveRequests.length} requests cancelled')),
+        );
+        showDialog(
+          context: context,
+          builder: (context) => MoveDialog(bin: bin),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error cancelling requests: $e')),
+        );
+      }
+    }
   }
 
   void _showCheckHistoryModal(BuildContext context, Bin bin) {

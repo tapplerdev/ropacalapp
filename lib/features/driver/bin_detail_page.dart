@@ -1280,6 +1280,7 @@ class _MoveHistoryModalContent extends HookConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final selectedFilter = useState<String?>('all');
     final moveRequestsFuture = useMemoized(
       () => ref.read(managerServiceProvider).getBinMoveRequests(bin.id),
       [bin.id],
@@ -1336,10 +1337,37 @@ class _MoveHistoryModalContent extends HookConsumerWidget {
                 ],
               ),
             ),
+            // Filter chips
+            Container(
+              height: 50,
+              margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+              child: ListView(
+                scrollDirection: Axis.horizontal,
+                children: [
+                  _buildFilterChip('All', 'all', selectedFilter),
+                  const SizedBox(width: 8),
+                  _buildFilterChip('Pending', 'pending', selectedFilter),
+                  const SizedBox(width: 8),
+                  _buildFilterChip('Assigned', 'assigned', selectedFilter),
+                  const SizedBox(width: 8),
+                  _buildFilterChip('In Progress', 'in_progress', selectedFilter),
+                  const SizedBox(width: 8),
+                  _buildFilterChip('Completed', 'completed', selectedFilter),
+                  const SizedBox(width: 8),
+                  _buildFilterChip('Cancelled', 'cancelled', selectedFilter),
+                ],
+              ),
+            ),
             const Divider(height: 1),
             // Content
             Expanded(
-              child: _buildContent(context, scrollController, moveRequestsSnapshot),
+              child: _buildContent(
+                context,
+                ref,
+                scrollController,
+                moveRequestsSnapshot,
+                selectedFilter.value,
+              ),
             ),
           ],
         ),
@@ -1347,10 +1375,64 @@ class _MoveHistoryModalContent extends HookConsumerWidget {
     );
   }
 
+  Widget _buildFilterChip(
+    String label,
+    String value,
+    ValueNotifier<String?> selectedFilter,
+  ) {
+    final isSelected = selectedFilter.value == value;
+    Color chipColor;
+
+    switch (value) {
+      case 'pending':
+        chipColor = Colors.orange.shade700;
+        break;
+      case 'assigned':
+        chipColor = Colors.blue.shade700;
+        break;
+      case 'in_progress':
+        chipColor = Colors.purple.shade700;
+        break;
+      case 'completed':
+        chipColor = AppColors.successGreen;
+        break;
+      case 'cancelled':
+        chipColor = Colors.red.shade700;
+        break;
+      default:
+        chipColor = Colors.grey.shade700;
+    }
+
+    return GestureDetector(
+      onTap: () => selectedFilter.value = value,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        decoration: BoxDecoration(
+          color: isSelected ? chipColor : Colors.grey.shade100,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: isSelected ? chipColor : Colors.grey.shade300,
+            width: isSelected ? 2 : 1,
+          ),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 13,
+            fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
+            color: isSelected ? Colors.white : Colors.grey.shade700,
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildContent(
     BuildContext context,
+    WidgetRef ref,
     ScrollController scrollController,
     AsyncSnapshot<List<Map<String, dynamic>>> snapshot,
+    String? selectedFilter,
   ) {
     if (snapshot.connectionState == ConnectionState.waiting) {
       return const Center(
@@ -1398,9 +1480,17 @@ class _MoveHistoryModalContent extends HookConsumerWidget {
       );
     }
 
-    final moveRequests = snapshot.data ?? [];
+    final allMoveRequests = snapshot.data ?? [];
 
-    if (moveRequests.isEmpty) {
+    // Apply filter
+    final filteredMoveRequests = selectedFilter == null || selectedFilter == 'all'
+        ? allMoveRequests
+        : allMoveRequests.where((r) {
+            final status = r['status'] as String?;
+            return status == selectedFilter;
+          }).toList();
+
+    if (filteredMoveRequests.isEmpty) {
       return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -1419,7 +1509,9 @@ class _MoveHistoryModalContent extends HookConsumerWidget {
             ),
             const SizedBox(height: 24),
             Text(
-              'No Move Requests',
+              selectedFilter == 'all' || selectedFilter == null
+                  ? 'No Move Requests'
+                  : 'No ${selectedFilter.replaceAll('_', ' ').toUpperCase()} Requests',
               style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
@@ -1428,7 +1520,9 @@ class _MoveHistoryModalContent extends HookConsumerWidget {
             ),
             const SizedBox(height: 8),
             Text(
-              'Move requests will appear here',
+              selectedFilter == 'all' || selectedFilter == null
+                  ? 'Move requests will appear here'
+                  : 'Try selecting a different filter',
               style: TextStyle(
                 fontSize: 14,
                 color: Colors.grey[600],
@@ -1442,17 +1536,22 @@ class _MoveHistoryModalContent extends HookConsumerWidget {
     return ListView.separated(
       controller: scrollController,
       padding: const EdgeInsets.all(20),
-      itemCount: moveRequests.length,
+      itemCount: filteredMoveRequests.length,
       separatorBuilder: (context, index) => const SizedBox(height: 16),
       itemBuilder: (context, index) {
-        final moveRequest = moveRequests[index];
-        return _buildMoveRequestItem(moveRequest);
+        final moveRequest = filteredMoveRequests[index];
+        return _buildMoveRequestItem(context, ref, moveRequest);
       },
     );
   }
 
-  Widget _buildMoveRequestItem(Map<String, dynamic> moveRequest) {
+  Widget _buildMoveRequestItem(
+    BuildContext context,
+    WidgetRef ref,
+    Map<String, dynamic> moveRequest,
+  ) {
     final status = moveRequest['status'] as String? ?? 'pending';
+    final moveRequestId = moveRequest['id'] as String;
     final urgency = moveRequest['urgency'] as String? ?? 'scheduled';
     final moveType = moveRequest['move_type'] as String? ?? 'relocation';
     final scheduledDateIso = moveRequest['scheduled_date_iso'] as String?;
@@ -1891,10 +1990,217 @@ class _MoveHistoryModalContent extends HookConsumerWidget {
                 ],
               ),
             ),
+            const SizedBox(height: 12),
+          ],
+          // Cancel button (only for active requests)
+          if (status == 'pending' || status == 'assigned' || status == 'in_progress') ...[
+            const SizedBox(height: 4),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: () => _showCancelConfirmation(
+                  context,
+                  ref,
+                  moveRequestId,
+                  status,
+                ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.red.shade50,
+                  foregroundColor: Colors.red.shade700,
+                  elevation: 0,
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    side: BorderSide(
+                      color: Colors.red.shade200,
+                      width: 1,
+                    ),
+                  ),
+                ),
+                icon: Icon(
+                  Icons.cancel_outlined,
+                  size: 18,
+                  color: Colors.red.shade700,
+                ),
+                label: Text(
+                  'Cancel Move Request',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.red.shade700,
+                  ),
+                ),
+              ),
+            ),
           ],
         ],
       ),
     );
+  }
+
+  Future<void> _showCancelConfirmation(
+    BuildContext context,
+    WidgetRef ref,
+    String moveRequestId,
+    String status,
+  ) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Row(
+          children: [
+            Icon(Icons.warning_amber_rounded, color: Colors.orange, size: 28),
+            SizedBox(width: 12),
+            Text(
+              'Cancel Request?',
+              style: TextStyle(fontSize: 18),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              status == 'in_progress'
+                  ? 'This request is currently in progress. The driver will be notified if you cancel it.'
+                  : status == 'assigned'
+                      ? 'This request is assigned to a driver. Cancelling will remove it from their route.'
+                      : 'Are you sure you want to cancel this move request?',
+              style: const TextStyle(fontSize: 14, height: 1.4),
+            ),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: Colors.orange.shade50,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.orange.shade200),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.info_outline, size: 16, color: Colors.orange.shade700),
+                  const SizedBox(width: 8),
+                  const Expanded(
+                    child: Text(
+                      'This action cannot be undone.',
+                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Go Back'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red.shade600,
+              foregroundColor: Colors.white,
+              elevation: 0,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+            child: const Text('Cancel Request'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true && context.mounted) {
+      try {
+        // Show loading
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Row(
+              children: [
+                SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: Colors.white,
+                  ),
+                ),
+                SizedBox(width: 12),
+                Text('Cancelling move request...'),
+              ],
+            ),
+            duration: const Duration(seconds: 2),
+            backgroundColor: Colors.grey.shade700,
+          ),
+        );
+
+        // Cancel the request
+        await ref.read(managerServiceProvider).cancelMoveRequest(moveRequestId);
+
+        if (context.mounted) {
+          // Close the modal and show success
+          Navigator.of(context).pop();
+
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(6),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.2),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.check,
+                      color: Colors.white,
+                      size: 16,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  const Expanded(
+                    child: Text(
+                      'Move request cancelled successfully',
+                      style: TextStyle(fontWeight: FontWeight.w500),
+                    ),
+                  ),
+                ],
+              ),
+              backgroundColor: Colors.green[600],
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              margin: const EdgeInsets.all(16),
+            ),
+          );
+        }
+      } catch (e) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Row(
+                children: [
+                  const Icon(Icons.error_outline, color: Colors.white),
+                  const SizedBox(width: 12),
+                  Expanded(child: Text('Failed to cancel: $e')),
+                ],
+              ),
+              backgroundColor: Colors.red[600],
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              margin: const EdgeInsets.all(16),
+            ),
+          );
+        }
+      }
+    }
   }
 
   Widget _buildMoveItem(Map<String, dynamic> move, bool isLast) {

@@ -831,26 +831,87 @@ class BinDetailPage extends HookConsumerWidget {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: Row(
+        title: const Row(
           children: [
-            const Text('⚠️', style: TextStyle(fontSize: 24)),
-            const SizedBox(width: 8),
-            Text('${moveRequests.length} Active Move Requests'),
+            Icon(Icons.warning_amber, color: Colors.orange, size: 28),
+            SizedBox(width: 8),
+            Flexible(
+              child: Text(
+                'Active Move Requests',
+                style: TextStyle(fontSize: 18),
+              ),
+            ),
           ],
         ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text('This bin has multiple active requests:'),
-            const SizedBox(height: 12),
-            if (assigned > 0)
-              Text('📍 ASSIGNED: $assigned request${assigned > 1 ? 's' : ''}'),
-            if (pending > 0)
-              Text('📋 PENDING: $pending unassigned request${pending > 1 ? 's' : ''}'),
-            const SizedBox(height: 12),
-            const Text('Review and manage existing requests before creating another.'),
-          ],
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'This bin has ${moveRequests.length} active ${moveRequests.length == 1 ? 'request' : 'requests'}:',
+                style: const TextStyle(fontSize: 15),
+              ),
+              const SizedBox(height: 16),
+              if (assigned > 0)
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.blue.shade50,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.blue.shade200),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.person_pin, color: Colors.blue.shade700, size: 20),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'Assigned: $assigned',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w600,
+                            color: Colors.blue.shade900,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              if (assigned > 0 && pending > 0) const SizedBox(height: 8),
+              if (pending > 0)
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.orange.shade50,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.orange.shade200),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.schedule, color: Colors.orange.shade700, size: 20),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'Pending: $pending',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w600,
+                            color: Colors.orange.shade900,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              const SizedBox(height: 16),
+              Text(
+                'Review existing requests before creating another.',
+                style: TextStyle(
+                  fontSize: 14,
+                  color: Colors.grey.shade700,
+                ),
+              ),
+            ],
+          ),
         ),
         actions: [
           TextButton(

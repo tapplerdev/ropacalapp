@@ -269,4 +269,35 @@ class ManagerService {
       rethrow;
     }
   }
+
+  /// Get all move requests (pending, assigned, completed)
+  /// Optionally filter by status and/or urgency
+  Future<List<Map<String, dynamic>>> getAllMoveRequests({
+    String? status,
+    String? urgency,
+  }) async {
+    try {
+      print('📤 REQUEST: GET /api/manager/bins/move-requests');
+
+      final queryParams = <String, dynamic>{};
+      if (status != null) queryParams['status'] = status;
+      if (urgency != null) queryParams['urgency'] = urgency;
+
+      final response = await _apiService.get(
+        '/api/manager/bins/move-requests',
+        queryParameters: queryParams.isNotEmpty ? queryParams : null,
+      );
+
+      print('📥 RESPONSE: ${response.statusCode}');
+      print('   Data: ${response.data}');
+
+      // The endpoint returns an array directly (no success wrapper)
+      final moveRequests = List<Map<String, dynamic>>.from(response.data as List);
+      print('   ✅ Found ${moveRequests.length} move request(s)');
+      return moveRequests;
+    } catch (e) {
+      print('   ❌ ERROR: $e');
+      rethrow;
+    }
+  }
 }

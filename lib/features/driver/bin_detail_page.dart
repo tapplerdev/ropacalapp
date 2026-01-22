@@ -1339,21 +1339,21 @@ class _MoveHistoryModalContent extends HookConsumerWidget {
             ),
             // Filter chips
             Container(
-              height: 50,
-              margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+              height: 56,
+              margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
               child: ListView(
                 scrollDirection: Axis.horizontal,
                 children: [
                   _buildFilterChip('All', 'all', selectedFilter),
-                  const SizedBox(width: 8),
+                  const SizedBox(width: 10),
                   _buildFilterChip('Pending', 'pending', selectedFilter),
-                  const SizedBox(width: 8),
+                  const SizedBox(width: 10),
                   _buildFilterChip('Assigned', 'assigned', selectedFilter),
-                  const SizedBox(width: 8),
+                  const SizedBox(width: 10),
                   _buildFilterChip('In Progress', 'in_progress', selectedFilter),
-                  const SizedBox(width: 8),
+                  const SizedBox(width: 10),
                   _buildFilterChip('Completed', 'completed', selectedFilter),
-                  const SizedBox(width: 8),
+                  const SizedBox(width: 10),
                   _buildFilterChip('Cancelled', 'cancelled', selectedFilter),
                 ],
               ),
@@ -1385,12 +1385,12 @@ class _MoveHistoryModalContent extends HookConsumerWidget {
     return GestureDetector(
       onTap: () => selectedFilter.value = value,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
         decoration: BoxDecoration(
           color: isSelected
               ? AppColors.primaryGreen
               : Colors.grey.shade100,
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(24),
           border: Border.all(
             color: isSelected
                 ? AppColors.primaryGreen

@@ -1381,44 +1381,27 @@ class _MoveHistoryModalContent extends HookConsumerWidget {
     ValueNotifier<String?> selectedFilter,
   ) {
     final isSelected = selectedFilter.value == value;
-    Color chipColor;
-
-    switch (value) {
-      case 'pending':
-        chipColor = Colors.orange.shade700;
-        break;
-      case 'assigned':
-        chipColor = Colors.blue.shade700;
-        break;
-      case 'in_progress':
-        chipColor = Colors.purple.shade700;
-        break;
-      case 'completed':
-        chipColor = AppColors.successGreen;
-        break;
-      case 'cancelled':
-        chipColor = Colors.red.shade700;
-        break;
-      default:
-        chipColor = Colors.grey.shade700;
-    }
 
     return GestureDetector(
       onTap: () => selectedFilter.value = value,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
         decoration: BoxDecoration(
-          color: isSelected ? chipColor : Colors.grey.shade100,
+          color: isSelected
+              ? AppColors.primaryGreen
+              : Colors.grey.shade100,
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
-            color: isSelected ? chipColor : Colors.grey.shade300,
-            width: isSelected ? 2 : 1,
+            color: isSelected
+                ? AppColors.primaryGreen
+                : Colors.grey.shade300,
+            width: 1.5,
           ),
         ),
         child: Text(
           label,
           style: TextStyle(
-            fontSize: 13,
+            fontSize: 14,
             fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
             color: isSelected ? Colors.white : Colors.grey.shade700,
           ),

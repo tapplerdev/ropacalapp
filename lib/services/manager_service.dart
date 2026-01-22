@@ -186,6 +186,35 @@ class ManagerService {
     }
   }
 
+  /// Get all move requests for a specific bin (pending, assigned, completed, cancelled)
+  Future<List<Map<String, dynamic>>> getBinMoveRequests(
+    String binId, {
+    String? status,
+  }) async {
+    try {
+      print('📤 REQUEST: GET /api/bins/$binId/move-requests');
+
+      final queryParams = <String, dynamic>{};
+      if (status != null) queryParams['status'] = status;
+
+      final response = await _apiService.get(
+        '/api/bins/$binId/move-requests',
+        queryParameters: queryParams.isNotEmpty ? queryParams : null,
+      );
+
+      print('📥 RESPONSE: ${response.statusCode}');
+      print('   Data: ${response.data}');
+
+      // The endpoint returns an array directly (no success wrapper)
+      final moveRequests = List<Map<String, dynamic>>.from(response.data as List);
+      print('   ✅ Found ${moveRequests.length} move request(s) for bin $binId');
+      return moveRequests;
+    } catch (e) {
+      print('   ❌ ERROR: $e');
+      rethrow;
+    }
+  }
+
   /// Get check history for a specific bin
   Future<List<Map<String, dynamic>>> getBinCheckHistory(String binId) async {
     try {

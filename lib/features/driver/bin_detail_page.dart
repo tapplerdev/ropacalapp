@@ -439,11 +439,11 @@ class _MoveHistoryModalContent extends HookConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final moveHistoryFuture = useMemoized(
-      () => ref.read(managerServiceProvider).getBinMoveHistory(bin.id),
+    final moveRequestsFuture = useMemoized(
+      () => ref.read(managerServiceProvider).getBinMoveRequests(bin.id),
       [bin.id],
     );
-    final moveHistorySnapshot = useFuture(moveHistoryFuture);
+    final moveRequestsSnapshot = useFuture(moveRequestsFuture);
 
     return DraggableScrollableSheet(
       initialChildSize: 0.95,
@@ -498,7 +498,7 @@ class _MoveHistoryModalContent extends HookConsumerWidget {
             const Divider(height: 1),
             // Content
             Expanded(
-              child: _buildContent(context, scrollController, moveHistorySnapshot),
+              child: _buildContent(context, scrollController, moveRequestsSnapshot),
             ),
           ],
         ),
@@ -557,9 +557,9 @@ class _MoveHistoryModalContent extends HookConsumerWidget {
       );
     }
 
-    final moves = snapshot.data ?? [];
+    final moveRequests = snapshot.data ?? [];
 
-    if (moves.isEmpty) {
+    if (moveRequests.isEmpty) {
       return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -578,7 +578,7 @@ class _MoveHistoryModalContent extends HookConsumerWidget {
             ),
             const SizedBox(height: 24),
             Text(
-              'No Move History',
+              'No Move Requests',
               style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
@@ -587,7 +587,7 @@ class _MoveHistoryModalContent extends HookConsumerWidget {
             ),
             const SizedBox(height: 8),
             Text(
-              'Bin movements will appear here',
+              'Move requests will appear here',
               style: TextStyle(
                 fontSize: 14,
                 color: Colors.grey[600],
@@ -601,12 +601,364 @@ class _MoveHistoryModalContent extends HookConsumerWidget {
     return ListView.separated(
       controller: scrollController,
       padding: const EdgeInsets.all(20),
-      itemCount: moves.length,
+      itemCount: moveRequests.length,
       separatorBuilder: (context, index) => const SizedBox(height: 16),
       itemBuilder: (context, index) {
-        final move = moves[index];
-        return _buildMoveItem(move, index == moves.length - 1);
+        final moveRequest = moveRequests[index];
+        return _buildMoveRequestItem(moveRequest);
       },
+    );
+  }
+
+  Widget _buildMoveRequestItem(Map<String, dynamic> moveRequest) {
+    final status = moveRequest['status'] as String? ?? 'pending';
+    final urgency = moveRequest['urgency'] as String? ?? 'scheduled';
+    final moveType = moveRequest['move_type'] as String? ?? 'relocation';
+    final scheduledDateIso = moveRequest['scheduled_date_iso'] as String?;
+    final requestedByName = moveRequest['requested_by_name'] as String?;
+    final reason = moveRequest['reason'] as String?;
+    final notes = moveRequest['notes'] as String?;
+    final disposalAction = moveRequest['disposal_action'] as String?;
+    final newStreet = moveRequest['new_street'] as String?;
+    final newCity = moveRequest['new_city'] as String?;
+    final newZip = moveRequest['new_zip'] as String?;
+
+    // Get status color
+    Color statusColor;
+    switch (status) {
+      case 'pending':
+        statusColor = Colors.orange.shade700;
+        break;
+      case 'assigned':
+        statusColor = Colors.blue.shade700;
+        break;
+      case 'in_progress':
+        statusColor = Colors.purple.shade700;
+        break;
+      case 'completed':
+        statusColor = AppColors.successGreen;
+        break;
+      case 'cancelled':
+        statusColor = Colors.red.shade700;
+        break;
+      default:
+        statusColor = Colors.grey.shade700;
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.grey.shade50,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: Colors.grey.shade200,
+          width: 1,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header with status and urgency
+          Row(
+            children: [
+              // Status badge
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 8,
+                  vertical: 4,
+                ),
+                decoration: BoxDecoration(
+                  color: statusColor.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(
+                    color: statusColor.withValues(alpha: 0.3),
+                    width: 1,
+                  ),
+                ),
+                child: Text(
+                  status.toUpperCase(),
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                    color: statusColor,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              // Urgency badge
+              if (urgency == 'urgent')
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.red.shade50,
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(
+                      color: Colors.red.shade300,
+                      width: 1,
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.warning_amber_rounded,
+                        size: 14,
+                        color: Colors.red.shade700,
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        'URGENT',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.red.shade700,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              const Spacer(),
+              // Move type badge
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 8,
+                  vertical: 4,
+                ),
+                decoration: BoxDecoration(
+                  color: moveType == 'pickup_only'
+                      ? Colors.purple.shade50
+                      : Colors.blue.shade50,
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(
+                    color: moveType == 'pickup_only'
+                        ? Colors.purple.shade300
+                        : Colors.blue.shade300,
+                    width: 1,
+                  ),
+                ),
+                child: Text(
+                  moveType == 'pickup_only' ? 'PICKUP' : 'RELOCATION',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                    color: moveType == 'pickup_only'
+                        ? Colors.purple.shade700
+                        : Colors.blue.shade700,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          // Scheduled date
+          if (scheduledDateIso != null) ...[
+            Row(
+              children: [
+                Icon(
+                  Icons.calendar_today_outlined,
+                  size: 16,
+                  color: Colors.grey.shade600,
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  _formatMoveDate(scheduledDateIso),
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.grey.shade700,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+          ],
+          // Requester
+          if (requestedByName != null) ...[
+            Row(
+              children: [
+                Icon(
+                  Icons.person_outline,
+                  size: 16,
+                  color: Colors.grey.shade500,
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  'Requested by $requestedByName',
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: Colors.grey.shade700,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+          ],
+          // New location (for relocations)
+          if (moveType == 'relocation' && newStreet != null) ...[
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(
+                  color: Colors.grey.shade300,
+                  width: 1,
+                ),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(
+                    Icons.location_on_outlined,
+                    size: 16,
+                    color: AppColors.primaryGreen,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'New Location',
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: Colors.grey.shade600,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          newStreet,
+                          style: const TextStyle(
+                            fontSize: 13,
+                            color: Colors.black87,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        if (newCity != null && newZip != null) ...[
+                          const SizedBox(height: 2),
+                          Text(
+                            '$newCity $newZip',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.grey.shade600,
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+          ],
+          // Disposal action (for pickups)
+          if (moveType == 'pickup_only' && disposalAction != null) ...[
+            Container(
+              padding: const EdgeInsets.symmetric(
+                horizontal: 8,
+                vertical: 4,
+              ),
+              decoration: BoxDecoration(
+                color: disposalAction == 'retire'
+                    ? Colors.red.shade50
+                    : Colors.amber.shade50,
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(
+                  color: disposalAction == 'retire'
+                      ? Colors.red.shade300
+                      : Colors.amber.shade300,
+                  width: 1,
+                ),
+              ),
+              child: Text(
+                'Disposal: ${disposalAction.toUpperCase()}',
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.bold,
+                  color: disposalAction == 'retire'
+                      ? Colors.red.shade700
+                      : Colors.amber.shade900,
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+          ],
+          // Reason
+          if (reason != null && reason.isNotEmpty) ...[
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(
+                  color: Colors.grey.shade300,
+                  width: 1,
+                ),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(
+                    Icons.info_outline,
+                    size: 16,
+                    color: Colors.grey.shade600,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      reason,
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: Colors.grey.shade700,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 8),
+          ],
+          // Notes
+          if (notes != null && notes.isNotEmpty) ...[
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(
+                  color: Colors.grey.shade300,
+                  width: 1,
+                ),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(
+                    Icons.notes_outlined,
+                    size: 16,
+                    color: Colors.grey.shade600,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      notes,
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: Colors.grey.shade700,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ],
+      ),
     );
   }
 

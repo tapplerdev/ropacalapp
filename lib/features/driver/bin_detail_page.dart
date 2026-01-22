@@ -1339,7 +1339,7 @@ class _MoveHistoryModalContent extends HookConsumerWidget {
             ),
             // Filter chips
             Container(
-              height: 56,
+              height: 40,
               margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
               child: ListView(
                 scrollDirection: Axis.horizontal,
@@ -1385,12 +1385,12 @@ class _MoveHistoryModalContent extends HookConsumerWidget {
     return GestureDetector(
       onTap: () => selectedFilter.value = value,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         decoration: BoxDecoration(
           color: isSelected
               ? AppColors.primaryGreen
               : Colors.grey.shade100,
-          borderRadius: BorderRadius.circular(24),
+          borderRadius: BorderRadius.circular(16),
           border: Border.all(
             color: isSelected
                 ? AppColors.primaryGreen
@@ -1401,7 +1401,7 @@ class _MoveHistoryModalContent extends HookConsumerWidget {
         child: Text(
           label,
           style: TextStyle(
-            fontSize: 14,
+            fontSize: 13,
             fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
             color: isSelected ? Colors.white : Colors.grey.shade700,
           ),

@@ -151,13 +151,13 @@ class _LocationInfo extends StatelessWidget {
   final IconData icon;
   final Color iconColor;
   final String label;
-  final String address;
+  final String? address;
 
   const _LocationInfo({
     required this.icon,
     required this.iconColor,
     required this.label,
-    required this.address,
+    this.address,
   });
 
   @override
@@ -187,7 +187,7 @@ class _LocationInfo extends StatelessWidget {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  address,
+                  address ?? 'Pickup only',
                   style: const TextStyle(
                     fontSize: 14,
                     color: Colors.black87,

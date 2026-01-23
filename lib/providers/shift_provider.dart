@@ -260,6 +260,12 @@ class ShiftNotifier extends _$ShiftNotifier {
     }
 
     try {
+      // Send current location before starting shift
+      // This ensures backend has a location entry in driver_current_location table
+      AppLogger.general('📍 Sending current location before starting shift...');
+      await ref.read(locationTrackingServiceProvider).sendCurrentLocation();
+      AppLogger.general('✅ Location sent, proceeding with shift start');
+
       final shiftService = ref.read(shiftServiceProvider);
       final updatedShift = await shiftService.startShift();
 

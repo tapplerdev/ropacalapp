@@ -129,6 +129,30 @@ class LocationTrackingService {
     }
   }
 
+  /// Send current location immediately (one-time update)
+  /// Used before starting shift to ensure backend has a location
+  Future<void> sendCurrentLocation() async {
+    try {
+      AppLogger.general('📍 Getting current location for pre-shift update...');
+
+      final location = await _fusedLocation.getCurrentPosition();
+
+      if (location != null) {
+        AppLogger.general(
+          '✅ Got current location: ${location.position.latitude}, ${location.position.longitude}',
+        );
+        _sendLocation(location);
+
+        // Wait a bit to ensure WebSocket message is sent
+        await Future.delayed(const Duration(milliseconds: 500));
+      } else {
+        AppLogger.general('⚠️  Could not get current location');
+      }
+    } catch (e) {
+      AppLogger.general('❌ Error getting current location: $e');
+    }
+  }
+
   /// Stop location tracking
   void stopTracking() {
     if (!_isTracking) return;
@@ -147,11 +171,6 @@ class LocationTrackingService {
 
   /// Send position via WebSocket
   void _sendLocation(FusedLocation location) {
-    if (!_isTracking) {
-      AppLogger.general('⚠️  Skipping location send (not tracking)');
-      return;
-    }
-
     // Note: _currentShiftId can be null for background tracking
 
     try {

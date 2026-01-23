@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:ropacalapp/core/theme/app_colors.dart';
 import 'package:ropacalapp/features/manager/widgets/convert_location_dialog.dart';
 import 'package:ropacalapp/models/potential_location.dart';
 import 'package:ropacalapp/providers/potential_locations_list_provider.dart';
+import 'package:ropacalapp/providers/focused_potential_location_provider.dart';
 
 /// Potential Locations Page - Shows all potential locations for managers
 class PotentialLocationsPage extends HookConsumerWidget {
@@ -377,6 +379,33 @@ class PotentialLocationsPage extends HookConsumerWidget {
                     ),
                   ),
                 ],
+                // Locate on Map Button
+                if (location.latitude != null && location.longitude != null) ...[
+                  const SizedBox(height: 12),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton.icon(
+                      onPressed: () => _locateOnMap(context, ref, location),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.primaryGreen,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        elevation: 0,
+                      ),
+                      icon: const Icon(Icons.map, size: 18),
+                      label: const Text(
+                        'Locate on Map',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
               ],
             ),
           ),
@@ -403,6 +432,20 @@ class PotentialLocationsPage extends HookConsumerWidget {
     } catch (e) {
       return 'Unknown';
     }
+  }
+
+  void _locateOnMap(
+    BuildContext context,
+    WidgetRef ref,
+    PotentialLocation location,
+  ) {
+    // Set the focused potential location
+    ref
+        .read(focusedPotentialLocationProvider.notifier)
+        .focusLocation(location.potentialLocationId);
+
+    // Navigate back to the manager map page (home)
+    context.pop();
   }
 
   void _showLocationDetail(

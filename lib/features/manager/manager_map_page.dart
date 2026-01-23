@@ -8,6 +8,7 @@ import 'package:ropacalapp/providers/drivers_provider.dart';
 import 'package:ropacalapp/providers/bins_provider.dart';
 import 'package:ropacalapp/providers/focused_driver_provider.dart';
 import 'package:ropacalapp/providers/potential_locations_list_provider.dart';
+import 'package:ropacalapp/providers/focused_potential_location_provider.dart';
 import 'package:ropacalapp/models/active_driver.dart';
 import 'package:ropacalapp/models/shift_state.dart';
 import 'package:ropacalapp/models/potential_location.dart';
@@ -32,6 +33,10 @@ class ManagerMapPage extends HookConsumerWidget {
     final focusedDriverState = ref.watch(focusedDriverProvider);
     final focusedDriverId = focusedDriverState.driverId;
     final isFollowing = focusedDriverState.mode == FollowMode.following;
+
+    // Watch the focused potential location provider
+    final focusedPotentialLocationState = ref.watch(focusedPotentialLocationProvider);
+    final focusedPotentialLocationId = focusedPotentialLocationState.locationId;
 
     // 🔍 DIAGNOSTIC: Log every build
     AppLogger.general('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
@@ -601,6 +606,78 @@ class ManagerMapPage extends HookConsumerWidget {
               };
             },
             [isFollowing, mapController.value],
+          );
+
+          // Effect 3c: Auto-center camera on focused potential location
+          useEffect(
+            () {
+              if (mapController.value == null || focusedPotentialLocationId == null) {
+                return null;
+              }
+
+              final potentialLocations = potentialLocationsAsync.valueOrNull ?? [];
+
+              AppLogger.map('🎯 Focusing on potential location: $focusedPotentialLocationId');
+
+              // Find the focused potential location
+              PotentialLocation? focusedLocation;
+              try {
+                focusedLocation = potentialLocations.firstWhere(
+                  (loc) => loc.potentialLocationId == focusedPotentialLocationId,
+                );
+              } catch (e) {
+                // Location not found
+                focusedLocation = null;
+              }
+
+              if (focusedLocation != null &&
+                  focusedLocation.latitude != null &&
+                  focusedLocation.longitude != null) {
+                final targetPosition = LatLng(
+                  latitude: focusedLocation.latitude!,
+                  longitude: focusedLocation.longitude!,
+                );
+
+                AppLogger.map(
+                  '📍 Centering camera on potential location at (${focusedLocation.latitude}, ${focusedLocation.longitude})',
+                );
+
+                // Delay to ensure map is fully initialized
+                Future.delayed(const Duration(milliseconds: 500), () async {
+                  try {
+                    await mapController.value?.animateCamera(
+                      CameraUpdate.newCameraPosition(
+                        CameraPosition(
+                          target: targetPosition,
+                          zoom: 16.0,
+                        ),
+                      ),
+                    );
+                    AppLogger.map('✅ Camera centered on potential location');
+
+                    // Show the bottom sheet for this location
+                    showModalBottomSheet(
+                      context: context,
+                      isScrollControlled: true,
+                      backgroundColor: Colors.transparent,
+                      builder: (context) => PotentialLocationBottomSheet(
+                        location: focusedLocation!,
+                      ),
+                    );
+
+                    // Clear focus after centering
+                    ref.read(focusedPotentialLocationProvider.notifier).clearFocus();
+                  } catch (e) {
+                    AppLogger.map('⚠️ Failed to center camera on potential location: $e');
+                  }
+                });
+              } else {
+                AppLogger.map('⚠️ Focused potential location has no coordinates');
+              }
+
+              return null;
+            },
+            [mapController.value, focusedPotentialLocationId],
           );
 
           // Effect 3a: Manage driver marker lifecycle (add/remove when driver list changes)

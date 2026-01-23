@@ -27,44 +27,40 @@ mixin _$MoveRequest {
   @JsonKey(name: 'bin_number')
   int? get binNumber => throw _privateConstructorUsedError;
   MoveRequestStatus get status => throw _privateConstructorUsedError;
-  @JsonKey(name: 'requested_at')
-  DateTime get requestedAt => throw _privateConstructorUsedError;
+  @JsonKey(name: 'urgency')
+  String? get urgency => throw _privateConstructorUsedError;
+  @JsonKey(name: 'requested_by')
+  String? get requestedBy => throw _privateConstructorUsedError;
+  @JsonKey(name: 'scheduled_date')
+  int? get scheduledDate => throw _privateConstructorUsedError;
   @JsonKey(name: 'assigned_shift_id')
   String? get assignedShiftId => throw _privateConstructorUsedError;
-  @JsonKey(name: 'insert_after_bin_id')
-  String? get insertAfterBinId => throw _privateConstructorUsedError;
-  @JsonKey(name: 'insert_position')
-  String? get insertPosition => throw _privateConstructorUsedError; // PICKUP LOCATION (current bin location OR warehouse)
-  @JsonKey(name: 'pickup_latitude')
-  double get pickupLatitude => throw _privateConstructorUsedError;
-  @JsonKey(name: 'pickup_longitude')
-  double get pickupLongitude => throw _privateConstructorUsedError;
-  @JsonKey(name: 'pickup_address')
-  String get pickupAddress => throw _privateConstructorUsedError;
-  @JsonKey(name: 'is_warehouse_pickup')
-  bool get isWarehousePickup => throw _privateConstructorUsedError; // DROP-OFF LOCATION (new placement)
-  @JsonKey(name: 'dropoff_latitude')
-  double get dropoffLatitude => throw _privateConstructorUsedError;
-  @JsonKey(name: 'dropoff_longitude')
-  double get dropoffLongitude => throw _privateConstructorUsedError;
-  @JsonKey(name: 'dropoff_address')
-  String get dropoffAddress => throw _privateConstructorUsedError; // TRACKING
-  @JsonKey(name: 'picked_up_at')
-  DateTime? get pickedUpAt => throw _privateConstructorUsedError;
-  @JsonKey(name: 'pickup_photo_url')
-  String? get pickupPhotoUrl => throw _privateConstructorUsedError;
-  @JsonKey(name: 'placement_photo_url')
-  String? get placementPhotoUrl => throw _privateConstructorUsedError;
+  @JsonKey(name: 'assignment_type')
+  String? get assignmentType => throw _privateConstructorUsedError;
+  @JsonKey(name: 'move_type')
+  String? get moveType => throw _privateConstructorUsedError; // ORIGINAL LOCATION (where bin currently is)
+  @JsonKey(name: 'original_latitude')
+  double get originalLatitude => throw _privateConstructorUsedError;
+  @JsonKey(name: 'original_longitude')
+  double get originalLongitude => throw _privateConstructorUsedError;
+  @JsonKey(name: 'original_address')
+  String get originalAddress => throw _privateConstructorUsedError; // NEW LOCATION (where to move it - nullable for pickup-only)
+  @JsonKey(name: 'new_latitude')
+  double? get newLatitude => throw _privateConstructorUsedError;
+  @JsonKey(name: 'new_longitude')
+  double? get newLongitude => throw _privateConstructorUsedError;
+  @JsonKey(name: 'new_address')
+  String? get newAddress => throw _privateConstructorUsedError; // TRACKING & METADATA
+  @JsonKey(name: 'reason')
+  String? get reason => throw _privateConstructorUsedError;
   @JsonKey(name: 'notes')
-  String? get notes => throw _privateConstructorUsedError; // DEPRECATED - kept for backward compatibility
-  @JsonKey(name: 'new_location')
-  String? get newLocation => throw _privateConstructorUsedError;
-  @JsonKey(name: 'warehouse_location')
-  String? get warehouseLocation => throw _privateConstructorUsedError;
-  @JsonKey(name: 'resolved_at')
-  DateTime? get resolvedAt => throw _privateConstructorUsedError;
-  @JsonKey(name: 'resolved_by')
-  String? get resolvedBy => throw _privateConstructorUsedError;
+  String? get notes => throw _privateConstructorUsedError;
+  @JsonKey(name: 'completed_at')
+  int? get completedAt => throw _privateConstructorUsedError;
+  @JsonKey(name: 'created_at')
+  int get createdAt => throw _privateConstructorUsedError;
+  @JsonKey(name: 'updated_at')
+  int get updatedAt => throw _privateConstructorUsedError;
 
   /// Serializes this MoveRequest to a JSON map.
   Map<String, dynamic> toJson() => throw _privateConstructorUsedError;
@@ -88,25 +84,23 @@ abstract class $MoveRequestCopyWith<$Res> {
     @JsonKey(name: 'bin_id') String binId,
     @JsonKey(name: 'bin_number') int? binNumber,
     MoveRequestStatus status,
-    @JsonKey(name: 'requested_at') DateTime requestedAt,
+    @JsonKey(name: 'urgency') String? urgency,
+    @JsonKey(name: 'requested_by') String? requestedBy,
+    @JsonKey(name: 'scheduled_date') int? scheduledDate,
     @JsonKey(name: 'assigned_shift_id') String? assignedShiftId,
-    @JsonKey(name: 'insert_after_bin_id') String? insertAfterBinId,
-    @JsonKey(name: 'insert_position') String? insertPosition,
-    @JsonKey(name: 'pickup_latitude') double pickupLatitude,
-    @JsonKey(name: 'pickup_longitude') double pickupLongitude,
-    @JsonKey(name: 'pickup_address') String pickupAddress,
-    @JsonKey(name: 'is_warehouse_pickup') bool isWarehousePickup,
-    @JsonKey(name: 'dropoff_latitude') double dropoffLatitude,
-    @JsonKey(name: 'dropoff_longitude') double dropoffLongitude,
-    @JsonKey(name: 'dropoff_address') String dropoffAddress,
-    @JsonKey(name: 'picked_up_at') DateTime? pickedUpAt,
-    @JsonKey(name: 'pickup_photo_url') String? pickupPhotoUrl,
-    @JsonKey(name: 'placement_photo_url') String? placementPhotoUrl,
+    @JsonKey(name: 'assignment_type') String? assignmentType,
+    @JsonKey(name: 'move_type') String? moveType,
+    @JsonKey(name: 'original_latitude') double originalLatitude,
+    @JsonKey(name: 'original_longitude') double originalLongitude,
+    @JsonKey(name: 'original_address') String originalAddress,
+    @JsonKey(name: 'new_latitude') double? newLatitude,
+    @JsonKey(name: 'new_longitude') double? newLongitude,
+    @JsonKey(name: 'new_address') String? newAddress,
+    @JsonKey(name: 'reason') String? reason,
     @JsonKey(name: 'notes') String? notes,
-    @JsonKey(name: 'new_location') String? newLocation,
-    @JsonKey(name: 'warehouse_location') String? warehouseLocation,
-    @JsonKey(name: 'resolved_at') DateTime? resolvedAt,
-    @JsonKey(name: 'resolved_by') String? resolvedBy,
+    @JsonKey(name: 'completed_at') int? completedAt,
+    @JsonKey(name: 'created_at') int createdAt,
+    @JsonKey(name: 'updated_at') int updatedAt,
   });
 }
 
@@ -129,25 +123,23 @@ class _$MoveRequestCopyWithImpl<$Res, $Val extends MoveRequest>
     Object? binId = null,
     Object? binNumber = freezed,
     Object? status = null,
-    Object? requestedAt = null,
+    Object? urgency = freezed,
+    Object? requestedBy = freezed,
+    Object? scheduledDate = freezed,
     Object? assignedShiftId = freezed,
-    Object? insertAfterBinId = freezed,
-    Object? insertPosition = freezed,
-    Object? pickupLatitude = null,
-    Object? pickupLongitude = null,
-    Object? pickupAddress = null,
-    Object? isWarehousePickup = null,
-    Object? dropoffLatitude = null,
-    Object? dropoffLongitude = null,
-    Object? dropoffAddress = null,
-    Object? pickedUpAt = freezed,
-    Object? pickupPhotoUrl = freezed,
-    Object? placementPhotoUrl = freezed,
+    Object? assignmentType = freezed,
+    Object? moveType = freezed,
+    Object? originalLatitude = null,
+    Object? originalLongitude = null,
+    Object? originalAddress = null,
+    Object? newLatitude = freezed,
+    Object? newLongitude = freezed,
+    Object? newAddress = freezed,
+    Object? reason = freezed,
     Object? notes = freezed,
-    Object? newLocation = freezed,
-    Object? warehouseLocation = freezed,
-    Object? resolvedAt = freezed,
-    Object? resolvedBy = freezed,
+    Object? completedAt = freezed,
+    Object? createdAt = null,
+    Object? updatedAt = null,
   }) {
     return _then(
       _value.copyWith(
@@ -167,82 +159,74 @@ class _$MoveRequestCopyWithImpl<$Res, $Val extends MoveRequest>
                 ? _value.status
                 : status // ignore: cast_nullable_to_non_nullable
                       as MoveRequestStatus,
-            requestedAt: null == requestedAt
-                ? _value.requestedAt
-                : requestedAt // ignore: cast_nullable_to_non_nullable
-                      as DateTime,
+            urgency: freezed == urgency
+                ? _value.urgency
+                : urgency // ignore: cast_nullable_to_non_nullable
+                      as String?,
+            requestedBy: freezed == requestedBy
+                ? _value.requestedBy
+                : requestedBy // ignore: cast_nullable_to_non_nullable
+                      as String?,
+            scheduledDate: freezed == scheduledDate
+                ? _value.scheduledDate
+                : scheduledDate // ignore: cast_nullable_to_non_nullable
+                      as int?,
             assignedShiftId: freezed == assignedShiftId
                 ? _value.assignedShiftId
                 : assignedShiftId // ignore: cast_nullable_to_non_nullable
                       as String?,
-            insertAfterBinId: freezed == insertAfterBinId
-                ? _value.insertAfterBinId
-                : insertAfterBinId // ignore: cast_nullable_to_non_nullable
+            assignmentType: freezed == assignmentType
+                ? _value.assignmentType
+                : assignmentType // ignore: cast_nullable_to_non_nullable
                       as String?,
-            insertPosition: freezed == insertPosition
-                ? _value.insertPosition
-                : insertPosition // ignore: cast_nullable_to_non_nullable
+            moveType: freezed == moveType
+                ? _value.moveType
+                : moveType // ignore: cast_nullable_to_non_nullable
                       as String?,
-            pickupLatitude: null == pickupLatitude
-                ? _value.pickupLatitude
-                : pickupLatitude // ignore: cast_nullable_to_non_nullable
+            originalLatitude: null == originalLatitude
+                ? _value.originalLatitude
+                : originalLatitude // ignore: cast_nullable_to_non_nullable
                       as double,
-            pickupLongitude: null == pickupLongitude
-                ? _value.pickupLongitude
-                : pickupLongitude // ignore: cast_nullable_to_non_nullable
+            originalLongitude: null == originalLongitude
+                ? _value.originalLongitude
+                : originalLongitude // ignore: cast_nullable_to_non_nullable
                       as double,
-            pickupAddress: null == pickupAddress
-                ? _value.pickupAddress
-                : pickupAddress // ignore: cast_nullable_to_non_nullable
+            originalAddress: null == originalAddress
+                ? _value.originalAddress
+                : originalAddress // ignore: cast_nullable_to_non_nullable
                       as String,
-            isWarehousePickup: null == isWarehousePickup
-                ? _value.isWarehousePickup
-                : isWarehousePickup // ignore: cast_nullable_to_non_nullable
-                      as bool,
-            dropoffLatitude: null == dropoffLatitude
-                ? _value.dropoffLatitude
-                : dropoffLatitude // ignore: cast_nullable_to_non_nullable
-                      as double,
-            dropoffLongitude: null == dropoffLongitude
-                ? _value.dropoffLongitude
-                : dropoffLongitude // ignore: cast_nullable_to_non_nullable
-                      as double,
-            dropoffAddress: null == dropoffAddress
-                ? _value.dropoffAddress
-                : dropoffAddress // ignore: cast_nullable_to_non_nullable
-                      as String,
-            pickedUpAt: freezed == pickedUpAt
-                ? _value.pickedUpAt
-                : pickedUpAt // ignore: cast_nullable_to_non_nullable
-                      as DateTime?,
-            pickupPhotoUrl: freezed == pickupPhotoUrl
-                ? _value.pickupPhotoUrl
-                : pickupPhotoUrl // ignore: cast_nullable_to_non_nullable
+            newLatitude: freezed == newLatitude
+                ? _value.newLatitude
+                : newLatitude // ignore: cast_nullable_to_non_nullable
+                      as double?,
+            newLongitude: freezed == newLongitude
+                ? _value.newLongitude
+                : newLongitude // ignore: cast_nullable_to_non_nullable
+                      as double?,
+            newAddress: freezed == newAddress
+                ? _value.newAddress
+                : newAddress // ignore: cast_nullable_to_non_nullable
                       as String?,
-            placementPhotoUrl: freezed == placementPhotoUrl
-                ? _value.placementPhotoUrl
-                : placementPhotoUrl // ignore: cast_nullable_to_non_nullable
+            reason: freezed == reason
+                ? _value.reason
+                : reason // ignore: cast_nullable_to_non_nullable
                       as String?,
             notes: freezed == notes
                 ? _value.notes
                 : notes // ignore: cast_nullable_to_non_nullable
                       as String?,
-            newLocation: freezed == newLocation
-                ? _value.newLocation
-                : newLocation // ignore: cast_nullable_to_non_nullable
-                      as String?,
-            warehouseLocation: freezed == warehouseLocation
-                ? _value.warehouseLocation
-                : warehouseLocation // ignore: cast_nullable_to_non_nullable
-                      as String?,
-            resolvedAt: freezed == resolvedAt
-                ? _value.resolvedAt
-                : resolvedAt // ignore: cast_nullable_to_non_nullable
-                      as DateTime?,
-            resolvedBy: freezed == resolvedBy
-                ? _value.resolvedBy
-                : resolvedBy // ignore: cast_nullable_to_non_nullable
-                      as String?,
+            completedAt: freezed == completedAt
+                ? _value.completedAt
+                : completedAt // ignore: cast_nullable_to_non_nullable
+                      as int?,
+            createdAt: null == createdAt
+                ? _value.createdAt
+                : createdAt // ignore: cast_nullable_to_non_nullable
+                      as int,
+            updatedAt: null == updatedAt
+                ? _value.updatedAt
+                : updatedAt // ignore: cast_nullable_to_non_nullable
+                      as int,
           )
           as $Val,
     );
@@ -263,25 +247,23 @@ abstract class _$$MoveRequestImplCopyWith<$Res>
     @JsonKey(name: 'bin_id') String binId,
     @JsonKey(name: 'bin_number') int? binNumber,
     MoveRequestStatus status,
-    @JsonKey(name: 'requested_at') DateTime requestedAt,
+    @JsonKey(name: 'urgency') String? urgency,
+    @JsonKey(name: 'requested_by') String? requestedBy,
+    @JsonKey(name: 'scheduled_date') int? scheduledDate,
     @JsonKey(name: 'assigned_shift_id') String? assignedShiftId,
-    @JsonKey(name: 'insert_after_bin_id') String? insertAfterBinId,
-    @JsonKey(name: 'insert_position') String? insertPosition,
-    @JsonKey(name: 'pickup_latitude') double pickupLatitude,
-    @JsonKey(name: 'pickup_longitude') double pickupLongitude,
-    @JsonKey(name: 'pickup_address') String pickupAddress,
-    @JsonKey(name: 'is_warehouse_pickup') bool isWarehousePickup,
-    @JsonKey(name: 'dropoff_latitude') double dropoffLatitude,
-    @JsonKey(name: 'dropoff_longitude') double dropoffLongitude,
-    @JsonKey(name: 'dropoff_address') String dropoffAddress,
-    @JsonKey(name: 'picked_up_at') DateTime? pickedUpAt,
-    @JsonKey(name: 'pickup_photo_url') String? pickupPhotoUrl,
-    @JsonKey(name: 'placement_photo_url') String? placementPhotoUrl,
+    @JsonKey(name: 'assignment_type') String? assignmentType,
+    @JsonKey(name: 'move_type') String? moveType,
+    @JsonKey(name: 'original_latitude') double originalLatitude,
+    @JsonKey(name: 'original_longitude') double originalLongitude,
+    @JsonKey(name: 'original_address') String originalAddress,
+    @JsonKey(name: 'new_latitude') double? newLatitude,
+    @JsonKey(name: 'new_longitude') double? newLongitude,
+    @JsonKey(name: 'new_address') String? newAddress,
+    @JsonKey(name: 'reason') String? reason,
     @JsonKey(name: 'notes') String? notes,
-    @JsonKey(name: 'new_location') String? newLocation,
-    @JsonKey(name: 'warehouse_location') String? warehouseLocation,
-    @JsonKey(name: 'resolved_at') DateTime? resolvedAt,
-    @JsonKey(name: 'resolved_by') String? resolvedBy,
+    @JsonKey(name: 'completed_at') int? completedAt,
+    @JsonKey(name: 'created_at') int createdAt,
+    @JsonKey(name: 'updated_at') int updatedAt,
   });
 }
 
@@ -303,25 +285,23 @@ class __$$MoveRequestImplCopyWithImpl<$Res>
     Object? binId = null,
     Object? binNumber = freezed,
     Object? status = null,
-    Object? requestedAt = null,
+    Object? urgency = freezed,
+    Object? requestedBy = freezed,
+    Object? scheduledDate = freezed,
     Object? assignedShiftId = freezed,
-    Object? insertAfterBinId = freezed,
-    Object? insertPosition = freezed,
-    Object? pickupLatitude = null,
-    Object? pickupLongitude = null,
-    Object? pickupAddress = null,
-    Object? isWarehousePickup = null,
-    Object? dropoffLatitude = null,
-    Object? dropoffLongitude = null,
-    Object? dropoffAddress = null,
-    Object? pickedUpAt = freezed,
-    Object? pickupPhotoUrl = freezed,
-    Object? placementPhotoUrl = freezed,
+    Object? assignmentType = freezed,
+    Object? moveType = freezed,
+    Object? originalLatitude = null,
+    Object? originalLongitude = null,
+    Object? originalAddress = null,
+    Object? newLatitude = freezed,
+    Object? newLongitude = freezed,
+    Object? newAddress = freezed,
+    Object? reason = freezed,
     Object? notes = freezed,
-    Object? newLocation = freezed,
-    Object? warehouseLocation = freezed,
-    Object? resolvedAt = freezed,
-    Object? resolvedBy = freezed,
+    Object? completedAt = freezed,
+    Object? createdAt = null,
+    Object? updatedAt = null,
   }) {
     return _then(
       _$MoveRequestImpl(
@@ -341,82 +321,74 @@ class __$$MoveRequestImplCopyWithImpl<$Res>
             ? _value.status
             : status // ignore: cast_nullable_to_non_nullable
                   as MoveRequestStatus,
-        requestedAt: null == requestedAt
-            ? _value.requestedAt
-            : requestedAt // ignore: cast_nullable_to_non_nullable
-                  as DateTime,
+        urgency: freezed == urgency
+            ? _value.urgency
+            : urgency // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        requestedBy: freezed == requestedBy
+            ? _value.requestedBy
+            : requestedBy // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        scheduledDate: freezed == scheduledDate
+            ? _value.scheduledDate
+            : scheduledDate // ignore: cast_nullable_to_non_nullable
+                  as int?,
         assignedShiftId: freezed == assignedShiftId
             ? _value.assignedShiftId
             : assignedShiftId // ignore: cast_nullable_to_non_nullable
                   as String?,
-        insertAfterBinId: freezed == insertAfterBinId
-            ? _value.insertAfterBinId
-            : insertAfterBinId // ignore: cast_nullable_to_non_nullable
+        assignmentType: freezed == assignmentType
+            ? _value.assignmentType
+            : assignmentType // ignore: cast_nullable_to_non_nullable
                   as String?,
-        insertPosition: freezed == insertPosition
-            ? _value.insertPosition
-            : insertPosition // ignore: cast_nullable_to_non_nullable
+        moveType: freezed == moveType
+            ? _value.moveType
+            : moveType // ignore: cast_nullable_to_non_nullable
                   as String?,
-        pickupLatitude: null == pickupLatitude
-            ? _value.pickupLatitude
-            : pickupLatitude // ignore: cast_nullable_to_non_nullable
+        originalLatitude: null == originalLatitude
+            ? _value.originalLatitude
+            : originalLatitude // ignore: cast_nullable_to_non_nullable
                   as double,
-        pickupLongitude: null == pickupLongitude
-            ? _value.pickupLongitude
-            : pickupLongitude // ignore: cast_nullable_to_non_nullable
+        originalLongitude: null == originalLongitude
+            ? _value.originalLongitude
+            : originalLongitude // ignore: cast_nullable_to_non_nullable
                   as double,
-        pickupAddress: null == pickupAddress
-            ? _value.pickupAddress
-            : pickupAddress // ignore: cast_nullable_to_non_nullable
+        originalAddress: null == originalAddress
+            ? _value.originalAddress
+            : originalAddress // ignore: cast_nullable_to_non_nullable
                   as String,
-        isWarehousePickup: null == isWarehousePickup
-            ? _value.isWarehousePickup
-            : isWarehousePickup // ignore: cast_nullable_to_non_nullable
-                  as bool,
-        dropoffLatitude: null == dropoffLatitude
-            ? _value.dropoffLatitude
-            : dropoffLatitude // ignore: cast_nullable_to_non_nullable
-                  as double,
-        dropoffLongitude: null == dropoffLongitude
-            ? _value.dropoffLongitude
-            : dropoffLongitude // ignore: cast_nullable_to_non_nullable
-                  as double,
-        dropoffAddress: null == dropoffAddress
-            ? _value.dropoffAddress
-            : dropoffAddress // ignore: cast_nullable_to_non_nullable
-                  as String,
-        pickedUpAt: freezed == pickedUpAt
-            ? _value.pickedUpAt
-            : pickedUpAt // ignore: cast_nullable_to_non_nullable
-                  as DateTime?,
-        pickupPhotoUrl: freezed == pickupPhotoUrl
-            ? _value.pickupPhotoUrl
-            : pickupPhotoUrl // ignore: cast_nullable_to_non_nullable
+        newLatitude: freezed == newLatitude
+            ? _value.newLatitude
+            : newLatitude // ignore: cast_nullable_to_non_nullable
+                  as double?,
+        newLongitude: freezed == newLongitude
+            ? _value.newLongitude
+            : newLongitude // ignore: cast_nullable_to_non_nullable
+                  as double?,
+        newAddress: freezed == newAddress
+            ? _value.newAddress
+            : newAddress // ignore: cast_nullable_to_non_nullable
                   as String?,
-        placementPhotoUrl: freezed == placementPhotoUrl
-            ? _value.placementPhotoUrl
-            : placementPhotoUrl // ignore: cast_nullable_to_non_nullable
+        reason: freezed == reason
+            ? _value.reason
+            : reason // ignore: cast_nullable_to_non_nullable
                   as String?,
         notes: freezed == notes
             ? _value.notes
             : notes // ignore: cast_nullable_to_non_nullable
                   as String?,
-        newLocation: freezed == newLocation
-            ? _value.newLocation
-            : newLocation // ignore: cast_nullable_to_non_nullable
-                  as String?,
-        warehouseLocation: freezed == warehouseLocation
-            ? _value.warehouseLocation
-            : warehouseLocation // ignore: cast_nullable_to_non_nullable
-                  as String?,
-        resolvedAt: freezed == resolvedAt
-            ? _value.resolvedAt
-            : resolvedAt // ignore: cast_nullable_to_non_nullable
-                  as DateTime?,
-        resolvedBy: freezed == resolvedBy
-            ? _value.resolvedBy
-            : resolvedBy // ignore: cast_nullable_to_non_nullable
-                  as String?,
+        completedAt: freezed == completedAt
+            ? _value.completedAt
+            : completedAt // ignore: cast_nullable_to_non_nullable
+                  as int?,
+        createdAt: null == createdAt
+            ? _value.createdAt
+            : createdAt // ignore: cast_nullable_to_non_nullable
+                  as int,
+        updatedAt: null == updatedAt
+            ? _value.updatedAt
+            : updatedAt // ignore: cast_nullable_to_non_nullable
+                  as int,
       ),
     );
   }
@@ -424,32 +396,30 @@ class __$$MoveRequestImplCopyWithImpl<$Res>
 
 /// @nodoc
 @JsonSerializable()
-class _$MoveRequestImpl implements _MoveRequest {
+class _$MoveRequestImpl extends _MoveRequest {
   const _$MoveRequestImpl({
     required this.id,
     @JsonKey(name: 'bin_id') required this.binId,
     @JsonKey(name: 'bin_number') this.binNumber,
     required this.status,
-    @JsonKey(name: 'requested_at') required this.requestedAt,
+    @JsonKey(name: 'urgency') this.urgency,
+    @JsonKey(name: 'requested_by') this.requestedBy,
+    @JsonKey(name: 'scheduled_date') this.scheduledDate,
     @JsonKey(name: 'assigned_shift_id') this.assignedShiftId,
-    @JsonKey(name: 'insert_after_bin_id') this.insertAfterBinId,
-    @JsonKey(name: 'insert_position') this.insertPosition,
-    @JsonKey(name: 'pickup_latitude') required this.pickupLatitude,
-    @JsonKey(name: 'pickup_longitude') required this.pickupLongitude,
-    @JsonKey(name: 'pickup_address') required this.pickupAddress,
-    @JsonKey(name: 'is_warehouse_pickup') this.isWarehousePickup = false,
-    @JsonKey(name: 'dropoff_latitude') required this.dropoffLatitude,
-    @JsonKey(name: 'dropoff_longitude') required this.dropoffLongitude,
-    @JsonKey(name: 'dropoff_address') required this.dropoffAddress,
-    @JsonKey(name: 'picked_up_at') this.pickedUpAt,
-    @JsonKey(name: 'pickup_photo_url') this.pickupPhotoUrl,
-    @JsonKey(name: 'placement_photo_url') this.placementPhotoUrl,
+    @JsonKey(name: 'assignment_type') this.assignmentType,
+    @JsonKey(name: 'move_type') this.moveType,
+    @JsonKey(name: 'original_latitude') required this.originalLatitude,
+    @JsonKey(name: 'original_longitude') required this.originalLongitude,
+    @JsonKey(name: 'original_address') required this.originalAddress,
+    @JsonKey(name: 'new_latitude') this.newLatitude,
+    @JsonKey(name: 'new_longitude') this.newLongitude,
+    @JsonKey(name: 'new_address') this.newAddress,
+    @JsonKey(name: 'reason') this.reason,
     @JsonKey(name: 'notes') this.notes,
-    @JsonKey(name: 'new_location') this.newLocation,
-    @JsonKey(name: 'warehouse_location') this.warehouseLocation,
-    @JsonKey(name: 'resolved_at') this.resolvedAt,
-    @JsonKey(name: 'resolved_by') this.resolvedBy,
-  });
+    @JsonKey(name: 'completed_at') this.completedAt,
+    @JsonKey(name: 'created_at') required this.createdAt,
+    @JsonKey(name: 'updated_at') required this.updatedAt,
+  }) : super._();
 
   factory _$MoveRequestImpl.fromJson(Map<String, dynamic> json) =>
       _$$MoveRequestImplFromJson(json);
@@ -465,70 +435,63 @@ class _$MoveRequestImpl implements _MoveRequest {
   @override
   final MoveRequestStatus status;
   @override
-  @JsonKey(name: 'requested_at')
-  final DateTime requestedAt;
+  @JsonKey(name: 'urgency')
+  final String? urgency;
+  @override
+  @JsonKey(name: 'requested_by')
+  final String? requestedBy;
+  @override
+  @JsonKey(name: 'scheduled_date')
+  final int? scheduledDate;
   @override
   @JsonKey(name: 'assigned_shift_id')
   final String? assignedShiftId;
   @override
-  @JsonKey(name: 'insert_after_bin_id')
-  final String? insertAfterBinId;
+  @JsonKey(name: 'assignment_type')
+  final String? assignmentType;
   @override
-  @JsonKey(name: 'insert_position')
-  final String? insertPosition;
-  // PICKUP LOCATION (current bin location OR warehouse)
+  @JsonKey(name: 'move_type')
+  final String? moveType;
+  // ORIGINAL LOCATION (where bin currently is)
   @override
-  @JsonKey(name: 'pickup_latitude')
-  final double pickupLatitude;
+  @JsonKey(name: 'original_latitude')
+  final double originalLatitude;
   @override
-  @JsonKey(name: 'pickup_longitude')
-  final double pickupLongitude;
+  @JsonKey(name: 'original_longitude')
+  final double originalLongitude;
   @override
-  @JsonKey(name: 'pickup_address')
-  final String pickupAddress;
+  @JsonKey(name: 'original_address')
+  final String originalAddress;
+  // NEW LOCATION (where to move it - nullable for pickup-only)
   @override
-  @JsonKey(name: 'is_warehouse_pickup')
-  final bool isWarehousePickup;
-  // DROP-OFF LOCATION (new placement)
+  @JsonKey(name: 'new_latitude')
+  final double? newLatitude;
   @override
-  @JsonKey(name: 'dropoff_latitude')
-  final double dropoffLatitude;
+  @JsonKey(name: 'new_longitude')
+  final double? newLongitude;
   @override
-  @JsonKey(name: 'dropoff_longitude')
-  final double dropoffLongitude;
+  @JsonKey(name: 'new_address')
+  final String? newAddress;
+  // TRACKING & METADATA
   @override
-  @JsonKey(name: 'dropoff_address')
-  final String dropoffAddress;
-  // TRACKING
-  @override
-  @JsonKey(name: 'picked_up_at')
-  final DateTime? pickedUpAt;
-  @override
-  @JsonKey(name: 'pickup_photo_url')
-  final String? pickupPhotoUrl;
-  @override
-  @JsonKey(name: 'placement_photo_url')
-  final String? placementPhotoUrl;
+  @JsonKey(name: 'reason')
+  final String? reason;
   @override
   @JsonKey(name: 'notes')
   final String? notes;
-  // DEPRECATED - kept for backward compatibility
   @override
-  @JsonKey(name: 'new_location')
-  final String? newLocation;
+  @JsonKey(name: 'completed_at')
+  final int? completedAt;
   @override
-  @JsonKey(name: 'warehouse_location')
-  final String? warehouseLocation;
+  @JsonKey(name: 'created_at')
+  final int createdAt;
   @override
-  @JsonKey(name: 'resolved_at')
-  final DateTime? resolvedAt;
-  @override
-  @JsonKey(name: 'resolved_by')
-  final String? resolvedBy;
+  @JsonKey(name: 'updated_at')
+  final int updatedAt;
 
   @override
   String toString() {
-    return 'MoveRequest(id: $id, binId: $binId, binNumber: $binNumber, status: $status, requestedAt: $requestedAt, assignedShiftId: $assignedShiftId, insertAfterBinId: $insertAfterBinId, insertPosition: $insertPosition, pickupLatitude: $pickupLatitude, pickupLongitude: $pickupLongitude, pickupAddress: $pickupAddress, isWarehousePickup: $isWarehousePickup, dropoffLatitude: $dropoffLatitude, dropoffLongitude: $dropoffLongitude, dropoffAddress: $dropoffAddress, pickedUpAt: $pickedUpAt, pickupPhotoUrl: $pickupPhotoUrl, placementPhotoUrl: $placementPhotoUrl, notes: $notes, newLocation: $newLocation, warehouseLocation: $warehouseLocation, resolvedAt: $resolvedAt, resolvedBy: $resolvedBy)';
+    return 'MoveRequest(id: $id, binId: $binId, binNumber: $binNumber, status: $status, urgency: $urgency, requestedBy: $requestedBy, scheduledDate: $scheduledDate, assignedShiftId: $assignedShiftId, assignmentType: $assignmentType, moveType: $moveType, originalLatitude: $originalLatitude, originalLongitude: $originalLongitude, originalAddress: $originalAddress, newLatitude: $newLatitude, newLongitude: $newLongitude, newAddress: $newAddress, reason: $reason, notes: $notes, completedAt: $completedAt, createdAt: $createdAt, updatedAt: $updatedAt)';
   }
 
   @override
@@ -541,43 +504,37 @@ class _$MoveRequestImpl implements _MoveRequest {
             (identical(other.binNumber, binNumber) ||
                 other.binNumber == binNumber) &&
             (identical(other.status, status) || other.status == status) &&
-            (identical(other.requestedAt, requestedAt) ||
-                other.requestedAt == requestedAt) &&
+            (identical(other.urgency, urgency) || other.urgency == urgency) &&
+            (identical(other.requestedBy, requestedBy) ||
+                other.requestedBy == requestedBy) &&
+            (identical(other.scheduledDate, scheduledDate) ||
+                other.scheduledDate == scheduledDate) &&
             (identical(other.assignedShiftId, assignedShiftId) ||
                 other.assignedShiftId == assignedShiftId) &&
-            (identical(other.insertAfterBinId, insertAfterBinId) ||
-                other.insertAfterBinId == insertAfterBinId) &&
-            (identical(other.insertPosition, insertPosition) ||
-                other.insertPosition == insertPosition) &&
-            (identical(other.pickupLatitude, pickupLatitude) ||
-                other.pickupLatitude == pickupLatitude) &&
-            (identical(other.pickupLongitude, pickupLongitude) ||
-                other.pickupLongitude == pickupLongitude) &&
-            (identical(other.pickupAddress, pickupAddress) ||
-                other.pickupAddress == pickupAddress) &&
-            (identical(other.isWarehousePickup, isWarehousePickup) ||
-                other.isWarehousePickup == isWarehousePickup) &&
-            (identical(other.dropoffLatitude, dropoffLatitude) ||
-                other.dropoffLatitude == dropoffLatitude) &&
-            (identical(other.dropoffLongitude, dropoffLongitude) ||
-                other.dropoffLongitude == dropoffLongitude) &&
-            (identical(other.dropoffAddress, dropoffAddress) ||
-                other.dropoffAddress == dropoffAddress) &&
-            (identical(other.pickedUpAt, pickedUpAt) ||
-                other.pickedUpAt == pickedUpAt) &&
-            (identical(other.pickupPhotoUrl, pickupPhotoUrl) ||
-                other.pickupPhotoUrl == pickupPhotoUrl) &&
-            (identical(other.placementPhotoUrl, placementPhotoUrl) ||
-                other.placementPhotoUrl == placementPhotoUrl) &&
+            (identical(other.assignmentType, assignmentType) ||
+                other.assignmentType == assignmentType) &&
+            (identical(other.moveType, moveType) ||
+                other.moveType == moveType) &&
+            (identical(other.originalLatitude, originalLatitude) ||
+                other.originalLatitude == originalLatitude) &&
+            (identical(other.originalLongitude, originalLongitude) ||
+                other.originalLongitude == originalLongitude) &&
+            (identical(other.originalAddress, originalAddress) ||
+                other.originalAddress == originalAddress) &&
+            (identical(other.newLatitude, newLatitude) ||
+                other.newLatitude == newLatitude) &&
+            (identical(other.newLongitude, newLongitude) ||
+                other.newLongitude == newLongitude) &&
+            (identical(other.newAddress, newAddress) ||
+                other.newAddress == newAddress) &&
+            (identical(other.reason, reason) || other.reason == reason) &&
             (identical(other.notes, notes) || other.notes == notes) &&
-            (identical(other.newLocation, newLocation) ||
-                other.newLocation == newLocation) &&
-            (identical(other.warehouseLocation, warehouseLocation) ||
-                other.warehouseLocation == warehouseLocation) &&
-            (identical(other.resolvedAt, resolvedAt) ||
-                other.resolvedAt == resolvedAt) &&
-            (identical(other.resolvedBy, resolvedBy) ||
-                other.resolvedBy == resolvedBy));
+            (identical(other.completedAt, completedAt) ||
+                other.completedAt == completedAt) &&
+            (identical(other.createdAt, createdAt) ||
+                other.createdAt == createdAt) &&
+            (identical(other.updatedAt, updatedAt) ||
+                other.updatedAt == updatedAt));
   }
 
   @JsonKey(includeFromJson: false, includeToJson: false)
@@ -588,25 +545,23 @@ class _$MoveRequestImpl implements _MoveRequest {
     binId,
     binNumber,
     status,
-    requestedAt,
+    urgency,
+    requestedBy,
+    scheduledDate,
     assignedShiftId,
-    insertAfterBinId,
-    insertPosition,
-    pickupLatitude,
-    pickupLongitude,
-    pickupAddress,
-    isWarehousePickup,
-    dropoffLatitude,
-    dropoffLongitude,
-    dropoffAddress,
-    pickedUpAt,
-    pickupPhotoUrl,
-    placementPhotoUrl,
+    assignmentType,
+    moveType,
+    originalLatitude,
+    originalLongitude,
+    originalAddress,
+    newLatitude,
+    newLongitude,
+    newAddress,
+    reason,
     notes,
-    newLocation,
-    warehouseLocation,
-    resolvedAt,
-    resolvedBy,
+    completedAt,
+    createdAt,
+    updatedAt,
   ]);
 
   /// Create a copy of MoveRequest
@@ -623,32 +578,32 @@ class _$MoveRequestImpl implements _MoveRequest {
   }
 }
 
-abstract class _MoveRequest implements MoveRequest {
+abstract class _MoveRequest extends MoveRequest {
   const factory _MoveRequest({
     required final String id,
     @JsonKey(name: 'bin_id') required final String binId,
     @JsonKey(name: 'bin_number') final int? binNumber,
     required final MoveRequestStatus status,
-    @JsonKey(name: 'requested_at') required final DateTime requestedAt,
+    @JsonKey(name: 'urgency') final String? urgency,
+    @JsonKey(name: 'requested_by') final String? requestedBy,
+    @JsonKey(name: 'scheduled_date') final int? scheduledDate,
     @JsonKey(name: 'assigned_shift_id') final String? assignedShiftId,
-    @JsonKey(name: 'insert_after_bin_id') final String? insertAfterBinId,
-    @JsonKey(name: 'insert_position') final String? insertPosition,
-    @JsonKey(name: 'pickup_latitude') required final double pickupLatitude,
-    @JsonKey(name: 'pickup_longitude') required final double pickupLongitude,
-    @JsonKey(name: 'pickup_address') required final String pickupAddress,
-    @JsonKey(name: 'is_warehouse_pickup') final bool isWarehousePickup,
-    @JsonKey(name: 'dropoff_latitude') required final double dropoffLatitude,
-    @JsonKey(name: 'dropoff_longitude') required final double dropoffLongitude,
-    @JsonKey(name: 'dropoff_address') required final String dropoffAddress,
-    @JsonKey(name: 'picked_up_at') final DateTime? pickedUpAt,
-    @JsonKey(name: 'pickup_photo_url') final String? pickupPhotoUrl,
-    @JsonKey(name: 'placement_photo_url') final String? placementPhotoUrl,
+    @JsonKey(name: 'assignment_type') final String? assignmentType,
+    @JsonKey(name: 'move_type') final String? moveType,
+    @JsonKey(name: 'original_latitude') required final double originalLatitude,
+    @JsonKey(name: 'original_longitude')
+    required final double originalLongitude,
+    @JsonKey(name: 'original_address') required final String originalAddress,
+    @JsonKey(name: 'new_latitude') final double? newLatitude,
+    @JsonKey(name: 'new_longitude') final double? newLongitude,
+    @JsonKey(name: 'new_address') final String? newAddress,
+    @JsonKey(name: 'reason') final String? reason,
     @JsonKey(name: 'notes') final String? notes,
-    @JsonKey(name: 'new_location') final String? newLocation,
-    @JsonKey(name: 'warehouse_location') final String? warehouseLocation,
-    @JsonKey(name: 'resolved_at') final DateTime? resolvedAt,
-    @JsonKey(name: 'resolved_by') final String? resolvedBy,
+    @JsonKey(name: 'completed_at') final int? completedAt,
+    @JsonKey(name: 'created_at') required final int createdAt,
+    @JsonKey(name: 'updated_at') required final int updatedAt,
   }) = _$MoveRequestImpl;
+  const _MoveRequest._() : super._();
 
   factory _MoveRequest.fromJson(Map<String, dynamic> json) =
       _$MoveRequestImpl.fromJson;
@@ -664,62 +619,56 @@ abstract class _MoveRequest implements MoveRequest {
   @override
   MoveRequestStatus get status;
   @override
-  @JsonKey(name: 'requested_at')
-  DateTime get requestedAt;
+  @JsonKey(name: 'urgency')
+  String? get urgency;
+  @override
+  @JsonKey(name: 'requested_by')
+  String? get requestedBy;
+  @override
+  @JsonKey(name: 'scheduled_date')
+  int? get scheduledDate;
   @override
   @JsonKey(name: 'assigned_shift_id')
   String? get assignedShiftId;
   @override
-  @JsonKey(name: 'insert_after_bin_id')
-  String? get insertAfterBinId;
+  @JsonKey(name: 'assignment_type')
+  String? get assignmentType;
   @override
-  @JsonKey(name: 'insert_position')
-  String? get insertPosition; // PICKUP LOCATION (current bin location OR warehouse)
+  @JsonKey(name: 'move_type')
+  String? get moveType; // ORIGINAL LOCATION (where bin currently is)
   @override
-  @JsonKey(name: 'pickup_latitude')
-  double get pickupLatitude;
+  @JsonKey(name: 'original_latitude')
+  double get originalLatitude;
   @override
-  @JsonKey(name: 'pickup_longitude')
-  double get pickupLongitude;
+  @JsonKey(name: 'original_longitude')
+  double get originalLongitude;
   @override
-  @JsonKey(name: 'pickup_address')
-  String get pickupAddress;
+  @JsonKey(name: 'original_address')
+  String get originalAddress; // NEW LOCATION (where to move it - nullable for pickup-only)
   @override
-  @JsonKey(name: 'is_warehouse_pickup')
-  bool get isWarehousePickup; // DROP-OFF LOCATION (new placement)
+  @JsonKey(name: 'new_latitude')
+  double? get newLatitude;
   @override
-  @JsonKey(name: 'dropoff_latitude')
-  double get dropoffLatitude;
+  @JsonKey(name: 'new_longitude')
+  double? get newLongitude;
   @override
-  @JsonKey(name: 'dropoff_longitude')
-  double get dropoffLongitude;
+  @JsonKey(name: 'new_address')
+  String? get newAddress; // TRACKING & METADATA
   @override
-  @JsonKey(name: 'dropoff_address')
-  String get dropoffAddress; // TRACKING
-  @override
-  @JsonKey(name: 'picked_up_at')
-  DateTime? get pickedUpAt;
-  @override
-  @JsonKey(name: 'pickup_photo_url')
-  String? get pickupPhotoUrl;
-  @override
-  @JsonKey(name: 'placement_photo_url')
-  String? get placementPhotoUrl;
+  @JsonKey(name: 'reason')
+  String? get reason;
   @override
   @JsonKey(name: 'notes')
-  String? get notes; // DEPRECATED - kept for backward compatibility
+  String? get notes;
   @override
-  @JsonKey(name: 'new_location')
-  String? get newLocation;
+  @JsonKey(name: 'completed_at')
+  int? get completedAt;
   @override
-  @JsonKey(name: 'warehouse_location')
-  String? get warehouseLocation;
+  @JsonKey(name: 'created_at')
+  int get createdAt;
   @override
-  @JsonKey(name: 'resolved_at')
-  DateTime? get resolvedAt;
-  @override
-  @JsonKey(name: 'resolved_by')
-  String? get resolvedBy;
+  @JsonKey(name: 'updated_at')
+  int get updatedAt;
 
   /// Create a copy of MoveRequest
   /// with the given fields replaced by the non-null parameter values.

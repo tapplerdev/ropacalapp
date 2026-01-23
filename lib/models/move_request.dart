@@ -11,37 +11,45 @@ class MoveRequest with _$MoveRequest {
     @JsonKey(name: 'bin_id') required String binId,
     @JsonKey(name: 'bin_number') int? binNumber,
     required MoveRequestStatus status,
-    @JsonKey(name: 'requested_at') required DateTime requestedAt,
+    @JsonKey(name: 'urgency') String? urgency,
+    @JsonKey(name: 'requested_by') String? requestedBy,
+    @JsonKey(name: 'scheduled_date') int? scheduledDate,
     @JsonKey(name: 'assigned_shift_id') String? assignedShiftId,
-    @JsonKey(name: 'insert_after_bin_id') String? insertAfterBinId,
-    @JsonKey(name: 'insert_position') String? insertPosition,
+    @JsonKey(name: 'assignment_type') String? assignmentType,
+    @JsonKey(name: 'move_type') String? moveType,
 
-    // PICKUP LOCATION (current bin location OR warehouse)
-    @JsonKey(name: 'pickup_latitude') required double pickupLatitude,
-    @JsonKey(name: 'pickup_longitude') required double pickupLongitude,
-    @JsonKey(name: 'pickup_address') required String pickupAddress,
-    @JsonKey(name: 'is_warehouse_pickup')
-    @Default(false)
-    bool isWarehousePickup,
+    // ORIGINAL LOCATION (where bin currently is)
+    @JsonKey(name: 'original_latitude') required double originalLatitude,
+    @JsonKey(name: 'original_longitude') required double originalLongitude,
+    @JsonKey(name: 'original_address') required String originalAddress,
 
-    // DROP-OFF LOCATION (new placement)
-    @JsonKey(name: 'dropoff_latitude') required double dropoffLatitude,
-    @JsonKey(name: 'dropoff_longitude') required double dropoffLongitude,
-    @JsonKey(name: 'dropoff_address') required String dropoffAddress,
+    // NEW LOCATION (where to move it - nullable for pickup-only)
+    @JsonKey(name: 'new_latitude') double? newLatitude,
+    @JsonKey(name: 'new_longitude') double? newLongitude,
+    @JsonKey(name: 'new_address') String? newAddress,
 
-    // TRACKING
-    @JsonKey(name: 'picked_up_at') DateTime? pickedUpAt,
-    @JsonKey(name: 'pickup_photo_url') String? pickupPhotoUrl,
-    @JsonKey(name: 'placement_photo_url') String? placementPhotoUrl,
+    // TRACKING & METADATA
+    @JsonKey(name: 'reason') String? reason,
     @JsonKey(name: 'notes') String? notes,
-
-    // DEPRECATED - kept for backward compatibility
-    @JsonKey(name: 'new_location') String? newLocation,
-    @JsonKey(name: 'warehouse_location') String? warehouseLocation,
-    @JsonKey(name: 'resolved_at') DateTime? resolvedAt,
-    @JsonKey(name: 'resolved_by') String? resolvedBy,
+    @JsonKey(name: 'completed_at') int? completedAt,
+    @JsonKey(name: 'created_at') required int createdAt,
+    @JsonKey(name: 'updated_at') required int updatedAt,
   }) = _MoveRequest;
+
+  // Private constructor required for custom getters
+  const MoveRequest._();
 
   factory MoveRequest.fromJson(Map<String, dynamic> json) =>
       _$MoveRequestFromJson(json);
+
+  // Computed properties for better semantics on frontend
+  // Maps backend "original" (where bin is now) to "pickup" (where to pick it up from)
+  // Maps backend "new" (where bin should go) to "dropoff" (where to drop it off)
+  double get pickupLatitude => originalLatitude;
+  double get pickupLongitude => originalLongitude;
+  String get pickupAddress => originalAddress;
+
+  double? get dropoffLatitude => newLatitude;
+  double? get dropoffLongitude => newLongitude;
+  String? get dropoffAddress => newAddress;
 }

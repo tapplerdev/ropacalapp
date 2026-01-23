@@ -24,6 +24,8 @@ mixin _$MoveRequest {
   String get id => throw _privateConstructorUsedError;
   @JsonKey(name: 'bin_id')
   String get binId => throw _privateConstructorUsedError;
+  @JsonKey(name: 'bin_number')
+  int? get binNumber => throw _privateConstructorUsedError;
   MoveRequestStatus get status => throw _privateConstructorUsedError;
   @JsonKey(name: 'requested_at')
   DateTime get requestedAt => throw _privateConstructorUsedError;
@@ -32,7 +34,29 @@ mixin _$MoveRequest {
   @JsonKey(name: 'insert_after_bin_id')
   String? get insertAfterBinId => throw _privateConstructorUsedError;
   @JsonKey(name: 'insert_position')
-  String? get insertPosition => throw _privateConstructorUsedError;
+  String? get insertPosition => throw _privateConstructorUsedError; // PICKUP LOCATION (current bin location OR warehouse)
+  @JsonKey(name: 'pickup_latitude')
+  double get pickupLatitude => throw _privateConstructorUsedError;
+  @JsonKey(name: 'pickup_longitude')
+  double get pickupLongitude => throw _privateConstructorUsedError;
+  @JsonKey(name: 'pickup_address')
+  String get pickupAddress => throw _privateConstructorUsedError;
+  @JsonKey(name: 'is_warehouse_pickup')
+  bool get isWarehousePickup => throw _privateConstructorUsedError; // DROP-OFF LOCATION (new placement)
+  @JsonKey(name: 'dropoff_latitude')
+  double get dropoffLatitude => throw _privateConstructorUsedError;
+  @JsonKey(name: 'dropoff_longitude')
+  double get dropoffLongitude => throw _privateConstructorUsedError;
+  @JsonKey(name: 'dropoff_address')
+  String get dropoffAddress => throw _privateConstructorUsedError; // TRACKING
+  @JsonKey(name: 'picked_up_at')
+  DateTime? get pickedUpAt => throw _privateConstructorUsedError;
+  @JsonKey(name: 'pickup_photo_url')
+  String? get pickupPhotoUrl => throw _privateConstructorUsedError;
+  @JsonKey(name: 'placement_photo_url')
+  String? get placementPhotoUrl => throw _privateConstructorUsedError;
+  @JsonKey(name: 'notes')
+  String? get notes => throw _privateConstructorUsedError; // DEPRECATED - kept for backward compatibility
   @JsonKey(name: 'new_location')
   String? get newLocation => throw _privateConstructorUsedError;
   @JsonKey(name: 'warehouse_location')
@@ -62,11 +86,23 @@ abstract class $MoveRequestCopyWith<$Res> {
   $Res call({
     String id,
     @JsonKey(name: 'bin_id') String binId,
+    @JsonKey(name: 'bin_number') int? binNumber,
     MoveRequestStatus status,
     @JsonKey(name: 'requested_at') DateTime requestedAt,
     @JsonKey(name: 'assigned_shift_id') String? assignedShiftId,
     @JsonKey(name: 'insert_after_bin_id') String? insertAfterBinId,
     @JsonKey(name: 'insert_position') String? insertPosition,
+    @JsonKey(name: 'pickup_latitude') double pickupLatitude,
+    @JsonKey(name: 'pickup_longitude') double pickupLongitude,
+    @JsonKey(name: 'pickup_address') String pickupAddress,
+    @JsonKey(name: 'is_warehouse_pickup') bool isWarehousePickup,
+    @JsonKey(name: 'dropoff_latitude') double dropoffLatitude,
+    @JsonKey(name: 'dropoff_longitude') double dropoffLongitude,
+    @JsonKey(name: 'dropoff_address') String dropoffAddress,
+    @JsonKey(name: 'picked_up_at') DateTime? pickedUpAt,
+    @JsonKey(name: 'pickup_photo_url') String? pickupPhotoUrl,
+    @JsonKey(name: 'placement_photo_url') String? placementPhotoUrl,
+    @JsonKey(name: 'notes') String? notes,
     @JsonKey(name: 'new_location') String? newLocation,
     @JsonKey(name: 'warehouse_location') String? warehouseLocation,
     @JsonKey(name: 'resolved_at') DateTime? resolvedAt,
@@ -91,11 +127,23 @@ class _$MoveRequestCopyWithImpl<$Res, $Val extends MoveRequest>
   $Res call({
     Object? id = null,
     Object? binId = null,
+    Object? binNumber = freezed,
     Object? status = null,
     Object? requestedAt = null,
     Object? assignedShiftId = freezed,
     Object? insertAfterBinId = freezed,
     Object? insertPosition = freezed,
+    Object? pickupLatitude = null,
+    Object? pickupLongitude = null,
+    Object? pickupAddress = null,
+    Object? isWarehousePickup = null,
+    Object? dropoffLatitude = null,
+    Object? dropoffLongitude = null,
+    Object? dropoffAddress = null,
+    Object? pickedUpAt = freezed,
+    Object? pickupPhotoUrl = freezed,
+    Object? placementPhotoUrl = freezed,
+    Object? notes = freezed,
     Object? newLocation = freezed,
     Object? warehouseLocation = freezed,
     Object? resolvedAt = freezed,
@@ -111,6 +159,10 @@ class _$MoveRequestCopyWithImpl<$Res, $Val extends MoveRequest>
                 ? _value.binId
                 : binId // ignore: cast_nullable_to_non_nullable
                       as String,
+            binNumber: freezed == binNumber
+                ? _value.binNumber
+                : binNumber // ignore: cast_nullable_to_non_nullable
+                      as int?,
             status: null == status
                 ? _value.status
                 : status // ignore: cast_nullable_to_non_nullable
@@ -130,6 +182,50 @@ class _$MoveRequestCopyWithImpl<$Res, $Val extends MoveRequest>
             insertPosition: freezed == insertPosition
                 ? _value.insertPosition
                 : insertPosition // ignore: cast_nullable_to_non_nullable
+                      as String?,
+            pickupLatitude: null == pickupLatitude
+                ? _value.pickupLatitude
+                : pickupLatitude // ignore: cast_nullable_to_non_nullable
+                      as double,
+            pickupLongitude: null == pickupLongitude
+                ? _value.pickupLongitude
+                : pickupLongitude // ignore: cast_nullable_to_non_nullable
+                      as double,
+            pickupAddress: null == pickupAddress
+                ? _value.pickupAddress
+                : pickupAddress // ignore: cast_nullable_to_non_nullable
+                      as String,
+            isWarehousePickup: null == isWarehousePickup
+                ? _value.isWarehousePickup
+                : isWarehousePickup // ignore: cast_nullable_to_non_nullable
+                      as bool,
+            dropoffLatitude: null == dropoffLatitude
+                ? _value.dropoffLatitude
+                : dropoffLatitude // ignore: cast_nullable_to_non_nullable
+                      as double,
+            dropoffLongitude: null == dropoffLongitude
+                ? _value.dropoffLongitude
+                : dropoffLongitude // ignore: cast_nullable_to_non_nullable
+                      as double,
+            dropoffAddress: null == dropoffAddress
+                ? _value.dropoffAddress
+                : dropoffAddress // ignore: cast_nullable_to_non_nullable
+                      as String,
+            pickedUpAt: freezed == pickedUpAt
+                ? _value.pickedUpAt
+                : pickedUpAt // ignore: cast_nullable_to_non_nullable
+                      as DateTime?,
+            pickupPhotoUrl: freezed == pickupPhotoUrl
+                ? _value.pickupPhotoUrl
+                : pickupPhotoUrl // ignore: cast_nullable_to_non_nullable
+                      as String?,
+            placementPhotoUrl: freezed == placementPhotoUrl
+                ? _value.placementPhotoUrl
+                : placementPhotoUrl // ignore: cast_nullable_to_non_nullable
+                      as String?,
+            notes: freezed == notes
+                ? _value.notes
+                : notes // ignore: cast_nullable_to_non_nullable
                       as String?,
             newLocation: freezed == newLocation
                 ? _value.newLocation
@@ -165,11 +261,23 @@ abstract class _$$MoveRequestImplCopyWith<$Res>
   $Res call({
     String id,
     @JsonKey(name: 'bin_id') String binId,
+    @JsonKey(name: 'bin_number') int? binNumber,
     MoveRequestStatus status,
     @JsonKey(name: 'requested_at') DateTime requestedAt,
     @JsonKey(name: 'assigned_shift_id') String? assignedShiftId,
     @JsonKey(name: 'insert_after_bin_id') String? insertAfterBinId,
     @JsonKey(name: 'insert_position') String? insertPosition,
+    @JsonKey(name: 'pickup_latitude') double pickupLatitude,
+    @JsonKey(name: 'pickup_longitude') double pickupLongitude,
+    @JsonKey(name: 'pickup_address') String pickupAddress,
+    @JsonKey(name: 'is_warehouse_pickup') bool isWarehousePickup,
+    @JsonKey(name: 'dropoff_latitude') double dropoffLatitude,
+    @JsonKey(name: 'dropoff_longitude') double dropoffLongitude,
+    @JsonKey(name: 'dropoff_address') String dropoffAddress,
+    @JsonKey(name: 'picked_up_at') DateTime? pickedUpAt,
+    @JsonKey(name: 'pickup_photo_url') String? pickupPhotoUrl,
+    @JsonKey(name: 'placement_photo_url') String? placementPhotoUrl,
+    @JsonKey(name: 'notes') String? notes,
     @JsonKey(name: 'new_location') String? newLocation,
     @JsonKey(name: 'warehouse_location') String? warehouseLocation,
     @JsonKey(name: 'resolved_at') DateTime? resolvedAt,
@@ -193,11 +301,23 @@ class __$$MoveRequestImplCopyWithImpl<$Res>
   $Res call({
     Object? id = null,
     Object? binId = null,
+    Object? binNumber = freezed,
     Object? status = null,
     Object? requestedAt = null,
     Object? assignedShiftId = freezed,
     Object? insertAfterBinId = freezed,
     Object? insertPosition = freezed,
+    Object? pickupLatitude = null,
+    Object? pickupLongitude = null,
+    Object? pickupAddress = null,
+    Object? isWarehousePickup = null,
+    Object? dropoffLatitude = null,
+    Object? dropoffLongitude = null,
+    Object? dropoffAddress = null,
+    Object? pickedUpAt = freezed,
+    Object? pickupPhotoUrl = freezed,
+    Object? placementPhotoUrl = freezed,
+    Object? notes = freezed,
     Object? newLocation = freezed,
     Object? warehouseLocation = freezed,
     Object? resolvedAt = freezed,
@@ -213,6 +333,10 @@ class __$$MoveRequestImplCopyWithImpl<$Res>
             ? _value.binId
             : binId // ignore: cast_nullable_to_non_nullable
                   as String,
+        binNumber: freezed == binNumber
+            ? _value.binNumber
+            : binNumber // ignore: cast_nullable_to_non_nullable
+                  as int?,
         status: null == status
             ? _value.status
             : status // ignore: cast_nullable_to_non_nullable
@@ -232,6 +356,50 @@ class __$$MoveRequestImplCopyWithImpl<$Res>
         insertPosition: freezed == insertPosition
             ? _value.insertPosition
             : insertPosition // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        pickupLatitude: null == pickupLatitude
+            ? _value.pickupLatitude
+            : pickupLatitude // ignore: cast_nullable_to_non_nullable
+                  as double,
+        pickupLongitude: null == pickupLongitude
+            ? _value.pickupLongitude
+            : pickupLongitude // ignore: cast_nullable_to_non_nullable
+                  as double,
+        pickupAddress: null == pickupAddress
+            ? _value.pickupAddress
+            : pickupAddress // ignore: cast_nullable_to_non_nullable
+                  as String,
+        isWarehousePickup: null == isWarehousePickup
+            ? _value.isWarehousePickup
+            : isWarehousePickup // ignore: cast_nullable_to_non_nullable
+                  as bool,
+        dropoffLatitude: null == dropoffLatitude
+            ? _value.dropoffLatitude
+            : dropoffLatitude // ignore: cast_nullable_to_non_nullable
+                  as double,
+        dropoffLongitude: null == dropoffLongitude
+            ? _value.dropoffLongitude
+            : dropoffLongitude // ignore: cast_nullable_to_non_nullable
+                  as double,
+        dropoffAddress: null == dropoffAddress
+            ? _value.dropoffAddress
+            : dropoffAddress // ignore: cast_nullable_to_non_nullable
+                  as String,
+        pickedUpAt: freezed == pickedUpAt
+            ? _value.pickedUpAt
+            : pickedUpAt // ignore: cast_nullable_to_non_nullable
+                  as DateTime?,
+        pickupPhotoUrl: freezed == pickupPhotoUrl
+            ? _value.pickupPhotoUrl
+            : pickupPhotoUrl // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        placementPhotoUrl: freezed == placementPhotoUrl
+            ? _value.placementPhotoUrl
+            : placementPhotoUrl // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        notes: freezed == notes
+            ? _value.notes
+            : notes // ignore: cast_nullable_to_non_nullable
                   as String?,
         newLocation: freezed == newLocation
             ? _value.newLocation
@@ -260,11 +428,23 @@ class _$MoveRequestImpl implements _MoveRequest {
   const _$MoveRequestImpl({
     required this.id,
     @JsonKey(name: 'bin_id') required this.binId,
+    @JsonKey(name: 'bin_number') this.binNumber,
     required this.status,
     @JsonKey(name: 'requested_at') required this.requestedAt,
     @JsonKey(name: 'assigned_shift_id') this.assignedShiftId,
     @JsonKey(name: 'insert_after_bin_id') this.insertAfterBinId,
     @JsonKey(name: 'insert_position') this.insertPosition,
+    @JsonKey(name: 'pickup_latitude') required this.pickupLatitude,
+    @JsonKey(name: 'pickup_longitude') required this.pickupLongitude,
+    @JsonKey(name: 'pickup_address') required this.pickupAddress,
+    @JsonKey(name: 'is_warehouse_pickup') this.isWarehousePickup = false,
+    @JsonKey(name: 'dropoff_latitude') required this.dropoffLatitude,
+    @JsonKey(name: 'dropoff_longitude') required this.dropoffLongitude,
+    @JsonKey(name: 'dropoff_address') required this.dropoffAddress,
+    @JsonKey(name: 'picked_up_at') this.pickedUpAt,
+    @JsonKey(name: 'pickup_photo_url') this.pickupPhotoUrl,
+    @JsonKey(name: 'placement_photo_url') this.placementPhotoUrl,
+    @JsonKey(name: 'notes') this.notes,
     @JsonKey(name: 'new_location') this.newLocation,
     @JsonKey(name: 'warehouse_location') this.warehouseLocation,
     @JsonKey(name: 'resolved_at') this.resolvedAt,
@@ -280,6 +460,9 @@ class _$MoveRequestImpl implements _MoveRequest {
   @JsonKey(name: 'bin_id')
   final String binId;
   @override
+  @JsonKey(name: 'bin_number')
+  final int? binNumber;
+  @override
   final MoveRequestStatus status;
   @override
   @JsonKey(name: 'requested_at')
@@ -293,6 +476,43 @@ class _$MoveRequestImpl implements _MoveRequest {
   @override
   @JsonKey(name: 'insert_position')
   final String? insertPosition;
+  // PICKUP LOCATION (current bin location OR warehouse)
+  @override
+  @JsonKey(name: 'pickup_latitude')
+  final double pickupLatitude;
+  @override
+  @JsonKey(name: 'pickup_longitude')
+  final double pickupLongitude;
+  @override
+  @JsonKey(name: 'pickup_address')
+  final String pickupAddress;
+  @override
+  @JsonKey(name: 'is_warehouse_pickup')
+  final bool isWarehousePickup;
+  // DROP-OFF LOCATION (new placement)
+  @override
+  @JsonKey(name: 'dropoff_latitude')
+  final double dropoffLatitude;
+  @override
+  @JsonKey(name: 'dropoff_longitude')
+  final double dropoffLongitude;
+  @override
+  @JsonKey(name: 'dropoff_address')
+  final String dropoffAddress;
+  // TRACKING
+  @override
+  @JsonKey(name: 'picked_up_at')
+  final DateTime? pickedUpAt;
+  @override
+  @JsonKey(name: 'pickup_photo_url')
+  final String? pickupPhotoUrl;
+  @override
+  @JsonKey(name: 'placement_photo_url')
+  final String? placementPhotoUrl;
+  @override
+  @JsonKey(name: 'notes')
+  final String? notes;
+  // DEPRECATED - kept for backward compatibility
   @override
   @JsonKey(name: 'new_location')
   final String? newLocation;
@@ -308,7 +528,7 @@ class _$MoveRequestImpl implements _MoveRequest {
 
   @override
   String toString() {
-    return 'MoveRequest(id: $id, binId: $binId, status: $status, requestedAt: $requestedAt, assignedShiftId: $assignedShiftId, insertAfterBinId: $insertAfterBinId, insertPosition: $insertPosition, newLocation: $newLocation, warehouseLocation: $warehouseLocation, resolvedAt: $resolvedAt, resolvedBy: $resolvedBy)';
+    return 'MoveRequest(id: $id, binId: $binId, binNumber: $binNumber, status: $status, requestedAt: $requestedAt, assignedShiftId: $assignedShiftId, insertAfterBinId: $insertAfterBinId, insertPosition: $insertPosition, pickupLatitude: $pickupLatitude, pickupLongitude: $pickupLongitude, pickupAddress: $pickupAddress, isWarehousePickup: $isWarehousePickup, dropoffLatitude: $dropoffLatitude, dropoffLongitude: $dropoffLongitude, dropoffAddress: $dropoffAddress, pickedUpAt: $pickedUpAt, pickupPhotoUrl: $pickupPhotoUrl, placementPhotoUrl: $placementPhotoUrl, notes: $notes, newLocation: $newLocation, warehouseLocation: $warehouseLocation, resolvedAt: $resolvedAt, resolvedBy: $resolvedBy)';
   }
 
   @override
@@ -318,6 +538,8 @@ class _$MoveRequestImpl implements _MoveRequest {
             other is _$MoveRequestImpl &&
             (identical(other.id, id) || other.id == id) &&
             (identical(other.binId, binId) || other.binId == binId) &&
+            (identical(other.binNumber, binNumber) ||
+                other.binNumber == binNumber) &&
             (identical(other.status, status) || other.status == status) &&
             (identical(other.requestedAt, requestedAt) ||
                 other.requestedAt == requestedAt) &&
@@ -327,6 +549,27 @@ class _$MoveRequestImpl implements _MoveRequest {
                 other.insertAfterBinId == insertAfterBinId) &&
             (identical(other.insertPosition, insertPosition) ||
                 other.insertPosition == insertPosition) &&
+            (identical(other.pickupLatitude, pickupLatitude) ||
+                other.pickupLatitude == pickupLatitude) &&
+            (identical(other.pickupLongitude, pickupLongitude) ||
+                other.pickupLongitude == pickupLongitude) &&
+            (identical(other.pickupAddress, pickupAddress) ||
+                other.pickupAddress == pickupAddress) &&
+            (identical(other.isWarehousePickup, isWarehousePickup) ||
+                other.isWarehousePickup == isWarehousePickup) &&
+            (identical(other.dropoffLatitude, dropoffLatitude) ||
+                other.dropoffLatitude == dropoffLatitude) &&
+            (identical(other.dropoffLongitude, dropoffLongitude) ||
+                other.dropoffLongitude == dropoffLongitude) &&
+            (identical(other.dropoffAddress, dropoffAddress) ||
+                other.dropoffAddress == dropoffAddress) &&
+            (identical(other.pickedUpAt, pickedUpAt) ||
+                other.pickedUpAt == pickedUpAt) &&
+            (identical(other.pickupPhotoUrl, pickupPhotoUrl) ||
+                other.pickupPhotoUrl == pickupPhotoUrl) &&
+            (identical(other.placementPhotoUrl, placementPhotoUrl) ||
+                other.placementPhotoUrl == placementPhotoUrl) &&
+            (identical(other.notes, notes) || other.notes == notes) &&
             (identical(other.newLocation, newLocation) ||
                 other.newLocation == newLocation) &&
             (identical(other.warehouseLocation, warehouseLocation) ||
@@ -339,20 +582,32 @@ class _$MoveRequestImpl implements _MoveRequest {
 
   @JsonKey(includeFromJson: false, includeToJson: false)
   @override
-  int get hashCode => Object.hash(
+  int get hashCode => Object.hashAll([
     runtimeType,
     id,
     binId,
+    binNumber,
     status,
     requestedAt,
     assignedShiftId,
     insertAfterBinId,
     insertPosition,
+    pickupLatitude,
+    pickupLongitude,
+    pickupAddress,
+    isWarehousePickup,
+    dropoffLatitude,
+    dropoffLongitude,
+    dropoffAddress,
+    pickedUpAt,
+    pickupPhotoUrl,
+    placementPhotoUrl,
+    notes,
     newLocation,
     warehouseLocation,
     resolvedAt,
     resolvedBy,
-  );
+  ]);
 
   /// Create a copy of MoveRequest
   /// with the given fields replaced by the non-null parameter values.
@@ -372,11 +627,23 @@ abstract class _MoveRequest implements MoveRequest {
   const factory _MoveRequest({
     required final String id,
     @JsonKey(name: 'bin_id') required final String binId,
+    @JsonKey(name: 'bin_number') final int? binNumber,
     required final MoveRequestStatus status,
     @JsonKey(name: 'requested_at') required final DateTime requestedAt,
     @JsonKey(name: 'assigned_shift_id') final String? assignedShiftId,
     @JsonKey(name: 'insert_after_bin_id') final String? insertAfterBinId,
     @JsonKey(name: 'insert_position') final String? insertPosition,
+    @JsonKey(name: 'pickup_latitude') required final double pickupLatitude,
+    @JsonKey(name: 'pickup_longitude') required final double pickupLongitude,
+    @JsonKey(name: 'pickup_address') required final String pickupAddress,
+    @JsonKey(name: 'is_warehouse_pickup') final bool isWarehousePickup,
+    @JsonKey(name: 'dropoff_latitude') required final double dropoffLatitude,
+    @JsonKey(name: 'dropoff_longitude') required final double dropoffLongitude,
+    @JsonKey(name: 'dropoff_address') required final String dropoffAddress,
+    @JsonKey(name: 'picked_up_at') final DateTime? pickedUpAt,
+    @JsonKey(name: 'pickup_photo_url') final String? pickupPhotoUrl,
+    @JsonKey(name: 'placement_photo_url') final String? placementPhotoUrl,
+    @JsonKey(name: 'notes') final String? notes,
     @JsonKey(name: 'new_location') final String? newLocation,
     @JsonKey(name: 'warehouse_location') final String? warehouseLocation,
     @JsonKey(name: 'resolved_at') final DateTime? resolvedAt,
@@ -392,6 +659,9 @@ abstract class _MoveRequest implements MoveRequest {
   @JsonKey(name: 'bin_id')
   String get binId;
   @override
+  @JsonKey(name: 'bin_number')
+  int? get binNumber;
+  @override
   MoveRequestStatus get status;
   @override
   @JsonKey(name: 'requested_at')
@@ -404,7 +674,40 @@ abstract class _MoveRequest implements MoveRequest {
   String? get insertAfterBinId;
   @override
   @JsonKey(name: 'insert_position')
-  String? get insertPosition;
+  String? get insertPosition; // PICKUP LOCATION (current bin location OR warehouse)
+  @override
+  @JsonKey(name: 'pickup_latitude')
+  double get pickupLatitude;
+  @override
+  @JsonKey(name: 'pickup_longitude')
+  double get pickupLongitude;
+  @override
+  @JsonKey(name: 'pickup_address')
+  String get pickupAddress;
+  @override
+  @JsonKey(name: 'is_warehouse_pickup')
+  bool get isWarehousePickup; // DROP-OFF LOCATION (new placement)
+  @override
+  @JsonKey(name: 'dropoff_latitude')
+  double get dropoffLatitude;
+  @override
+  @JsonKey(name: 'dropoff_longitude')
+  double get dropoffLongitude;
+  @override
+  @JsonKey(name: 'dropoff_address')
+  String get dropoffAddress; // TRACKING
+  @override
+  @JsonKey(name: 'picked_up_at')
+  DateTime? get pickedUpAt;
+  @override
+  @JsonKey(name: 'pickup_photo_url')
+  String? get pickupPhotoUrl;
+  @override
+  @JsonKey(name: 'placement_photo_url')
+  String? get placementPhotoUrl;
+  @override
+  @JsonKey(name: 'notes')
+  String? get notes; // DEPRECATED - kept for backward compatibility
   @override
   @JsonKey(name: 'new_location')
   String? get newLocation;

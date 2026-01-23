@@ -41,6 +41,8 @@ import 'package:ropacalapp/features/driver/widgets/map_notification_button.dart'
 import 'package:ropacalapp/features/driver/widgets/map_2d_3d_toggle_button.dart';
 import 'package:ropacalapp/features/driver/widgets/map_location_button.dart';
 import 'package:ropacalapp/features/driver/widgets/shift_acceptance_bottom_sheet.dart';
+import 'package:ropacalapp/features/driver/widgets/move_request_notification_dialog.dart';
+import 'package:ropacalapp/providers/move_request_notification_provider.dart';
 import 'package:ropacalapp/features/driver/google_navigation_page.dart';
 import 'package:ropacalapp/features/driver/notifications_page.dart';
 import 'package:ropacalapp/models/shift_overview.dart';
@@ -341,6 +343,29 @@ class DriverMapPage extends HookConsumerWidget {
     // NOTE: Removed custom camera following for no-shift case
     // When there's no shift, we use vanilla Google Maps with default behavior
     // (no forced camera movements, user controls the map freely)
+
+    // Listen for move request notifications and show dialog
+    ref.listen(moveRequestNotificationNotifierProvider, (previous, next) {
+      if (next != null && previous?.timestamp != next.timestamp) {
+        AppLogger.general('🔔 Move request notification received - showing dialog');
+
+        // Show dialog after current frame completes
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          showDialog(
+            context: context,
+            barrierDismissible: false,
+            builder: (dialogContext) => MoveRequestNotificationDialog(
+              moveRequest: next.moveRequest,
+              onClose: () {
+                Navigator.of(dialogContext).pop();
+                ref.read(moveRequestNotificationNotifierProvider.notifier).clear();
+                AppLogger.general('✅ Move request notification dialog closed');
+              },
+            ),
+          );
+        });
+      }
+    });
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: SystemUiOverlayStyle.dark, // Dark status bar icons

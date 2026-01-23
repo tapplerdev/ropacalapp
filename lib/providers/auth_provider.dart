@@ -3,6 +3,7 @@ import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:ropacalapp/core/services/api_service.dart';
 import 'package:ropacalapp/models/user.dart';
 import 'package:ropacalapp/models/driver_location.dart';
+import 'package:ropacalapp/models/move_request.dart';
 import 'package:ropacalapp/core/enums/user_role.dart';
 import 'package:ropacalapp/services/fcm_service.dart';
 import 'package:ropacalapp/services/shift_service.dart';
@@ -12,6 +13,8 @@ import 'package:ropacalapp/providers/drivers_provider.dart';
 import 'package:ropacalapp/providers/simulation_provider.dart';
 import 'package:ropacalapp/providers/potential_locations_list_provider.dart';
 import 'package:ropacalapp/providers/bins_provider.dart';
+import 'package:ropacalapp/providers/move_request_provider.dart';
+import 'package:ropacalapp/providers/move_request_notification_provider.dart';
 import 'package:ropacalapp/core/services/location_tracking_service.dart';
 import 'package:ropacalapp/core/utils/app_logger.dart';
 import 'package:ropacalapp/core/services/session_manager.dart';
@@ -128,12 +131,43 @@ class WebSocketManager extends _$WebSocketManager {
       try {
         AppLogger.general('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
         AppLogger.general('📦 AUTH_PROVIDER: onMoveRequestAssigned CALLBACK TRIGGERED');
-        AppLogger.general('   Move request assigned to shift - refreshing route');
-        AppLogger.general('   Data: $data');
+        AppLogger.general('   Move request assigned to shift - processing...');
+        AppLogger.general('   Data keys: ${data.keys.toList()}');
 
-        AppLogger.general('   🔄 Fetching current shift to get updated route...');
-        ref.read(shiftNotifierProvider.notifier).fetchCurrentShift();
-        AppLogger.general('   ✅ Shift refresh triggered');
+        // Parse move request from WebSocket data
+        if (data['move_request'] != null) {
+          final moveRequestData = data['move_request'] as Map<String, dynamic>;
+          final moveRequest = MoveRequest.fromJson(moveRequestData);
+
+          AppLogger.general('   📦 Move Request: ${moveRequest.id}');
+          AppLogger.general('   Bin: ${moveRequest.binId}');
+          AppLogger.general('   Pickup: ${moveRequest.pickupAddress}');
+          AppLogger.general('   Dropoff: ${moveRequest.dropoffAddress}');
+
+          // Set active move request
+          ref.read(activeMoveRequestProvider.notifier).setMoveRequest(moveRequest);
+          AppLogger.general('   ✅ Active move request set');
+
+          // Trigger notification for UI
+          ref
+              .read(moveRequestNotificationNotifierProvider.notifier)
+              .notify(moveRequest);
+          AppLogger.general('   🔔 Move request notification triggered');
+        } else {
+          AppLogger.general('   ⚠️  No move_request field in data');
+        }
+
+        // Update shift with new route (includes pickup & dropoff waypoints)
+        if (data['updated_route'] != null) {
+          AppLogger.general('   🔄 Updating shift with new route...');
+          ref.read(shiftNotifierProvider.notifier).updateFromWebSocket(data);
+          AppLogger.general('   ✅ Shift updated with new route');
+        } else {
+          AppLogger.general('   🔄 Fetching current shift to get updated route...');
+          ref.read(shiftNotifierProvider.notifier).fetchCurrentShift();
+          AppLogger.general('   ✅ Shift refresh triggered');
+        }
+
         AppLogger.general('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
       } catch (e, stack) {
         AppLogger.general('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');

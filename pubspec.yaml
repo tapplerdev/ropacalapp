@@ -62,7 +62,7 @@ dependencies:
   flutter_dotenv: ^5.2.1  # Environment variables
 
   # Maps & Location
-  google_navigation_flutter: ^0.7.0  # Google Navigation SDK (includes map view for both driver & manager)
+  google_navigation_flutter: ^0.8.2  # Google Navigation SDK (includes map view for both driver & manager)
   location: ^7.0.0  # Real-time location updates with configurable intervals (for continuous GPS tracking)
   geolocator: ^14.0.2  # Location utilities (permissions, distanceBetween, one-time location fetches)
   geocoding: ^3.0.0  # Reverse geocoding (GPS coordinates to address)
@@ -105,8 +105,10 @@ dev_dependencies:
   json_serializable: ^6.8.0
 
 # Fix for analyzer_plugin compatibility with analyzer 7.x
+# Fix for meta version conflict with google_navigation_flutter 0.8.0+
 dependency_overrides:
   analyzer_plugin: ^0.13.1
+  meta: ^1.17.0
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec

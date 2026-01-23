@@ -569,8 +569,6 @@ class GoogleNavigationPage extends HookConsumerWidget {
         waypoints: waypoints,
         displayOptions: NavigationDisplayOptions(
           showDestinationMarkers: false, // We'll use custom markers
-          showStopSigns: false,
-          showTrafficLights: false,
         ),
         routingOptions: RoutingOptions(
           travelMode: NavigationTravelMode.driving,
@@ -807,8 +805,6 @@ class GoogleNavigationPage extends HookConsumerWidget {
           waypoints: waypoints,
           displayOptions: NavigationDisplayOptions(
             showDestinationMarkers: false,
-            showStopSigns: false,
-            showTrafficLights: false,
           ),
           routingOptions: RoutingOptions(
             travelMode: NavigationTravelMode.driving,
@@ -1193,17 +1189,20 @@ class GoogleNavigationPage extends HookConsumerWidget {
 
       final navInfo = navInfoEvent.navInfo;
 
-      // Update current step
+      // Update current step (with null checks for SDK 0.8.0+ compatibility)
       if (navInfo.currentStep != null) {
         final step = navInfo.currentStep!;
-        navNotifier.updateCurrentStep(RouteStep(
-          maneuverType: GoogleNavigationHelpers.convertManeuverType(step.maneuver),
-          instruction: step.fullInstructions,
-          distance: step.distanceFromPrevStepMeters.toDouble(),
-          duration: navInfo.timeToCurrentStepSeconds?.toDouble() ?? 0.0,
-          location: latlong.LatLng(0, 0), // Location not available in StepInfo
-          modifier: GoogleNavigationHelpers.extractModifier(step.fullInstructions),
-        ));
+        // SDK 0.8.0+: Most StepInfo fields are now nullable
+        if (step.maneuver != null && step.fullInstructions != null) {
+          navNotifier.updateCurrentStep(RouteStep(
+            maneuverType: GoogleNavigationHelpers.convertManeuverType(step.maneuver!),
+            instruction: step.fullInstructions!,
+            distance: step.distanceFromPrevStepMeters?.toDouble() ?? 0.0,
+            duration: navInfo.timeToCurrentStepSeconds?.toDouble() ?? 0.0,
+            location: latlong.LatLng(0, 0), // Location not available in StepInfo
+            modifier: GoogleNavigationHelpers.extractModifier(step.fullInstructions!),
+          ));
+        }
       }
 
       // Update distance to next maneuver

@@ -88,28 +88,28 @@ class LocationTrackingService {
       // Subscribe to location stream
       _locationSubscription = _fusedLocation.dataStream.listen(
         (FusedLocation location) {
-          // Measure actual GPS update interval
-          final now = DateTime.now();
-          if (_lastGpsUpdate != null) {
-            final interval = now.difference(_lastGpsUpdate!).inMilliseconds;
-            AppLogger.general(
-              '⏱️  GPS interval: ${interval}ms (${(interval / 1000).toStringAsFixed(1)}s)',
-            );
-          }
-          _lastGpsUpdate = now;
+          // Measure actual GPS update interval (commented out to reduce log clutter)
+          // final now = DateTime.now();
+          // if (_lastGpsUpdate != null) {
+          //   final interval = now.difference(_lastGpsUpdate!).inMilliseconds;
+          //   AppLogger.general(
+          //     '⏱️  GPS interval: ${interval}ms (${(interval / 1000).toStringAsFixed(1)}s)',
+          //   );
+          // }
+          // _lastGpsUpdate = now;
 
-          // Extract position data
-          final lat = location.position.latitude;
-          final lng = location.position.longitude;
-          final accuracy = location.position.accuracy ?? -1.0;
-          final speedMs = location.speed.magnitude ?? 0.0;
-          final speedKmh = speedMs * 3.6;
+          // Extract position data (logging commented out to reduce clutter)
+          // final lat = location.position.latitude;
+          // final lng = location.position.longitude;
+          // final accuracy = location.position.accuracy ?? -1.0;
+          // final speedMs = location.speed.magnitude ?? 0.0;
+          // final speedKmh = speedMs * 3.6;
 
-          AppLogger.general(
-            '📍 GPS: ${lat.toStringAsFixed(6)}, ${lng.toStringAsFixed(6)} '
-            '(${speedKmh.toStringAsFixed(1)} km/h, '
-            'accuracy: ${accuracy.toStringAsFixed(1)}m)',
-          );
+          // AppLogger.general(
+          //   '📍 GPS: ${lat.toStringAsFixed(6)}, ${lng.toStringAsFixed(6)} '
+          //   '(${speedKmh.toStringAsFixed(1)} km/h, '
+          //   'accuracy: ${accuracy.toStringAsFixed(1)}m)',
+          // );
 
           _sendLocation(location);
         },
@@ -203,7 +203,7 @@ class LocationTrackingService {
       final speed = location.speed.magnitude ?? 0.0;
       final accuracy = location.position.accuracy ?? -1.0;
 
-      AppLogger.general('🧭 Heading: ${heading.toStringAsFixed(1)}°');
+      // AppLogger.general('🧭 Heading: ${heading.toStringAsFixed(1)}°');
 
       // Prepare location data
       final locationData = {
@@ -224,7 +224,7 @@ class LocationTrackingService {
 
       webSocket.sendMessage(message);
 
-      AppLogger.general('📤 Location sent to backend');
+      // AppLogger.general('📤 Location sent to backend');
     } catch (e) {
       AppLogger.general('❌ Failed to send location: $e');
     }

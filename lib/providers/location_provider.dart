@@ -44,7 +44,7 @@ class CurrentLocation extends _$CurrentLocation {
     final locationService = ref.read(locationServiceProvider);
     _locationSubscription = locationService.getPositionStream().listen(
       (position) {
-        AppLogger.location('📍 Location updated: ${position.latitude}, ${position.longitude}');
+        // AppLogger.location('📍 Location updated: ${position.latitude}, ${position.longitude}');
         state = AsyncValue.data(position);
       },
       onError: (error) {

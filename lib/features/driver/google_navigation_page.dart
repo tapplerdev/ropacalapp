@@ -1018,7 +1018,7 @@ class GoogleNavigationPage extends HookConsumerWidget {
 
         // Configure map settings (needed even for restored session)
         await controller.settings.setCompassEnabled(false);
-        await controller.settings.setTrafficEnabled(false);
+        await controller.settings.setTrafficEnabled(true);
 
         // Enable navigation UI (REQUIRED for camera following and route rendering)
         await controller.setNavigationUIEnabled(true);
@@ -1070,7 +1070,7 @@ class GoogleNavigationPage extends HookConsumerWidget {
       AppLogger.general('📱 [STEP 1/7] Configuring map settings...');
 
       await controller.settings.setCompassEnabled(false);
-      await controller.settings.setTrafficEnabled(false);
+      await controller.settings.setTrafficEnabled(true);
 
       // Enable navigation UI (REQUIRED for camera following, route rendering, and puck movement)
       await controller.setNavigationUIEnabled(true);

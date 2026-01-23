@@ -22,6 +22,8 @@ import 'package:ropacalapp/features/driver/widgets/check_in_dialog_v2.dart';
 import 'package:ropacalapp/features/driver/widgets/circular_map_button.dart';
 import 'package:ropacalapp/features/driver/widgets/dialogs/shift_summary_dialog.dart';
 import 'package:ropacalapp/features/driver/widgets/dialogs/shift_cancellation_dialog.dart';
+import 'package:ropacalapp/features/driver/widgets/move_request_notification_dialog.dart';
+import 'package:ropacalapp/providers/move_request_notification_provider.dart';
 import 'package:ropacalapp/features/driver/notifications_page.dart';
 import 'package:ropacalapp/models/route_bin.dart';
 import 'package:ropacalapp/models/route_step.dart';
@@ -107,6 +109,34 @@ class GoogleNavigationPage extends HookConsumerWidget {
       }
       return null;
     }, []); // Empty deps - only runs once on mount
+
+    // Listen for move request notifications and show dialog
+    final moveRequestNotification = ref.watch(moveRequestNotificationNotifierProvider);
+
+    useEffect(() {
+      if (moveRequestNotification != null) {
+        AppLogger.general('🔔 Move request notification received in google_navigation_page - showing dialog');
+
+        // Show dialog on next frame
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (context.mounted) {
+            showDialog(
+              context: context,
+              barrierDismissible: false,
+              builder: (dialogContext) => MoveRequestNotificationDialog(
+                moveRequest: moveRequestNotification.moveRequest,
+                onClose: () {
+                  Navigator.of(dialogContext).pop();
+                  ref.read(moveRequestNotificationNotifierProvider.notifier).clear();
+                  AppLogger.general('✅ Move request notification dialog closed');
+                },
+              ),
+            );
+          }
+        });
+      }
+      return null;
+    }, [moveRequestNotification]);
 
     // Listen for shift changes (bin completed) and recalculate route
     ref.listen(shiftNotifierProvider, (previous, next) {

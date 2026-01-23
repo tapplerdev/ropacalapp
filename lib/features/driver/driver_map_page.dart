@@ -345,27 +345,32 @@ class DriverMapPage extends HookConsumerWidget {
     // (no forced camera movements, user controls the map freely)
 
     // Listen for move request notifications and show dialog
-    ref.listen(moveRequestNotificationNotifierProvider, (previous, next) {
-      if (next != null && previous?.timestamp != next.timestamp) {
-        AppLogger.general('🔔 Move request notification received - showing dialog');
+    final moveRequestNotification = ref.watch(moveRequestNotificationNotifierProvider);
 
-        // Show dialog after current frame completes
+    useEffect(() {
+      if (moveRequestNotification != null) {
+        AppLogger.general('🔔 Move request notification received in driver_map_page - showing dialog');
+
+        // Show dialog on next frame
         WidgetsBinding.instance.addPostFrameCallback((_) {
-          showDialog(
-            context: context,
-            barrierDismissible: false,
-            builder: (dialogContext) => MoveRequestNotificationDialog(
-              moveRequest: next.moveRequest,
-              onClose: () {
-                Navigator.of(dialogContext).pop();
-                ref.read(moveRequestNotificationNotifierProvider.notifier).clear();
-                AppLogger.general('✅ Move request notification dialog closed');
-              },
-            ),
-          );
+          if (context.mounted) {
+            showDialog(
+              context: context,
+              barrierDismissible: false,
+              builder: (dialogContext) => MoveRequestNotificationDialog(
+                moveRequest: moveRequestNotification.moveRequest,
+                onClose: () {
+                  Navigator.of(dialogContext).pop();
+                  ref.read(moveRequestNotificationNotifierProvider.notifier).clear();
+                  AppLogger.general('✅ Move request notification dialog closed');
+                },
+              ),
+            );
+          }
         });
       }
-    });
+      return null;
+    }, [moveRequestNotification]);
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: SystemUiOverlayStyle.dark, // Dark status bar icons

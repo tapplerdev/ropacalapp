@@ -131,23 +131,33 @@ class LocationTrackingService {
 
   /// Send current location immediately (one-time update)
   /// Used before starting shift to ensure backend has a location
+  /// Gets location from the data stream's first value
   Future<void> sendCurrentLocation() async {
     try {
       AppLogger.general('📍 Getting current location for pre-shift update...');
 
-      final location = await _fusedLocation.getCurrentPosition();
+      // Start location updates temporarily to get current position
+      const options = FusedLocationProviderOptions(distanceFilter: 0);
+      await _fusedLocation.startLocationUpdates(options: options);
 
-      if (location != null) {
-        AppLogger.general(
-          '✅ Got current location: ${location.position.latitude}, ${location.position.longitude}',
-        );
-        _sendLocation(location);
+      // Get the first location from the stream with timeout
+      final location = await _fusedLocation.dataStream
+          .first
+          .timeout(
+            const Duration(seconds: 5),
+            onTimeout: () => throw Exception('Location timeout'),
+          );
 
-        // Wait a bit to ensure WebSocket message is sent
-        await Future.delayed(const Duration(milliseconds: 500));
-      } else {
-        AppLogger.general('⚠️  Could not get current location');
-      }
+      // Stop the temporary location updates
+      await _fusedLocation.stopLocationUpdates();
+
+      AppLogger.general(
+        '✅ Got current location: ${location.position.latitude}, ${location.position.longitude}',
+      );
+      _sendLocation(location);
+
+      // Wait a bit to ensure WebSocket message is sent
+      await Future.delayed(const Duration(milliseconds: 500));
     } catch (e) {
       AppLogger.general('❌ Error getting current location: $e');
     }

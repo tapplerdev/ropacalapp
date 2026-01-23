@@ -20,6 +20,7 @@ import 'package:ropacalapp/features/driver/notifications_page.dart';
 import 'package:ropacalapp/features/driver/widgets/bin_details_bottom_sheet.dart';
 import 'package:ropacalapp/features/manager/widgets/potential_location_bottom_sheet.dart';
 import 'package:ropacalapp/core/services/google_navigation_marker_service.dart';
+import 'package:ropacalapp/core/services/google_navigation_service.dart';
 import 'package:ropacalapp/core/services/marker_animation_service.dart';
 import 'package:ropacalapp/core/theme/app_colors.dart';
 
@@ -111,6 +112,7 @@ class ManagerMapPage extends HookConsumerWidget {
     AppLogger.general('✅ Initial data loaded - proceeding with map render');
 
     final mapController = useState<GoogleNavigationViewController?>(null);
+    final navigatorInitialized = useState(false);
 
     // Bin markers (added once, never cleared)
     final binMarkers = useState<List<Marker>>([]);
@@ -143,6 +145,39 @@ class ManagerMapPage extends HookConsumerWidget {
 
     // Flag to prevent concurrent marker updates
     final isUpdatingMarkers = useState<bool>(false);
+
+    // Initialize Google Maps Navigator BEFORE view creation
+    // This prevents SDK 0.8.2 crashes when using GoogleMapsNavigationView without navigation session
+    useEffect(() {
+      var isMounted = true;
+
+      Future<void> initializeNavigator() async {
+        AppLogger.map('🚀 [Manager Map] Initializing navigation session...');
+
+        try {
+          await GoogleNavigationService.initializeNavigation(context, ref);
+          if (!isMounted) {
+            AppLogger.map('⚠️  [Manager Map] Widget disposed during initialization');
+            return;
+          }
+
+          navigatorInitialized.value = true;
+          AppLogger.map('✅ [Manager Map] Navigation session initialized successfully');
+        } catch (e) {
+          AppLogger.map('❌ [Manager Map] Navigation initialization error: $e');
+          // Don't prevent map loading even if initialization fails
+          if (isMounted) {
+            navigatorInitialized.value = true; // Still allow map to load
+          }
+        }
+      }
+
+      initializeNavigator();
+
+      return () {
+        isMounted = false;
+      };
+    }, []); // Run once on mount
 
     return Scaffold(
       body: driversAsync.when(

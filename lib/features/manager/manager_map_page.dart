@@ -623,7 +623,7 @@ class ManagerMapPage extends HookConsumerWidget {
               PotentialLocation? focusedLocation;
               try {
                 focusedLocation = potentialLocations.firstWhere(
-                  (loc) => loc.potentialLocationId == focusedPotentialLocationId,
+                  (loc) => loc.id == focusedPotentialLocationId,
                 );
               } catch (e) {
                 // Location not found

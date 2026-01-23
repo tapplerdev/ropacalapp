@@ -442,7 +442,7 @@ class PotentialLocationsPage extends HookConsumerWidget {
     // Set the focused potential location
     ref
         .read(focusedPotentialLocationProvider.notifier)
-        .focusLocation(location.potentialLocationId);
+        .focusLocation(location.id);
 
     // Navigate back to the manager map page (home)
     context.pop();

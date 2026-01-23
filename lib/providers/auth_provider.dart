@@ -179,6 +179,13 @@ class WebSocketManager extends _$WebSocketManager {
 
     _service!.onConnected = () {
       AppLogger.general('✅ WebSocket connected');
+
+      // Immediately check for new shift assignments after reconnection
+      // This catches any assignments that happened while disconnected
+      AppLogger.general('📊 WebSocket reconnected - checking for new shift assignments');
+      ref.read(shiftNotifierProvider.notifier).fetchCurrentShift().catchError((e) {
+        AppLogger.general('📊 Error fetching shift after reconnect: $e');
+      });
     };
 
     _service!.onDisconnected = () {

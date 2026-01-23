@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:ropacalapp/core/utils/app_logger.dart';
 import 'package:ropacalapp/models/shift_state.dart';
@@ -17,10 +18,49 @@ ShiftService shiftService(ShiftServiceRef ref) {
 
 @Riverpod(keepAlive: true)
 class ShiftNotifier extends _$ShiftNotifier {
+  Timer? _pollingTimer;
+  static const Duration _pollingInterval = Duration(seconds: 30);
+
   @override
   ShiftState build() {
     // Don't fetch on initialization - will be called after login
+    // Clean up timer when provider is disposed
+    ref.onDispose(() {
+      _stopPolling();
+    });
     return const ShiftState(status: ShiftStatus.inactive);
+  }
+
+  /// Start polling for shift assignments when driver is inactive
+  void _startPolling() {
+    if (_pollingTimer != null && _pollingTimer!.isActive) {
+      AppLogger.general('📊 Polling already active, skipping start');
+      return;
+    }
+
+    AppLogger.general('📊 Starting shift polling (every ${_pollingInterval.inSeconds}s)');
+    _pollingTimer = Timer.periodic(_pollingInterval, (timer) async {
+      if (state.status == ShiftStatus.inactive) {
+        AppLogger.general('📊 Polling: Checking for new shift assignment...');
+        try {
+          await fetchCurrentShift();
+        } catch (e) {
+          AppLogger.general('📊 Polling: Error fetching shift: $e');
+        }
+      } else {
+        AppLogger.general('📊 Polling: Shift is ${state.status}, stopping poll');
+        _stopPolling();
+      }
+    });
+  }
+
+  /// Stop polling timer
+  void _stopPolling() {
+    if (_pollingTimer != null) {
+      AppLogger.general('📊 Stopping shift polling');
+      _pollingTimer?.cancel();
+      _pollingTimer = null;
+    }
   }
 
   /// Fetch current shift from backend (called after login and on app startup)
@@ -60,6 +100,9 @@ class ShiftNotifier extends _$ShiftNotifier {
         state = currentShift;
         AppLogger.general('[DIAGNOSTIC] 📥 Current shift loaded and state updated');
 
+        // Stop polling since we found a shift
+        _stopPolling();
+
         // Start background tracking if shift is ready/active
         if (currentShift.status == ShiftStatus.ready ||
             currentShift.status == ShiftStatus.active ||
@@ -71,6 +114,9 @@ class ShiftNotifier extends _$ShiftNotifier {
         // No shift found - reset to inactive
         state = const ShiftState(status: ShiftStatus.inactive);
         AppLogger.general('[DIAGNOSTIC] 📥 No active shift found in backend - state reset to inactive');
+
+        // Start polling to check for new assignments
+        _startPolling();
 
         // Downgrade to background tracking (no shift_id)
         AppLogger.general('[DIAGNOSTIC] 📍 Downgrading to background tracking (no shift)');
@@ -84,11 +130,42 @@ class ShiftNotifier extends _$ShiftNotifier {
       // On error, reset to inactive to be safe
       state = const ShiftState(status: ShiftStatus.inactive);
 
+      // Start polling to keep checking for shifts
+      _startPolling();
+
       // On error, downgrade to background tracking (defensive)
       AppLogger.general('[DIAGNOSTIC] 📍 Error fetching shift - downgrading to background tracking');
       await ref.read(locationTrackingServiceProvider).startBackgroundTracking();
       AppLogger.general('[DIAGNOSTIC] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      // Rethrow to allow retry logic to handle it
+      rethrow;
     }
+  }
+
+  /// Fetch current shift with retry logic and exponential backoff
+  /// Returns true if successful, false if all retries failed
+  Future<bool> fetchCurrentShiftWithRetry({int maxAttempts = 3}) async {
+    for (int attempt = 1; attempt <= maxAttempts; attempt++) {
+      try {
+        AppLogger.general('🔄 Fetch shift attempt $attempt/$maxAttempts');
+        await fetchCurrentShift();
+        AppLogger.general('✅ Fetch shift succeeded on attempt $attempt');
+        return true;
+      } catch (e) {
+        AppLogger.general('❌ Fetch shift failed on attempt $attempt: $e');
+
+        if (attempt < maxAttempts) {
+          // Exponential backoff: 1s, 2s, 4s
+          final delaySeconds = (1 << (attempt - 1)); // 2^(attempt-1)
+          AppLogger.general('⏳ Waiting ${delaySeconds}s before retry...');
+          await Future.delayed(Duration(seconds: delaySeconds));
+        } else {
+          AppLogger.general('❌ All $maxAttempts attempts failed');
+          return false;
+        }
+      }
+    }
+    return false;
   }
 
   /// Manually refresh shift from backend
@@ -167,6 +244,9 @@ class ShiftNotifier extends _$ShiftNotifier {
 
     AppLogger.general('📋 Route assigned: $routeId with $totalBins bins');
     AppLogger.general('✅ Shift ready to start');
+
+    // Stop polling since we got an assignment
+    _stopPolling();
 
     // Start background location tracking when shift is assigned
     ref.read(currentLocationProvider.notifier).startBackgroundTracking();
@@ -381,6 +461,16 @@ class ShiftNotifier extends _$ShiftNotifier {
   Future<void> resetToInactive() async {
     AppLogger.general('🗑️  Resetting shift to inactive state');
     state = const ShiftState(status: ShiftStatus.inactive);
+
+    // Immediately check for new assignment after deletion
+    AppLogger.general('📊 Checking immediately for new shift assignment after deletion');
+    try {
+      await fetchCurrentShift();
+    } catch (e) {
+      AppLogger.general('📊 Error fetching shift after deletion: $e');
+      // Start polling if immediate fetch fails
+      _startPolling();
+    }
 
     // Downgrade to background tracking (no shift_id)
     AppLogger.general('📍 Downgrading to background tracking after shift deleted');

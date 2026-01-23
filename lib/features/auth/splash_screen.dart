@@ -76,14 +76,15 @@ class SplashScreen extends HookConsumerWidget {
       if (!context.mounted || hasNavigated.value) return;
       hasNavigated.value = true;
 
-      // 🆕 Restore active shift from Go backend (SQLite database)
-      AppLogger.general('🔄 Restoring shift from backend (SQLite)...');
-      try {
-        await ref.read(shiftNotifierProvider.notifier).fetchCurrentShift();
+      // 🆕 Restore active shift from Go backend (SQLite database) with retry logic
+      AppLogger.general('🔄 Restoring shift from backend (SQLite) with retry logic...');
+      final success = await ref.read(shiftNotifierProvider.notifier).fetchCurrentShiftWithRetry(maxAttempts: 3);
+
+      if (!success) {
+        AppLogger.general('⚠️ Failed to fetch shift after 3 attempts');
+        // Polling will continue to check in background
+      } else {
         AppLogger.general('✅ Shift state restored from backend');
-      } catch (e) {
-        AppLogger.general('⚠️  Could not restore shift: $e');
-        // Continue anyway - user can start fresh shift if needed
       }
 
       // Navigate to home

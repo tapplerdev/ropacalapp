@@ -82,15 +82,16 @@ class LoginPage extends HookConsumerWidget {
         AppLogger.general('⚠️  Failed to start background tracking: $e');
       }
 
-      // Fetch current shift from backend after login
+      // Fetch current shift from backend after login with retry logic
       // This ensures we have the latest shift state (not cached data)
-      try {
-        AppLogger.general('🔄 Fetching current shift from backend...');
-        await ref.read(shiftNotifierProvider.notifier).fetchCurrentShift();
+      AppLogger.general('🔄 Fetching current shift from backend with retry logic...');
+      final success = await ref.read(shiftNotifierProvider.notifier).fetchCurrentShiftWithRetry(maxAttempts: 3);
+
+      if (!success) {
+        AppLogger.general('⚠️ Failed to fetch shift after 3 attempts');
+        // Polling will continue to check in background
+      } else {
         AppLogger.general('✅ Current shift fetched successfully');
-      } catch (e) {
-        AppLogger.general('❌ Failed to fetch current shift: $e');
-        // Continue to home page anyway - shift will be inactive
       }
 
       // Navigate directly to home

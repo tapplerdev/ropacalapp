@@ -8,7 +8,6 @@ import 'package:ropacalapp/core/theme/app_colors.dart';
 import 'package:ropacalapp/core/utils/app_logger.dart';
 import 'package:ropacalapp/models/route_bin.dart';
 import 'package:ropacalapp/core/services/cloudinary_service.dart';
-import 'package:ropacalapp/providers/cloudinary_provider.dart';
 
 /// Dialog for placing a bin at new location
 ///
@@ -61,7 +60,8 @@ class MoveRequestPlacementDialog extends HookConsumerWidget {
         EasyLoading.show(status: 'Uploading photo...');
 
         // Upload photo to Cloudinary
-        final cloudinaryService = ref.read(cloudinaryProvider);
+        final cloudinaryService = CloudinaryService();
+        await cloudinaryService.initialize();
         final photoUrl = await cloudinaryService.uploadImage(photoFile.value!);
 
         AppLogger.general('✅ Placement photo uploaded: $photoUrl');

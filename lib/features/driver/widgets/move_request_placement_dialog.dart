@@ -4,16 +4,16 @@ import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:flutter_easyloading/flutter_easyloading.dart';
-import 'package:ropacalapp/core/theme/app_colors.dart';
 import 'package:ropacalapp/core/utils/app_logger.dart';
 import 'package:ropacalapp/models/route_bin.dart';
 import 'package:ropacalapp/core/services/cloudinary_service.dart';
+import 'package:ropacalapp/providers/shift_provider.dart';
 
 /// Dialog for placing a bin at new location
 ///
 /// Displayed when driver arrives at drop-off location (within 100m geofence)
 class MoveRequestPlacementDialog extends HookConsumerWidget {
-  final RouteBinWithDetails bin;
+  final RouteBin bin;
   final VoidCallback onPlacementComplete;
 
   const MoveRequestPlacementDialog({
@@ -68,8 +68,32 @@ class MoveRequestPlacementDialog extends HookConsumerWidget {
 
         EasyLoading.show(status: 'Completing placement...');
 
-        // TODO: Call backend API to complete placement with photoUrl, notes, hasIssue
-        // For now, just call the completion callback
+        // Call completeBin API with placement details
+        // For move request dropoffs, we don't update fill percentage (set to null)
+        // and we pass the move_request_id to link this check to the move request
+        final hasAnyIssue = hasLimitedAccess.value || notIdealLocation.value;
+        String? incidentType;
+        if (hasAnyIssue) {
+          if (hasLimitedAccess.value) {
+            incidentType = 'inaccessible';
+          } else if (notIdealLocation.value) {
+            incidentType = 'inaccessible'; // Not ideal location maps to inaccessible
+          }
+        }
+
+        await ref.read(shiftNotifierProvider.notifier).completeBin(
+          bin.binId,
+          null, // No fill percentage for move request dropoffs
+          photoUrl: photoUrl,
+          hasIncident: hasAnyIssue,
+          incidentType: incidentType,
+          incidentDescription: notesController.text.isEmpty
+              ? null
+              : notesController.text,
+          moveRequestId: bin.moveRequestId,
+        );
+
+        AppLogger.general('✅ Placement completed successfully');
         onPlacementComplete();
 
         EasyLoading.dismiss();

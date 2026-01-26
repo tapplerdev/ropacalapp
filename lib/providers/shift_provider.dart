@@ -398,6 +398,7 @@ class ShiftNotifier extends _$ShiftNotifier {
     String? incidentType,
     String? incidentPhotoUrl,
     String? incidentDescription,
+    String? moveRequestId, // Links check to move request for pickup/dropoff
   }) async {
     if (state.status != ShiftStatus.active) {
       AppLogger.general('⚠️ Cannot complete bin - shift not active');
@@ -414,6 +415,7 @@ class ShiftNotifier extends _$ShiftNotifier {
         incidentType: incidentType,
         incidentPhotoUrl: incidentPhotoUrl,
         incidentDescription: incidentDescription,
+        moveRequestId: moveRequestId,
       );
 
       if (hasIncident) {

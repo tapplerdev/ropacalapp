@@ -4,16 +4,16 @@ import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:flutter_easyloading/flutter_easyloading.dart';
-import 'package:ropacalapp/core/theme/app_colors.dart';
 import 'package:ropacalapp/core/utils/app_logger.dart';
 import 'package:ropacalapp/models/route_bin.dart';
 import 'package:ropacalapp/core/services/cloudinary_service.dart';
+import 'package:ropacalapp/providers/shift_provider.dart';
 
 /// Dialog for picking up a bin for relocation
 ///
 /// Displayed when driver arrives at pickup location (within 100m geofence)
 class MoveRequestPickupDialog extends HookConsumerWidget {
-  final RouteBinWithDetails bin;
+  final RouteBin bin;
   final VoidCallback onPickupComplete;
 
   const MoveRequestPickupDialog({
@@ -68,8 +68,32 @@ class MoveRequestPickupDialog extends HookConsumerWidget {
 
         EasyLoading.show(status: 'Completing pickup...');
 
-        // TODO: Call backend API to complete pickup with photoUrl, hasDamage, notes
-        // For now, just call the completion callback
+        // Call completeBin API with pickup details
+        // For move request pickups, we don't update fill percentage (set to null)
+        // and we pass the move_request_id to link this check to the move request
+        final hasAnyIssue = hasDamage.value || cannotLocate.value;
+        String? incidentType;
+        if (hasAnyIssue) {
+          if (hasDamage.value) {
+            incidentType = 'damaged';
+          } else if (cannotLocate.value) {
+            incidentType = 'missing'; // Cannot locate = missing
+          }
+        }
+
+        await ref.read(shiftNotifierProvider.notifier).completeBin(
+          bin.binId,
+          null, // No fill percentage for move request pickups
+          photoUrl: photoUrl,
+          hasIncident: hasAnyIssue,
+          incidentType: incidentType,
+          incidentDescription: notesController.text.isEmpty
+              ? null
+              : notesController.text,
+          moveRequestId: bin.moveRequestId,
+        );
+
+        AppLogger.general('✅ Pickup completed successfully');
         onPickupComplete();
 
         EasyLoading.dismiss();

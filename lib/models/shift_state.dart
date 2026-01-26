@@ -1,6 +1,7 @@
 import 'package:freezed_annotation/freezed_annotation.dart';
 import 'package:ropacalapp/models/route_bin.dart';
 import 'package:ropacalapp/core/utils/unix_timestamp_converter.dart';
+import 'package:ropacalapp/core/enums/stop_type.dart';
 
 part 'shift_state.freezed.dart';
 part 'shift_state.g.dart';
@@ -47,6 +48,70 @@ class ShiftState with _$ShiftState {
   /// Get only incomplete bins for active navigation
   List<RouteBin> get remainingBins {
     return routeBins.where((bin) => bin.isCompleted == 0).toList();
+  }
+
+  /// Get logical bin count (count pickup+dropoff pairs as 1)
+  /// This treats a move request (pickup + dropoff) as a single action
+  int get logicalTotalBins {
+    final moveRequestIds = <String>{};
+    int count = 0;
+
+    for (final bin in routeBins) {
+      if (bin.stopType == StopType.pickup && bin.moveRequestId != null) {
+        // Only count pickup once per move request
+        if (!moveRequestIds.contains(bin.moveRequestId)) {
+          moveRequestIds.add(bin.moveRequestId!);
+          count++;
+        }
+      } else if (bin.stopType == StopType.dropoff &&
+          bin.moveRequestId != null) {
+        // Skip dropoff in count (already counted with pickup)
+        continue;
+      } else {
+        // Regular collection bin
+        count++;
+      }
+    }
+
+    return count;
+  }
+
+  /// Get logical completed bin count
+  /// Move requests are only counted as complete when BOTH pickup AND dropoff
+  /// are finished
+  int get logicalCompletedBins {
+    final completedMoveRequests = <String>{};
+    int count = 0;
+
+    for (final bin in routeBins) {
+      if (bin.stopType == StopType.pickup && bin.moveRequestId != null) {
+        // Check if corresponding dropoff is also completed
+        final dropoff = routeBins.firstWhere(
+          (b) =>
+              b.stopType == StopType.dropoff &&
+              b.moveRequestId == bin.moveRequestId,
+          orElse: () => bin,
+        );
+
+        // Only count if BOTH pickup and dropoff are completed
+        if (bin.isCompleted == 1 &&
+            dropoff.isCompleted == 1 &&
+            !completedMoveRequests.contains(bin.moveRequestId)) {
+          completedMoveRequests.add(bin.moveRequestId!);
+          count++;
+        }
+      } else if (bin.stopType == StopType.dropoff &&
+          bin.moveRequestId != null) {
+        // Skip dropoff - already handled in pickup branch
+        continue;
+      } else if (bin.stopType == StopType.collection &&
+          bin.isCompleted == 1) {
+        // Regular completed bin
+        count++;
+      }
+    }
+
+    return count;
   }
 }
 

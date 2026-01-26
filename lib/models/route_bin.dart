@@ -26,6 +26,15 @@ class RouteBin with _$RouteBin {
     /// Move request ID (for pickup/dropoff stops)
     @JsonKey(name: 'move_request_id') String? moveRequestId,
 
+    /// Original address for move request (pickup location)
+    @JsonKey(name: 'original_address') String? originalAddress,
+
+    /// New address for move request (dropoff location)
+    @JsonKey(name: 'new_address') String? newAddress,
+
+    /// Move request type (relocation, store, etc.)
+    @JsonKey(name: 'move_type') String? moveType,
+
     /// Whether this bin has been completed
     @JsonKey(name: 'is_completed') @Default(0) int isCompleted,
 

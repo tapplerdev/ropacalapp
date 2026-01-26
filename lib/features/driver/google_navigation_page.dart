@@ -873,6 +873,23 @@ class GoogleNavigationPage extends HookConsumerWidget {
             AppLogger.general('📏 Added completed route polyline');
           }
 
+          // Animate camera to next bin (especially important for move requests)
+          final nextBin = shift.remainingBins.first;
+          try {
+            await controller.animateCamera(
+              CameraUpdate.newLatLngZoom(
+                LatLng(
+                  latitude: nextBin.latitude,
+                  longitude: nextBin.longitude,
+                ),
+                17, // Zoom level
+              ),
+            );
+            AppLogger.general('📹 Camera animated to next bin: #${nextBin.binNumber}');
+          } catch (e) {
+            AppLogger.general('⚠️  Failed to animate camera to next bin: $e');
+          }
+
           AppLogger.general('✅ Route recalculation complete');
         } else {
           AppLogger.general('❌ Route recalculation failed: $result');

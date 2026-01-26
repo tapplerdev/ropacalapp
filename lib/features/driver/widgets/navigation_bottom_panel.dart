@@ -92,8 +92,8 @@ class NavigationBottomPanel extends HookConsumerWidget {
                       )
                     : _buildCollapsedContent(
                         currentBin,
-                        shift.completedBins,
-                        shift.totalBins,
+                        shift.logicalCompletedBins,
+                        shift.logicalTotalBins,
                         navState.remainingTime,
                       ),
               ),
@@ -111,6 +111,7 @@ class NavigationBottomPanel extends HookConsumerWidget {
     int totalBins,
     Duration? remainingTime,
   ) {
+    // Use logical progress percentage (treats pickup+dropoff as 1 action)
     final progressPercentage = totalBins > 0 ? completedBins / totalBins : 0.0;
 
     // Stop type color coding
@@ -262,12 +263,25 @@ class NavigationBottomPanel extends HookConsumerWidget {
     double? totalDistanceRemaining,
     LatLng? driverLocation,
   ) {
-    final progressPercentage =
-        shift.totalBins > 0 ? shift.completedBins / shift.totalBins : 0.0;
+    // Use logical progress (treats pickup+dropoff as 1 action)
+    final progressPercentage = shift.logicalTotalBins > 0
+        ? shift.logicalCompletedBins / shift.logicalTotalBins
+        : 0.0;
+
+    // Get upcoming bins and filter out dropoffs if current bin is the pickup
     final upcomingBins = GoogleNavigationHelpers.getUpcomingBins(
       shift.remainingBins,
       currentIndex,
-    );
+    ).where((bin) {
+      // Filter out dropoff if current bin is its corresponding pickup
+      if (currentBin.stopType == StopType.pickup &&
+          bin.stopType == StopType.dropoff &&
+          currentBin.moveRequestId != null &&
+          currentBin.moveRequestId == bin.moveRequestId) {
+        return false; // Skip dropoff from "UP NEXT" (it's part of current action)
+      }
+      return true;
+    }).toList();
 
     // Calculate distance to bin for geofence check (using centralized GeofenceService)
     final double? distanceToBin = driverLocation != null
@@ -290,10 +304,34 @@ class NavigationBottomPanel extends HookConsumerWidget {
           ),
         );
 
-    return SingleChildScrollView(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
+    // Stop type color coding for badges
+    final Color badgeColor;
+    final String stopTypeLabel;
+
+    switch (currentBin.stopType) {
+      case StopType.pickup:
+        badgeColor = Colors.orange.shade600;
+        stopTypeLabel = '🚚 PICKUP';
+        break;
+      case StopType.dropoff:
+        badgeColor = Colors.green.shade600;
+        stopTypeLabel = '📍 DROPOFF';
+        break;
+      case StopType.collection:
+      default:
+        badgeColor = AppColors.primaryGreen;
+        stopTypeLabel = '';
+        break;
+    }
+
+    return Column(
+      children: [
+        // Scrollable content
+        Expanded(
+          child: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
           // Header row with progress and est. finish time
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 14, 16, 10),
@@ -309,9 +347,9 @@ class NavigationBottomPanel extends HookConsumerWidget {
                   ),
                 ),
                 const SizedBox(width: 10),
-                // Progress text
+                // Progress text (logical count - treats move requests as 1 action)
                 Text(
-                  '${shift.completedBins} of ${shift.totalBins} complete',
+                  '${shift.logicalCompletedBins} of ${shift.logicalTotalBins} complete',
                   style: const TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w600,
@@ -381,7 +419,35 @@ class NavigationBottomPanel extends HookConsumerWidget {
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
             child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                // Stop type badge (pickup/dropoff indicator)
+                if (currentBin.stopType != StopType.collection) ...[
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: badgeColor.withOpacity(0.15),
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(
+                        color: badgeColor.withOpacity(0.3),
+                        width: 1,
+                      ),
+                    ),
+                    child: Text(
+                      stopTypeLabel,
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                        color: badgeColor,
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                ],
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
@@ -502,131 +568,6 @@ class NavigationBottomPanel extends HookConsumerWidget {
                     ),
                   ],
                 ),
-                const SizedBox(height: 16),
-                // Geofence warning message (shown when too far)
-                if (!isWithinGeofence && distanceToBin != null)
-                  Container(
-                    margin: const EdgeInsets.only(bottom: 12),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 8,
-                    ),
-                    decoration: BoxDecoration(
-                      color: Colors.orange.shade50,
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(
-                        color: Colors.orange.shade300,
-                        width: 1,
-                      ),
-                    ),
-                    child: Row(
-                      children: [
-                        Icon(
-                          Icons.location_off,
-                          color: Colors.orange.shade700,
-                          size: 18,
-                        ),
-                        const SizedBox(width: 6),
-                        Expanded(
-                          child: Text(
-                            'You need to be within ${GeofenceService.defaultGeofenceRadiusMeters.toInt()}m of the bin to check in (${distanceToBin.toInt()}m away)',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: Colors.orange.shade900,
-                              fontWeight: FontWeight.w500,
-                              height: 1.3,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                // Complete Bin button (conditionally enabled based on geofence)
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton(
-                    onPressed: isWithinGeofence
-                        ? () {
-                            AppLogger.general(
-                              'Complete Bin button pressed for Bin #${currentBin.binNumber} (stopType: ${currentBin.stopType})',
-                            );
-
-                            // Show different dialog based on stop type
-                            switch (currentBin.stopType) {
-                              case StopType.pickup:
-                                // Show move request pickup dialog
-                                showDialog(
-                                  context: context,
-                                  barrierDismissible: false,
-                                  builder: (context) => MoveRequestPickupDialog(
-                                    bin: currentBin,
-                                    onPickupComplete: () {
-                                      AppLogger.general(
-                                        '✅ Move request pickup completed for Bin #${currentBin.binNumber}',
-                                      );
-                                    },
-                                  ),
-                                );
-                                break;
-
-                              case StopType.dropoff:
-                                // Show move request placement dialog
-                                showDialog(
-                                  context: context,
-                                  barrierDismissible: false,
-                                  builder: (context) => MoveRequestPlacementDialog(
-                                    bin: currentBin,
-                                    onPlacementComplete: () {
-                                      AppLogger.general(
-                                        '✅ Move request dropoff completed for Bin #${currentBin.binNumber}',
-                                      );
-                                    },
-                                  ),
-                                );
-                                break;
-
-                              case StopType.collection:
-                              default:
-                                // Show regular check-in dialog
-                                showDialog(
-                                  context: context,
-                                  barrierDismissible: false,
-                                  builder: (context) => CheckInDialogV2(
-                                    bin: currentBin,
-                                    onCheckedIn: () {
-                                      AppLogger.general(
-                                        '✅ Bin #${currentBin.binNumber} checked in',
-                                      );
-                                    },
-                                  ),
-                                );
-                                break;
-                            }
-                          }
-                        : null, // Disabled when not within geofence
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: isWithinGeofence
-                          ? const Color(0xFF4CAF50)
-                          : Colors.grey.shade400,
-                      disabledBackgroundColor: Colors.grey.shade400,
-                      disabledForegroundColor: Colors.grey.shade100,
-                      padding: const EdgeInsets.symmetric(vertical: 18),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      elevation: 0,
-                      minimumSize: const Size(double.infinity, 54),
-                    ),
-                    child: Text(
-                      isWithinGeofence ? 'Complete Bin' : 'Too Far Away',
-                      style: const TextStyle(
-                        fontSize: 17,
-                        fontWeight: FontWeight.w600,
-                        letterSpacing: 0.2,
-                      ),
-                    ),
-                  ),
-                ),
               ],
             ),
           ),
@@ -746,8 +687,141 @@ class NavigationBottomPanel extends HookConsumerWidget {
               ),
             ),
           ],
-        ],
-      ),
+              ],
+            ),
+          ),
+        ),
+
+        // Complete Bin button - fixed at bottom (not in scrollview)
+        // Geofence warning (if too far)
+        if (!isWithinGeofence && distanceToBin != null)
+          Container(
+            margin: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+            padding: const EdgeInsets.symmetric(
+              horizontal: 10,
+              vertical: 8,
+            ),
+            decoration: BoxDecoration(
+              color: Colors.orange.shade50,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(
+                color: Colors.orange.shade300,
+                width: 1,
+              ),
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  Icons.location_off,
+                  color: Colors.orange.shade700,
+                  size: 18,
+                ),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    'You need to be within ${GeofenceService.defaultGeofenceRadiusMeters.toInt()}m of the bin to check in (${distanceToBin.toInt()}m away)',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.orange.shade900,
+                      fontWeight: FontWeight.w500,
+                      height: 1.3,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+        // Complete Bin button (conditionally enabled based on geofence)
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+          child: SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              onPressed: isWithinGeofence
+                  ? () {
+                      AppLogger.general(
+                        'Complete Bin button pressed for Bin #${currentBin.binNumber} (stopType: ${currentBin.stopType})',
+                      );
+
+                      // Show different dialog based on stop type
+                      switch (currentBin.stopType) {
+                        case StopType.pickup:
+                          // Show move request pickup dialog
+                          showDialog(
+                            context: context,
+                            barrierDismissible: false,
+                            builder: (context) => MoveRequestPickupDialog(
+                              bin: currentBin,
+                              onPickupComplete: () {
+                                AppLogger.general(
+                                  '✅ Move request pickup completed for Bin #${currentBin.binNumber}',
+                                );
+                              },
+                            ),
+                          );
+                          break;
+
+                        case StopType.dropoff:
+                          // Show move request placement dialog
+                          showDialog(
+                            context: context,
+                            barrierDismissible: false,
+                            builder: (context) => MoveRequestPlacementDialog(
+                              bin: currentBin,
+                              onPlacementComplete: () {
+                                AppLogger.general(
+                                  '✅ Move request dropoff completed for Bin #${currentBin.binNumber}',
+                                );
+                              },
+                            ),
+                          );
+                          break;
+
+                        case StopType.collection:
+                        default:
+                          // Show regular check-in dialog
+                          showDialog(
+                            context: context,
+                            barrierDismissible: false,
+                            builder: (context) => CheckInDialogV2(
+                              bin: currentBin,
+                              onCheckedIn: () {
+                                AppLogger.general(
+                                  '✅ Bin #${currentBin.binNumber} checked in',
+                                );
+                              },
+                            ),
+                          );
+                          break;
+                      }
+                    }
+                  : null, // Disabled when not within geofence
+              style: ElevatedButton.styleFrom(
+                backgroundColor: isWithinGeofence
+                    ? const Color(0xFF4CAF50)
+                    : Colors.grey.shade400,
+                disabledBackgroundColor: Colors.grey.shade400,
+                disabledForegroundColor: Colors.grey.shade100,
+                padding: const EdgeInsets.symmetric(vertical: 18),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                elevation: 0,
+                minimumSize: const Size(double.infinity, 54),
+              ),
+              child: Text(
+                isWithinGeofence ? 'Complete Bin' : 'Too Far Away',
+                style: const TextStyle(
+                  fontSize: 17,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 0.2,
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

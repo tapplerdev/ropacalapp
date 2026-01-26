@@ -5,10 +5,15 @@ import 'package:ropacalapp/core/services/google_navigation_marker_service.dart';
 import 'package:ropacalapp/core/theme/app_colors.dart';
 import 'package:ropacalapp/core/utils/app_logger.dart';
 import 'package:ropacalapp/core/utils/google_navigation_helpers.dart';
+import 'package:ropacalapp/core/services/geofence_service.dart';
 import 'package:ropacalapp/features/driver/widgets/check_in_dialog_v2.dart';
+import 'package:ropacalapp/features/driver/widgets/move_request_pickup_dialog.dart';
+import 'package:ropacalapp/features/driver/widgets/move_request_placement_dialog.dart';
 import 'package:ropacalapp/models/route_bin.dart';
 import 'package:ropacalapp/models/shift_state.dart';
 import 'package:ropacalapp/providers/navigation_page_provider.dart';
+import 'package:ropacalapp/core/enums/stop_type.dart';
+import 'package:ropacalapp/providers/move_request_provider.dart';
 
 /// Expandable bottom panel showing bin details and progress
 /// Displays collapsed (85px) or expanded (320px) state with animation
@@ -108,6 +113,34 @@ class NavigationBottomPanel extends HookConsumerWidget {
   ) {
     final progressPercentage = totalBins > 0 ? completedBins / totalBins : 0.0;
 
+    // Stop type color coding
+    final Color statusColor;
+    final Color badgeColor;
+    final String stopTypeLabel;
+    final IconData stopIcon;
+
+    switch (currentBin.stopType) {
+      case StopType.pickup:
+        statusColor = Colors.orange.shade600;
+        badgeColor = Colors.orange.shade600;
+        stopTypeLabel = '🚚 PICKUP';
+        stopIcon = Icons.upload;
+        break;
+      case StopType.dropoff:
+        statusColor = Colors.green.shade600;
+        badgeColor = Colors.green.shade600;
+        stopTypeLabel = '📍 DROPOFF';
+        stopIcon = Icons.place;
+        break;
+      case StopType.collection:
+      default:
+        statusColor = const Color(0xFF4CAF50);
+        badgeColor = AppColors.primaryGreen;
+        stopTypeLabel = '';
+        stopIcon = Icons.delete_outline;
+        break;
+    }
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       child: Column(
@@ -115,29 +148,48 @@ class NavigationBottomPanel extends HookConsumerWidget {
         children: [
           Row(
             children: [
-              // Green status dot
+              // Status dot (color coded by stop type)
               Container(
                 width: 10,
                 height: 10,
-                decoration: const BoxDecoration(
-                  color: Color(0xFF4CAF50),
+                decoration: BoxDecoration(
+                  color: statusColor,
                   shape: BoxShape.circle,
                 ),
               ),
               const SizedBox(width: 10),
-              // Bin number badge (blue square)
+              // Stop type label for pickups/dropoffs
+              if (currentBin.stopType != StopType.collection) ...[
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: badgeColor.withOpacity(0.15),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Text(
+                    stopTypeLabel,
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                      color: badgeColor,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+              ],
+              // Bin number badge
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
-                  color: AppColors.primaryGreen.withValues(alpha: 0.15),
+                  color: badgeColor.withOpacity(0.15),
                   borderRadius: BorderRadius.circular(6),
                 ),
                 child: Text(
                   '${currentBin.binNumber}',
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.bold,
-                    color: AppColors.primaryGreen,
+                    color: badgeColor,
                   ),
                 ),
               ),
@@ -217,20 +269,26 @@ class NavigationBottomPanel extends HookConsumerWidget {
       currentIndex,
     );
 
-    // Calculate distance to bin for geofence check
+    // Calculate distance to bin for geofence check (using centralized GeofenceService)
     final double? distanceToBin = driverLocation != null
-        ? GoogleNavigationHelpers.calculateDistance(
-            driverLocation,
-            LatLng(
+        ? GeofenceService.getDistanceToTargetInMeters(
+            currentLocation: driverLocation,
+            targetLocation: LatLng(
               latitude: currentBin.latitude,
               longitude: currentBin.longitude,
             ),
           )
         : null;
 
-    const double geofenceRadius = 100.0; // 100 meters
-    final bool isWithinGeofence =
-        distanceToBin != null && distanceToBin <= geofenceRadius;
+    // Check if within geofence (100m = ~328 feet)
+    final bool isWithinGeofence = driverLocation != null &&
+        GeofenceService.isWithinGeofence(
+          currentLocation: driverLocation,
+          targetLocation: LatLng(
+            latitude: currentBin.latitude,
+            longitude: currentBin.longitude,
+          ),
+        );
 
     return SingleChildScrollView(
       child: Column(
@@ -471,7 +529,7 @@ class NavigationBottomPanel extends HookConsumerWidget {
                         const SizedBox(width: 6),
                         Expanded(
                           child: Text(
-                            'You need to be within ${geofenceRadius.toInt()}m of the bin to check in (${distanceToBin.toInt()}m away)',
+                            'You need to be within ${GeofenceService.defaultGeofenceRadiusMeters.toInt()}m of the bin to check in (${distanceToBin.toInt()}m away)',
                             style: TextStyle(
                               fontSize: 12,
                               color: Colors.orange.shade900,
@@ -490,22 +548,60 @@ class NavigationBottomPanel extends HookConsumerWidget {
                     onPressed: isWithinGeofence
                         ? () {
                             AppLogger.general(
-                              'Complete Bin button pressed for Bin #${currentBin.binNumber}',
+                              'Complete Bin button pressed for Bin #${currentBin.binNumber} (stopType: ${currentBin.stopType})',
                             );
-                            showDialog(
-                              context: context,
-                              barrierDismissible: false,
-                              builder: (context) => CheckInDialogV2(
-                                bin: currentBin,
-                                onCheckedIn: () {
-                                  // Dialog handles bin completion internally
-                                  // This callback can be used for additional actions if needed
-                                  AppLogger.general(
-                                    '✅ Bin #${currentBin.binNumber} checked in',
-                                  );
-                                },
-                              ),
-                            );
+
+                            // Show different dialog based on stop type
+                            switch (currentBin.stopType) {
+                              case StopType.pickup:
+                                // Show move request pickup dialog
+                                showDialog(
+                                  context: context,
+                                  barrierDismissible: false,
+                                  builder: (context) => MoveRequestPickupDialog(
+                                    bin: currentBin,
+                                    onPickupComplete: () {
+                                      AppLogger.general(
+                                        '✅ Move request pickup completed for Bin #${currentBin.binNumber}',
+                                      );
+                                    },
+                                  ),
+                                );
+                                break;
+
+                              case StopType.dropoff:
+                                // Show move request placement dialog
+                                showDialog(
+                                  context: context,
+                                  barrierDismissible: false,
+                                  builder: (context) => MoveRequestPlacementDialog(
+                                    bin: currentBin,
+                                    onPlacementComplete: () {
+                                      AppLogger.general(
+                                        '✅ Move request dropoff completed for Bin #${currentBin.binNumber}',
+                                      );
+                                    },
+                                  ),
+                                );
+                                break;
+
+                              case StopType.collection:
+                              default:
+                                // Show regular check-in dialog
+                                showDialog(
+                                  context: context,
+                                  barrierDismissible: false,
+                                  builder: (context) => CheckInDialogV2(
+                                    bin: currentBin,
+                                    onCheckedIn: () {
+                                      AppLogger.general(
+                                        '✅ Bin #${currentBin.binNumber} checked in',
+                                      );
+                                    },
+                                  ),
+                                );
+                                break;
+                            }
                           }
                         : null, // Disabled when not within geofence
                     style: ElevatedButton.styleFrom(

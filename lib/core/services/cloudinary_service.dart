@@ -87,6 +87,32 @@ class CloudinaryService {
 
       // Make the POST request
       final dio = Dio();
+
+      // Add interceptor for detailed logging
+      dio.interceptors.add(InterceptorsWrapper(
+        onRequest: (options, handler) {
+          AppLogger.general('🌐 Cloudinary Request:');
+          AppLogger.general('   URL: ${options.uri}');
+          AppLogger.general('   Method: ${options.method}');
+          AppLogger.general('   Headers: ${options.headers}');
+          return handler.next(options);
+        },
+        onResponse: (response, handler) {
+          AppLogger.general('✅ Cloudinary Response:');
+          AppLogger.general('   Status: ${response.statusCode}');
+          AppLogger.general('   Data: ${response.data}');
+          return handler.next(response);
+        },
+        onError: (error, handler) {
+          AppLogger.general('❌ Cloudinary Error:', level: AppLogger.error);
+          AppLogger.general('   Status: ${error.response?.statusCode}');
+          AppLogger.general('   Message: ${error.message}');
+          AppLogger.general('   Response data: ${error.response?.data}');
+          AppLogger.general('   Request data: ${error.requestOptions.data}');
+          return handler.next(error);
+        },
+      ));
+
       final response = await dio.post(
         uploadUrl,
         data: formData,

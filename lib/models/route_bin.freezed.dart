@@ -36,6 +36,14 @@ mixin _$RouteBin {
   @JsonKey(name: 'sequence_order')
   int get sequenceOrder => throw _privateConstructorUsedError;
 
+  /// Type of stop (collection, pickup, dropoff)
+  @JsonKey(name: 'stop_type')
+  StopType get stopType => throw _privateConstructorUsedError;
+
+  /// Move request ID (for pickup/dropoff stops)
+  @JsonKey(name: 'move_request_id')
+  String? get moveRequestId => throw _privateConstructorUsedError;
+
   /// Whether this bin has been completed
   @JsonKey(name: 'is_completed')
   int get isCompleted => throw _privateConstructorUsedError;
@@ -96,6 +104,8 @@ abstract class $RouteBinCopyWith<$Res> {
     @JsonKey(name: 'shift_id') String shiftId,
     @JsonKey(name: 'bin_id') String binId,
     @JsonKey(name: 'sequence_order') int sequenceOrder,
+    @JsonKey(name: 'stop_type') StopType stopType,
+    @JsonKey(name: 'move_request_id') String? moveRequestId,
     @JsonKey(name: 'is_completed') int isCompleted,
     @JsonKey(name: 'completed_at') int? completedAt,
     @JsonKey(name: 'updated_fill_percentage') int? updatedFillPercentage,
@@ -129,6 +139,8 @@ class _$RouteBinCopyWithImpl<$Res, $Val extends RouteBin>
     Object? shiftId = null,
     Object? binId = null,
     Object? sequenceOrder = null,
+    Object? stopType = null,
+    Object? moveRequestId = freezed,
     Object? isCompleted = null,
     Object? completedAt = freezed,
     Object? updatedFillPercentage = freezed,
@@ -159,6 +171,14 @@ class _$RouteBinCopyWithImpl<$Res, $Val extends RouteBin>
                 ? _value.sequenceOrder
                 : sequenceOrder // ignore: cast_nullable_to_non_nullable
                       as int,
+            stopType: null == stopType
+                ? _value.stopType
+                : stopType // ignore: cast_nullable_to_non_nullable
+                      as StopType,
+            moveRequestId: freezed == moveRequestId
+                ? _value.moveRequestId
+                : moveRequestId // ignore: cast_nullable_to_non_nullable
+                      as String?,
             isCompleted: null == isCompleted
                 ? _value.isCompleted
                 : isCompleted // ignore: cast_nullable_to_non_nullable
@@ -223,6 +243,8 @@ abstract class _$$RouteBinImplCopyWith<$Res>
     @JsonKey(name: 'shift_id') String shiftId,
     @JsonKey(name: 'bin_id') String binId,
     @JsonKey(name: 'sequence_order') int sequenceOrder,
+    @JsonKey(name: 'stop_type') StopType stopType,
+    @JsonKey(name: 'move_request_id') String? moveRequestId,
     @JsonKey(name: 'is_completed') int isCompleted,
     @JsonKey(name: 'completed_at') int? completedAt,
     @JsonKey(name: 'updated_fill_percentage') int? updatedFillPercentage,
@@ -255,6 +277,8 @@ class __$$RouteBinImplCopyWithImpl<$Res>
     Object? shiftId = null,
     Object? binId = null,
     Object? sequenceOrder = null,
+    Object? stopType = null,
+    Object? moveRequestId = freezed,
     Object? isCompleted = null,
     Object? completedAt = freezed,
     Object? updatedFillPercentage = freezed,
@@ -285,6 +309,14 @@ class __$$RouteBinImplCopyWithImpl<$Res>
             ? _value.sequenceOrder
             : sequenceOrder // ignore: cast_nullable_to_non_nullable
                   as int,
+        stopType: null == stopType
+            ? _value.stopType
+            : stopType // ignore: cast_nullable_to_non_nullable
+                  as StopType,
+        moveRequestId: freezed == moveRequestId
+            ? _value.moveRequestId
+            : moveRequestId // ignore: cast_nullable_to_non_nullable
+                  as String?,
         isCompleted: null == isCompleted
             ? _value.isCompleted
             : isCompleted // ignore: cast_nullable_to_non_nullable
@@ -342,6 +374,8 @@ class _$RouteBinImpl implements _RouteBin {
     @JsonKey(name: 'shift_id') required this.shiftId,
     @JsonKey(name: 'bin_id') required this.binId,
     @JsonKey(name: 'sequence_order') required this.sequenceOrder,
+    @JsonKey(name: 'stop_type') this.stopType = StopType.collection,
+    @JsonKey(name: 'move_request_id') this.moveRequestId,
     @JsonKey(name: 'is_completed') this.isCompleted = 0,
     @JsonKey(name: 'completed_at') this.completedAt,
     @JsonKey(name: 'updated_fill_percentage') this.updatedFillPercentage,
@@ -376,6 +410,16 @@ class _$RouteBinImpl implements _RouteBin {
   @override
   @JsonKey(name: 'sequence_order')
   final int sequenceOrder;
+
+  /// Type of stop (collection, pickup, dropoff)
+  @override
+  @JsonKey(name: 'stop_type')
+  final StopType stopType;
+
+  /// Move request ID (for pickup/dropoff stops)
+  @override
+  @JsonKey(name: 'move_request_id')
+  final String? moveRequestId;
 
   /// Whether this bin has been completed
   @override
@@ -430,7 +474,7 @@ class _$RouteBinImpl implements _RouteBin {
 
   @override
   String toString() {
-    return 'RouteBin(id: $id, shiftId: $shiftId, binId: $binId, sequenceOrder: $sequenceOrder, isCompleted: $isCompleted, completedAt: $completedAt, updatedFillPercentage: $updatedFillPercentage, createdAt: $createdAt, binNumber: $binNumber, currentStreet: $currentStreet, city: $city, zip: $zip, fillPercentage: $fillPercentage, latitude: $latitude, longitude: $longitude)';
+    return 'RouteBin(id: $id, shiftId: $shiftId, binId: $binId, sequenceOrder: $sequenceOrder, stopType: $stopType, moveRequestId: $moveRequestId, isCompleted: $isCompleted, completedAt: $completedAt, updatedFillPercentage: $updatedFillPercentage, createdAt: $createdAt, binNumber: $binNumber, currentStreet: $currentStreet, city: $city, zip: $zip, fillPercentage: $fillPercentage, latitude: $latitude, longitude: $longitude)';
   }
 
   @override
@@ -443,6 +487,10 @@ class _$RouteBinImpl implements _RouteBin {
             (identical(other.binId, binId) || other.binId == binId) &&
             (identical(other.sequenceOrder, sequenceOrder) ||
                 other.sequenceOrder == sequenceOrder) &&
+            (identical(other.stopType, stopType) ||
+                other.stopType == stopType) &&
+            (identical(other.moveRequestId, moveRequestId) ||
+                other.moveRequestId == moveRequestId) &&
             (identical(other.isCompleted, isCompleted) ||
                 other.isCompleted == isCompleted) &&
             (identical(other.completedAt, completedAt) ||
@@ -473,6 +521,8 @@ class _$RouteBinImpl implements _RouteBin {
     shiftId,
     binId,
     sequenceOrder,
+    stopType,
+    moveRequestId,
     isCompleted,
     completedAt,
     updatedFillPercentage,
@@ -506,6 +556,8 @@ abstract class _RouteBin implements RouteBin {
     @JsonKey(name: 'shift_id') required final String shiftId,
     @JsonKey(name: 'bin_id') required final String binId,
     @JsonKey(name: 'sequence_order') required final int sequenceOrder,
+    @JsonKey(name: 'stop_type') final StopType stopType,
+    @JsonKey(name: 'move_request_id') final String? moveRequestId,
     @JsonKey(name: 'is_completed') final int isCompleted,
     @JsonKey(name: 'completed_at') final int? completedAt,
     @JsonKey(name: 'updated_fill_percentage') final int? updatedFillPercentage,
@@ -540,6 +592,16 @@ abstract class _RouteBin implements RouteBin {
   @override
   @JsonKey(name: 'sequence_order')
   int get sequenceOrder;
+
+  /// Type of stop (collection, pickup, dropoff)
+  @override
+  @JsonKey(name: 'stop_type')
+  StopType get stopType;
+
+  /// Move request ID (for pickup/dropoff stops)
+  @override
+  @JsonKey(name: 'move_request_id')
+  String? get moveRequestId;
 
   /// Whether this bin has been completed
   @override

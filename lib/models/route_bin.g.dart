@@ -12,6 +12,10 @@ _$RouteBinImpl _$$RouteBinImplFromJson(Map<String, dynamic> json) =>
       shiftId: json['shift_id'] as String,
       binId: json['bin_id'] as String,
       sequenceOrder: (json['sequence_order'] as num).toInt(),
+      stopType:
+          $enumDecodeNullable(_$StopTypeEnumMap, json['stop_type']) ??
+          StopType.collection,
+      moveRequestId: json['move_request_id'] as String?,
       isCompleted: (json['is_completed'] as num?)?.toInt() ?? 0,
       completedAt: (json['completed_at'] as num?)?.toInt(),
       updatedFillPercentage: (json['updated_fill_percentage'] as num?)?.toInt(),
@@ -31,6 +35,8 @@ Map<String, dynamic> _$$RouteBinImplToJson(_$RouteBinImpl instance) =>
       'shift_id': instance.shiftId,
       'bin_id': instance.binId,
       'sequence_order': instance.sequenceOrder,
+      'stop_type': _$StopTypeEnumMap[instance.stopType]!,
+      'move_request_id': instance.moveRequestId,
       'is_completed': instance.isCompleted,
       'completed_at': instance.completedAt,
       'updated_fill_percentage': instance.updatedFillPercentage,
@@ -43,3 +49,9 @@ Map<String, dynamic> _$$RouteBinImplToJson(_$RouteBinImpl instance) =>
       'latitude': instance.latitude,
       'longitude': instance.longitude,
     };
+
+const _$StopTypeEnumMap = {
+  StopType.collection: 'collection',
+  StopType.pickup: 'pickup',
+  StopType.dropoff: 'dropoff',
+};

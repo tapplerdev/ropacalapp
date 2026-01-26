@@ -6,25 +6,20 @@ import 'package:image_picker/image_picker.dart';
 import 'package:flutter_easyloading/flutter_easyloading.dart';
 import 'package:ropacalapp/core/theme/app_colors.dart';
 import 'package:ropacalapp/core/utils/app_logger.dart';
-import 'package:ropacalapp/models/move_request.dart';
+import 'package:ropacalapp/models/route_bin.dart';
 import 'package:ropacalapp/core/services/cloudinary_service.dart';
+import 'package:ropacalapp/providers/cloudinary_provider.dart';
 
 /// Dialog for picking up a bin for relocation
 ///
 /// Displayed when driver arrives at pickup location (within 100m geofence)
 class MoveRequestPickupDialog extends HookConsumerWidget {
-  final MoveRequest moveRequest;
-  final VoidCallback onCancel;
-  final Future<void> Function({
-    required String photoUrl,
-    bool hasDamage,
-    String? notes,
-  }) onPickup;
+  final RouteBinWithDetails bin;
+  final VoidCallback onPickupComplete;
 
   const MoveRequestPickupDialog({
-    required this.moveRequest,
-    required this.onCancel,
-    required this.onPickup,
+    required this.bin,
+    required this.onPickupComplete,
     super.key,
   });
 
@@ -66,21 +61,16 @@ class MoveRequestPickupDialog extends HookConsumerWidget {
         EasyLoading.show(status: 'Uploading photo...');
 
         // Upload photo to Cloudinary
-        final photoUrl = await CloudinaryService.uploadImage(
-          photoFile.value!,
-          folder: 'move_requests/pickups',
-        );
+        final cloudinaryService = ref.read(cloudinaryProvider);
+        final photoUrl = await cloudinaryService.uploadImage(photoFile.value!);
 
         AppLogger.general('✅ Pickup photo uploaded: $photoUrl');
 
         EasyLoading.show(status: 'Completing pickup...');
 
-        // Complete pickup
-        await onPickup(
-          photoUrl: photoUrl,
-          hasDamage: hasDamage.value,
-          notes: notesController.text.isNotEmpty ? notesController.text : null,
-        );
+        // TODO: Call backend API to complete pickup with photoUrl, hasDamage, notes
+        // For now, just call the completion callback
+        onPickupComplete();
 
         EasyLoading.dismiss();
         if (context.mounted) {
@@ -142,7 +132,7 @@ class MoveRequestPickupDialog extends HookConsumerWidget {
                                 ),
                               ),
                               Text(
-                                'Bin #${moveRequest.binId}',
+                                'Bin #${bin.binNumber}',
                                 style: TextStyle(
                                   color: Colors.white.withOpacity(0.9),
                                   fontSize: 14,
@@ -160,46 +150,22 @@ class MoveRequestPickupDialog extends HookConsumerWidget {
                         color: Colors.white.withOpacity(0.2),
                         borderRadius: BorderRadius.circular(8),
                       ),
-                      child: Column(
+                      child: Row(
                         children: [
-                          Row(
-                            children: [
-                              Icon(
-                                Icons.location_on,
-                                color: Colors.white,
-                                size: 16,
-                              ),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: Text(
-                                  'From: ${moveRequest.pickupAddress}',
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 13,
-                                  ),
-                                ),
-                              ),
-                            ],
+                          Icon(
+                            Icons.location_on,
+                            color: Colors.white,
+                            size: 16,
                           ),
-                          const SizedBox(height: 4),
-                          Row(
-                            children: [
-                              Icon(
-                                Icons.place,
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              'Current Location: ${bin.currentStreet}, ${bin.city}',
+                              style: TextStyle(
                                 color: Colors.white,
-                                size: 16,
+                                fontSize: 13,
                               ),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: Text(
-                                  'To: ${moveRequest.dropoffAddress}',
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 13,
-                                  ),
-                                ),
-                              ),
-                            ],
+                            ),
                           ),
                         ],
                       ),
@@ -334,7 +300,9 @@ class MoveRequestPickupDialog extends HookConsumerWidget {
 
                     // Cancel button
                     TextButton(
-                      onPressed: isSubmitting.value ? null : onCancel,
+                      onPressed: isSubmitting.value
+                          ? null
+                          : () => Navigator.of(context).pop(),
                       child: Text(
                         'Cancel',
                         style: TextStyle(

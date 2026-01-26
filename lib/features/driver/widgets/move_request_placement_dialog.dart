@@ -6,25 +6,20 @@ import 'package:image_picker/image_picker.dart';
 import 'package:flutter_easyloading/flutter_easyloading.dart';
 import 'package:ropacalapp/core/theme/app_colors.dart';
 import 'package:ropacalapp/core/utils/app_logger.dart';
-import 'package:ropacalapp/models/move_request.dart';
+import 'package:ropacalapp/models/route_bin.dart';
 import 'package:ropacalapp/core/services/cloudinary_service.dart';
+import 'package:ropacalapp/providers/cloudinary_provider.dart';
 
 /// Dialog for placing a bin at new location
 ///
 /// Displayed when driver arrives at drop-off location (within 100m geofence)
 class MoveRequestPlacementDialog extends HookConsumerWidget {
-  final MoveRequest moveRequest;
-  final VoidCallback onCancel;
-  final Future<void> Function({
-    required String photoUrl,
-    String? notes,
-    bool hasIssue,
-  }) onPlace;
+  final RouteBinWithDetails bin;
+  final VoidCallback onPlacementComplete;
 
   const MoveRequestPlacementDialog({
-    required this.moveRequest,
-    required this.onCancel,
-    required this.onPlace,
+    required this.bin,
+    required this.onPlacementComplete,
     super.key,
   });
 
@@ -66,21 +61,16 @@ class MoveRequestPlacementDialog extends HookConsumerWidget {
         EasyLoading.show(status: 'Uploading photo...');
 
         // Upload photo to Cloudinary
-        final photoUrl = await CloudinaryService.uploadImage(
-          photoFile.value!,
-          folder: 'move_requests/placements',
-        );
+        final cloudinaryService = ref.read(cloudinaryProvider);
+        final photoUrl = await cloudinaryService.uploadImage(photoFile.value!);
 
         AppLogger.general('✅ Placement photo uploaded: $photoUrl');
 
         EasyLoading.show(status: 'Completing placement...');
 
-        // Complete placement
-        await onPlace(
-          photoUrl: photoUrl,
-          notes: notesController.text.isNotEmpty ? notesController.text : null,
-          hasIssue: hasLimitedAccess.value || notIdealLocation.value,
-        );
+        // TODO: Call backend API to complete placement with photoUrl, notes, hasIssue
+        // For now, just call the completion callback
+        onPlacementComplete();
 
         EasyLoading.dismiss();
         if (context.mounted) {
@@ -142,7 +132,7 @@ class MoveRequestPlacementDialog extends HookConsumerWidget {
                                 ),
                               ),
                               Text(
-                                'Bin #${moveRequest.binId}',
+                                'Bin #${bin.binNumber}',
                                 style: TextStyle(
                                   color: Colors.white.withOpacity(0.9),
                                   fontSize: 14,
@@ -170,7 +160,7 @@ class MoveRequestPlacementDialog extends HookConsumerWidget {
                           const SizedBox(width: 8),
                           Expanded(
                             child: Text(
-                              'New Location: ${moveRequest.dropoffAddress}',
+                              'Placement Location: ${bin.currentStreet}, ${bin.city}',
                               style: TextStyle(
                                 color: Colors.white,
                                 fontSize: 13,
@@ -318,7 +308,9 @@ class MoveRequestPlacementDialog extends HookConsumerWidget {
 
                     // Cancel button
                     TextButton(
-                      onPressed: isSubmitting.value ? null : onCancel,
+                      onPressed: isSubmitting.value
+                          ? null
+                          : () => Navigator.of(context).pop(),
                       child: Text(
                         'Cancel',
                         style: TextStyle(

@@ -6,6 +6,7 @@ import 'package:ropacalapp/core/constants/bin_constants.dart';
 import 'package:ropacalapp/core/theme/app_colors.dart';
 import 'package:ropacalapp/core/utils/app_logger.dart';
 import 'package:ropacalapp/models/bin.dart';
+import 'package:ropacalapp/core/services/geofence_service.dart';
 
 class RouteSummaryCard extends StatelessWidget {
   final List<Bin> routeBins;
@@ -90,7 +91,7 @@ class RouteSummaryCard extends StatelessWidget {
                   child: RouteInfoItem(
                     icon: Icons.route,
                     label: 'Distance',
-                    value: '${estimatedDistance.toStringAsFixed(1)} km',
+                    value: GeofenceService.formatDistance(estimatedDistance * 1000),
                   ),
                 ),
                 Expanded(

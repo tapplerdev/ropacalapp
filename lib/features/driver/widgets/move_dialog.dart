@@ -619,7 +619,7 @@ class MoveDialog extends HookConsumerWidget {
               fontWeight: FontWeight.w500,
             ),
             debounceTime: 600,
-            countries: const ['us'],
+            countries: const ['us', 'co'], // US and Colombia
             isLatLngRequired: true,
             getPlaceDetailWithLatLng: (Prediction prediction) async {
               AppLogger.general('Place selected: ${prediction.description}');

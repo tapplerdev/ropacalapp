@@ -391,7 +391,8 @@ class ShiftNotifier extends _$ShiftNotifier {
 
   /// Mark a bin as completed with updated fill percentage and optional photo
   Future<void> completeBin(
-    String binId,
+    int shiftBinId, // ID of shift_bins record (identifies specific waypoint)
+    String binId, // DEPRECATED: kept for reference only
     int? updatedFillPercentage, { // Now nullable for incident reports
     String? photoUrl,
     bool hasIncident = false,
@@ -408,6 +409,7 @@ class ShiftNotifier extends _$ShiftNotifier {
     try {
       final shiftService = ref.read(shiftServiceProvider);
       await shiftService.completeBin(
+        shiftBinId,
         binId,
         updatedFillPercentage,
         photoUrl: photoUrl,
@@ -452,6 +454,22 @@ class ShiftNotifier extends _$ShiftNotifier {
       AppLogger.general('   Status: ${updatedShift.status}');
       AppLogger.general('   Bins array length: ${updatedShift.routeBins.length}');
       AppLogger.general('   Route ID: ${updatedShift.assignedRouteId}');
+
+      // DEBUG: Log logical counting
+      AppLogger.general('🔍 DEBUG: Logical bin counts:');
+      AppLogger.general('   - logicalTotalBins: ${updatedShift.logicalTotalBins}');
+      AppLogger.general('   - logicalCompletedBins: ${updatedShift.logicalCompletedBins}');
+      AppLogger.general('   - remainingBins.length: ${updatedShift.remainingBins.length}');
+
+      if (updatedShift.remainingBins.isNotEmpty) {
+        AppLogger.general('🔍 DEBUG: First remaining bin:');
+        final nextBin = updatedShift.remainingBins.first;
+        AppLogger.general('   - Bin #${nextBin.binNumber}');
+        AppLogger.general('   - Stop type: ${nextBin.stopType}');
+        AppLogger.general('   - Address: ${nextBin.currentStreet}');
+        AppLogger.general('   - Is completed: ${nextBin.isCompleted}');
+        AppLogger.general('   - Move request ID: ${nextBin.moveRequestId}');
+      }
 
       state = updatedShift;
     } catch (e) {

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:ropacalapp/core/theme/app_colors.dart';
 import 'package:ropacalapp/models/route_step.dart';
+import 'package:ropacalapp/core/services/geofence_service.dart';
 
 /// Turn-by-turn navigation card showing current instruction
 /// Displays next maneuver, distance, and ETA
@@ -203,18 +204,12 @@ class TurnByTurnNavigationCard extends StatelessWidget {
     return Icons.arrow_upward;
   }
 
-  /// Format distance in meters to readable string
+  /// Format distance in meters to readable string (imperial units)
+  /// Delegates to GeofenceService for consistent formatting
   String _formatDistance(double meters) {
     // Clamp to minimum of 0 to avoid negative distances
     final clampedMeters = meters.clamp(0.0, double.infinity);
-
-    if (clampedMeters < 100) {
-      return '${clampedMeters.round()} m';
-    } else if (clampedMeters < 1000) {
-      return '${(clampedMeters / 50).round() * 50} m';
-    } else {
-      return '${(clampedMeters / 1000).toStringAsFixed(1)} km';
-    }
+    return GeofenceService.formatDistance(clampedMeters);
   }
 
   /// Format duration to readable string

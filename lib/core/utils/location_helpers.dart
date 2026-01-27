@@ -1,5 +1,6 @@
 import 'package:latlong2/latlong.dart';
 import 'package:ropacalapp/core/constants/bin_constants.dart';
+import 'package:ropacalapp/core/services/geofence_service.dart';
 
 /// Helper utilities for location-based calculations and proximity checks
 class LocationHelpers {
@@ -65,23 +66,18 @@ class LocationHelpers {
     return distance.as(LengthUnit.Meter, userLocation, binLocation);
   }
 
-  /// Format distance for display with appropriate units
+  /// Format distance for display with appropriate units (imperial)
   ///
-  /// Returns a human-readable string with meters or kilometers.
+  /// Returns a human-readable string with feet or miles.
+  /// Delegates to GeofenceService for consistent formatting throughout the app.
   ///
   /// Example:
   /// ```dart
   /// final formatted = LocationHelpers.formatDistance(1500.0);
-  /// print(formatted); // "1.5 km"
+  /// print(formatted); // "0.9 mi"
   /// ```
   static String formatDistance(double? distanceMeters) {
     if (distanceMeters == null) return 'Calculating...';
-
-    if (distanceMeters < 1000) {
-      return '${distanceMeters.round()} m';
-    }
-
-    final distanceKm = distanceMeters / 1000;
-    return '${distanceKm.toStringAsFixed(1)} km';
+    return GeofenceService.formatDistance(distanceMeters);
   }
 }

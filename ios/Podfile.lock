@@ -32,7 +32,7 @@ SPEC CHECKSUMS:
   Flutter: cabc95a1d2626b1b06e7179b784ebcf0c0cde467
   flutter_compass: b236ab69b61545cce89fd58527f401a7587d5cc1
   flutter_secure_storage: 1ed9476fba7e7a782b22888f956cce43e2c62f13
-  flutter_tts: b88dbc8655d3dc961bc4a796e4e16a4cc1795833
+  flutter_tts: 35ac3c7d42412733e795ea96ad2d7e05d0a75113
   location: 155caecf9da4f280ab5fe4a55f94ceccfab838f8
 
 PODFILE CHECKSUM: 350b14f29fb39a025c14aa659f4dbaa7748d5316

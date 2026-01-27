@@ -156,7 +156,8 @@ class ShiftService {
 
   /// Complete a bin with updated fill percentage and optional photo
   Future<Map<String, dynamic>> completeBin(
-    String binId,
+    int shiftBinId, // ID of shift_bins record (identifies specific waypoint)
+    String binId, // DEPRECATED: kept for reference only
     int? updatedFillPercentage, { // Now nullable for incidents
     String? photoUrl,
     bool hasIncident = false,
@@ -169,7 +170,8 @@ class ShiftService {
       print('📤 REQUEST: POST /api/driver/shift/complete-bin');
 
       final requestData = {
-        'bin_id': binId,
+        'shift_bin_id': shiftBinId, // NEW: Properly identifies specific waypoint
+        'bin_id': binId, // DEPRECATED: Kept for backward compatibility
         if (updatedFillPercentage != null) 'updated_fill_percentage': updatedFillPercentage,
         if (photoUrl != null) 'photo_url': photoUrl,
         if (hasIncident) 'has_incident': hasIncident,

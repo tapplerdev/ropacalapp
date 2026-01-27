@@ -1,4 +1,5 @@
 import 'package:ropacalapp/models/route_bin.dart';
+import 'package:ropacalapp/core/services/geofence_service.dart';
 
 /// Data model for shift overview before starting
 class ShiftOverview {
@@ -43,12 +44,11 @@ class ShiftOverview {
     return '$hour:$minute $period';
   }
 
-  /// Format distance for display
+  /// Format distance for display (imperial units)
+  /// Delegates to GeofenceService for consistent formatting
   String get distanceFormatted {
-    if (totalDistanceKm < 1) {
-      return '${(totalDistanceKm * 1000).round()} m';
-    }
-    return '${totalDistanceKm.toStringAsFixed(1)} km';
+    // Convert km to meters and use GeofenceService formatting
+    return GeofenceService.formatDistance(totalDistanceKm * 1000);
   }
 
   /// Format duration for display (e.g., "5h 30m")
@@ -61,7 +61,7 @@ class ShiftOverview {
     return '${hours}h ${minutes}m';
   }
 
-  /// Get summary stats string (e.g., "24 bins • 45 km • ~5h 30m")
+  /// Get summary stats string (e.g., "24 bins • 28 mi • ~5h 30m")
   String get summaryStats {
     return '$totalBins bins • $distanceFormatted • ~$durationFormatted';
   }

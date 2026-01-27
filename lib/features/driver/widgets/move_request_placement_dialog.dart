@@ -82,7 +82,8 @@ class MoveRequestPlacementDialog extends HookConsumerWidget {
         }
 
         await ref.read(shiftNotifierProvider.notifier).completeBin(
-          bin.binId,
+          bin.id, // NEW: shift_bin_id (properly identifies this specific waypoint)
+          bin.binId, // DEPRECATED: kept for backward compatibility
           null, // No fill percentage for move request dropoffs
           photoUrl: photoUrl,
           hasIncident: hasAnyIssue,

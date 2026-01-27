@@ -608,7 +608,7 @@ class PotentialLocationFormDialog extends HookConsumerWidget {
               fontWeight: FontWeight.w500,
             ),
             debounceTime: 600,
-            countries: const ['us'],
+            countries: const ['us', 'co'], // US and Colombia
             isLatLngRequired: true,
             getPlaceDetailWithLatLng: (Prediction prediction) async {
               // Parse the place details and auto-fill form fields

@@ -16,6 +16,7 @@ import 'package:ropacalapp/providers/simulation_provider.dart';
 import 'package:ropacalapp/providers/voice_instruction_provider.dart';
 import 'package:ropacalapp/core/utils/app_logger.dart';
 import 'package:ropacalapp/core/utils/location_helpers.dart';
+import 'package:ropacalapp/core/services/geofence_service.dart';
 
 /// Bottom sheet showing active shift navigation
 class ActiveShiftBottomSheet extends HookConsumerWidget {
@@ -106,15 +107,13 @@ class ActiveShiftBottomSheet extends HookConsumerWidget {
     return minutes;
   }
 
-  /// Format distance for display
+  /// Format distance for display (imperial units)
+  /// Delegates to GeofenceService for consistent formatting
   String _formatDistance(double? distanceKm) {
     if (distanceKm == null) return 'Calculating...';
 
-    if (distanceKm < 1) {
-      // Show in meters if less than 1 km
-      return '${(distanceKm * 1000).round()} m';
-    }
-    return '${distanceKm.toStringAsFixed(1)} km';
+    // Convert km to meters and use GeofenceService formatting
+    return GeofenceService.formatDistance(distanceKm * 1000);
   }
 
   /// Format ETA for display

@@ -32,8 +32,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/firebase/flutterfire",
       "state" : {
-        "revision" : "1fc2adfbeb6e132e49ba72d04c727227f9827b3e",
-        "version" : "4.2.1-firebase-core-swift"
+        "revision" : "05731e3fb091093546db363e379bff166f7286a3",
+        "version" : "4.4.0-firebase-core-swift"
       }
     },
     {
@@ -104,8 +104,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/googlemaps/ios-maps-sdk",
       "state" : {
-        "revision" : "9c540f3b475a800e947a09b8903b212a6634cf30",
-        "version" : "10.0.0"
+        "revision" : "dcfc4b6dda80bf7a748c34996af823be96511cc1",
+        "version" : "10.7.0"
       }
     },
     {
@@ -113,8 +113,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/googlemaps/ios-navigation-sdk",
       "state" : {
-        "revision" : "a3faa12da9a957420da8e1b448022f365fbc8400",
-        "version" : "10.0.0"
+        "revision" : "5d196ccd2346324e57d96b5a025b1047d29843fa",
+        "version" : "10.7.0"
       }
     },
     {

@@ -1,6 +1,7 @@
 import 'dart:math';
 import 'package:google_navigation_flutter/google_navigation_flutter.dart';
 import 'package:ropacalapp/models/route_bin.dart';
+import 'package:ropacalapp/core/services/geofence_service.dart';
 
 /// Helper utilities for Google Navigation functionality
 /// Contains formatting, conversion, and calculation methods
@@ -184,13 +185,10 @@ class GoogleNavigationHelpers {
     return degrees * pi / 180;
   }
 
-  /// Format distance in meters to human-readable string
+  /// Format distance in meters to human-readable string (imperial units)
+  /// Delegates to GeofenceService for consistent formatting throughout the app
   static String formatDistance(double meters) {
-    if (meters >= 1000) {
-      return '${(meters / 1000).toStringAsFixed(1)} km';
-    } else {
-      return '${meters.round()} m';
-    }
+    return GeofenceService.formatDistance(meters);
   }
 
   /// Format ETA duration to human-readable string

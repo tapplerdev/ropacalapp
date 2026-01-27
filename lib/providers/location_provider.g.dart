@@ -40,7 +40,7 @@ final locationStreamProvider = AutoDisposeStreamProvider<Position>.internal(
 @Deprecated('Will be removed in 3.0. Use Ref instead')
 // ignore: unused_element
 typedef LocationStreamRef = AutoDisposeStreamProviderRef<Position>;
-String _$currentLocationHash() => r'cd61c6a2f5f6a821f6eeef566c3c824487ff7a6b';
+String _$currentLocationHash() => r'1dad354117045de36ffd59ad9df958066474bcaf';
 
 /// Location provider with background tracking capability
 /// Call startBackgroundTracking() to enable continuous updates

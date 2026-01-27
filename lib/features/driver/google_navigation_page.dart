@@ -907,8 +907,8 @@ class GoogleNavigationPage extends HookConsumerWidget {
             AppLogger.general('📹 Camera animated to next bin: #${nextBin.binNumber}');
 
             // Auto re-center back to driver position after showing drop-off location
-            AppLogger.general('⏱️  Waiting 3 seconds before re-centering to driver position...');
-            await Future.delayed(const Duration(seconds: 3));
+            AppLogger.general('⏱️  Waiting 5 seconds before re-centering to driver position...');
+            await Future.delayed(const Duration(seconds: 5));
 
             // Re-center camera to driver's position with navigation mode
             try {

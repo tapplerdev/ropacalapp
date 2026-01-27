@@ -141,15 +141,33 @@ class GoogleNavigationPage extends HookConsumerWidget {
     // Listen for shift changes (bin completed) and recalculate route
     ref.listen(shiftNotifierProvider, (previous, next) {
       // Handle bin completion - recalculate route
-      if (previous != null && next != null && previous.completedBins != next.completedBins) {
-        AppLogger.general('🔄 Bins changed: ${previous.completedBins} → ${next.completedBins}');
-        AppLogger.general('   Remaining bins: ${next.remainingBins.length}');
+      // Check if either completedBins changed OR next waypoint changed
+      final bool completedBinsChanged = previous != null && next != null &&
+          previous.completedBins != next.completedBins;
+
+      // Check if next waypoint changed (important for move requests where pickup→dropoff doesn't change completedBins)
+      final String? previousNextWaypointId = previous?.remainingBins.isNotEmpty == true
+          ? previous!.remainingBins.first.id.toString()
+          : null;
+      final String? nextNextWaypointId = next?.remainingBins.isNotEmpty == true
+          ? next!.remainingBins.first.id.toString()
+          : null;
+      final bool nextWaypointChanged = previousNextWaypointId != nextNextWaypointId;
+
+      if (completedBinsChanged || nextWaypointChanged) {
+        if (completedBinsChanged) {
+          AppLogger.general('🔄 Bins changed: ${previous?.completedBins} → ${next?.completedBins}');
+        }
+        if (nextWaypointChanged) {
+          AppLogger.general('🔄 Next waypoint changed: $previousNextWaypointId → $nextNextWaypointId');
+        }
+        AppLogger.general('   Remaining bins: ${next?.remainingBins.length}');
         AppLogger.general('   Triggering route recalculation...');
         _recalculateNavigationRoute(
           context,
           navigationController.value,
           ref,
-          next,
+          next!,
           navNotifier,
         );
       }

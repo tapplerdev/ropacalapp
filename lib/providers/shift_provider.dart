@@ -513,11 +513,12 @@ class ShiftNotifier extends _$ShiftNotifier {
 
     AppLogger.general('   Status set to cancelled, UI will show cancellation dialog');
 
-    // Wait a moment for the dialog to appear
-    await Future.delayed(const Duration(milliseconds: 500));
+    // Dialog now has manual dismiss button, so we wait a bit longer before resetting
+    // This ensures the dialog has time to display before state changes
+    await Future.delayed(const Duration(milliseconds: 1000));
 
-    // Then reset to inactive after dialog is shown
-    AppLogger.general('   Resetting to inactive after dialog shown');
+    // Then reset to inactive after user dismisses dialog
+    AppLogger.general('   Resetting to inactive after dialog dismissed');
     state = const ShiftState(status: ShiftStatus.inactive);
 
     // Check for new assignment

@@ -62,6 +62,7 @@ const _$MoveRequestStatusEnumMap = {
   MoveRequestStatus.retire: 'retire',
   MoveRequestStatus.warehouseStorage: 'warehouse_storage',
   MoveRequestStatus.assigned: 'assigned',
+  MoveRequestStatus.inProgress: 'in_progress',
   MoveRequestStatus.pending: 'pending',
   MoveRequestStatus.pickedUp: 'picked_up',
   MoveRequestStatus.completed: 'completed',

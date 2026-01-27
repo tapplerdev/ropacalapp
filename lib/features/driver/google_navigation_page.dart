@@ -391,8 +391,9 @@ class GoogleNavigationPage extends HookConsumerWidget {
                 // This must be set at view creation - cannot be changed later on iOS
                 initialNavigationUIEnabledPreference: NavigationUIEnabledPreference.automatic,
                 // Add bottom padding to prevent map content from being hidden behind bottom nav bar and panel
+                // Increased bottom padding to move recenter button above the modal (was 100, now 200)
                 initialPadding: EdgeInsets.only(
-                  bottom: kBottomNavigationBarHeight + MediaQuery.of(context).padding.bottom + 100,
+                  bottom: kBottomNavigationBarHeight + MediaQuery.of(context).padding.bottom + 200,
                 ),
                 onMarkerClicked: (String markerId) {
                 AppLogger.general('🎯 Marker clicked: $markerId');
@@ -904,6 +905,21 @@ class GoogleNavigationPage extends HookConsumerWidget {
               ),
             );
             AppLogger.general('📹 Camera animated to next bin: #${nextBin.binNumber}');
+
+            // Auto re-center back to driver position after showing drop-off location
+            AppLogger.general('⏱️  Waiting 3 seconds before re-centering to driver position...');
+            await Future.delayed(const Duration(seconds: 3));
+
+            // Re-center camera to driver's position with navigation mode
+            try {
+              await controller.followMyLocation(
+                CameraPerspective.topDownHeadingUp,
+                zoomLevel: 17,
+              );
+              AppLogger.general('📹 Auto re-centered to driver position');
+            } catch (e) {
+              AppLogger.general('⚠️  Failed to auto re-center: $e');
+            }
           } catch (e) {
             AppLogger.general('⚠️  Failed to animate camera to next bin: $e');
           }

@@ -15,6 +15,7 @@ import 'package:ropacalapp/providers/potential_locations_list_provider.dart';
 import 'package:ropacalapp/providers/bins_provider.dart';
 import 'package:ropacalapp/providers/move_request_provider.dart';
 import 'package:ropacalapp/providers/move_request_notification_provider.dart';
+import 'package:ropacalapp/providers/route_update_notification_provider.dart';
 import 'package:ropacalapp/core/services/location_tracking_service.dart';
 import 'package:ropacalapp/core/utils/app_logger.dart';
 import 'package:ropacalapp/core/services/session_manager.dart';
@@ -195,9 +196,29 @@ class WebSocketManager extends _$WebSocketManager {
 
         final message = data['message'] as String?;
         final moveRequestId = data['move_request_id'] as String?;
+        final managerName = data['manager_name'] as String?;
+        final actionType = data['action_type'] as String?;
+        final binNumber = data['bin_number'] as int?;
 
         AppLogger.general('   📩 Message: $message');
         AppLogger.general('   📦 Move Request ID: $moveRequestId');
+        AppLogger.general('   👤 Manager: $managerName');
+        AppLogger.general('   🔄 Action: $actionType');
+        AppLogger.general('   📦 Bin: #$binNumber');
+
+        // Trigger UI notification if we have all the details
+        if (managerName != null && actionType != null && binNumber != null && moveRequestId != null) {
+          AppLogger.general('   🔔 Triggering UI notification...');
+          ref.read(routeUpdateNotificationNotifierProvider.notifier).notify(
+                managerName: managerName,
+                actionType: actionType,
+                binNumber: binNumber,
+                moveRequestId: moveRequestId,
+              );
+          AppLogger.general('   ✅ UI notification triggered');
+        } else {
+          AppLogger.general('   ⚠️  Missing notification data - skipping UI notification');
+        }
 
         // Refresh shift to get updated move request details
         AppLogger.general('   🔄 Fetching current shift to get updated move request...');

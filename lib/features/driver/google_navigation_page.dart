@@ -24,6 +24,8 @@ import 'package:ropacalapp/features/driver/widgets/dialogs/shift_summary_dialog.
 import 'package:ropacalapp/features/driver/widgets/dialogs/shift_cancellation_dialog.dart';
 import 'package:ropacalapp/features/driver/widgets/move_request_notification_dialog.dart';
 import 'package:ropacalapp/providers/move_request_notification_provider.dart';
+import 'package:ropacalapp/features/driver/widgets/route_update_notification_dialog.dart';
+import 'package:ropacalapp/providers/route_update_notification_provider.dart';
 import 'package:ropacalapp/features/driver/notifications_page.dart';
 import 'package:ropacalapp/models/route_bin.dart';
 import 'package:ropacalapp/models/route_step.dart';
@@ -137,6 +139,37 @@ class GoogleNavigationPage extends HookConsumerWidget {
       }
       return null;
     }, [moveRequestNotification]);
+
+    // Listen for route update notifications and show dialog
+    final routeUpdateNotification = ref.watch(routeUpdateNotificationNotifierProvider);
+
+    useEffect(() {
+      if (routeUpdateNotification != null) {
+        AppLogger.general('🔔 Route update notification received in google_navigation_page - showing dialog');
+        AppLogger.general('   Manager: ${routeUpdateNotification.managerName}');
+        AppLogger.general('   Action: ${routeUpdateNotification.actionType}');
+        AppLogger.general('   Bin: #${routeUpdateNotification.binNumber}');
+
+        // Show dialog on next frame
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (context.mounted) {
+            showDialog(
+              context: context,
+              barrierDismissible: false,
+              builder: (dialogContext) => RouteUpdateNotificationDialog(
+                notification: routeUpdateNotification,
+                onClose: () {
+                  Navigator.of(dialogContext).pop();
+                  ref.read(routeUpdateNotificationNotifierProvider.notifier).clear();
+                  AppLogger.general('✅ Route update notification dialog closed');
+                },
+              ),
+            );
+          }
+        });
+      }
+      return null;
+    }, [routeUpdateNotification]);
 
     // Listen for shift changes (bin completed) and recalculate route
     ref.listen(shiftNotifierProvider, (previous, next) {

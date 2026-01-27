@@ -20,6 +20,7 @@ class WebSocketService {
   Function(Map<String, dynamic>)? onRouteAssigned;
   Function(Map<String, dynamic>)? onShiftUpdate;
   Function(Map<String, dynamic>)? onShiftDeleted;
+  Function(Map<String, dynamic>)? onShiftCancelled;
   Function(Map<String, dynamic>)? onDriverLocationUpdate;
   Function(Map<String, dynamic>)? onDriverShiftChange;
   Function(Map<String, dynamic>)? onMoveRequestAssigned;
@@ -124,6 +125,12 @@ class WebSocketService {
         case 'shift_deleted':
           AppLogger.general('   🗑️  Shift deleted callback: ${onShiftDeleted != null ? "SET" : "NULL"}');
           onShiftDeleted?.call(data['data'] as Map<String, dynamic>);
+          break;
+        case 'shift_cancelled':
+          AppLogger.general('   ❌ SHIFT CANCELLED MESSAGE');
+          AppLogger.general('   Callback status: ${onShiftCancelled != null ? "✅ SET" : "❌ NULL"}');
+          AppLogger.general('   Shift cancellation data: ${data['data']}');
+          onShiftCancelled?.call(data['data'] as Map<String, dynamic>);
           break;
         case 'driver_location_update':
           // Manager-only: Update driver location on map

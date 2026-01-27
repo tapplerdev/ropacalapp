@@ -69,6 +69,16 @@ class WebSocketManager extends _$WebSocketManager {
       ref.read(shiftNotifierProvider.notifier).resetToInactive();
     };
 
+    _service!.onShiftCancelled = (data) {
+      AppLogger.general('❌ Shift cancelled via WebSocket: ${data['shift_id']}');
+      AppLogger.general('   Refetching from backend (single source of truth)');
+      // Refetch from backend - backend will return null since shift is cancelled
+      // Existing logic in fetchCurrentShift() will handle setting state to inactive
+      ref.read(shiftNotifierProvider.notifier).fetchCurrentShift();
+      // TODO: Consider showing cancellation dialog with manager info
+      // Currently just refetches and lets navigation page handle home navigation
+    };
+
     _service!.onDriverLocationUpdate = (data) {
       try {
         AppLogger.general('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');

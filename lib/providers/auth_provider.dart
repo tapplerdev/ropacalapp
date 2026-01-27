@@ -248,13 +248,28 @@ class WebSocketManager extends _$WebSocketManager {
     };
 
     _service!.onConnected = () {
-      AppLogger.general('✅ WebSocket connected');
+      final timestamp = DateTime.now().toIso8601String();
+      AppLogger.general('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      AppLogger.general('✅ [WEBSOCKET CONNECTION] onConnected CALLBACK TRIGGERED');
+      AppLogger.general('   Timestamp: $timestamp');
+      AppLogger.general('   🔍 This callback fires EVERY time WebSocket connects/reconnects');
+      AppLogger.general('   📊 Fetching current shift to catch any updates missed during disconnect...');
+      AppLogger.general('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
 
       // Immediately check for new shift assignments after reconnection
       // This catches any assignments that happened while disconnected
-      AppLogger.general('📊 WebSocket reconnected - checking for new shift assignments');
-      ref.read(shiftNotifierProvider.notifier).fetchCurrentShift().catchError((e) {
-        AppLogger.general('📊 Error fetching shift after reconnect: $e');
+      ref.read(shiftNotifierProvider.notifier).fetchCurrentShift().then((_) {
+        AppLogger.general('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+        AppLogger.general('✅ [SHIFT FETCH] Completed after WebSocket connection');
+        AppLogger.general('   Connection timestamp: $timestamp');
+        AppLogger.general('   Fetch completed at: ${DateTime.now().toIso8601String()}');
+        AppLogger.general('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      }).catchError((e) {
+        AppLogger.general('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+        AppLogger.general('❌❌❌ [SHIFT FETCH] FAILED after WebSocket connection');
+        AppLogger.general('   Connection timestamp: $timestamp');
+        AppLogger.general('   Error: $e');
+        AppLogger.general('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
       });
     };
 

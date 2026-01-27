@@ -76,6 +76,13 @@ class WebSocketService {
 
       _isConnected = true;
       _reconnectAttempts = 0;
+
+      AppLogger.general('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      AppLogger.general('✅ [WEBSOCKET] Connection established');
+      AppLogger.general('   Timestamp: ${DateTime.now().toIso8601String()}');
+      AppLogger.general('   Calling onConnected callback: ${onConnected != null ? "✅ SET" : "❌ NULL"}');
+      AppLogger.general('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+
       onConnected?.call();
 
       // Register AppLogger remote logging callback

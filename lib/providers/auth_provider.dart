@@ -186,6 +186,34 @@ class WebSocketManager extends _$WebSocketManager {
       }
     };
 
+    _service!.onRouteUpdated = (data) {
+      try {
+        AppLogger.general('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+        AppLogger.general('🔄 AUTH_PROVIDER: onRouteUpdated CALLBACK TRIGGERED');
+        AppLogger.general('   Route was updated by manager - processing...');
+        AppLogger.general('   Data keys: ${data.keys.toList()}');
+
+        final message = data['message'] as String?;
+        final moveRequestId = data['move_request_id'] as String?;
+
+        AppLogger.general('   📩 Message: $message');
+        AppLogger.general('   📦 Move Request ID: $moveRequestId');
+
+        // Refresh shift to get updated move request details
+        AppLogger.general('   🔄 Fetching current shift to get updated move request...');
+        ref.read(shiftNotifierProvider.notifier).fetchCurrentShift();
+        AppLogger.general('   ✅ Shift refresh triggered');
+
+        AppLogger.general('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      } catch (e, stack) {
+        AppLogger.general('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+        AppLogger.general('❌❌❌ ERROR in onRouteUpdated callback');
+        AppLogger.general('   Error: $e');
+        AppLogger.general('   Stack: $stack');
+        AppLogger.general('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      }
+    };
+
     // Potential locations events - invalidate provider to trigger refetch
     _service!.onPotentialLocationCreated = (data) {
       AppLogger.general('📡 WebSocket: Potential location created, invalidating provider');

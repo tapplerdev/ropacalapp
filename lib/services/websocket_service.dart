@@ -24,6 +24,7 @@ class WebSocketService {
   Function(Map<String, dynamic>)? onDriverLocationUpdate;
   Function(Map<String, dynamic>)? onDriverShiftChange;
   Function(Map<String, dynamic>)? onMoveRequestAssigned;
+  Function(Map<String, dynamic>)? onRouteUpdated;
   Function(Map<String, dynamic>)? onPotentialLocationCreated;
   Function(Map<String, dynamic>)? onPotentialLocationConverted;
   Function(Map<String, dynamic>)? onPotentialLocationDeleted;
@@ -103,7 +104,14 @@ class WebSocketService {
       AppLogger.general('   Raw message type: ${message.runtimeType}');
       AppLogger.general('   Raw message preview: ${message.toString().substring(0, message.toString().length > 100 ? 100 : message.toString().length)}...');
 
-      final data = jsonDecode(message as String) as Map<String, dynamic>;
+      final rawData = jsonDecode(message as String) as Map<String, dynamic>;
+
+      // Handle both direct format {"type": "...", "data": {...}}
+      // and wrapped format {"UserID": "...", "Data": {"type": "...", ...}}
+      final data = rawData.containsKey('Data')
+          ? rawData['Data'] as Map<String, dynamic>
+          : rawData;
+
       final type = data['type'] as String?;
 
       AppLogger.general('   Parsed message type: $type');
@@ -160,6 +168,13 @@ class WebSocketService {
           AppLogger.general('   Callback status: ${onMoveRequestAssigned != null ? "✅ SET" : "❌ NULL"}');
           AppLogger.general('   Move request data: ${data['data']}');
           onMoveRequestAssigned?.call(data['data'] as Map<String, dynamic>);
+          break;
+        case 'route_updated':
+          // Driver: Route was updated by manager (move request details changed)
+          AppLogger.general('   🔄 ROUTE UPDATED MESSAGE');
+          AppLogger.general('   Callback status: ${onRouteUpdated != null ? "✅ SET" : "❌ NULL"}');
+          AppLogger.general('   Route update data: $data');
+          onRouteUpdated?.call(data);
           break;
         case 'potential_location_created':
           AppLogger.general('   📍 POTENTIAL LOCATION CREATED MESSAGE');

@@ -503,6 +503,31 @@ class ShiftNotifier extends _$ShiftNotifier {
     await ref.read(locationTrackingServiceProvider).startBackgroundTracking();
   }
 
+  /// Handle shift cancellation (called when shift is cancelled by manager)
+  /// Sets status to 'cancelled' to trigger cancellation dialog in UI
+  Future<void> handleShiftCancellation() async {
+    AppLogger.general('❌ Handling shift cancellation by manager');
+
+    // Set status to cancelled (preserving current shift data for dialog)
+    state = state.copyWith(status: ShiftStatus.cancelled);
+
+    AppLogger.general('   Status set to cancelled, UI will show cancellation dialog');
+
+    // Wait a moment for the dialog to appear
+    await Future.delayed(const Duration(milliseconds: 500));
+
+    // Then reset to inactive after dialog is shown
+    AppLogger.general('   Resetting to inactive after dialog shown');
+    state = const ShiftState(status: ShiftStatus.inactive);
+
+    // Check for new assignment
+    _startPolling();
+
+    // Downgrade to background tracking
+    AppLogger.general('📍 Downgrading to background tracking after cancellation');
+    await ref.read(locationTrackingServiceProvider).startBackgroundTracking();
+  }
+
   /// Get current shift duration (excluding pause time)
   Duration getActiveShiftDuration() {
     if (state.startTime == null) {

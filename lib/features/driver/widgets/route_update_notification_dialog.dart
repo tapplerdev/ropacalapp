@@ -83,24 +83,14 @@ class RouteUpdateNotificationDialog extends StatelessWidget {
                 color: Colors.grey.shade50,
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: Column(
-                children: [
-                  Icon(
-                    Icons.route_outlined,
-                    color: iconColor,
-                    size: 32,
-                  ),
-                  const SizedBox(height: 12),
-                  Text(
-                    notification.actionDescription,
-                    style: const TextStyle(
-                      fontSize: 16,
-                      color: Colors.black87,
-                      fontWeight: FontWeight.w500,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                ],
+              child: Text(
+                notification.detailedDescription,
+                style: const TextStyle(
+                  fontSize: 16,
+                  color: Colors.black87,
+                  fontWeight: FontWeight.w500,
+                ),
+                textAlign: TextAlign.center,
               ),
             ),
 
@@ -145,7 +135,7 @@ class RouteUpdateNotificationDialog extends StatelessWidget {
               child: ElevatedButton(
                 onPressed: onClose,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: iconColor,
+                  backgroundColor: Colors.green,
                   foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(vertical: 16),
                   shape: RoundedRectangleBorder(

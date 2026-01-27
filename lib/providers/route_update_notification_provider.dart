@@ -31,6 +31,25 @@ class RouteUpdateNotification {
         return 'modified your route';
     }
   }
+
+  /// Get a detailed description including manager name
+  String get detailedDescription {
+    final String action;
+    switch (actionType) {
+      case 'removed':
+        action = 'has been removed from your route by';
+        break;
+      case 'added':
+        action = 'has been added to your route by';
+        break;
+      case 'updated':
+        action = 'has been updated in your route by';
+        break;
+      default:
+        action = 'has been modified in your route by';
+    }
+    return 'Bin #$binNumber $action $managerName';
+  }
 }
 
 /// Provider for route update notifications

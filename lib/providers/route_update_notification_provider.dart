@@ -34,21 +34,16 @@ class RouteUpdateNotification {
 
   /// Get a detailed description including manager name
   String get detailedDescription {
-    final String action;
     switch (actionType) {
       case 'removed':
-        action = 'has been removed from your route by';
-        break;
+        return 'Bin $binNumber has been removed from your route';
       case 'added':
-        action = 'has been added to your route by';
-        break;
+        return 'Bin $binNumber has been added to your route';
       case 'updated':
-        action = 'has been updated in your route by';
-        break;
+        return 'Bin $binNumber has been updated in your route';
       default:
-        action = 'has been modified in your route by';
+        return 'Bin $binNumber has been modified in your route';
     }
-    return 'Bin $binNumber $action $managerName';
   }
 }
 

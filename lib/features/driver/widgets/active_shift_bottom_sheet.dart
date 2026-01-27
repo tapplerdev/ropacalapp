@@ -581,7 +581,7 @@ class ActiveShiftBottomSheet extends HookConsumerWidget {
                     );
 
                     if (isWithinRange) {
-                      _completeBin(ref, next.binId);
+                      _completeBin(ref, next);
                     } else {
                       // Show snackbar if out of range
                       final distanceMeters = LocationHelpers.getDistanceToBin(
@@ -891,10 +891,14 @@ class ActiveShiftBottomSheet extends HookConsumerWidget {
     );
   }
 
-  Future<void> _completeBin(WidgetRef ref, String binId) async {
+  Future<void> _completeBin(WidgetRef ref, RouteBin bin) async {
     try {
       // Using 50% as placeholder - actual implementation uses check-in dialog
-      await ref.read(shiftNotifierProvider.notifier).completeBin(binId, 50);
+      await ref.read(shiftNotifierProvider.notifier).completeBin(
+        bin.id, // shift_bin_id (identifies specific waypoint)
+        bin.binId, // bin_id (deprecated)
+        50,
+      );
     } catch (e) {
       // Error will be shown by the provider
     }

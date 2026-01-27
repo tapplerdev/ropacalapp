@@ -98,9 +98,9 @@ class ShiftDemoPage extends ConsumerWidget {
                     const SizedBox(height: 8),
                     OutlinedButton.icon(
                       onPressed: () async {
-                        // Use a dummy bin ID for demo purposes
+                        // Use dummy IDs for demo purposes
                         try {
-                          await shiftNotifier.completeBin('demo-bin-id', 50);
+                          await shiftNotifier.completeBin(1, 'demo-bin-id', 50);
                         } catch (e) {
                           if (context.mounted) {
                             ScaffoldMessenger.of(context).showSnackBar(

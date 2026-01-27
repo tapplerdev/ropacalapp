@@ -334,7 +334,7 @@ class NavigationBottomPanel extends HookConsumerWidget {
               children: [
           // Header row with progress and est. finish time
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 6),
+            padding: const EdgeInsets.fromLTRB(16, 6, 16, 4),
             child: Row(
               children: [
                 // Green dot
@@ -413,11 +413,11 @@ class NavigationBottomPanel extends HookConsumerWidget {
               ),
             ),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 8),
 
           // Current bin card
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [

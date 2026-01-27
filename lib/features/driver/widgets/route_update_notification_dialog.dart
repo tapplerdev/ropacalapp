@@ -62,18 +62,6 @@ class RouteUpdateNotificationDialog extends StatelessWidget {
               textAlign: TextAlign.center,
             ),
 
-            const SizedBox(height: 8),
-
-            // Manager name
-            Text(
-              notification.managerName,
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    color: Colors.grey.shade700,
-                    fontWeight: FontWeight.w600,
-                  ),
-              textAlign: TextAlign.center,
-            ),
-
             const SizedBox(height: 24),
 
             // Action description
@@ -86,7 +74,7 @@ class RouteUpdateNotificationDialog extends StatelessWidget {
               child: Text(
                 notification.detailedDescription,
                 style: const TextStyle(
-                  fontSize: 16,
+                  fontSize: 14,
                   color: Colors.black87,
                   fontWeight: FontWeight.w500,
                 ),

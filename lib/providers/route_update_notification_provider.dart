@@ -48,7 +48,7 @@ class RouteUpdateNotification {
       default:
         action = 'has been modified in your route by';
     }
-    return 'Bin #$binNumber $action $managerName';
+    return 'Bin $binNumber $action $managerName';
   }
 }
 

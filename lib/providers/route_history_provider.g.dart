@@ -6,7 +6,7 @@ part of 'route_history_provider.dart';
 // RiverpodGenerator
 // **************************************************************************
 
-String _$routeHistoryHash() => r'f29b65483c4ebcd9319084c0e53a8e12ddf352e9';
+String _$routeHistoryHash() => r'41aa8ce1483ccc96e88d4c6c8242d566c229c51c';
 
 /// Provider for shift history data
 ///

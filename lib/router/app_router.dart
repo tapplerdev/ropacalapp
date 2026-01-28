@@ -8,13 +8,17 @@ import 'package:ropacalapp/features/driver/driver_home_scaffold.dart';
 import 'package:ropacalapp/features/driver/bin_detail_page.dart';
 import 'package:ropacalapp/features/driver/google_navigation_page.dart';
 import 'package:ropacalapp/features/driver/shift_demo_page.dart';
-import 'package:ropacalapp/features/driver/routes_list_page.dart';
+import 'package:ropacalapp/features/driver/shifts_page.dart';
+import 'package:ropacalapp/features/driver/shift_history_page.dart';
 import 'package:ropacalapp/features/driver/route_detail_page.dart';
+import 'package:ropacalapp/features/driver/notification_settings_page.dart';
+import 'package:ropacalapp/features/driver/language_settings_page.dart';
 import 'package:ropacalapp/features/manager/active_drivers_list_page.dart';
 import 'package:ropacalapp/features/manager/driver_shift_detail_page.dart';
 import 'package:ropacalapp/features/manager/driver_detail_page.dart';
 import 'package:ropacalapp/features/manager/potential_locations_page.dart';
 import 'package:ropacalapp/features/manager/move_requests_page.dart';
+import 'package:ropacalapp/features/manager/shift_builder_page.dart';
 import 'package:ropacalapp/providers/auth_provider.dart';
 
 // Placeholder page for admin dashboard (will be implemented in Phase 4)
@@ -174,17 +178,32 @@ final goRouterProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const AdminDashboardPage(),
       ),
       GoRoute(
-        path: '/routes',
-        name: 'routes',
-        builder: (context, state) => const RoutesListPage(),
+        path: '/shifts',
+        name: 'shifts',
+        builder: (context, state) => const ShiftsPage(),
       ),
       GoRoute(
-        path: '/routes/:shiftId',
-        name: 'route-detail',
+        path: '/shifts/:shiftId',
+        name: 'shift-detail',
         builder: (context, state) {
           final shiftId = state.pathParameters['shiftId']!;
           return RouteDetailPage(shiftId: shiftId);
         },
+      ),
+      GoRoute(
+        path: '/shift-history',
+        name: 'shift-history',
+        builder: (context, state) => const ShiftHistoryPage(),
+      ),
+      GoRoute(
+        path: '/settings/notifications',
+        name: 'notification-settings',
+        builder: (context, state) => const NotificationSettingsPage(),
+      ),
+      GoRoute(
+        path: '/settings/language',
+        name: 'language-settings',
+        builder: (context, state) => const LanguageSettingsPage(),
       ),
       GoRoute(
         path: '/manager/active-drivers',
@@ -200,6 +219,11 @@ final goRouterProvider = Provider<GoRouter>((ref) {
         path: '/manager/move-requests',
         name: 'move-requests',
         builder: (context, state) => const MoveRequestsPage(),
+      ),
+      GoRoute(
+        path: '/manager/shift-builder',
+        name: 'shift-builder',
+        builder: (context, state) => const ShiftBuilderPage(),
       ),
       GoRoute(
         path: '/manager/drivers/:driverId',

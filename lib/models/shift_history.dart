@@ -82,7 +82,11 @@ class ShiftHistory with _$ShiftHistory {
   /// Get display name for the route
   String get routeDisplayName {
     if (routeId != null && routeId!.isNotEmpty) {
-      return 'Route ${routeId!.substring(0, 8)}';
+      // Only take first 8 chars if string is long enough
+      final displayId = routeId!.length > 8
+          ? routeId!.substring(0, 8)
+          : routeId!;
+      return 'Route $displayId';
     }
     return 'Unknown Route';
   }

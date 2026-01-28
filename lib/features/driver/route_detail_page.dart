@@ -20,8 +20,9 @@ class RouteDetailPage extends ConsumerWidget {
     final shiftDetailAsync = ref.watch(shiftDetailProvider(shiftId));
 
     return Scaffold(
+      backgroundColor: Colors.white,
       appBar: AppBar(
-        title: const Text('Route Details'),
+        title: const Text('Shift Details'),
         backgroundColor: Colors.white,
         surfaceTintColor: Colors.transparent,
         scrolledUnderElevation: 0,
@@ -82,7 +83,7 @@ class RouteDetailPage extends ConsumerWidget {
               ),
               const SizedBox(height: 16),
               Text(
-                'Failed to load route details',
+                'Failed to load shift details',
                 style: TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.w600,
@@ -143,7 +144,7 @@ class _ShiftSummaryCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: AppColors.primaryGreen.withValues(alpha: 0.3),
+            color: Colors.black.withValues(alpha: 0.08),
             blurRadius: 12,
             offset: const Offset(0, 4),
           ),
@@ -152,9 +153,11 @@ class _ShiftSummaryCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Route name
+          // Shift title with date
           Text(
-            shift.routeDisplayName,
+            shift.startTime != null
+                ? 'Shift - ${dateFormat.format(shift.startTime!)}'
+                : 'Shift Summary',
             style: const TextStyle(
               fontSize: 24,
               fontWeight: FontWeight.bold,
@@ -164,26 +167,8 @@ class _ShiftSummaryCard extends StatelessWidget {
 
           const SizedBox(height: 16),
 
-          // Date & Time
+          // Time only (date is now in title)
           if (shift.startTime != null) ...[
-            Row(
-              children: [
-                const Icon(
-                  Icons.calendar_today,
-                  size: 18,
-                  color: Colors.white70,
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  dateFormat.format(shift.startTime!),
-                  style: const TextStyle(
-                    fontSize: 16,
-                    color: Colors.white,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
             Row(
               children: [
                 const Icon(
@@ -310,15 +295,26 @@ class _BinCard extends StatelessWidget {
     final timeFormat = DateFormat('h:mm a');
     final isCompleted = bin.isCompleted == 1;
 
-    return Card(
+    return Container(
       margin: const EdgeInsets.only(bottom: 12),
-      elevation: 2,
-      shape: RoundedRectangleBorder(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: isCompleted ? Colors.green.shade50 : Colors.grey.shade50,
         borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: isCompleted
+              ? AppColors.successGreen.withValues(alpha: 0.3)
+              : Colors.grey.shade200,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
+      child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // Header: Sequence number + Status
@@ -446,8 +442,7 @@ class _BinCard extends StatelessWidget {
             ),
           ],
         ),
-      ),
-    );
+      );
   }
 }
 

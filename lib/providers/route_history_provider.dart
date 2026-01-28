@@ -45,7 +45,8 @@ class RouteHistory extends _$RouteHistory {
   /// Manually refresh shift history
   Future<void> refresh() async {
     AppLogger.general('🔄 Refreshing shift history...');
-    state = const AsyncValue.loading();
+    // Use AsyncValue.guard without setting loading state first
+    // This preserves the current data while fetching new data
     state = await AsyncValue.guard(() => fetchHistory());
     AppLogger.general('✅ Shift history refreshed');
   }

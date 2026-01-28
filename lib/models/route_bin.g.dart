@@ -60,4 +60,6 @@ const _$StopTypeEnumMap = {
   StopType.collection: 'collection',
   StopType.pickup: 'pickup',
   StopType.dropoff: 'dropoff',
+  StopType.placement: 'placement',
+  StopType.warehouseStop: 'warehouse_stop',
 };

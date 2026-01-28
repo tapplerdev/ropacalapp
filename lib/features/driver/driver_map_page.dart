@@ -399,7 +399,7 @@ class DriverMapPage extends HookConsumerWidget {
                     left: 16,
                     child: CircularMapButton(
                       icon: Icons.add_location_alt_outlined,
-                      iconColor: Colors.grey.shade700,
+                      iconColor: AppColors.primaryGreen,
                       onTap: () => _showPotentialLocationMenu(context, ref),
                     ),
                   ),

@@ -1072,7 +1072,7 @@ class ManagerMapPage extends HookConsumerWidget {
                 left: 16,
                 child: CircularMapButton(
                   icon: Icons.notifications_outlined,
-                  iconColor: Colors.grey.shade700,
+                  iconColor: AppColors.primaryGreen,
                   onTap: () {
                     Navigator.push(
                       context,
@@ -1090,7 +1090,7 @@ class ManagerMapPage extends HookConsumerWidget {
                 left: 16,
                 child: CircularMapButton(
                   icon: Icons.add_location_alt_outlined,
-                  iconColor: Colors.grey.shade700,
+                  iconColor: AppColors.primaryGreen,
                   onTap: () {
                     context.push('/manager/potential-locations');
                   },

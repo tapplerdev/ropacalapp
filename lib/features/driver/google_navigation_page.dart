@@ -30,6 +30,7 @@ import 'package:ropacalapp/features/driver/notifications_page.dart';
 import 'package:ropacalapp/models/route_bin.dart';
 import 'package:ropacalapp/models/route_step.dart';
 import 'package:ropacalapp/models/shift_state.dart';
+import 'package:ropacalapp/features/driver/widgets/potential_location_form_dialog.dart';
 import 'package:latlong2/latlong.dart' as latlong;
 
 /// Helper function to detect if running on a physical iOS device (not simulator)
@@ -537,6 +538,7 @@ class GoogleNavigationPage extends HookConsumerWidget {
             child: SafeArea(
               child: CircularMapButton(
                 icon: Icons.notifications_outlined,
+                iconColor: AppColors.primaryGreen,
                 onTap: () {
                   Navigator.push(
                     context,
@@ -545,6 +547,19 @@ class GoogleNavigationPage extends HookConsumerWidget {
                     ),
                   );
                 },
+              ),
+            ),
+          ),
+
+          // Potential Location button - positioned below notification button
+          Positioned(
+            top: Responsive.spacing(context, mobile: 72),
+            left: Responsive.spacing(context, mobile: 16),
+            child: SafeArea(
+              child: CircularMapButton(
+                icon: Icons.add_location_alt_outlined,
+                iconColor: AppColors.primaryGreen,
+                onTap: () => _showPotentialLocationMenu(context, ref),
               ),
             ),
           ),
@@ -1379,5 +1394,244 @@ class GoogleNavigationPage extends HookConsumerWidget {
   //   }
   // }
 
+  /// Show bottom sheet menu for potential location options
+  static void _showPotentialLocationMenu(BuildContext context, WidgetRef ref) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (context) => Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Handle bar
+            const SizedBox(height: 12),
+            Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: Colors.grey[400],
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const SizedBox(height: 20),
 
+            // Title
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: Colors.green[50],
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Icon(
+                      Icons.add_location_alt_rounded,
+                      color: Colors.green[700],
+                      size: 24,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  const Text(
+                    'Suggest Location',
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 20),
+
+            // GPS Location Option
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Material(
+                color: Colors.blue[50],
+                borderRadius: BorderRadius.circular(16),
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(16),
+                  onTap: () async {
+                    Navigator.pop(context);
+                    await _suggestCurrentLocation(context, ref);
+                  },
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Colors.blue[100],
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Icon(
+                            Icons.my_location_rounded,
+                            color: Colors.blue[700],
+                            size: 24,
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        const Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Use Current Location',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              SizedBox(height: 4),
+                              Text(
+                                'Auto-fill with GPS coordinates',
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  color: Colors.black54,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        Icon(
+                          Icons.arrow_forward_ios_rounded,
+                          size: 18,
+                          color: Colors.blue[700],
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+
+            // Manual Entry Option
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Material(
+                color: Colors.green[50],
+                borderRadius: BorderRadius.circular(16),
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(16),
+                  onTap: () {
+                    Navigator.pop(context);
+                    _openManualForm(context);
+                  },
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Colors.green[100],
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Icon(
+                            Icons.edit_location_alt_rounded,
+                            color: Colors.green[700],
+                            size: 24,
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        const Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Enter Manually',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              SizedBox(height: 4),
+                              Text(
+                                'Type address information',
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  color: Colors.black54,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        Icon(
+                          Icons.arrow_forward_ios_rounded,
+                          size: 18,
+                          color: Colors.green[700],
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 24),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Quick suggest using current GPS location
+  static Future<void> _suggestCurrentLocation(BuildContext context, WidgetRef ref) async {
+    try {
+      // Get current location from location service
+      final locationService = ref.read(locationServiceProvider);
+      final location = await locationService.getCurrentLocation();
+
+      if (location == null) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Could not get current location'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+        return;
+      }
+
+      // Open form with GPS pre-filled
+      if (context.mounted) {
+        showDialog(
+          context: context,
+          builder: (context) => PotentialLocationFormDialog(
+            initialLatitude: location.latitude,
+            initialLongitude: location.longitude,
+          ),
+        );
+      }
+    } catch (e) {
+      AppLogger.e('Error getting current location', error: e);
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  /// Open manual entry form (no GPS)
+  static void _openManualForm(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => const PotentialLocationFormDialog(),
+    );
+  }
 }

@@ -4,7 +4,7 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:ropacalapp/features/driver/driver_map_wrapper.dart';
 import 'package:ropacalapp/features/driver/bins_list_page.dart';
-import 'package:ropacalapp/features/driver/routes_list_page.dart';
+import 'package:ropacalapp/features/driver/shifts_page.dart';
 import 'package:ropacalapp/features/driver/account_page.dart';
 import 'package:ropacalapp/features/manager/manager_map_page.dart';
 import 'package:ropacalapp/features/manager/drivers_page.dart';
@@ -47,7 +47,7 @@ class DriverHomeScaffold extends HookConsumerWidget {
               ]
             : [
                 const DriverMapWrapper(), // Driver: auto-switches to navigation when shift active
-                const RoutesListPage(), // Driver sees shift history
+                const ShiftsPage(), // Driver sees active, upcoming, and past shifts
                 const AccountPage(),
               ];
 
@@ -136,9 +136,9 @@ class DriverHomeScaffold extends HookConsumerWidget {
                   label: 'Map',
                 ),
                 const NavigationDestination(
-                  icon: Icon(Icons.route_outlined),
-                  selectedIcon: Icon(Icons.route),
-                  label: 'Routes',
+                  icon: Icon(Icons.work_history_outlined),
+                  selectedIcon: Icon(Icons.work_history),
+                  label: 'Shifts',
                 ),
                 const NavigationDestination(
                   icon: Icon(Icons.person_outline),

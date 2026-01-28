@@ -101,28 +101,29 @@ class AccountPage extends ConsumerWidget {
                         ),
                       ),
 
-                      const SizedBox(height: 32),
+                      const SizedBox(height: 24),
 
-                      // Settings section
-                      Text(
-                        'Settings',
-                        style: Theme.of(
-                          context,
-                        ).textTheme.titleLarge?.copyWith(
-                              fontWeight: FontWeight.bold,
-                            ),
+                      // General section
+                      Padding(
+                        padding: const EdgeInsets.only(left: 4, bottom: 8),
+                        child: Text(
+                          'GENERAL',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.grey.shade600,
+                            letterSpacing: 0.5,
+                          ),
+                        ),
                       ),
-                      const SizedBox(height: 12),
-
-                      // Settings items in a card with shadow
                       Container(
                         decoration: BoxDecoration(
                           color: Colors.white,
                           borderRadius: BorderRadius.circular(16),
                           boxShadow: [
                             BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.05),
-                              blurRadius: 10,
+                              color: Colors.black.withValues(alpha: 0.04),
+                              blurRadius: 8,
                               offset: const Offset(0, 2),
                             ),
                           ],
@@ -130,31 +131,71 @@ class AccountPage extends ConsumerWidget {
                         child: Column(
                           children: [
                             _SettingsItem(
-                              icon: Icons.notifications_outlined,
-                              title: 'Notifications',
+                              icon: Icons.language,
+                              iconColor: Colors.blue.shade600,
+                              title: 'Language',
+                              subtitle: 'English',
                               onTap: () {
-                                // TODO: Navigate to notifications settings
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                    content: Text('Coming soon!'),
-                                  ),
-                                );
+                                context.push('/settings/language');
                               },
                             ),
                             Divider(
                               height: 1,
                               color: AppColors.backgroundLight,
-                              indent: 16,
-                              endIndent: 16,
+                              indent: 60,
                             ),
                             _SettingsItem(
-                              icon: Icons.help_outline,
-                              title: 'Help & Support',
+                              icon: Icons.notifications_outlined,
+                              iconColor: Colors.orange.shade600,
+                              title: 'Notifications',
+                              subtitle: 'Manage alerts',
                               onTap: () {
-                                // TODO: Navigate to help
+                                context.push('/settings/notifications');
+                              },
+                            ),
+                          ],
+                        ),
+                      ),
+
+                      const SizedBox(height: 24),
+
+                      // Support section
+                      Padding(
+                        padding: const EdgeInsets.only(left: 4, bottom: 8),
+                        child: Text(
+                          'SUPPORT',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.grey.shade600,
+                            letterSpacing: 0.5,
+                          ),
+                        ),
+                      ),
+                      Container(
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(16),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.04),
+                              blurRadius: 8,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                        child: Column(
+                          children: [
+                            _SettingsItem(
+                              icon: Icons.help_outline,
+                              iconColor: AppColors.primaryGreen,
+                              title: 'Help & Support',
+                              subtitle: 'Get assistance',
+                              onTap: () {
                                 ScaffoldMessenger.of(context).showSnackBar(
                                   const SnackBar(
                                     content: Text('Coming soon!'),
+                                    backgroundColor: AppColors.primaryGreen,
                                   ),
                                 );
                               },
@@ -162,12 +203,13 @@ class AccountPage extends ConsumerWidget {
                             Divider(
                               height: 1,
                               color: AppColors.backgroundLight,
-                              indent: 16,
-                              endIndent: 16,
+                              indent: 60,
                             ),
                             _SettingsItem(
                               icon: Icons.info_outline,
+                              iconColor: Colors.purple.shade600,
                               title: 'About',
+                              subtitle: 'App version & info',
                               onTap: () {
                                 showAboutDialog(
                                   context: context,
@@ -265,12 +307,16 @@ class AccountPage extends ConsumerWidget {
 
 class _SettingsItem extends StatelessWidget {
   final IconData icon;
+  final Color iconColor;
   final String title;
+  final String? subtitle;
   final VoidCallback onTap;
 
   const _SettingsItem({
     required this.icon,
+    this.iconColor = AppColors.textSecondary,
     required this.title,
+    this.subtitle,
     required this.onTap,
   });
 
@@ -280,36 +326,52 @@ class _SettingsItem extends StatelessWidget {
       onTap: onTap,
       borderRadius: BorderRadius.circular(12),
       child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 12),
+        padding: const EdgeInsets.all(16),
         child: Row(
           children: [
             Container(
-              width: 40,
-              height: 40,
+              width: 44,
+              height: 44,
               decoration: BoxDecoration(
-                color: AppColors.backgroundLight,
+                color: iconColor.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Icon(
                 icon,
-                color: AppColors.textSecondary,
-                size: 20,
+                color: iconColor,
+                size: 22,
               ),
             ),
             const SizedBox(width: 16),
             Expanded(
-              child: Text(
-                title,
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w500,
-                  color: AppColors.textPrimary,
-                ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.textPrimary,
+                    ),
+                  ),
+                  if (subtitle != null) ...[
+                    const SizedBox(height: 2),
+                    Text(
+                      subtitle!,
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: Colors.grey.shade600,
+                      ),
+                    ),
+                  ],
+                ],
               ),
             ),
             Icon(
               Icons.chevron_right,
-              color: AppColors.textSecondary,
+              color: Colors.grey.shade400,
+              size: 20,
             ),
           ],
         ),

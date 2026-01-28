@@ -392,6 +392,45 @@ class DriverMapPage extends HookConsumerWidget {
                     left: 16,
                     child: MapNotificationButton(binsState: binsState),
                   ),
+                  // Potential Location button (below notification button)
+                  Positioned(
+                    top: 70, // Notification button height (42px) + spacing (12px) + top offset (16px)
+                    left: 16,
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: Colors.green[600],
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.12),
+                            blurRadius: 12,
+                            offset: const Offset(0, 4),
+                            spreadRadius: 0,
+                          ),
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.05),
+                            blurRadius: 4,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: Material(
+                        color: Colors.transparent,
+                        child: InkWell(
+                          onTap: () => _showPotentialLocationMenu(context, ref),
+                          customBorder: const CircleBorder(),
+                          child: const Padding(
+                            padding: EdgeInsets.all(10.0),
+                            child: Icon(
+                              Icons.add_location,
+                              color: Colors.white,
+                              size: 22,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
                   // Location button (bottom right)
                   _DynamicLocationButton(mapController: mapController.value),
                 ],
@@ -596,11 +635,6 @@ class DriverMapPage extends HookConsumerWidget {
               error: (error, stack) => const SizedBox.shrink(),
             ),
           ],
-        ),
-        floatingActionButton: FloatingActionButton(
-          onPressed: () => _showPotentialLocationMenu(context, ref),
-          backgroundColor: Colors.green[600],
-          child: const Icon(Icons.add_location, color: Colors.white),
         ),
       ),
     );

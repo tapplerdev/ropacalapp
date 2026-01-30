@@ -18,6 +18,7 @@ class WebSocketService {
 
   // Callbacks for handling messages
   Function(Map<String, dynamic>)? onRouteAssigned;
+  Function(Map<String, dynamic>)? onShiftCreated;
   Function(Map<String, dynamic>)? onShiftUpdate;
   Function(Map<String, dynamic>)? onShiftDeleted;
   Function(Map<String, dynamic>)? onShiftCancelled;
@@ -132,6 +133,11 @@ class WebSocketService {
         case 'route_assigned':
           AppLogger.general('   📨 Route assigned callback: ${onRouteAssigned != null ? "SET" : "NULL"}');
           onRouteAssigned?.call(data['data'] as Map<String, dynamic>);
+          break;
+        case 'shift_created':
+          AppLogger.general('   ✨ SHIFT CREATED MESSAGE');
+          AppLogger.general('   Callback status: ${onShiftCreated != null ? "✅ SET" : "❌ NULL"}');
+          onShiftCreated?.call(data['data'] as Map<String, dynamic>);
           break;
         case 'shift_update':
           AppLogger.general('   📨 Shift update callback: ${onShiftUpdate != null ? "SET" : "NULL"}');

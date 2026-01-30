@@ -53,6 +53,12 @@ class WebSocketManager extends _$WebSocketManager {
       ref.read(shiftNotifierProvider.notifier).updateFromWebSocket(data);
     };
 
+    _service!.onShiftCreated = (data) {
+      AppLogger.general('✨ Shift created via WebSocket: ${data['shift_id']}');
+      AppLogger.general('   Fetching current shift to get full details...');
+      ref.read(shiftNotifierProvider.notifier).fetchCurrentShift();
+    };
+
     // ✅ RESTORED: onShiftUpdate callback
     // Needed because startShift() HTTP response doesn't include route_bins
     // WebSocket shift_update includes full shift data with bins array

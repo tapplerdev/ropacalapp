@@ -180,11 +180,12 @@ class GoogleNavigationPage extends HookConsumerWidget {
           previous.completedBins != next.completedBins;
 
       // Check if next waypoint changed (important for move requests where pickup→dropoff doesn't change completedBins)
+      // Use unique identifier: bin_id + stop_type + sequence_order (since id is always 0)
       final String? previousNextWaypointId = previous?.remainingBins.isNotEmpty == true
-          ? previous!.remainingBins.first.id.toString()
+          ? '${previous!.remainingBins.first.binId}_${previous!.remainingBins.first.stopType}_${previous!.remainingBins.first.sequenceOrder}'
           : null;
       final String? nextNextWaypointId = next?.remainingBins.isNotEmpty == true
-          ? next!.remainingBins.first.id.toString()
+          ? '${next!.remainingBins.first.binId}_${next!.remainingBins.first.stopType}_${next!.remainingBins.first.sequenceOrder}'
           : null;
       final bool nextWaypointChanged = previousNextWaypointId != nextNextWaypointId;
 
@@ -1337,12 +1338,13 @@ class GoogleNavigationPage extends HookConsumerWidget {
       // Update distance to next maneuver
       navNotifier.updateDistanceToNextManeuver(navInfo.distanceToCurrentStepMeters?.toDouble() ?? 0);
 
-      // Update remaining time and distance to final destination
-      navNotifier.updateRemainingTime(navInfo.timeToFinalDestinationSeconds != null
-          ? Duration(seconds: navInfo.timeToFinalDestinationSeconds!)
+      // Update remaining time and distance to NEXT waypoint (not final destination)
+      // This shows time/distance to the next bin, not the entire route
+      navNotifier.updateRemainingTime(navInfo.timeToNextDestinationSeconds != null
+          ? Duration(seconds: navInfo.timeToNextDestinationSeconds!)
           : null);
 
-      navNotifier.updateTotalDistanceRemaining(navInfo.distanceToFinalDestinationMeters?.toDouble());
+      navNotifier.updateTotalDistanceRemaining(navInfo.distanceToNextDestinationMeters?.toDouble());
     });
 
     // Listen to location updates (SDK best practice: wait for first location before route calculation)

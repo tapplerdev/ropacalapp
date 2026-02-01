@@ -296,25 +296,33 @@ class ShiftDetailsModal extends StatelessWidget {
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Timeline connector
+                // Timeline connector - only show sequence numbers if optimized
                 Column(
                   children: [
                     Container(
                       width: 32,
                       height: 32,
                       decoration: BoxDecoration(
-                        color: AppColors.primaryGreen.withValues(alpha: 0.15),
+                        color: shiftOverview.isOptimized
+                            ? AppColors.primaryGreen.withValues(alpha: 0.15)
+                            : Colors.grey.shade200,
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Center(
-                        child: Text(
-                          '${index + 1}',
-                          style: const TextStyle(
-                            color: AppColors.primaryGreen,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 13,
-                          ),
-                        ),
+                        child: shiftOverview.isOptimized
+                            ? Text(
+                                '${index + 1}',
+                                style: const TextStyle(
+                                  color: AppColors.primaryGreen,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 13,
+                                ),
+                              )
+                            : Icon(
+                                Icons.circle,
+                                size: 8,
+                                color: Colors.grey.shade400,
+                              ),
                       ),
                     ),
                     if (!isLast)

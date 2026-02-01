@@ -961,17 +961,12 @@ class _ShiftReadyOverlay extends ConsumerWidget {
             shiftOverview: ShiftOverview(
               shiftId: shiftState.assignedRouteId ?? '',
               startTime: DateTime.now(),
-              estimatedEndTime: DateTime.now().add(
-                Duration(
-                  hours: (shiftState.totalBins * 0.25).ceil(),
-                ),
-              ),
+              estimatedEndTime: null,
               totalBins: shiftState.totalBins,
-              totalDistanceKm: _calculateTotalDistance(
-                shiftState.routeBins,
-              ),
+              totalDistanceKm: null,
               routeBins: shiftState.routeBins,
-              routeName: 'Route ${shiftState.assignedRouteId ?? ''}',
+              routeName: shiftState.routeName ?? 'Route ${shiftState.assignedRouteId ?? ''}',
+              isOptimized: false,
             ),
             onAccept: () async {
               AppLogger.general('🚀 SHIFT ACCEPTED - Starting shift');

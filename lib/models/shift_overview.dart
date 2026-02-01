@@ -5,32 +5,36 @@ import 'package:ropacalapp/core/services/geofence_service.dart';
 class ShiftOverview {
   final String shiftId;
   final DateTime startTime;
-  final DateTime estimatedEndTime;
+  final DateTime? estimatedEndTime;
   final int totalBins;
-  final double totalDistanceKm;
+  final double? totalDistanceKm;
   final List<RouteBin> routeBins;
   final String routeName;
+  final bool isOptimized;
 
   const ShiftOverview({
     required this.shiftId,
     required this.startTime,
-    required this.estimatedEndTime,
+    this.estimatedEndTime,
     required this.totalBins,
-    required this.totalDistanceKm,
+    this.totalDistanceKm,
     required this.routeBins,
     required this.routeName,
+    this.isOptimized = false,
   });
 
   /// Calculate estimated duration in hours
   double get estimatedDurationHours {
-    final duration = estimatedEndTime.difference(startTime);
+    if (estimatedEndTime == null) return 0.0;
+    final duration = estimatedEndTime!.difference(startTime);
     return duration.inMinutes / 60.0;
   }
 
   /// Format time range for display (e.g., "8:00 AM - 2:00 PM")
   String get timeRangeFormatted {
+    if (estimatedEndTime == null) return 'Route Pending';
     final startFormatted = _formatTime(startTime);
-    final endFormatted = _formatTime(estimatedEndTime);
+    final endFormatted = _formatTime(estimatedEndTime!);
     return '$startFormatted - $endFormatted';
   }
 
@@ -47,12 +51,14 @@ class ShiftOverview {
   /// Format distance for display (imperial units)
   /// Delegates to GeofenceService for consistent formatting
   String get distanceFormatted {
+    if (totalDistanceKm == null || !isOptimized) return 'Route Pending';
     // Convert km to meters and use GeofenceService formatting
-    return GeofenceService.formatDistance(totalDistanceKm * 1000);
+    return GeofenceService.formatDistance(totalDistanceKm! * 1000);
   }
 
   /// Format duration for display (e.g., "5h 30m")
   String get durationFormatted {
+    if (estimatedEndTime == null || !isOptimized) return 'Route Pending';
     final hours = estimatedDurationHours.floor();
     final minutes = ((estimatedDurationHours - hours) * 60).round();
 
@@ -63,6 +69,9 @@ class ShiftOverview {
 
   /// Get summary stats string (e.g., "24 bins • 28 mi • ~5h 30m")
   String get summaryStats {
+    if (!isOptimized) {
+      return '$totalBins bins • Route Pending';
+    }
     return '$totalBins bins • $distanceFormatted • ~$durationFormatted';
   }
 }

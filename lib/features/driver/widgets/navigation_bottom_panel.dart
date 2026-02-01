@@ -453,8 +453,6 @@ class NavigationBottomPanel extends HookConsumerWidget {
     dynamic navNotifier,
     RouteBin currentBin,
   ) {
-    // Note: ref is not available here since we're outside build()
-    // We'll build a simpler version without ref-dependent features
     return Positioned(
       bottom: 0,
       left: 0,
@@ -491,18 +489,211 @@ class NavigationBottomPanel extends HookConsumerWidget {
                 ),
               ),
 
-              // Content
+              // Content - show collapsed or expanded based on state
               Expanded(
-                child: _buildCollapsedContent(
-                  currentBin,
-                  shift.logicalCompletedBins,
-                  shift.logicalTotalBins,
-                  navState.remainingTime,
-                ),
+                child: navState.isBottomPanelExpanded
+                    ? _buildBinExpandedContent(
+                        context,
+                        currentBin,
+                        navState,
+                      )
+                    : _buildCollapsedContent(
+                        currentBin,
+                        shift.logicalCompletedBins,
+                        shift.logicalTotalBins,
+                        navState.remainingTime,
+                      ),
               ),
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  /// Build expanded content for legacy bin system (with UP NEXT section)
+  Widget _buildBinExpandedContent(
+    BuildContext context,
+    RouteBin currentBin,
+    dynamic navState,
+  ) {
+    final progressPercentage = shift.logicalTotalBins > 0
+        ? shift.logicalCompletedBins / shift.logicalTotalBins
+        : 0.0;
+
+    // Get upcoming bins (next 2-3 bins after current)
+    final currentIndex = shift.remainingBins.indexOf(currentBin);
+    final upcomingBins = currentIndex >= 0 && currentIndex < shift.remainingBins.length - 1
+        ? shift.remainingBins.skip(currentIndex + 1).take(3).toList()
+        : <RouteBin>[];
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Current bin info
+          Row(
+            children: [
+              Container(
+                width: 10,
+                height: 10,
+                decoration: const BoxDecoration(
+                  color: AppColors.primaryGreen,
+                  shape: BoxShape.circle,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      currentBin.stopType == StopType.warehouseStop
+                          ? '🏭 Warehouse Stop'
+                          : currentBin.stopType == StopType.placement
+                              ? '📍 Place New Bin'
+                              : 'Cl. ${currentBin.binNumber} ${currentBin.currentStreet}',
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    if (currentBin.stopType == StopType.collection)
+                      Text(
+                        '${currentBin.fillPercentage}% full',
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: Colors.grey.shade600,
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              Text(
+                '${shift.logicalCompletedBins}/${shift.logicalTotalBins}',
+                style: const TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 16),
+
+          // Progress bar
+          ClipRRect(
+            borderRadius: BorderRadius.circular(4),
+            child: LinearProgressIndicator(
+              value: progressPercentage,
+              minHeight: 8,
+              backgroundColor: Colors.grey.shade200,
+              valueColor: const AlwaysStoppedAnimation<Color>(
+                AppColors.primaryGreen,
+              ),
+            ),
+          ),
+
+          // UP NEXT section
+          if (upcomingBins.isNotEmpty) ...[
+            const SizedBox(height: 20),
+            Row(
+              children: [
+                Text(
+                  'UP NEXT',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.grey.shade600,
+                    letterSpacing: 0.5,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  '${upcomingBins.length}',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.grey.shade500,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            ...upcomingBins.map((bin) {
+              final bool showBadge = bin.stopType == StopType.collection &&
+                  bin.binNumber != null &&
+                  bin.binNumber! > 0;
+
+              return Container(
+                margin: const EdgeInsets.only(bottom: 8),
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade50,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.grey.shade200),
+                ),
+                child: Row(
+                  children: [
+                    if (showBadge)
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: AppColors.primaryGreen.withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text(
+                          '${bin.binNumber}',
+                          style: const TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.bold,
+                            color: AppColors.primaryGreen,
+                          ),
+                        ),
+                      ),
+                    if (bin.stopType != StopType.collection)
+                      Text(
+                        bin.stopType == StopType.warehouseStop
+                            ? '🏭 Warehouse'
+                            : bin.stopType == StopType.placement
+                                ? '📍 Placement'
+                                : bin.stopType == StopType.pickup
+                                    ? '🚚 Pickup'
+                                    : '📍 Dropoff',
+                        style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        bin.currentStreet,
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: Colors.grey.shade700,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    if (bin.stopType == StopType.collection)
+                      Text(
+                        '${bin.fillPercentage}% full',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey.shade600,
+                        ),
+                      ),
+                  ],
+                ),
+              );
+            }).toList(),
+          ],
+        ],
       ),
     );
   }

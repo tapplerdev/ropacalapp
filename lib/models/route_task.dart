@@ -124,31 +124,41 @@ class RouteTask with _$RouteTask {
   String get displayTitle {
     switch (taskType) {
       case StopType.collection:
-        return 'Collect Bin ${binNumber ?? ''}';
+        return binNumber != null ? 'Bin #$binNumber' : 'Collection';
       case StopType.placement:
-        return 'Place New Bin ${newBinNumber ?? ''}';
+        return newBinNumber != null ? 'Place Bin #$newBinNumber' : 'Place New Bin';
       case StopType.pickup:
-        return 'Pick Up Bin ${binNumber ?? ''}';
+        return binNumber != null ? 'Pickup Bin #$binNumber' : 'Pickup Bin';
       case StopType.dropoff:
-        return 'Drop Off Bin ${binNumber ?? ''}';
+        return destinationAddress != null
+            ? 'Dropoff to ${_truncateAddress(destinationAddress!)}'
+            : 'Dropoff';
       case StopType.warehouseStop:
-        return 'Warehouse Stop';
+        final action = warehouseAction == 'both' ? 'Load/Unload' :
+                       warehouseAction == 'load' ? 'Load' :
+                       warehouseAction == 'unload' ? 'Unload' : 'Stop';
+        final bins = binsToLoad != null ? ' $binsToLoad bins' : '';
+        return 'Warehouse - $action$bins';
     }
+  }
+
+  /// Helper to truncate long addresses
+  String _truncateAddress(String address, [int maxLength = 25]) {
+    if (address.length <= maxLength) return address;
+    return '${address.substring(0, maxLength)}...';
   }
 
   /// Get display subtitle for this task
   String get displaySubtitle {
     switch (taskType) {
       case StopType.collection:
-        return address ?? 'Collection stop';
-      case StopType.placement:
-        return address ?? 'New bin placement';
       case StopType.pickup:
-        return 'Move to: ${destinationAddress ?? 'destination'}';
+      case StopType.placement:
+        return address ?? 'No address';
       case StopType.dropoff:
-        return address ?? 'Drop-off location';
+        return destinationAddress ?? 'No address';
       case StopType.warehouseStop:
-        return warehouseAction?.toUpperCase() ?? 'LOAD/UNLOAD';
+        return address ?? 'Warehouse Location';
     }
   }
 

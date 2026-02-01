@@ -5,6 +5,7 @@ import 'package:ropacalapp/core/theme/app_colors.dart';
 import 'package:ropacalapp/core/enums/stop_type.dart';
 import 'package:ropacalapp/models/route_task.dart';
 import 'package:ropacalapp/core/utils/warehouse_stop_calculator.dart';
+import 'package:ropacalapp/providers/warehouse_provider.dart';
 
 /// Manager interface for building agnostic shifts with tasks
 class ShiftBuilderPage extends HookConsumerWidget {
@@ -15,6 +16,9 @@ class ShiftBuilderPage extends HookConsumerWidget {
     final tasks = useState<List<RouteTask>>([]);
     final truckCapacity = useState<int>(6);
     final selectedDriver = useState<String?>(null);
+
+    // Watch warehouse location from backend
+    final warehouseAsync = ref.watch(warehouseLocationNotifierProvider);
 
     // Calculate warehouse stop analysis
     final analysis = useMemoized(
@@ -208,7 +212,12 @@ class ShiftBuilderPage extends HookConsumerWidget {
                     icon: Icons.warehouse,
                     label: 'Warehouse Stop',
                     color: Colors.grey.shade700,
-                    onTap: () => _addWarehouseStop(context, tasks),
+                    onTap: warehouseAsync.when(
+                      data: (warehouse) =>
+                          () => _addWarehouseStop(context, tasks, warehouse),
+                      loading: () => null,
+                      error: (_, __) => null,
+                    ),
                   ),
                 ],
               ),
@@ -287,30 +296,30 @@ class ShiftBuilderPage extends HookConsumerWidget {
               child: SafeArea(
                 top: false,
                 child: ElevatedButton.icon(
-                  onPressed: () {
-                    // Auto-insert warehouse stops
-                    final withWarehouse =
-                        WarehouseStopCalculator.insertWarehouseStops(
-                      tasks: tasks.value,
-                      truckBinCapacity: truckCapacity.value,
-                      warehouseLocation: const WarehouseLocation(
-                        latitude: 40.7128,
-                        longitude: -74.0060,
-                        address: 'Warehouse - 123 Storage St',
-                      ),
-                      shiftId: 'temp_shift_id',
-                    );
-                    tasks.value = withWarehouse;
+                  onPressed: warehouseAsync.when(
+                    data: (warehouse) => () {
+                      // Auto-insert warehouse stops using backend warehouse location
+                      final withWarehouse =
+                          WarehouseStopCalculator.insertWarehouseStops(
+                        tasks: tasks.value,
+                        truckBinCapacity: truckCapacity.value,
+                        warehouseLocation: warehouse,
+                        shiftId: 'temp_shift_id',
+                      );
+                      tasks.value = withWarehouse;
 
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text(
-                          'Added ${analysis.totalWarehouseStops} warehouse stops',
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(
+                            'Added ${analysis.totalWarehouseStops} warehouse stops',
+                          ),
+                          backgroundColor: AppColors.primaryGreen,
                         ),
-                        backgroundColor: AppColors.primaryGreen,
-                      ),
-                    );
-                  },
+                      );
+                    },
+                    loading: () => null,
+                    error: (_, __) => null,
+                  ),
                   icon: const Icon(Icons.auto_fix_high),
                   label: const Text('Auto-Insert Warehouse Stops'),
                   style: ElevatedButton.styleFrom(
@@ -440,16 +449,17 @@ class ShiftBuilderPage extends HookConsumerWidget {
   void _addWarehouseStop(
     BuildContext context,
     ValueNotifier<List<RouteTask>> tasks,
+    WarehouseLocation warehouse,
   ) {
-    // Add manual warehouse stop
+    // Add manual warehouse stop using backend warehouse location
     final newTask = RouteTask(
       id: 'manual_warehouse_${DateTime.now().millisecondsSinceEpoch}',
       shiftId: 'temp',
       sequenceOrder: tasks.value.length + 1,
       taskType: StopType.warehouseStop,
-      latitude: 40.7128,
-      longitude: -74.0060,
-      address: 'Warehouse - 123 Storage St',
+      latitude: warehouse.latitude,
+      longitude: warehouse.longitude,
+      address: warehouse.address,
       warehouseAction: 'both',
       binsToLoad: 6,
       taskData: {'manual': true},
@@ -465,7 +475,7 @@ class _QuickAddButton extends StatelessWidget {
   final IconData icon;
   final String label;
   final Color color;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
 
   const _QuickAddButton({
     required this.icon,

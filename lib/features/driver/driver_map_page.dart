@@ -965,7 +965,7 @@ class _ShiftReadyOverlay extends ConsumerWidget {
               totalBins: shiftState.totalBins,
               totalDistanceKm: null,
               routeBins: shiftState.routeBins,
-              routeName: shiftState.routeName ?? 'Route ${shiftState.assignedRouteId ?? ''}',
+              routeName: 'Route ${shiftState.assignedRouteId ?? ''}',
               isOptimized: false,
             ),
             onAccept: () async {

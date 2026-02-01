@@ -9,6 +9,8 @@ import 'package:ropacalapp/core/services/geofence_service.dart';
 import 'package:ropacalapp/features/driver/widgets/check_in_dialog_v2.dart';
 import 'package:ropacalapp/features/driver/widgets/move_request_pickup_dialog.dart';
 import 'package:ropacalapp/features/driver/widgets/move_request_placement_dialog.dart';
+import 'package:ropacalapp/features/driver/widgets/warehouse_checkin_dialog.dart';
+import 'package:ropacalapp/features/driver/widgets/placement_checkin_dialog.dart';
 import 'package:ropacalapp/models/route_bin.dart';
 import 'package:ropacalapp/models/route_task.dart';
 import 'package:ropacalapp/models/shift_state.dart';
@@ -1218,6 +1220,35 @@ class NavigationBottomPanel extends HookConsumerWidget {
                               onPlacementComplete: () {
                                 AppLogger.general(
                                   '✅ Move request dropoff completed for Bin #${currentBin.binNumber}',
+                                );
+                              },
+                            ),
+                          );
+                          break;
+
+                        case StopType.warehouseStop:
+                          // Show warehouse check-in dialog (simple confirmation)
+                          showDialog(
+                            context: context,
+                            barrierDismissible: false,
+                            builder: (context) => WarehouseCheckinDialog(
+                              task: RouteTask.fromRouteBin(currentBin),
+                              shiftBinId: currentBin.id.toString(),
+                            ),
+                          );
+                          break;
+
+                        case StopType.placement:
+                          // Show placement check-in dialog (photo + location suitability)
+                          showDialog(
+                            context: context,
+                            barrierDismissible: false,
+                            builder: (context) => PlacementCheckinDialog(
+                              task: RouteTask.fromRouteBin(currentBin),
+                              shiftBinId: currentBin.id.toString(),
+                              onPlacementComplete: () {
+                                AppLogger.general(
+                                  '✅ Placement completed',
                                 );
                               },
                             ),

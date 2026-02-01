@@ -25,6 +25,11 @@ _$ShiftStateImpl _$$ShiftStateImplFromJson(Map<String, dynamic> json) =>
               ?.map((e) => RouteBin.fromJson(e as Map<String, dynamic>))
               .toList() ??
           const [],
+      tasks:
+          (json['tasks'] as List<dynamic>?)
+              ?.map((e) => RouteTask.fromJson(e as Map<String, dynamic>))
+              .toList() ??
+          const [],
     );
 
 Map<String, dynamic> _$$ShiftStateImplToJson(_$ShiftStateImpl instance) =>
@@ -40,6 +45,7 @@ Map<String, dynamic> _$$ShiftStateImplToJson(_$ShiftStateImpl instance) =>
       'total_bins': instance.totalBins,
       'completed_bins': instance.completedBins,
       'bins': instance.routeBins,
+      'tasks': instance.tasks,
     };
 
 const _$ShiftStatusEnumMap = {

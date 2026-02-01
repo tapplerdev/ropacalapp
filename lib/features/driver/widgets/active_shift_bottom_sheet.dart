@@ -9,6 +9,7 @@ import 'package:flutter_easyloading/flutter_easyloading.dart';
 import 'package:ropacalapp/core/theme/app_colors.dart';
 import 'package:ropacalapp/core/enums/bin_status.dart';
 import 'package:ropacalapp/models/route_bin.dart';
+import 'package:ropacalapp/models/route_task.dart';
 import 'package:ropacalapp/models/bin.dart';
 import 'package:ropacalapp/providers/shift_provider.dart';
 import 'package:ropacalapp/providers/location_provider.dart';
@@ -21,6 +22,7 @@ import 'package:ropacalapp/core/services/geofence_service.dart';
 /// Bottom sheet showing active shift navigation
 class ActiveShiftBottomSheet extends HookConsumerWidget {
   final List<RouteBin> routeBins;
+  final List<RouteTask> tasks;  // New task-based system
   final int completedBins;
   final int totalBins;
   final VoidCallback? onNavigateToNextBin;
@@ -34,6 +36,7 @@ class ActiveShiftBottomSheet extends HookConsumerWidget {
   const ActiveShiftBottomSheet({
     super.key,
     required this.routeBins,
+    this.tasks = const[],  // Optional, defaults to empty
     required this.completedBins,
     required this.totalBins,
     this.onNavigateToNextBin,
@@ -43,6 +46,20 @@ class ActiveShiftBottomSheet extends HookConsumerWidget {
     this.googleDistanceToNextManeuver,
   });
 
+  /// Check if using new task-based system
+  bool get usesTasks => tasks.isNotEmpty;
+
+  /// Get next incomplete task (new system)
+  RouteTask? get nextTask {
+    for (final task in tasks) {
+      if (task.isCompleted == 0) {
+        return task;
+      }
+    }
+    return null;
+  }
+
+  /// Get next incomplete bin (legacy system)
   RouteBin? get nextBin {
     // Find first incomplete bin
     for (final bin in routeBins) {
@@ -160,7 +177,6 @@ class ActiveShiftBottomSheet extends HookConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final isExpanded = useState(false); // Start collapsed for clean UI
-    final next = nextBin;
     final locationState = ref.watch(currentLocationProvider);
     final currentLocation = locationState.value != null
         ? latlong.LatLng(
@@ -169,23 +185,77 @@ class ActiveShiftBottomSheet extends HookConsumerWidget {
           )
         : null;
     final simulationState = ref.watch(simulationNotifierProvider);
-    if (next == null) {
-      // All bins completed - modal disabled per user request
-      // return _buildAllCompleteSheet(context, ref);
-      return const SizedBox.shrink(); // Hide the bottom sheet when all bins are done
+
+    // Use tasks if available, otherwise fall back to bins
+    if (usesTasks) {
+      final next = nextTask;
+      if (next == null) {
+        return const SizedBox.shrink(); // Hide when all tasks completed
+      }
+
+      // Calculate distance and ETA using task location
+      final distanceKm = _calculateTaskDistance(next, currentLocation);
+      final etaMinutes = _calculateETA(distanceKm, next.sequenceOrder - 1);
+      final progressPercentage = totalBins > 0 ? completedBins / totalBins : 0.0;
+
+      return _buildBottomSheet(
+        context,
+        isExpanded,
+        progressPercentage,
+        simulationState,
+        taskLabel: next.displayTitle,
+        taskSubtitle: next.displaySubtitle,
+        distanceKm: distanceKm,
+        currentLocation: currentLocation,
+      );
+    } else {
+      // Legacy bin-based system
+      final next = nextBin;
+      if (next == null) {
+        return const SizedBox.shrink(); // Hide when all bins completed
+      }
+
+      final nextBinIndex = _getNextBinIndex(next);
+      final distanceKm = _calculateDistance(next, currentLocation, nextBinIndex);
+      final etaMinutes = _calculateETA(distanceKm, nextBinIndex);
+      final progressPercentage = totalBins > 0 ? completedBins / totalBins : 0.0;
+
+      return _buildBottomSheet(
+        context,
+        isExpanded,
+        progressPercentage,
+        simulationState,
+        binLabel: 'Bin #${next.binNumber}',
+        binSubtitle: next.currentStreet,
+        distanceKm: distanceKm,
+        currentLocation: currentLocation,
+      );
     }
+  }
 
-    // Calculate distance and ETA using straight-line distance
-    final nextBinIndex = _getNextBinIndex(next);
-    final distanceKm = _calculateDistance(
-      next,
-      currentLocation,
-      nextBinIndex,
-    );
-    final etaMinutes = _calculateETA(distanceKm, nextBinIndex);
+  /// Calculate distance to task location
+  double? _calculateTaskDistance(RouteTask task, latlong.LatLng? currentLocation) {
+    if (currentLocation == null) return null;
+    final distance = latlong.Distance();
+    final taskLocation = latlong.LatLng(task.latitude, task.longitude);
+    return distance.as(latlong.LengthUnit.Kilometer, currentLocation, taskLocation);
+  }
 
-    // Calculate progress percentage
-    final progressPercentage = totalBins > 0 ? completedBins / totalBins : 0.0;
+  /// Build bottom sheet container (unified for both systems)
+  Widget _buildBottomSheet(
+    BuildContext context,
+    ValueNotifier<bool> isExpanded,
+    double progressPercentage,
+    dynamic simulationState, {
+    String? taskLabel,
+    String? taskSubtitle,
+    String? binLabel,
+    String? binSubtitle,
+    double? distanceKm,
+    latlong.LatLng? currentLocation,
+  }) {
+    final label = taskLabel ?? binLabel ?? '';
+    final subtitle = taskSubtitle ?? binSubtitle ?? '';
 
     return GestureDetector(
       onVerticalDragEnd: (details) {
@@ -219,27 +289,250 @@ class ActiveShiftBottomSheet extends HookConsumerWidget {
             duration: const Duration(milliseconds: 300),
             curve: Curves.easeInOutCubic,
             child: isExpanded.value
-                ? _buildExpandedContent(
+                ? _buildExpandedContentWithLabel(
                     context,
-                    ref,
-                    next,
+                    label,
+                    subtitle,
                     progressPercentage,
                     distanceKm,
-                    currentLocation,
-                    simulationState,
                     isExpanded,
-                    nextBinIndex,
                   )
-                : _buildCollapsedContent(
+                : _buildCollapsedContentWithLabel(
                     context,
-                    ref,
-                    next,
+                    label,
+                    subtitle,
                     progressPercentage,
                     isExpanded,
                   ),
           ),
         ),
       ),
+    );
+  }
+
+  /// Build collapsed content with unified label/subtitle
+  Widget _buildCollapsedContentWithLabel(
+    BuildContext context,
+    String label,
+    String subtitle,
+    double progressPercentage,
+    ValueNotifier<bool> isExpanded,
+  ) {
+    return GestureDetector(
+      onTap: () {
+        HapticFeedback.selectionClick();
+        isExpanded.value = true;
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        child: Row(
+          children: [
+            // Drag handle
+            Container(
+              width: 40,
+              height: 4,
+              margin: const EdgeInsets.only(right: 12),
+              decoration: BoxDecoration(
+                color: Colors.grey.shade300,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+
+            // Task/Bin info
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    label,
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.textPrimary,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    subtitle,
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: Colors.grey.shade600,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
+            ),
+
+            // Progress badge
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(
+                color: AppColors.primaryGreen.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Text(
+                '$completedBins/$totalBins',
+                style: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.primaryGreen,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Build expanded content with unified label/subtitle
+  Widget _buildExpandedContentWithLabel(
+    BuildContext context,
+    String label,
+    String subtitle,
+    double progressPercentage,
+    double? distanceKm,
+    ValueNotifier<bool> isExpanded,
+  ) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // Swipe indicator
+        Center(
+          child: Container(
+            width: 40,
+            height: 4,
+            margin: const EdgeInsets.symmetric(vertical: 8),
+            decoration: BoxDecoration(
+              color: Colors.grey.shade300,
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+        ),
+
+        Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Header: Task/Bin info
+              Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          label,
+                          style: const TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: AppColors.textPrimary,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          subtitle,
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: Colors.grey.shade600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  // Distance badge
+                  if (distanceKm != null)
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: Colors.blue.shade50,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Text(
+                        _formatDistance(distanceKm),
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.blue.shade700,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+
+              const SizedBox(height: 16),
+
+              // Progress bar
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'Progress',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.grey.shade700,
+                        ),
+                      ),
+                      Text(
+                        '$completedBins/$totalBins completed',
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: Colors.grey.shade600,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(8),
+                    child: LinearProgressIndicator(
+                      value: progressPercentage,
+                      minHeight: 8,
+                      backgroundColor: Colors.grey.shade200,
+                      valueColor: const AlwaysStoppedAnimation<Color>(
+                        AppColors.primaryGreen,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+
+              const SizedBox(height: 16),
+
+              // Navigate button
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: onNavigateToNextBin,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primaryGreen,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  child: const Text(
+                    'Navigate',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 

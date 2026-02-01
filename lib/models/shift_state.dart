@@ -1,5 +1,6 @@
 import 'package:freezed_annotation/freezed_annotation.dart';
 import 'package:ropacalapp/models/route_bin.dart';
+import 'package:ropacalapp/models/route_task.dart';
 import 'package:ropacalapp/core/utils/unix_timestamp_converter.dart';
 import 'package:ropacalapp/core/enums/stop_type.dart';
 
@@ -36,8 +37,11 @@ class ShiftState with _$ShiftState {
     /// Completed bins count
     @JsonKey(name: 'completed_bins') @Default(0) int completedBins,
 
-    /// List of bins in the route with their details
+    /// List of bins in the route with their details (legacy)
     @JsonKey(name: 'bins') @Default([]) List<RouteBin> routeBins,
+
+    /// List of tasks in the route (new task-based system)
+    @JsonKey(name: 'tasks') @Default([]) List<RouteTask> tasks,
   }) = _ShiftState;
 
   const ShiftState._();
@@ -45,9 +49,17 @@ class ShiftState with _$ShiftState {
   factory ShiftState.fromJson(Map<String, dynamic> json) =>
       _$ShiftStateFromJson(json);
 
-  /// Get only incomplete bins for active navigation
+  /// Check if this shift uses the new task-based system
+  bool get usesTasks => tasks.isNotEmpty;
+
+  /// Get only incomplete bins for active navigation (legacy)
   List<RouteBin> get remainingBins {
     return routeBins.where((bin) => bin.isCompleted == 0).toList();
+  }
+
+  /// Get only incomplete tasks for active navigation (new system)
+  List<RouteTask> get remainingTasks {
+    return tasks.where((task) => task.isCompleted == 0).toList();
   }
 
   /// Get logical bin count (count pickup+dropoff pairs as 1)

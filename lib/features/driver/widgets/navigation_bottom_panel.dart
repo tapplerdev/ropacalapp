@@ -10,6 +10,7 @@ import 'package:ropacalapp/features/driver/widgets/check_in_dialog_v2.dart';
 import 'package:ropacalapp/features/driver/widgets/move_request_pickup_dialog.dart';
 import 'package:ropacalapp/features/driver/widgets/move_request_placement_dialog.dart';
 import 'package:ropacalapp/models/route_bin.dart';
+import 'package:ropacalapp/models/route_task.dart';
 import 'package:ropacalapp/models/shift_state.dart';
 import 'package:ropacalapp/providers/navigation_page_provider.dart';
 import 'package:ropacalapp/core/enums/stop_type.dart';
@@ -32,79 +33,48 @@ class NavigationBottomPanel extends HookConsumerWidget {
     final navState = ref.watch(navigationPageNotifierProvider);
     final navNotifier = ref.read(navigationPageNotifierProvider.notifier);
 
-    final currentBin = shift.remainingBins.isNotEmpty &&
-            currentIndex < shift.remainingBins.length
-        ? shift.remainingBins[currentIndex]
-        : null;
+    // Support both task-based and bin-based systems
+    final usesTasks = shift.usesTasks;
 
-    if (currentBin == null) {
-      return const SizedBox.shrink();
+    if (usesTasks) {
+      // New task-based system
+      final currentTask = shift.remainingTasks.isNotEmpty &&
+              currentIndex < shift.remainingTasks.length
+          ? shift.remainingTasks[currentIndex]
+          : null;
+
+      if (currentTask == null) {
+        return const SizedBox.shrink();
+      }
+
+      return _buildTaskPanel(
+        context,
+        ref,
+        currentTask,
+        navState,
+        navNotifier,
+      );
+    } else {
+      // Legacy bin-based system
+      final currentBin = shift.remainingBins.isNotEmpty &&
+              currentIndex < shift.remainingBins.length
+          ? shift.remainingBins[currentIndex]
+          : null;
+
+      if (currentBin == null) {
+        return const SizedBox.shrink();
+      }
+
+      return _buildBinPanel(
+        context,
+        navState,
+        navNotifier,
+        currentBin,
+      );
     }
-
-    return Positioned(
-      bottom: 0,
-      left: 0,
-      right: 0,
-      child: GestureDetector(
-        onTap: () {
-          navNotifier.toggleBottomPanel();
-        },
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 300),
-          curve: Curves.easeInOut,
-          height: navState.isBottomPanelExpanded ? 320 : 85,
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.1),
-                blurRadius: 10,
-                offset: const Offset(0, -2),
-              ),
-            ],
-          ),
-          child: Column(
-            children: [
-              // Drag handle
-              Container(
-                margin: const EdgeInsets.only(top: 12),
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: Colors.grey.shade300,
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-
-              // Content
-              Expanded(
-                child: navState.isBottomPanelExpanded
-                    ? _buildExpandedContent(
-                        context,
-                        ref,
-                        shift,
-                        currentBin,
-                        currentIndex,
-                        navState.remainingTime,
-                        navState.totalDistanceRemaining,
-                        navState.navigationLocation,
-                      )
-                    : _buildCollapsedContent(
-                        currentBin,
-                        shift.logicalCompletedBins,
-                        shift.logicalTotalBins,
-                        navState.remainingTime,
-                      ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
   }
 
-  /// Build collapsed panel content (compact bar) - matching screenshot design
+  /// Legacy bin-based collapsed content
   Widget _buildCollapsedContent(
     RouteBin currentBin,
     int completedBins,
@@ -118,27 +88,39 @@ class NavigationBottomPanel extends HookConsumerWidget {
     final Color statusColor;
     final Color badgeColor;
     final String stopTypeLabel;
-    final IconData stopIcon;
+    final bool showBadge; // Only show badge for actual bin collections
 
     switch (currentBin.stopType) {
       case StopType.pickup:
         statusColor = Colors.orange.shade600;
         badgeColor = Colors.orange.shade600;
         stopTypeLabel = '🚚 PICKUP';
-        stopIcon = Icons.upload;
+        showBadge = currentBin.binNumber != null && currentBin.binNumber! > 0;
         break;
       case StopType.dropoff:
         statusColor = Colors.green.shade600;
         badgeColor = Colors.green.shade600;
         stopTypeLabel = '📍 DROPOFF';
-        stopIcon = Icons.place;
+        showBadge = false; // No badge for dropoffs
+        break;
+      case StopType.warehouseStop:
+        statusColor = Colors.grey.shade700;
+        badgeColor = Colors.grey.shade700;
+        stopTypeLabel = '🏭 WAREHOUSE';
+        showBadge = false; // No badge for warehouse
+        break;
+      case StopType.placement:
+        statusColor = Colors.orange.shade600;
+        badgeColor = Colors.orange.shade600;
+        stopTypeLabel = '📍 PLACEMENT';
+        showBadge = false; // No badge for placement
         break;
       case StopType.collection:
       default:
         statusColor = const Color(0xFF4CAF50);
         badgeColor = AppColors.primaryGreen;
         stopTypeLabel = '';
-        stopIcon = Icons.delete_outline;
+        showBadge = currentBin.binNumber != null && currentBin.binNumber! > 0;
         break;
     }
 
@@ -149,7 +131,7 @@ class NavigationBottomPanel extends HookConsumerWidget {
         children: [
           Row(
             children: [
-              // Status dot (color coded by stop type)
+              // Status dot
               Container(
                 width: 10,
                 height: 10,
@@ -159,12 +141,12 @@ class NavigationBottomPanel extends HookConsumerWidget {
                 ),
               ),
               const SizedBox(width: 10),
-              // Stop type label for pickups/dropoffs
+              // Stop type label for non-collection types
               if (currentBin.stopType != StopType.collection) ...[
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                   decoration: BoxDecoration(
-                    color: badgeColor.withOpacity(0.15),
+                    color: badgeColor.withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(4),
                   ),
                   child: Text(
@@ -178,23 +160,25 @@ class NavigationBottomPanel extends HookConsumerWidget {
                 ),
                 const SizedBox(width: 8),
               ],
-              // Bin number badge
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: badgeColor.withOpacity(0.15),
-                  borderRadius: BorderRadius.circular(6),
-                ),
-                child: Text(
-                  '${currentBin.binNumber}',
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.bold,
-                    color: badgeColor,
+              // Bin number badge (only for actual bins with numbers > 0)
+              if (showBadge) ...[
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: badgeColor.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Text(
+                    '${currentBin.binNumber}',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                      color: badgeColor,
+                    ),
                   ),
                 ),
-              ),
-              const SizedBox(width: 10),
+                const SizedBox(width: 10),
+              ],
               // Address
               Expanded(
                 child: Text(
@@ -248,6 +232,277 @@ class NavigationBottomPanel extends HookConsumerWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  /// Build panel for new task-based system
+  Widget _buildTaskPanel(
+    BuildContext context,
+    WidgetRef ref,
+    RouteTask currentTask,
+    dynamic navState,
+    dynamic navNotifier,
+  ) {
+    return Positioned(
+      bottom: 0,
+      left: 0,
+      right: 0,
+      child: GestureDetector(
+        onTap: () {
+          navNotifier.toggleBottomPanel();
+        },
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeInOut,
+          height: navState.isBottomPanelExpanded ? 320 : 85,
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.1),
+                blurRadius: 10,
+                offset: const Offset(0, -2),
+              ),
+            ],
+          ),
+          child: Column(
+            children: [
+              // Drag handle
+              Container(
+                margin: const EdgeInsets.only(top: 12),
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade300,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+
+              // Content
+              Expanded(
+                child: navState.isBottomPanelExpanded
+                    ? _buildTaskExpandedContent(context, ref, currentTask, navState)
+                    : _buildTaskCollapsedContent(currentTask, navState),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Collapsed task content - proper labels without bin badges for warehouse/placement
+  Widget _buildTaskCollapsedContent(RouteTask task, dynamic navState) {
+    final progressPercentage = shift.logicalTotalBins > 0
+        ? shift.logicalCompletedBins / shift.logicalTotalBins
+        : 0.0;
+
+    // Get task-specific styling
+    final Color statusColor;
+    final String displayLabel;
+    final bool showBadge;
+
+    switch (task.taskType) {
+      case StopType.pickup:
+        statusColor = Colors.orange.shade600;
+        displayLabel = task.displayTitle;
+        showBadge = task.binNumber != null;
+        break;
+      case StopType.dropoff:
+        statusColor = Colors.green.shade600;
+        displayLabel = task.displayTitle;
+        showBadge = false; // No badge for dropoffs
+        break;
+      case StopType.warehouseStop:
+        statusColor = Colors.grey.shade700;
+        displayLabel = task.displayTitle; // "Warehouse - Load 6 bins"
+        showBadge = false; // No bin badge for warehouse
+        break;
+      case StopType.placement:
+        statusColor = Colors.orange.shade600;
+        displayLabel = task.displayTitle; // "Place New Bin"
+        showBadge = false; // No bin badge for placements
+        break;
+      case StopType.collection:
+      default:
+        statusColor = AppColors.primaryGreen;
+        displayLabel = task.displayTitle; // "Bin #123"
+        showBadge = task.binNumber != null;
+        break;
+    }
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            children: [
+              // Status dot
+              Container(
+                width: 10,
+                height: 10,
+                decoration: BoxDecoration(
+                  color: statusColor,
+                  shape: BoxShape.circle,
+                ),
+              ),
+              const SizedBox(width: 10),
+
+              // Task badge (only for tasks with bin numbers)
+              if (showBadge) ...[
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: statusColor.withOpacity(0.15),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Text(
+                    '${task.binNumber}',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                      color: statusColor,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 10),
+              ],
+
+              // Task label
+              Expanded(
+                child: Text(
+                  task.taskType == StopType.collection && showBadge
+                      ? task.displaySubtitle // Show address for collections
+                      : displayLabel, // Show full label for warehouse/placement
+                  style: const TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.black87,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              const SizedBox(width: 10),
+
+              // Progress count
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade200,
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Text(
+                  '${shift.logicalCompletedBins}/${shift.logicalTotalBins}',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.grey.shade800,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+
+              // Up arrow
+              Icon(
+                Icons.keyboard_arrow_up,
+                color: Colors.grey.shade500,
+                size: 24,
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+
+          // Progress bar
+          ClipRRect(
+            borderRadius: BorderRadius.circular(2),
+            child: LinearProgressIndicator(
+              value: progressPercentage,
+              minHeight: 4,
+              backgroundColor: Colors.grey.shade300,
+              valueColor: const AlwaysStoppedAnimation<Color>(
+                AppColors.primaryGreen,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Expanded task content - show full details
+  Widget _buildTaskExpandedContent(
+    BuildContext context,
+    WidgetRef ref,
+    RouteTask task,
+    dynamic navState,
+  ) {
+    // TODO: Implement expanded view
+    return Center(
+      child: Text('Task: ${task.displayTitle}'),
+    );
+  }
+
+  /// Build panel for legacy bin-based system
+  Widget _buildBinPanel(
+    BuildContext context,
+    dynamic navState,
+    dynamic navNotifier,
+    RouteBin currentBin,
+  ) {
+    // Note: ref is not available here since we're outside build()
+    // We'll build a simpler version without ref-dependent features
+    return Positioned(
+      bottom: 0,
+      left: 0,
+      right: 0,
+      child: GestureDetector(
+        onTap: () {
+          navNotifier.toggleBottomPanel();
+        },
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeInOut,
+          height: navState.isBottomPanelExpanded ? 320 : 85,
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.1),
+                blurRadius: 10,
+                offset: const Offset(0, -2),
+              ),
+            ],
+          ),
+          child: Column(
+            children: [
+              // Drag handle
+              Container(
+                margin: const EdgeInsets.only(top: 12),
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade300,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+
+              // Content
+              Expanded(
+                child: _buildCollapsedContent(
+                  currentBin,
+                  shift.logicalCompletedBins,
+                  shift.logicalTotalBins,
+                  navState.remainingTime,
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

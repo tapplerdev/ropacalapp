@@ -1081,6 +1081,7 @@ class _ShiftActiveOverlay extends ConsumerWidget {
       right: 0,
       child: ActiveShiftBottomSheet(
         routeBins: shiftState.routeBins,
+        tasks: shiftState.tasks, // New task-based system
         completedBins: shiftState.completedBins,
         totalBins: shiftState.totalBins,
         onNavigateToNextBin: () {

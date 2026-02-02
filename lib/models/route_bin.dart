@@ -35,6 +35,18 @@ class RouteBin with _$RouteBin {
     /// Move request type (relocation, store, etc.)
     @JsonKey(name: 'move_type') String? moveType,
 
+    /// Potential location ID (for placement tasks)
+    @JsonKey(name: 'potential_location_id') String? potentialLocationId,
+
+    /// New bin number being placed (for placement tasks)
+    @JsonKey(name: 'new_bin_number') int? newBinNumber,
+
+    /// Warehouse action type (load, unload, both)
+    @JsonKey(name: 'warehouse_action') String? warehouseAction,
+
+    /// Number of bins to load at warehouse
+    @JsonKey(name: 'bins_to_load') int? binsToLoad,
+
     /// Whether this bin has been completed
     @JsonKey(name: 'is_completed') @Default(0) int isCompleted,
 
@@ -69,6 +81,60 @@ class RouteBin with _$RouteBin {
     required double longitude,
   }) = _RouteBin;
 
+  const RouteBin._();
+
   factory RouteBin.fromJson(Map<String, dynamic> json) =>
       _$RouteBinFromJson(json);
+
+  /// Get task label based on task type
+  String getTaskLabel() {
+    switch (stopType) {
+      case StopType.collection:
+        return 'Bin #$binNumber';
+
+      case StopType.placement:
+        return newBinNumber != null
+            ? 'Place New Bin #$newBinNumber'
+            : 'Place New Bin';
+
+      case StopType.pickup:
+        return 'Pickup Bin #$binNumber';
+
+      case StopType.dropoff:
+        final dest = newAddress ?? 'New Location';
+        return 'Dropoff to $dest';
+
+      case StopType.warehouseStop:
+        final action = warehouseAction == 'both'
+            ? 'Load/Unload'
+            : warehouseAction == 'load'
+                ? 'Load'
+                : warehouseAction == 'unload'
+                    ? 'Unload'
+                    : 'Stop';
+        final binsText = binsToLoad != null ? ' $binsToLoad bins' : '';
+        return 'Warehouse - $action$binsText';
+
+      default:
+        return 'Bin #$binNumber';
+    }
+  }
+
+  /// Get task type icon
+  String getTaskIcon() {
+    switch (stopType) {
+      case StopType.collection:
+        return 'trash';
+      case StopType.placement:
+        return 'map_pin';
+      case StopType.pickup:
+        return 'arrow_up';
+      case StopType.dropoff:
+        return 'arrow_down';
+      case StopType.warehouseStop:
+        return 'warehouse';
+      default:
+        return 'circle';
+    }
+  }
 }

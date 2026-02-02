@@ -36,11 +36,11 @@ class RouteDetailPage extends ConsumerWidget {
                 // Shift summary card
                 _ShiftSummaryCard(shift: shiftDetail.shift),
 
-                // Bins list
+                // Tasks list
                 Padding(
                   padding: const EdgeInsets.all(16),
                   child: Text(
-                    'Bins (${shiftDetail.bins.length})',
+                    'Tasks (${shiftDetail.bins.length})',
                     style: const TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
@@ -49,7 +49,7 @@ class RouteDetailPage extends ConsumerWidget {
                   ),
                 ),
 
-                // Bin cards
+                // Task cards
                 ListView.builder(
                   shrinkWrap: true,
                   physics: const NeverScrollableScrollPhysics(),
@@ -346,7 +346,7 @@ class _BinCard extends StatelessWidget {
                     ),
                     const SizedBox(width: 12),
                     Text(
-                      'Bin #${bin.binNumber}',
+                      bin.getTaskLabel(),
                       style: const TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.bold,

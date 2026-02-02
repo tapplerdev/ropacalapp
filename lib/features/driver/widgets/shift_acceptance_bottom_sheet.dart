@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:ropacalapp/core/theme/app_colors.dart';
 import 'package:ropacalapp/models/shift_overview.dart';
 import 'package:ropacalapp/models/route_bin.dart';
+import 'package:ropacalapp/core/enums/stop_type.dart';
 
 /// Timeline-based bottom sheet for shift acceptance
 /// Inspired by ride-sharing apps with compact, scannable design
@@ -98,12 +99,14 @@ class ShiftAcceptanceBottomSheet extends StatelessWidget {
 
           const SizedBox(height: 16),
 
-          // Scrollable timeline section
+          // Show task summary for task-based shifts, timeline for old bin-based shifts
           Flexible(
             child: SingleChildScrollView(
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 20),
-                child: _buildTimeline(),
+                child: shiftOverview.isTaskBased
+                    ? _buildTaskSummary()
+                    : _buildTimeline(),
               ),
             ),
           ),
@@ -140,6 +143,143 @@ class ShiftAcceptanceBottomSheet extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  /// Build task summary with badges showing task types and counts
+  Widget _buildTaskSummary() {
+    final taskCounts = shiftOverview.taskCounts;
+    if (taskCounts.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        // Info text explaining route optimization
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: Colors.blue.shade50,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: Colors.blue.shade200),
+          ),
+          child: Row(
+            children: [
+              Icon(
+                Icons.info_outline,
+                size: 18,
+                color: Colors.blue.shade700,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Route will be optimized when you start',
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: Colors.blue.shade900,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 20),
+        // Task type badges
+        Wrap(
+          spacing: 12,
+          runSpacing: 12,
+          children: taskCounts.entries.map((entry) {
+            return _buildTaskTypeBadge(entry.key, entry.value);
+          }).toList(),
+        ),
+      ],
+    );
+  }
+
+  /// Build individual task type badge
+  Widget _buildTaskTypeBadge(StopType taskType, int count) {
+    final config = _getTaskTypeConfig(taskType);
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: config.color.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: config.color.withValues(alpha: 0.3),
+          width: 1.5,
+        ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Icon
+          Text(
+            config.emoji,
+            style: const TextStyle(fontSize: 20),
+          ),
+          const SizedBox(width: 8),
+          // Count
+          Text(
+            count.toString(),
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w700,
+              color: config.color,
+            ),
+          ),
+          const SizedBox(width: 6),
+          // Label
+          Text(
+            config.label,
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+              color: Colors.grey.shade700,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Get configuration for task type (color, icon, label)
+  ({Color color, String emoji, String label}) _getTaskTypeConfig(
+    StopType taskType,
+  ) {
+    switch (taskType) {
+      case StopType.collection:
+        return (
+          color: AppColors.primaryGreen,
+          emoji: '🗑️',
+          label: 'Collection${shiftOverview.taskCounts[taskType]! > 1 ? 's' : ''}',
+        );
+      case StopType.placement:
+        return (
+          color: Colors.orange.shade600,
+          emoji: '📍',
+          label: 'Placement${shiftOverview.taskCounts[taskType]! > 1 ? 's' : ''}',
+        );
+      case StopType.pickup:
+        return (
+          color: Colors.purple.shade600,
+          emoji: '⬆️',
+          label: 'Pickup${shiftOverview.taskCounts[taskType]! > 1 ? 's' : ''}',
+        );
+      case StopType.dropoff:
+        return (
+          color: Colors.purple.shade600,
+          emoji: '⬇️',
+          label: 'Dropoff${shiftOverview.taskCounts[taskType]! > 1 ? 's' : ''}',
+        );
+      case StopType.warehouseStop:
+        return (
+          color: Colors.grey.shade700,
+          emoji: '🏭',
+          label: 'Warehouse',
+        );
+    }
   }
 
   Widget _buildTimeline() {

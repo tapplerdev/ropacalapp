@@ -1,5 +1,7 @@
 import 'package:ropacalapp/models/route_bin.dart';
+import 'package:ropacalapp/models/route_task.dart';
 import 'package:ropacalapp/core/services/geofence_service.dart';
+import 'package:ropacalapp/core/enums/stop_type.dart';
 
 /// Data model for shift overview before starting
 class ShiftOverview {
@@ -9,6 +11,7 @@ class ShiftOverview {
   final int totalBins;
   final double? totalDistanceKm;
   final List<RouteBin> routeBins;
+  final List<RouteTask>? routeTasks; // New: support for task-based shifts
   final String routeName;
   final bool isOptimized;
 
@@ -19,9 +22,24 @@ class ShiftOverview {
     required this.totalBins,
     this.totalDistanceKm,
     required this.routeBins,
+    this.routeTasks, // Optional: for task-based shifts
     required this.routeName,
     this.isOptimized = false,
   });
+
+  /// Check if this is a task-based shift (new system)
+  bool get isTaskBased => routeTasks != null && routeTasks!.isNotEmpty;
+
+  /// Get task counts by type
+  Map<StopType, int> get taskCounts {
+    if (!isTaskBased) return {};
+
+    final counts = <StopType, int>{};
+    for (final task in routeTasks!) {
+      counts[task.taskType] = (counts[task.taskType] ?? 0) + 1;
+    }
+    return counts;
+  }
 
   /// Calculate estimated duration in hours
   double get estimatedDurationHours {

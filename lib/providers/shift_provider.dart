@@ -389,9 +389,9 @@ class ShiftNotifier extends _$ShiftNotifier {
     }
   }
 
-  /// Mark a bin as completed with updated fill percentage and optional photo
-  Future<void> completeBin(
-    int shiftBinId, // ID of shift_bins record (identifies specific waypoint)
+  /// Mark a task as completed with updated fill percentage and optional photo
+  Future<void> completeTask(
+    String taskId, // ID of route_tasks record (route task UUID)
     String binId, // DEPRECATED: kept for reference only
     int? updatedFillPercentage, { // Now nullable for incident reports
     String? photoUrl,
@@ -402,14 +402,14 @@ class ShiftNotifier extends _$ShiftNotifier {
     String? moveRequestId, // Links check to move request for pickup/dropoff
   }) async {
     if (state.status != ShiftStatus.active) {
-      AppLogger.general('⚠️ Cannot complete bin - shift not active');
+      AppLogger.general('⚠️ Cannot complete task - shift not active');
       return;
     }
 
     try {
       final shiftService = ref.read(shiftServiceProvider);
-      await shiftService.completeBin(
-        shiftBinId,
+      await shiftService.completeTask(
+        taskId,
         binId,
         updatedFillPercentage,
         photoUrl: photoUrl,
@@ -422,11 +422,11 @@ class ShiftNotifier extends _$ShiftNotifier {
 
       if (hasIncident) {
         AppLogger.general(
-          '🚨 Bin completed with incident report (type: $incidentType)${photoUrl != null ? ' with photo' : ''}, waiting for WebSocket update...',
+          '🚨 Task completed with incident report (type: $incidentType)${photoUrl != null ? ' with photo' : ''}, waiting for WebSocket update...',
         );
       } else {
         AppLogger.general(
-          '✅ Bin completed via API (fill: $updatedFillPercentage%)${photoUrl != null ? ' with photo' : ''}, waiting for WebSocket update...',
+          '✅ Task completed via API (fill: $updatedFillPercentage%)${photoUrl != null ? ' with photo' : ''}, waiting for WebSocket update...',
         );
       }
 

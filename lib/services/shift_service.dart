@@ -154,9 +154,9 @@ class ShiftService {
     }
   }
 
-  /// Complete a bin with updated fill percentage and optional photo
-  Future<Map<String, dynamic>> completeBin(
-    int shiftBinId, // ID of shift_bins record (identifies specific waypoint)
+  /// Complete a task (bin collection, placement, warehouse stop, etc.)
+  Future<Map<String, dynamic>> completeTask(
+    String taskId, // ID of route_tasks record (route task UUID)
     String binId, // DEPRECATED: kept for reference only
     int? updatedFillPercentage, { // Now nullable for incidents
     String? photoUrl,
@@ -167,10 +167,10 @@ class ShiftService {
     String? moveRequestId, // Links check to move request for pickup/dropoff
   }) async {
     try {
-      print('📤 REQUEST: POST /api/driver/shift/complete-bin');
+      print('📤 REQUEST: POST /api/driver/shift/complete-task');
 
       final requestData = {
-        'shift_bin_id': shiftBinId, // NEW: Properly identifies specific waypoint
+        'task_id': taskId, // NEW: Properly identifies specific waypoint
         'bin_id': binId, // DEPRECATED: Kept for backward compatibility
         if (updatedFillPercentage != null) 'updated_fill_percentage': updatedFillPercentage,
         if (photoUrl != null) 'photo_url': photoUrl,
@@ -184,7 +184,7 @@ class ShiftService {
       print('   Body: $requestData');
 
       final response = await _apiService.post(
-        '/api/driver/shift/complete-bin',
+        '/api/driver/shift/complete-task',
         requestData,
       );
 

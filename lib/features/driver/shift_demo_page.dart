@@ -100,7 +100,7 @@ class ShiftDemoPage extends ConsumerWidget {
                       onPressed: () async {
                         // Use dummy IDs for demo purposes
                         try {
-                          await shiftNotifier.completeBin(1, 'demo-bin-id', 50);
+                          await shiftNotifier.completeTask(1, 'demo-bin-id', 50);
                         } catch (e) {
                           if (context.mounted) {
                             ScaffoldMessenger.of(context).showSnackBar(

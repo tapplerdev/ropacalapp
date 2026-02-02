@@ -223,7 +223,7 @@ class CheckInDialog extends HookConsumerWidget {
                     print('[DIAGNOSTIC]      - fillPercentage: ${fillPercentage.value}');
                     print('[DIAGNOSTIC]      - photoUrl: ${photoUrl ?? 'null'}');
 
-                    await ref.read(shiftNotifierProvider.notifier).completeBin(
+                    await ref.read(shiftNotifierProvider.notifier).completeTask(
                           bin.id,
                           fillPercentage.value,
                           photoUrl: photoUrl,

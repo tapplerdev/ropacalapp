@@ -8,7 +8,7 @@ import 'package:ropacalapp/providers/shift_provider.dart';
 /// No photo or fill percentage required - just confirm arrival
 class WarehouseCheckinDialog extends HookConsumerWidget {
   final RouteTask task;
-  final String shiftBinId;
+  final int shiftBinId;
 
   const WarehouseCheckinDialog({
     super.key,
@@ -191,7 +191,7 @@ class WarehouseCheckinDialog extends HookConsumerWidget {
     try {
       // Complete the warehouse stop task
       // No fill percentage (null), no photo URL (null)
-      await ref.read(shiftNotifierProvider.notifier).completeBin(
+      await ref.read(shiftNotifierProvider.notifier).completeTask(
             shiftBinId,
             task.binId ?? '', // May be empty for warehouse stops
             null, // No fill percentage for warehouse stops

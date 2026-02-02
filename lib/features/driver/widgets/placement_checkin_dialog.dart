@@ -16,7 +16,7 @@ import 'package:ropacalapp/core/theme/app_colors.dart';
 /// Requires photo capture (mandatory) and allows reporting location suitability issues
 class PlacementCheckinDialog extends HookConsumerWidget {
   final RouteTask task;
-  final String shiftBinId;
+  final int shiftBinId;
   final VoidCallback? onPlacementComplete;
 
   const PlacementCheckinDialog({
@@ -99,7 +99,7 @@ class PlacementCheckinDialog extends HookConsumerWidget {
           incidentType = 'inaccessible'; // Location suitability issues map to inaccessible
         }
 
-        await ref.read(shiftNotifierProvider.notifier).completeBin(
+        await ref.read(shiftNotifierProvider.notifier).completeTask(
           shiftBinId,
           task.binId ?? '', // May be empty/null for placements
           null, // No fill percentage for new bins (backend will set to 0)

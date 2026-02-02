@@ -1187,7 +1187,7 @@ class ActiveShiftBottomSheet extends HookConsumerWidget {
   Future<void> _completeBin(WidgetRef ref, RouteBin bin) async {
     try {
       // Using 50% as placeholder - actual implementation uses check-in dialog
-      await ref.read(shiftNotifierProvider.notifier).completeBin(
+      await ref.read(shiftNotifierProvider.notifier).completeTask(
         bin.id, // shift_bin_id (identifies specific waypoint)
         bin.binId, // bin_id (deprecated)
         50,

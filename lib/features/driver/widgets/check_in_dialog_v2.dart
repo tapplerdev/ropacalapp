@@ -1082,7 +1082,7 @@ class CheckInDialogV2 extends HookConsumerWidget {
 
       // Call completeBin with incident data
       AppLogger.general('[DIAGNOSTIC] 📡 Calling completeBin API...');
-      await ref.read(shiftNotifierProvider.notifier).completeBin(
+      await ref.read(shiftNotifierProvider.notifier).completeTask(
             bin.id, // NEW: shift_bin_id (properly identifies this specific waypoint)
             bin.binId, // DEPRECATED: kept for backward compatibility
             hasIncident.value ? null : fillPercentage.value, // NULL if incident

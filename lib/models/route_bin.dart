@@ -8,8 +8,8 @@ part 'route_bin.g.dart';
 @freezed
 class RouteBin with _$RouteBin {
   const factory RouteBin({
-    /// Route bin ID
-    required int id,
+    /// Route bin ID (route_task UUID)
+    required String id,
 
     /// Associated shift ID
     @JsonKey(name: 'shift_id') required String shiftId,

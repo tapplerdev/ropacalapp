@@ -8,7 +8,7 @@ import 'package:ropacalapp/providers/shift_provider.dart';
 /// No photo or fill percentage required - just confirm arrival
 class WarehouseCheckinDialog extends HookConsumerWidget {
   final RouteTask task;
-  final int shiftBinId;
+  final String shiftBinId;
 
   const WarehouseCheckinDialog({
     super.key,

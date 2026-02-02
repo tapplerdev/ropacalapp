@@ -8,7 +8,7 @@ part of 'route_bin.dart';
 
 _$RouteBinImpl _$$RouteBinImplFromJson(Map<String, dynamic> json) =>
     _$RouteBinImpl(
-      id: (json['id'] as num).toInt(),
+      id: json['id'] as String,
       shiftId: json['shift_id'] as String,
       binId: json['bin_id'] as String,
       sequenceOrder: (json['sequence_order'] as num).toInt(),

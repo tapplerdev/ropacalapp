@@ -747,7 +747,7 @@ class _CreateNewShiftTab extends HookConsumerWidget {
   ) {
     // Add manual warehouse stop using backend warehouse location
     final newTask = RouteTask(
-      id: 'manual_warehouse_${DateTime.now().millisecondsSinceEpoch}',
+      id: "-${DateTime.now().millisecondsSinceEpoch}", // Negative ID for temporary tasks
       shiftId: 'temp',
       sequenceOrder: tasks.value.length + 1,
       taskType: StopType.warehouseStop,

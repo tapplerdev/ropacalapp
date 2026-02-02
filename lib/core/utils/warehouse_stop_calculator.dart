@@ -123,7 +123,7 @@ class WarehouseStopCalculator {
     required int stopCount,
   }) {
     return RouteTask(
-      id: 'warehouse_$shiftId\_$stopCount',
+      id: "-${1000000 + stopCount}", // Negative ID for temporary warehouse tasks
       shiftId: shiftId,
       sequenceOrder: sequenceOrder,
       taskType: StopType.warehouseStop,

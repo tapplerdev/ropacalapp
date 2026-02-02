@@ -16,7 +16,7 @@ import 'package:ropacalapp/core/theme/app_colors.dart';
 /// Requires photo capture (mandatory) and allows reporting location suitability issues
 class PlacementCheckinDialog extends HookConsumerWidget {
   final RouteTask task;
-  final int shiftBinId;
+  final String shiftBinId;
   final VoidCallback? onPlacementComplete;
 
   const PlacementCheckinDialog({

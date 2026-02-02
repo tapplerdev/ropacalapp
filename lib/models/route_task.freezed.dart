@@ -21,7 +21,7 @@ RouteTask _$RouteTaskFromJson(Map<String, dynamic> json) {
 
 /// @nodoc
 mixin _$RouteTask {
-  /// Unique task ID
+  /// Unique task ID (UUID from route_tasks table)
   String get id => throw _privateConstructorUsedError;
 
   /// Associated shift ID
@@ -540,7 +540,7 @@ class _$RouteTaskImpl extends _RouteTask {
   factory _$RouteTaskImpl.fromJson(Map<String, dynamic> json) =>
       _$$RouteTaskImplFromJson(json);
 
-  /// Unique task ID
+  /// Unique task ID (UUID from route_tasks table)
   @override
   final String id;
 
@@ -812,7 +812,7 @@ abstract class _RouteTask extends RouteTask {
   factory _RouteTask.fromJson(Map<String, dynamic> json) =
       _$RouteTaskImpl.fromJson;
 
-  /// Unique task ID
+  /// Unique task ID (UUID from route_tasks table)
   @override
   String get id;
 

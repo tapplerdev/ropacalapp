@@ -10,7 +10,7 @@ part 'route_task.g.dart';
 @freezed
 class RouteTask with _$RouteTask {
   const factory RouteTask({
-    /// Unique task ID
+    /// Unique task ID (UUID from route_tasks table)
     required String id,
 
     /// Associated shift ID

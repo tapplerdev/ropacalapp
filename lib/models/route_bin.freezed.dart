@@ -21,8 +21,8 @@ RouteBin _$RouteBinFromJson(Map<String, dynamic> json) {
 
 /// @nodoc
 mixin _$RouteBin {
-  /// Route bin ID
-  int get id => throw _privateConstructorUsedError;
+  /// Route bin ID (route_task UUID)
+  String get id => throw _privateConstructorUsedError;
 
   /// Associated shift ID
   @JsonKey(name: 'shift_id')
@@ -112,7 +112,7 @@ abstract class $RouteBinCopyWith<$Res> {
       _$RouteBinCopyWithImpl<$Res, RouteBin>;
   @useResult
   $Res call({
-    int id,
+    String id,
     @JsonKey(name: 'shift_id') String shiftId,
     @JsonKey(name: 'bin_id') String binId,
     @JsonKey(name: 'sequence_order') int sequenceOrder,
@@ -176,7 +176,7 @@ class _$RouteBinCopyWithImpl<$Res, $Val extends RouteBin>
             id: null == id
                 ? _value.id
                 : id // ignore: cast_nullable_to_non_nullable
-                      as int,
+                      as String,
             shiftId: null == shiftId
                 ? _value.shiftId
                 : shiftId // ignore: cast_nullable_to_non_nullable
@@ -269,7 +269,7 @@ abstract class _$$RouteBinImplCopyWith<$Res>
   @override
   @useResult
   $Res call({
-    int id,
+    String id,
     @JsonKey(name: 'shift_id') String shiftId,
     @JsonKey(name: 'bin_id') String binId,
     @JsonKey(name: 'sequence_order') int sequenceOrder,
@@ -332,7 +332,7 @@ class __$$RouteBinImplCopyWithImpl<$Res>
         id: null == id
             ? _value.id
             : id // ignore: cast_nullable_to_non_nullable
-                  as int,
+                  as String,
         shiftId: null == shiftId
             ? _value.shiftId
             : shiftId // ignore: cast_nullable_to_non_nullable
@@ -443,9 +443,9 @@ class _$RouteBinImpl implements _RouteBin {
   factory _$RouteBinImpl.fromJson(Map<String, dynamic> json) =>
       _$$RouteBinImplFromJson(json);
 
-  /// Route bin ID
+  /// Route bin ID (route_task UUID)
   @override
-  final int id;
+  final String id;
 
   /// Associated shift ID
   @override
@@ -627,7 +627,7 @@ class _$RouteBinImpl implements _RouteBin {
 
 abstract class _RouteBin implements RouteBin {
   const factory _RouteBin({
-    required final int id,
+    required final String id,
     @JsonKey(name: 'shift_id') required final String shiftId,
     @JsonKey(name: 'bin_id') required final String binId,
     @JsonKey(name: 'sequence_order') required final int sequenceOrder,
@@ -652,9 +652,9 @@ abstract class _RouteBin implements RouteBin {
   factory _RouteBin.fromJson(Map<String, dynamic> json) =
       _$RouteBinImpl.fromJson;
 
-  /// Route bin ID
+  /// Route bin ID (route_task UUID)
   @override
-  int get id;
+  String get id;
 
   /// Associated shift ID
   @override

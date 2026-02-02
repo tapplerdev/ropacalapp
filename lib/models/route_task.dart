@@ -46,7 +46,7 @@ class RouteTask with _$RouteTask {
     @JsonKey(name: 'potential_location_id') String? potentialLocationId,
 
     /// New bin number to place (for placement tasks)
-    @JsonKey(name: 'new_bin_number') String? newBinNumber,
+    @JsonKey(name: 'new_bin_number') int? newBinNumber,
 
     // ========== MOVE REQUEST TASK FIELDS ==========
     /// Move request ID (for pickup/dropoff tasks)

@@ -19,7 +19,7 @@ _$RouteTaskImpl _$$RouteTaskImplFromJson(Map<String, dynamic> json) =>
       binNumber: (json['bin_number'] as num?)?.toInt(),
       fillPercentage: (json['fill_percentage'] as num?)?.toInt(),
       potentialLocationId: json['potential_location_id'] as String?,
-      newBinNumber: json['new_bin_number'] as String?,
+      newBinNumber: (json['new_bin_number'] as num?)?.toInt(),
       moveRequestId: json['move_request_id'] as String?,
       destinationLatitude: (json['destination_latitude'] as num?)?.toDouble(),
       destinationLongitude: (json['destination_longitude'] as num?)?.toDouble(),

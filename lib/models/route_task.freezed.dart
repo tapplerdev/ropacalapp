@@ -62,7 +62,7 @@ mixin _$RouteTask {
 
   /// New bin number to place (for placement tasks)
   @JsonKey(name: 'new_bin_number')
-  String? get newBinNumber => throw _privateConstructorUsedError; // ========== MOVE REQUEST TASK FIELDS ==========
+  int? get newBinNumber => throw _privateConstructorUsedError; // ========== MOVE REQUEST TASK FIELDS ==========
   /// Move request ID (for pickup/dropoff tasks)
   @JsonKey(name: 'move_request_id')
   String? get moveRequestId => throw _privateConstructorUsedError;
@@ -141,7 +141,7 @@ abstract class $RouteTaskCopyWith<$Res> {
     @JsonKey(name: 'bin_number') int? binNumber,
     @JsonKey(name: 'fill_percentage') int? fillPercentage,
     @JsonKey(name: 'potential_location_id') String? potentialLocationId,
-    @JsonKey(name: 'new_bin_number') String? newBinNumber,
+    @JsonKey(name: 'new_bin_number') int? newBinNumber,
     @JsonKey(name: 'move_request_id') String? moveRequestId,
     @JsonKey(name: 'destination_latitude') double? destinationLatitude,
     @JsonKey(name: 'destination_longitude') double? destinationLongitude,
@@ -250,7 +250,7 @@ class _$RouteTaskCopyWithImpl<$Res, $Val extends RouteTask>
             newBinNumber: freezed == newBinNumber
                 ? _value.newBinNumber
                 : newBinNumber // ignore: cast_nullable_to_non_nullable
-                      as String?,
+                      as int?,
             moveRequestId: freezed == moveRequestId
                 ? _value.moveRequestId
                 : moveRequestId // ignore: cast_nullable_to_non_nullable
@@ -334,7 +334,7 @@ abstract class _$$RouteTaskImplCopyWith<$Res>
     @JsonKey(name: 'bin_number') int? binNumber,
     @JsonKey(name: 'fill_percentage') int? fillPercentage,
     @JsonKey(name: 'potential_location_id') String? potentialLocationId,
-    @JsonKey(name: 'new_bin_number') String? newBinNumber,
+    @JsonKey(name: 'new_bin_number') int? newBinNumber,
     @JsonKey(name: 'move_request_id') String? moveRequestId,
     @JsonKey(name: 'destination_latitude') double? destinationLatitude,
     @JsonKey(name: 'destination_longitude') double? destinationLongitude,
@@ -442,7 +442,7 @@ class __$$RouteTaskImplCopyWithImpl<$Res>
         newBinNumber: freezed == newBinNumber
             ? _value.newBinNumber
             : newBinNumber // ignore: cast_nullable_to_non_nullable
-                  as String?,
+                  as int?,
         moveRequestId: freezed == moveRequestId
             ? _value.moveRequestId
             : moveRequestId // ignore: cast_nullable_to_non_nullable
@@ -594,7 +594,7 @@ class _$RouteTaskImpl extends _RouteTask {
   /// New bin number to place (for placement tasks)
   @override
   @JsonKey(name: 'new_bin_number')
-  final String? newBinNumber;
+  final int? newBinNumber;
   // ========== MOVE REQUEST TASK FIELDS ==========
   /// Move request ID (for pickup/dropoff tasks)
   @override
@@ -791,7 +791,7 @@ abstract class _RouteTask extends RouteTask {
     @JsonKey(name: 'bin_number') final int? binNumber,
     @JsonKey(name: 'fill_percentage') final int? fillPercentage,
     @JsonKey(name: 'potential_location_id') final String? potentialLocationId,
-    @JsonKey(name: 'new_bin_number') final String? newBinNumber,
+    @JsonKey(name: 'new_bin_number') final int? newBinNumber,
     @JsonKey(name: 'move_request_id') final String? moveRequestId,
     @JsonKey(name: 'destination_latitude') final double? destinationLatitude,
     @JsonKey(name: 'destination_longitude') final double? destinationLongitude,
@@ -864,7 +864,7 @@ abstract class _RouteTask extends RouteTask {
   /// New bin number to place (for placement tasks)
   @override
   @JsonKey(name: 'new_bin_number')
-  String? get newBinNumber; // ========== MOVE REQUEST TASK FIELDS ==========
+  int? get newBinNumber; // ========== MOVE REQUEST TASK FIELDS ==========
   /// Move request ID (for pickup/dropoff tasks)
   @override
   @JsonKey(name: 'move_request_id')

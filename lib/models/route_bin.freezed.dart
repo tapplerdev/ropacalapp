@@ -56,6 +56,22 @@ mixin _$RouteBin {
   @JsonKey(name: 'move_type')
   String? get moveType => throw _privateConstructorUsedError;
 
+  /// Potential location ID (for placement tasks)
+  @JsonKey(name: 'potential_location_id')
+  String? get potentialLocationId => throw _privateConstructorUsedError;
+
+  /// New bin number being placed (for placement tasks)
+  @JsonKey(name: 'new_bin_number')
+  int? get newBinNumber => throw _privateConstructorUsedError;
+
+  /// Warehouse action type (load, unload, both)
+  @JsonKey(name: 'warehouse_action')
+  String? get warehouseAction => throw _privateConstructorUsedError;
+
+  /// Number of bins to load at warehouse
+  @JsonKey(name: 'bins_to_load')
+  int? get binsToLoad => throw _privateConstructorUsedError;
+
   /// Whether this bin has been completed
   @JsonKey(name: 'is_completed')
   int get isCompleted => throw _privateConstructorUsedError;
@@ -121,6 +137,10 @@ abstract class $RouteBinCopyWith<$Res> {
     @JsonKey(name: 'original_address') String? originalAddress,
     @JsonKey(name: 'new_address') String? newAddress,
     @JsonKey(name: 'move_type') String? moveType,
+    @JsonKey(name: 'potential_location_id') String? potentialLocationId,
+    @JsonKey(name: 'new_bin_number') int? newBinNumber,
+    @JsonKey(name: 'warehouse_action') String? warehouseAction,
+    @JsonKey(name: 'bins_to_load') int? binsToLoad,
     @JsonKey(name: 'is_completed') int isCompleted,
     @JsonKey(name: 'completed_at') int? completedAt,
     @JsonKey(name: 'updated_fill_percentage') int? updatedFillPercentage,
@@ -159,6 +179,10 @@ class _$RouteBinCopyWithImpl<$Res, $Val extends RouteBin>
     Object? originalAddress = freezed,
     Object? newAddress = freezed,
     Object? moveType = freezed,
+    Object? potentialLocationId = freezed,
+    Object? newBinNumber = freezed,
+    Object? warehouseAction = freezed,
+    Object? binsToLoad = freezed,
     Object? isCompleted = null,
     Object? completedAt = freezed,
     Object? updatedFillPercentage = freezed,
@@ -209,6 +233,22 @@ class _$RouteBinCopyWithImpl<$Res, $Val extends RouteBin>
                 ? _value.moveType
                 : moveType // ignore: cast_nullable_to_non_nullable
                       as String?,
+            potentialLocationId: freezed == potentialLocationId
+                ? _value.potentialLocationId
+                : potentialLocationId // ignore: cast_nullable_to_non_nullable
+                      as String?,
+            newBinNumber: freezed == newBinNumber
+                ? _value.newBinNumber
+                : newBinNumber // ignore: cast_nullable_to_non_nullable
+                      as int?,
+            warehouseAction: freezed == warehouseAction
+                ? _value.warehouseAction
+                : warehouseAction // ignore: cast_nullable_to_non_nullable
+                      as String?,
+            binsToLoad: freezed == binsToLoad
+                ? _value.binsToLoad
+                : binsToLoad // ignore: cast_nullable_to_non_nullable
+                      as int?,
             isCompleted: null == isCompleted
                 ? _value.isCompleted
                 : isCompleted // ignore: cast_nullable_to_non_nullable
@@ -278,6 +318,10 @@ abstract class _$$RouteBinImplCopyWith<$Res>
     @JsonKey(name: 'original_address') String? originalAddress,
     @JsonKey(name: 'new_address') String? newAddress,
     @JsonKey(name: 'move_type') String? moveType,
+    @JsonKey(name: 'potential_location_id') String? potentialLocationId,
+    @JsonKey(name: 'new_bin_number') int? newBinNumber,
+    @JsonKey(name: 'warehouse_action') String? warehouseAction,
+    @JsonKey(name: 'bins_to_load') int? binsToLoad,
     @JsonKey(name: 'is_completed') int isCompleted,
     @JsonKey(name: 'completed_at') int? completedAt,
     @JsonKey(name: 'updated_fill_percentage') int? updatedFillPercentage,
@@ -315,6 +359,10 @@ class __$$RouteBinImplCopyWithImpl<$Res>
     Object? originalAddress = freezed,
     Object? newAddress = freezed,
     Object? moveType = freezed,
+    Object? potentialLocationId = freezed,
+    Object? newBinNumber = freezed,
+    Object? warehouseAction = freezed,
+    Object? binsToLoad = freezed,
     Object? isCompleted = null,
     Object? completedAt = freezed,
     Object? updatedFillPercentage = freezed,
@@ -365,6 +413,22 @@ class __$$RouteBinImplCopyWithImpl<$Res>
             ? _value.moveType
             : moveType // ignore: cast_nullable_to_non_nullable
                   as String?,
+        potentialLocationId: freezed == potentialLocationId
+            ? _value.potentialLocationId
+            : potentialLocationId // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        newBinNumber: freezed == newBinNumber
+            ? _value.newBinNumber
+            : newBinNumber // ignore: cast_nullable_to_non_nullable
+                  as int?,
+        warehouseAction: freezed == warehouseAction
+            ? _value.warehouseAction
+            : warehouseAction // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        binsToLoad: freezed == binsToLoad
+            ? _value.binsToLoad
+            : binsToLoad // ignore: cast_nullable_to_non_nullable
+                  as int?,
         isCompleted: null == isCompleted
             ? _value.isCompleted
             : isCompleted // ignore: cast_nullable_to_non_nullable
@@ -416,7 +480,7 @@ class __$$RouteBinImplCopyWithImpl<$Res>
 
 /// @nodoc
 @JsonSerializable()
-class _$RouteBinImpl implements _RouteBin {
+class _$RouteBinImpl extends _RouteBin {
   const _$RouteBinImpl({
     required this.id,
     @JsonKey(name: 'shift_id') required this.shiftId,
@@ -427,6 +491,10 @@ class _$RouteBinImpl implements _RouteBin {
     @JsonKey(name: 'original_address') this.originalAddress,
     @JsonKey(name: 'new_address') this.newAddress,
     @JsonKey(name: 'move_type') this.moveType,
+    @JsonKey(name: 'potential_location_id') this.potentialLocationId,
+    @JsonKey(name: 'new_bin_number') this.newBinNumber,
+    @JsonKey(name: 'warehouse_action') this.warehouseAction,
+    @JsonKey(name: 'bins_to_load') this.binsToLoad,
     @JsonKey(name: 'is_completed') this.isCompleted = 0,
     @JsonKey(name: 'completed_at') this.completedAt,
     @JsonKey(name: 'updated_fill_percentage') this.updatedFillPercentage,
@@ -438,7 +506,7 @@ class _$RouteBinImpl implements _RouteBin {
     @JsonKey(name: 'fill_percentage') required this.fillPercentage,
     required this.latitude,
     required this.longitude,
-  });
+  }) : super._();
 
   factory _$RouteBinImpl.fromJson(Map<String, dynamic> json) =>
       _$$RouteBinImplFromJson(json);
@@ -486,6 +554,26 @@ class _$RouteBinImpl implements _RouteBin {
   @override
   @JsonKey(name: 'move_type')
   final String? moveType;
+
+  /// Potential location ID (for placement tasks)
+  @override
+  @JsonKey(name: 'potential_location_id')
+  final String? potentialLocationId;
+
+  /// New bin number being placed (for placement tasks)
+  @override
+  @JsonKey(name: 'new_bin_number')
+  final int? newBinNumber;
+
+  /// Warehouse action type (load, unload, both)
+  @override
+  @JsonKey(name: 'warehouse_action')
+  final String? warehouseAction;
+
+  /// Number of bins to load at warehouse
+  @override
+  @JsonKey(name: 'bins_to_load')
+  final int? binsToLoad;
 
   /// Whether this bin has been completed
   @override
@@ -540,7 +628,7 @@ class _$RouteBinImpl implements _RouteBin {
 
   @override
   String toString() {
-    return 'RouteBin(id: $id, shiftId: $shiftId, binId: $binId, sequenceOrder: $sequenceOrder, stopType: $stopType, moveRequestId: $moveRequestId, originalAddress: $originalAddress, newAddress: $newAddress, moveType: $moveType, isCompleted: $isCompleted, completedAt: $completedAt, updatedFillPercentage: $updatedFillPercentage, createdAt: $createdAt, binNumber: $binNumber, currentStreet: $currentStreet, city: $city, zip: $zip, fillPercentage: $fillPercentage, latitude: $latitude, longitude: $longitude)';
+    return 'RouteBin(id: $id, shiftId: $shiftId, binId: $binId, sequenceOrder: $sequenceOrder, stopType: $stopType, moveRequestId: $moveRequestId, originalAddress: $originalAddress, newAddress: $newAddress, moveType: $moveType, potentialLocationId: $potentialLocationId, newBinNumber: $newBinNumber, warehouseAction: $warehouseAction, binsToLoad: $binsToLoad, isCompleted: $isCompleted, completedAt: $completedAt, updatedFillPercentage: $updatedFillPercentage, createdAt: $createdAt, binNumber: $binNumber, currentStreet: $currentStreet, city: $city, zip: $zip, fillPercentage: $fillPercentage, latitude: $latitude, longitude: $longitude)';
   }
 
   @override
@@ -563,6 +651,14 @@ class _$RouteBinImpl implements _RouteBin {
                 other.newAddress == newAddress) &&
             (identical(other.moveType, moveType) ||
                 other.moveType == moveType) &&
+            (identical(other.potentialLocationId, potentialLocationId) ||
+                other.potentialLocationId == potentialLocationId) &&
+            (identical(other.newBinNumber, newBinNumber) ||
+                other.newBinNumber == newBinNumber) &&
+            (identical(other.warehouseAction, warehouseAction) ||
+                other.warehouseAction == warehouseAction) &&
+            (identical(other.binsToLoad, binsToLoad) ||
+                other.binsToLoad == binsToLoad) &&
             (identical(other.isCompleted, isCompleted) ||
                 other.isCompleted == isCompleted) &&
             (identical(other.completedAt, completedAt) ||
@@ -598,6 +694,10 @@ class _$RouteBinImpl implements _RouteBin {
     originalAddress,
     newAddress,
     moveType,
+    potentialLocationId,
+    newBinNumber,
+    warehouseAction,
+    binsToLoad,
     isCompleted,
     completedAt,
     updatedFillPercentage,
@@ -625,7 +725,7 @@ class _$RouteBinImpl implements _RouteBin {
   }
 }
 
-abstract class _RouteBin implements RouteBin {
+abstract class _RouteBin extends RouteBin {
   const factory _RouteBin({
     required final String id,
     @JsonKey(name: 'shift_id') required final String shiftId,
@@ -636,6 +736,10 @@ abstract class _RouteBin implements RouteBin {
     @JsonKey(name: 'original_address') final String? originalAddress,
     @JsonKey(name: 'new_address') final String? newAddress,
     @JsonKey(name: 'move_type') final String? moveType,
+    @JsonKey(name: 'potential_location_id') final String? potentialLocationId,
+    @JsonKey(name: 'new_bin_number') final int? newBinNumber,
+    @JsonKey(name: 'warehouse_action') final String? warehouseAction,
+    @JsonKey(name: 'bins_to_load') final int? binsToLoad,
     @JsonKey(name: 'is_completed') final int isCompleted,
     @JsonKey(name: 'completed_at') final int? completedAt,
     @JsonKey(name: 'updated_fill_percentage') final int? updatedFillPercentage,
@@ -648,6 +752,7 @@ abstract class _RouteBin implements RouteBin {
     required final double latitude,
     required final double longitude,
   }) = _$RouteBinImpl;
+  const _RouteBin._() : super._();
 
   factory _RouteBin.fromJson(Map<String, dynamic> json) =
       _$RouteBinImpl.fromJson;
@@ -695,6 +800,26 @@ abstract class _RouteBin implements RouteBin {
   @override
   @JsonKey(name: 'move_type')
   String? get moveType;
+
+  /// Potential location ID (for placement tasks)
+  @override
+  @JsonKey(name: 'potential_location_id')
+  String? get potentialLocationId;
+
+  /// New bin number being placed (for placement tasks)
+  @override
+  @JsonKey(name: 'new_bin_number')
+  int? get newBinNumber;
+
+  /// Warehouse action type (load, unload, both)
+  @override
+  @JsonKey(name: 'warehouse_action')
+  String? get warehouseAction;
+
+  /// Number of bins to load at warehouse
+  @override
+  @JsonKey(name: 'bins_to_load')
+  int? get binsToLoad;
 
   /// Whether this bin has been completed
   @override

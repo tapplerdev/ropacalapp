@@ -1002,10 +1002,58 @@ class NavigationBottomPanel extends HookConsumerWidget {
                           break;
 
                         case StopType.pickup:
+                          // Convert task to bin format for legacy dialog
+                          final binForPickup = _convertTaskToBin(task);
+                          showDialog(
+                            context: context,
+                            barrierDismissible: false,
+                            builder: (context) => MoveRequestPickupDialog(
+                              bin: binForPickup,
+                              onPickupComplete: () {
+                                AppLogger.general(
+                                  '✅ Pickup task completed for Bin #${task.binNumber}',
+                                );
+                              },
+                            ),
+                          );
+                          break;
+
                         case StopType.dropoff:
+                          // Convert task to bin format for legacy dialog
+                          final binForDropoff = _convertTaskToBin(task);
+                          showDialog(
+                            context: context,
+                            barrierDismissible: false,
+                            builder: (context) => MoveRequestPlacementDialog(
+                              bin: binForDropoff,
+                              onPlacementComplete: () {
+                                AppLogger.general(
+                                  '✅ Dropoff task completed for Bin #${task.binNumber}',
+                                );
+                              },
+                            ),
+                          );
+                          break;
+
                         case StopType.collection:
+                          // Convert task to bin format for legacy dialog
+                          final binForCollection = _convertTaskToBin(task);
+                          showDialog(
+                            context: context,
+                            barrierDismissible: false,
+                            builder: (context) => CheckInDialogV2(
+                              bin: binForCollection,
+                              onCheckedIn: () {
+                                AppLogger.general(
+                                  '✅ Collection task completed for Bin #${task.binNumber}',
+                                );
+                              },
+                            ),
+                          );
+                          break;
+
                         default:
-                          // TODO: Implement task-specific dialogs
+                          // Fallback for any unknown task types
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(
                               content: Text(
@@ -1889,5 +1937,43 @@ class NavigationBottomPanel extends HookConsumerWidget {
       case StopType.collection:
         return 'Complete Bin';
     }
+  }
+
+  /// Helper to convert RouteTask to RouteBin for legacy dialog compatibility
+  /// The existing dialogs (MoveRequestPickupDialog, MoveRequestPlacementDialog, CheckInDialogV2)
+  /// expect RouteBin objects, so we need to convert RouteTask data to RouteBin format
+  RouteBin _convertTaskToBin(RouteTask task) {
+    // Parse address into components (best effort - dialogs can handle nulls/defaults)
+    final addressParts = (task.address ?? '').split(',');
+    final street = addressParts.isNotEmpty ? addressParts[0].trim() : task.address ?? 'Unknown';
+    final city = addressParts.length > 1 ? addressParts[1].trim() : '';
+    final zip = addressParts.length > 2 ? addressParts[2].trim() : '';
+
+    return RouteBin(
+      id: task.id,
+      shiftId: task.shiftId,
+      binId: task.binId ?? '',
+      sequenceOrder: task.sequenceOrder,
+      stopType: task.taskType,
+      moveRequestId: task.moveRequestId,
+      originalAddress: task.address, // Pickup location address
+      newAddress: task.destinationAddress, // Dropoff location address
+      moveType: task.moveType,
+      potentialLocationId: task.potentialLocationId,
+      newBinNumber: task.newBinNumber,
+      warehouseAction: task.warehouseAction,
+      binsToLoad: task.binsToLoad,
+      isCompleted: task.isCompleted,
+      completedAt: task.completedAt,
+      updatedFillPercentage: task.updatedFillPercentage,
+      createdAt: task.createdAt,
+      binNumber: task.binNumber ?? 0,
+      currentStreet: street,
+      city: city,
+      zip: zip,
+      fillPercentage: task.fillPercentage ?? 0,
+      latitude: task.latitude,
+      longitude: task.longitude,
+    );
   }
 }

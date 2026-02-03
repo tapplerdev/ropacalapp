@@ -175,6 +175,14 @@ class ShiftNotifier extends _$ShiftNotifier {
     AppLogger.general('✅ refreshShift() complete');
   }
 
+  /// Reset shift state to inactive (called on logout)
+  void reset() {
+    AppLogger.general('🔄 Resetting shift state to inactive');
+    _stopPolling();
+    state = const ShiftState(status: ShiftStatus.inactive);
+    AppLogger.general('✅ Shift state reset complete');
+  }
+
   /// Pre-load shift and location data
   /// Returns true if data was successfully loaded, false otherwise
   /// Note: Google Navigation SDK handles route calculation internally

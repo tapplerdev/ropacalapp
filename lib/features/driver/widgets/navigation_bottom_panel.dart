@@ -950,7 +950,7 @@ class NavigationBottomPanel extends HookConsumerWidget {
                 const SizedBox(width: 6),
                 Expanded(
                   child: Text(
-                    'You need to be within ${GeofenceService.defaultGeofenceRadiusMeters.toInt()}m of the location to check in (${distanceToTask.toInt()}m away)',
+                    'You need to be within ${_formatGeofenceDistance(GeofenceService.defaultGeofenceRadiusMeters)} of the location to check in (${_formatGeofenceDistance(distanceToTask)} away)',
                     style: TextStyle(
                       fontSize: 12,
                       color: Colors.orange.shade900,
@@ -1593,7 +1593,7 @@ class NavigationBottomPanel extends HookConsumerWidget {
                 const SizedBox(width: 6),
                 Expanded(
                   child: Text(
-                    'You need to be within ${GeofenceService.defaultGeofenceRadiusMeters.toInt()}m of the bin to check in (${distanceToBin.toInt()}m away)',
+                    'You need to be within ${_formatGeofenceDistance(GeofenceService.defaultGeofenceRadiusMeters)} of the bin to check in (${_formatGeofenceDistance(distanceToBin)} away)',
                     style: TextStyle(
                       fontSize: 12,
                       color: Colors.orange.shade900,
@@ -1625,111 +1625,156 @@ class NavigationBottomPanel extends HookConsumerWidget {
                           showDialog(
                             context: context,
                             barrierDismissible: false,
-                            builder: (context) => AlertDialog(
+                            barrierColor: Colors.black.withValues(alpha: 0.6),
+                            builder: (context) => Dialog(
                               shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(16),
+                                borderRadius: BorderRadius.circular(24),
                               ),
-                              title: Row(
-                                children: [
-                                  Container(
-                                    padding: const EdgeInsets.all(8),
-                                    decoration: BoxDecoration(
-                                      color: AppColors.primaryGreen.withOpacity(0.15),
-                                      borderRadius: BorderRadius.circular(8),
+                              elevation: 0,
+                              backgroundColor: Colors.transparent,
+                              child: Container(
+                                padding: const EdgeInsets.all(24),
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.circular(24),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.black.withValues(alpha: 0.15),
+                                      blurRadius: 30,
+                                      offset: const Offset(0, 10),
                                     ),
-                                    child: const Text(
-                                      '🏭',
-                                      style: TextStyle(fontSize: 24),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 12),
-                                  const Expanded(
-                                    child: Text(
-                                      'Warehouse Check-In',
-                                      style: TextStyle(
-                                        fontSize: 18,
-                                        fontWeight: FontWeight.bold,
+                                  ],
+                                ),
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    // Icon
+                                    Container(
+                                      width: 64,
+                                      height: 64,
+                                      decoration: BoxDecoration(
+                                        color: AppColors.primaryGreen.withValues(alpha: 0.15),
+                                        shape: BoxShape.circle,
+                                      ),
+                                      child: const Center(
+                                        child: Text(
+                                          '🏭',
+                                          style: TextStyle(fontSize: 32),
+                                        ),
                                       ),
                                     ),
-                                  ),
-                                ],
-                              ),
-                              content: Column(
-                                mainAxisSize: MainAxisSize.min,
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    bin.currentStreet,
-                                    style: TextStyle(
-                                      fontSize: 15,
-                                      color: Colors.grey.shade700,
-                                      fontWeight: FontWeight.w500,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 16),
-                                  const Text(
-                                    'Ready to proceed to the next stop?',
-                                    style: TextStyle(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.w500,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              actions: [
-                                TextButton(
-                                  onPressed: () => Navigator.of(context).pop(),
-                                  child: Text(
-                                    'Cancel',
-                                    style: TextStyle(
-                                      color: Colors.grey.shade600,
-                                      fontSize: 16,
-                                    ),
-                                  ),
-                                ),
-                                ElevatedButton(
-                                  onPressed: () async {
-                                    Navigator.of(context).pop();
+                                    const SizedBox(height: 20),
 
-                                    AppLogger.general('✅ Warehouse check-in confirmed');
+                                    // Title
+                                    const Text(
+                                      'Warehouse Check-In',
+                                      style: TextStyle(
+                                        fontSize: 24,
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.black87,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 12),
 
-                                    // Mark warehouse stop as complete (no fill % or photo needed)
-                                    await ref.read(shiftNotifierProvider.notifier).completeTask(
-                                      bin.id, // shiftBinId
-                                      bin.binId ?? '', // binId (deprecated)
-                                      null, // No fill percentage for warehouse
-                                    );
+                                    // Address
+                                    Text(
+                                      bin.currentStreet,
+                                      textAlign: TextAlign.center,
+                                      style: TextStyle(
+                                        fontSize: 15,
+                                        color: Colors.grey[600],
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 16),
 
-                                    // Show success message
-                                    if (context.mounted) {
-                                      ScaffoldMessenger.of(context).showSnackBar(
-                                        const SnackBar(
-                                          content: Text('✅ Checked in at warehouse'),
-                                          duration: Duration(seconds: 2),
-                                          backgroundColor: AppColors.primaryGreen,
+                                    // Content
+                                    const Text(
+                                      'Ready to proceed to the next stop?',
+                                      textAlign: TextAlign.center,
+                                      style: TextStyle(
+                                        fontSize: 16,
+                                        color: Colors.black87,
+                                        height: 1.4,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 28),
+
+                                    // Buttons
+                                    Row(
+                                      children: [
+                                        Expanded(
+                                          child: OutlinedButton(
+                                            onPressed: () => Navigator.of(context).pop(),
+                                            style: OutlinedButton.styleFrom(
+                                              padding: const EdgeInsets.symmetric(vertical: 14),
+                                              side: BorderSide(
+                                                color: Colors.grey.shade300,
+                                                width: 1.5,
+                                              ),
+                                              shape: RoundedRectangleBorder(
+                                                borderRadius: BorderRadius.circular(12),
+                                              ),
+                                            ),
+                                            child: Text(
+                                              'Cancel',
+                                              style: TextStyle(
+                                                fontSize: 16,
+                                                fontWeight: FontWeight.w600,
+                                                color: Colors.grey[700],
+                                              ),
+                                            ),
+                                          ),
                                         ),
-                                      );
-                                    }
-                                  },
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: AppColors.primaryGreen,
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 24,
-                                      vertical: 12,
+                                        const SizedBox(width: 12),
+                                        Expanded(
+                                          child: ElevatedButton(
+                                            onPressed: () async {
+                                              Navigator.of(context).pop();
+
+                                              AppLogger.general('✅ Warehouse check-in confirmed');
+
+                                              // Mark warehouse stop as complete (no fill % or photo needed)
+                                              await ref.read(shiftNotifierProvider.notifier).completeTask(
+                                                bin.id, // shiftBinId
+                                                bin.binId ?? '', // binId (deprecated)
+                                                null, // No fill percentage for warehouse
+                                              );
+
+                                              // Show success message
+                                              if (context.mounted) {
+                                                ScaffoldMessenger.of(context).showSnackBar(
+                                                  const SnackBar(
+                                                    content: Text('✅ Checked in at warehouse'),
+                                                    duration: Duration(seconds: 2),
+                                                    backgroundColor: AppColors.primaryGreen,
+                                                  ),
+                                                );
+                                              }
+                                            },
+                                            style: ElevatedButton.styleFrom(
+                                              backgroundColor: AppColors.primaryGreen,
+                                              foregroundColor: Colors.white,
+                                              padding: const EdgeInsets.symmetric(vertical: 14),
+                                              elevation: 0,
+                                              shape: RoundedRectangleBorder(
+                                                borderRadius: BorderRadius.circular(12),
+                                              ),
+                                            ),
+                                            child: const Text(
+                                              'Continue',
+                                              style: TextStyle(
+                                                fontSize: 16,
+                                                fontWeight: FontWeight.w600,
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                      ],
                                     ),
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(8),
-                                    ),
-                                  ),
-                                  child: const Text(
-                                    'Continue',
-                                    style: TextStyle(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
+                                  ],
                                 ),
-                              ],
+                              ),
                             ),
                           );
                           break;
@@ -1975,5 +2020,21 @@ class NavigationBottomPanel extends HookConsumerWidget {
       latitude: task.latitude,
       longitude: task.longitude,
     );
+  }
+
+  /// Format distance for geofence warnings
+  /// - If >= 1 mile (1609m): show in miles (e.g., "1.2 mi")
+  /// - If < 1 mile: show in meters (e.g., "328 m")
+  String _formatGeofenceDistance(double meters) {
+    const metersPerMile = 1609.0;
+
+    if (meters >= metersPerMile) {
+      // Show in miles with 1 decimal place
+      final miles = meters / metersPerMile;
+      return '${miles.toStringAsFixed(1)} mi';
+    } else {
+      // Show in meters with no decimals
+      return '${meters.toInt()} m';
+    }
   }
 }

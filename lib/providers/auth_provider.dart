@@ -35,6 +35,36 @@ class WebSocketManager extends _$WebSocketManager {
 
   @override
   WebSocketService? build() {
+    // EVENT-DRIVEN: Listen to auth state changes and fetch shift when driver logs in
+    ref.listen(authNotifierProvider, (previous, next) {
+      AppLogger.general('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      AppLogger.general('🎯 [AUTH LISTENER] Auth state changed');
+      AppLogger.general('   Previous: ${previous?.valueOrNull?.email ?? "null"}');
+      AppLogger.general('   Next: ${next.valueOrNull?.email ?? "null"}');
+
+      next.whenData((user) {
+        if (user != null && user.role == UserRole.driver) {
+          AppLogger.general('   ✅ Driver logged in: ${user.email}');
+          AppLogger.general('   🔄 Triggering shift fetch...');
+
+          // Fetch shift with retry (event-driven, runs AFTER auth state is stable)
+          ref.read(shiftNotifierProvider.notifier).fetchCurrentShiftWithRetry(
+                maxAttempts: 3,
+              ).then((success) {
+            if (success) {
+              AppLogger.general('   ✅ Shift fetch completed successfully');
+            } else {
+              AppLogger.general('   ❌ Shift fetch failed after retries');
+            }
+            AppLogger.general('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+          });
+        } else if (user != null) {
+          AppLogger.general('   👔 Manager logged in: ${user.email} (no shift fetch)');
+          AppLogger.general('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+        }
+      });
+    });
+
     return null;
   }
 
@@ -300,27 +330,17 @@ class WebSocketManager extends _$WebSocketManager {
       AppLogger.general('   🔍 This callback fires EVERY time WebSocket connects/reconnects');
       AppLogger.general('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
 
-      // Only fetch shift for drivers - managers don't have shifts
+      // NOTE: Shift fetch is now handled by event-driven listener (ref.listen on auth state)
+      // This prevents race conditions where user role is read before auth state updates
+      // If reconnecting (not initial login), fetch shift to catch missed updates
       final user = ref.read(authNotifierProvider).valueOrNull;
-      if (user?.role == UserRole.driver) {
-        AppLogger.general('   📊 Fetching current shift to catch any updates missed during disconnect...');
-        // Immediately check for new shift assignments after reconnection
-        // This catches any assignments that happened while disconnected
+      if (user?.role == UserRole.driver && _service != null) {
+        AppLogger.general('   📊 WebSocket reconnected - fetching shift to catch missed updates...');
         ref.read(shiftNotifierProvider.notifier).fetchCurrentShift().then((_) {
-          AppLogger.general('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-          AppLogger.general('✅ [SHIFT FETCH] Completed after WebSocket connection');
-          AppLogger.general('   Connection timestamp: $timestamp');
-          AppLogger.general('   Fetch completed at: ${DateTime.now().toIso8601String()}');
-          AppLogger.general('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+          AppLogger.general('   ✅ Shift refreshed after reconnection');
         }).catchError((e) {
-          AppLogger.general('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-          AppLogger.general('❌❌❌ [SHIFT FETCH] FAILED after WebSocket connection');
-          AppLogger.general('   Connection timestamp: $timestamp');
-          AppLogger.general('   Error: $e');
-          AppLogger.general('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+          AppLogger.general('   ⚠️  Shift fetch after reconnection failed: $e');
         });
-      } else {
-        AppLogger.general('   👔 Manager - skipping shift fetch (managers don\'t have shifts)');
       }
     };
 

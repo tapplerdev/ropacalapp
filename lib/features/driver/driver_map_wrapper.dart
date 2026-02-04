@@ -69,16 +69,18 @@ class DriverMapWrapper extends HookConsumerWidget {
       '[DIAGNOSTIC]    ShiftID: ${shiftState.shiftId}',
     );
 
-    // When shift is active AND route bins are loaded, automatically switch to navigation page
+    // When shift is active, automatically switch to navigation page
     // The modal overlay in DriverMapPage will handle shift acceptance (status: ready)
     // When driver accepts, status changes to active, triggering this auto-switch
-    // Wait for WebSocket to populate route bins before switching (prevents "Loading route..." screen)
-    if (shiftState.status == ShiftStatus.active && shiftState.routeBins.isNotEmpty) {
+    if (shiftState.status == ShiftStatus.active) {
       AppLogger.general(
-        '[DIAGNOSTIC] ✅ Condition met: status=active AND routeBins.isNotEmpty',
+        '[DIAGNOSTIC] ✅ Condition met: status=active',
       );
       AppLogger.general(
         '[DIAGNOSTIC] 🚀 SWITCHING TO: GoogleNavigationPage',
+      );
+      AppLogger.general(
+        '[DIAGNOSTIC]    RouteBins: ${shiftState.routeBins.length} (for reference)',
       );
       AppLogger.general(
         '[DIAGNOSTIC] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
@@ -87,7 +89,7 @@ class DriverMapWrapper extends HookConsumerWidget {
     }
 
     AppLogger.general(
-      '[DIAGNOSTIC] ℹ️  Condition NOT met for navigation (status=${shiftState.status}, bins=${shiftState.routeBins.length})',
+      '[DIAGNOSTIC] ℹ️  Condition NOT met for navigation (status=${shiftState.status})',
     );
     AppLogger.general(
       '[DIAGNOSTIC] 📍 SHOWING: DriverMapPage (regular map)',

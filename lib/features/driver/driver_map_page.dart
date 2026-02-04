@@ -24,6 +24,7 @@ import 'package:ropacalapp/providers/shift_provider.dart';
 import 'package:ropacalapp/providers/simulation_provider.dart';
 import 'package:ropacalapp/providers/auth_provider.dart';
 import 'package:ropacalapp/providers/map_controller_provider.dart';
+import 'package:ropacalapp/providers/route_task_provider.dart';
 import 'package:ropacalapp/core/enums/user_role.dart';
 import 'package:ropacalapp/models/shift_state.dart';
 import 'package:ropacalapp/features/driver/widgets/alerts_bottom_sheet.dart';
@@ -44,6 +45,7 @@ import 'package:ropacalapp/features/driver/widgets/circular_map_button.dart';
 import 'package:ropacalapp/features/driver/widgets/shift_acceptance_bottom_sheet.dart';
 import 'package:ropacalapp/features/driver/widgets/move_request_notification_dialog.dart';
 import 'package:ropacalapp/providers/move_request_notification_provider.dart';
+import 'package:ropacalapp/providers/centrifugo_provider.dart';
 import 'package:ropacalapp/features/driver/google_navigation_page.dart';
 import 'package:ropacalapp/features/driver/notifications_page.dart';
 import 'package:ropacalapp/models/shift_overview.dart';
@@ -73,6 +75,11 @@ class DriverMapPage extends HookConsumerWidget {
     // AppLogger.general('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
     // AppLogger.general('🏗️ DriverMapPage.build() CALLED');
     // AppLogger.general('   Timestamp: ${DateTime.now().millisecondsSinceEpoch}');
+
+    // ✅ CRITICAL: Initialize Centrifugo connection by watching the provider
+    // This ensures the CentrifugoManager build() method is called and connects
+    ref.watch(centrifugoManagerProvider);
+    AppLogger.general('🔵 [DriverMapPage] Watching centrifugoManagerProvider');
 
     final binsState = ref.watch(binsListProvider); // Used for Bins tab, NOT for map markers
     // AppLogger.general('   📦 binsState: ${binsState.runtimeType}, hasValue: ${binsState.hasValue}, valueOrNull?.length: ${binsState.valueOrNull?.length}');
@@ -941,9 +948,22 @@ class _ShiftReadyOverlay extends ConsumerWidget {
     //   AppLogger.general('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
     // }
 
+    // Only show when status is ready AND we have a valid shift ID
     if (shiftState.status != ShiftStatus.ready) {
       return const SizedBox.shrink();
     }
+
+    // Fetch tasks for the shift using shift ID (not route ID)
+    final shiftId = shiftState.shiftId ?? '';
+
+    // If no shift ID, don't show the modal at all
+    if (shiftId.isEmpty) {
+      AppLogger.general('⚠️  No shift ID available - not showing acceptance modal');
+      return const SizedBox.shrink();
+    }
+
+    final tasksAsync = ref.watch(shiftTasksProvider(shiftId));
+
     return Stack(
       children: [
         // Dark overlay
@@ -957,18 +977,20 @@ class _ShiftReadyOverlay extends ConsumerWidget {
           bottom: 0,
           left: 0,
           right: 0,
-          child: ShiftAcceptanceBottomSheet(
-            shiftOverview: ShiftOverview(
-              shiftId: shiftState.assignedRouteId ?? '',
-              startTime: DateTime.now(),
-              estimatedEndTime: null,
-              totalBins: shiftState.totalBins,
-              totalDistanceKm: null,
-              routeBins: shiftState.routeBins,
-              routeName: 'Route ${shiftState.assignedRouteId ?? ''}',
-              isOptimized: false,
-            ),
-            onAccept: () async {
+          child: tasksAsync.when(
+            data: (tasks) => ShiftAcceptanceBottomSheet(
+              shiftOverview: ShiftOverview(
+                shiftId: shiftId,
+                startTime: DateTime.now(),
+                estimatedEndTime: null,
+                totalBins: shiftState.totalBins,
+                totalDistanceKm: null,
+                routeBins: shiftState.routeBins,
+                routeTasks: tasks,
+                routeName: 'Route $shiftId',
+                isOptimized: false,
+              ),
+              onAccept: () async {
               AppLogger.general('🚀 SHIFT ACCEPTED - Starting shift');
               EasyLoading.show(
                 status: 'Starting shift...',
@@ -1011,6 +1033,45 @@ class _ShiftReadyOverlay extends ConsumerWidget {
               );
             },
           ),
+          loading: () => Container(
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+            ),
+            padding: const EdgeInsets.all(40),
+            child: const Center(
+              child: CircularProgressIndicator(),
+            ),
+          ),
+          error: (error, stack) => Container(
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+            ),
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(
+                  Icons.error_outline,
+                  color: Colors.red,
+                  size: 48,
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  'Failed to load shift details',
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  error.toString(),
+                  style: Theme.of(context).textTheme.bodyMedium,
+                  textAlign: TextAlign.center,
+                ),
+              ],
+            ),
+          ),
+        ),
         ),
       ],
     );

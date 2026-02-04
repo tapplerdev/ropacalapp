@@ -66,13 +66,16 @@ class ShiftNotifier extends _$ShiftNotifier {
   /// Fetch current shift from backend (called after login and on app startup)
   Future<void> fetchCurrentShift() async {
     try {
+      final now = DateTime.now().toIso8601String();
       AppLogger.general('[DIAGNOSTIC] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-      AppLogger.general('[DIAGNOSTIC] 🔍 fetchCurrentShift: Starting...');
+      AppLogger.general('[DIAGNOSTIC] 🔍 fetchCurrentShift: Starting at $now');
+      AppLogger.general('[DIAGNOSTIC] 🔍 fetchCurrentShift: Called from: ${StackTrace.current.toString().split('\n').take(3).join('\n')}');
       AppLogger.general('[DIAGNOSTIC] 🔍 fetchCurrentShift: Calling backend API GET /api/driver/shift/current');
       AppLogger.general('[DIAGNOSTIC]    Current state BEFORE fetch:');
       AppLogger.general('[DIAGNOSTIC]      Status: ${state.status}');
       AppLogger.general('[DIAGNOSTIC]      RouteID: ${state.assignedRouteId}');
       AppLogger.general('[DIAGNOSTIC]      RouteBins: ${state.routeBins.length}');
+      AppLogger.general('[DIAGNOSTIC]      ShiftID: ${state.shiftId}');
 
       final shiftService = ref.read(shiftServiceProvider);
       final currentShift = await shiftService.getCurrentShift();

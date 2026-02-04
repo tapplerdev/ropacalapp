@@ -7,6 +7,7 @@ import 'package:flutter_easyloading/flutter_easyloading.dart';
 import 'package:google_navigation_flutter/google_navigation_flutter.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:wakelock_plus/wakelock_plus.dart';
 import 'package:ropacalapp/core/utils/app_logger.dart';
 import 'package:ropacalapp/core/theme/app_colors.dart';
 import 'package:ropacalapp/core/utils/google_navigation_helpers.dart';
@@ -112,6 +113,17 @@ class GoogleNavigationPage extends HookConsumerWidget {
       }
       return null;
     }, []); // Empty deps - only runs once on mount
+
+    // Keep screen awake during navigation
+    useEffect(() {
+      AppLogger.general('📱 Enabling wake lock - screen will stay on during navigation');
+      WakelockPlus.enable();
+
+      return () {
+        AppLogger.general('📱 Disabling wake lock - screen can sleep normally');
+        WakelockPlus.disable();
+      };
+    }, []); // Empty deps - enable on mount, disable on unmount
 
     // Listen for move request notifications and show dialog
     final moveRequestNotification = ref.watch(moveRequestNotificationNotifierProvider);
@@ -1337,6 +1349,16 @@ class GoogleNavigationPage extends HookConsumerWidget {
 
       // Update distance to next maneuver
       navNotifier.updateDistanceToNextManeuver(navInfo.distanceToCurrentStepMeters?.toDouble() ?? 0);
+
+      // DEBUG: Log both distance values to understand which one is correct
+      final distanceToNext = navInfo.distanceToNextDestinationMeters?.toDouble();
+      final distanceToFinal = navInfo.distanceToFinalDestinationMeters?.toDouble();
+
+      if (distanceToNext != null || distanceToFinal != null) {
+        AppLogger.general('📏 Distance Debug:');
+        AppLogger.general('   → To Next Waypoint: ${distanceToNext != null ? "${(distanceToNext / 1609.0).toStringAsFixed(1)} mi" : "null"}');
+        AppLogger.general('   → To Final Destination: ${distanceToFinal != null ? "${(distanceToFinal / 1609.0).toStringAsFixed(1)} mi" : "null"}');
+      }
 
       // Update remaining time and distance to NEXT waypoint (not final destination)
       // This shows time/distance to the next bin, not the entire route

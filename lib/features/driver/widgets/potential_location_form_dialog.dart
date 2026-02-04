@@ -4,10 +4,11 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:ropacalapp/core/services/geocoding_service.dart';
 import 'package:ropacalapp/providers/potential_location_provider.dart';
 import 'package:ropacalapp/core/utils/app_logger.dart';
-import 'package:google_places_flutter/google_places_flutter.dart';
-import 'package:google_places_flutter/model/prediction.dart';
-import 'package:google_places_flutter/model/place_type.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:ropacalapp/core/widgets/here_places_autocomplete_field.dart';
+// import 'package:google_places_flutter/google_places_flutter.dart';
+// import 'package:google_places_flutter/model/prediction.dart';
+// import 'package:google_places_flutter/model/place_type.dart';
+// import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 /// Modern dialog for creating a new potential location request
 class PotentialLocationFormDialog extends HookConsumerWidget {
@@ -32,17 +33,25 @@ class PotentialLocationFormDialog extends HookConsumerWidget {
     final isReverseGeocoding = useState(false);
     final reverseGeocodingError = useState<String?>(null);
 
+    // Track selected coordinates from autocomplete (overrides initial GPS coords)
+    final selectedLatitude = useState<double?>(initialLatitude);
+    final selectedLongitude = useState<double?>(initialLongitude);
+
     final potentialLocationState =
         ref.watch(potentialLocationNotifierProvider);
 
-    // Reverse geocode on mount if coordinates provided
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    // "USE CURRENT LOCATION" - HERE MAPS REVERSE GEOCODING (NEW - ACTIVE)
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+    // Reverse geocode on mount if coordinates provided (using HERE Maps)
     useEffect(
       () {
         if (initialLatitude != null && initialLongitude != null) {
           isReverseGeocoding.value = true;
           reverseGeocodingError.value = null;
 
-          GeocodingService.reverseGeocode(
+          GeocodingService.hereReverseGeocode(
             latitude: initialLatitude!,
             longitude: initialLongitude!,
           ).then((result) {
@@ -66,6 +75,42 @@ class PotentialLocationFormDialog extends HookConsumerWidget {
       },
       [],
     );
+
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    // OLD GOOGLE REVERSE GEOCODING (DEPRECATED - KEPT FOR ROLLBACK)
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+    // // Reverse geocode on mount if coordinates provided (using Google)
+    // useEffect(
+    //   () {
+    //     if (initialLatitude != null && initialLongitude != null) {
+    //       isReverseGeocoding.value = true;
+    //       reverseGeocodingError.value = null;
+    //
+    //       GeocodingService.reverseGeocode(
+    //         latitude: initialLatitude!,
+    //         longitude: initialLongitude!,
+    //       ).then((result) {
+    //         isReverseGeocoding.value = false;
+    //
+    //         if (result != null) {
+    //           streetController.text = result['street'] ?? '';
+    //           cityController.text = result['city'] ?? '';
+    //           zipController.text = result['zip'] ?? '';
+    //         } else {
+    //           reverseGeocodingError.value =
+    //               'Could not determine address. Please enter manually.';
+    //         }
+    //       }).catchError((error) {
+    //         isReverseGeocoding.value = false;
+    //         reverseGeocodingError.value = 'Error: $error';
+    //         AppLogger.e('Reverse geocoding error', error: error);
+    //       });
+    //     }
+    //     return null;
+    //   },
+    //   [],
+    // );
 
     // Handle success
     ref.listen(
@@ -234,7 +279,8 @@ class PotentialLocationFormDialog extends HookConsumerWidget {
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       // GPS Info Banner - Compact
-                      if (initialLatitude != null && initialLongitude != null)
+                      if (selectedLatitude.value != null &&
+                          selectedLongitude.value != null)
                         Container(
                           padding: const EdgeInsets.all(14),
                           decoration: BoxDecoration(
@@ -258,8 +304,10 @@ class PotentialLocationFormDialog extends HookConsumerWidget {
                                   color: Colors.blue[600],
                                   borderRadius: BorderRadius.circular(12),
                                 ),
-                                child: const Icon(
-                                  Icons.gps_fixed,
+                                child: Icon(
+                                  initialLatitude != null
+                                      ? Icons.gps_fixed
+                                      : Icons.location_on,
                                   color: Colors.white,
                                   size: 20,
                                 ),
@@ -271,7 +319,9 @@ class PotentialLocationFormDialog extends HookConsumerWidget {
                                       CrossAxisAlignment.start,
                                   children: [
                                     Text(
-                                      'Using GPS Location',
+                                      initialLatitude != null
+                                          ? 'Using GPS Location'
+                                          : 'Location Selected',
                                       style: TextStyle(
                                         fontSize: 14,
                                         fontWeight: FontWeight.w600,
@@ -279,8 +329,8 @@ class PotentialLocationFormDialog extends HookConsumerWidget {
                                       ),
                                     ),
                                     Text(
-                                      '${initialLatitude!.toStringAsFixed(4)}, '
-                                      '${initialLongitude!.toStringAsFixed(4)}',
+                                      '${selectedLatitude.value!.toStringAsFixed(4)}, '
+                                      '${selectedLongitude.value!.toStringAsFixed(4)}',
                                       style: TextStyle(
                                         fontSize: 12,
                                         color: Colors.blue[700],
@@ -364,16 +414,33 @@ class PotentialLocationFormDialog extends HookConsumerWidget {
                           reverseGeocodingError.value != null)
                         const SizedBox(height: 20),
 
-                      // Form fields with modern design
-                      // Google Places Autocomplete for Street Address
-                      _buildAutocompleteField(
+                      // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+                      // "ENTER MANUALLY" - HERE MAPS AUTOCOMPLETE (NEW - ACTIVE)
+                      // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+                      _buildHereAutocompleteField(
                         controller: streetController,
                         cityController: cityController,
                         zipController: zipController,
                         focusNode: streetFocusNode,
                         enabled: !isReverseGeocoding.value,
+                        selectedLatitude: selectedLatitude,
+                        selectedLongitude: selectedLongitude,
                       ),
                       const SizedBox(height: 16),
+
+                      // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+                      // OLD GOOGLE AUTOCOMPLETE (DEPRECATED - KEPT FOR ROLLBACK)
+                      // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+                      // _buildAutocompleteField(
+                      //   controller: streetController,
+                      //   cityController: cityController,
+                      //   zipController: zipController,
+                      //   focusNode: streetFocusNode,
+                      //   enabled: !isReverseGeocoding.value,
+                      // ),
+                      // const SizedBox(height: 16),
 
                       Row(
                         children: [
@@ -471,8 +538,8 @@ class PotentialLocationFormDialog extends HookConsumerWidget {
                                                   streetController.text.trim(),
                                               city: cityController.text.trim(),
                                               zip: zipController.text.trim(),
-                                              latitude: initialLatitude,
-                                              longitude: initialLongitude,
+                                              latitude: selectedLatitude.value,
+                                              longitude: selectedLongitude.value,
                                               notes: notesController.text
                                                       .trim()
                                                       .isEmpty
@@ -531,15 +598,19 @@ class PotentialLocationFormDialog extends HookConsumerWidget {
     );
   }
 
-  Widget _buildAutocompleteField({
+  /// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  /// HERE MAPS AUTOCOMPLETE FIELD BUILDER (NEW - ACTIVE)
+  /// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  Widget _buildHereAutocompleteField({
     required TextEditingController controller,
     required TextEditingController cityController,
     required TextEditingController zipController,
     required FocusNode focusNode,
     required bool enabled,
+    required ValueNotifier<double?> selectedLatitude,
+    required ValueNotifier<double?> selectedLongitude,
   }) {
-    final apiKey = dotenv.env['GOOGLE_MAPS_API_KEY'] ?? '';
-
     return Stack(
       clipBehavior: Clip.none,
       children: [
@@ -558,328 +629,478 @@ class PotentialLocationFormDialog extends HookConsumerWidget {
               ),
             ),
             Container(
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(14),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.04),
-                blurRadius: 10,
-                offset: const Offset(0, 2),
-              ),
-            ],
-          ),
-          child: GooglePlaceAutoCompleteTextField(
-            textEditingController: controller,
-            googleAPIKey: apiKey,
-            focusNode: focusNode,
-            inputDecoration: InputDecoration(
-              hintText: 'Start typing address...',
-              hintStyle: TextStyle(
-                color: Colors.grey[400],
-                fontWeight: FontWeight.normal,
-              ),
-              prefixIcon: Icon(
-                Icons.search,
-                color: Colors.green[600],
-                size: 22,
-              ),
-              filled: true,
-              fillColor: Colors.white,
-              contentPadding: const EdgeInsets.symmetric(
-                horizontal: 16,
-                vertical: 18,
-              ),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(14),
-                borderSide: BorderSide.none,
-              ),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(14),
-                borderSide: BorderSide.none,
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(14),
-                borderSide: BorderSide.none,
-              ),
-            ),
-            textStyle: const TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w500,
-            ),
-            debounceTime: 600,
-            countries: const ['us', 'co'], // US and Colombia
-            isLatLngRequired: true,
-            getPlaceDetailWithLatLng: (Prediction prediction) async {
-              // Parse the place details and auto-fill form fields
-              AppLogger.general(
-                'Place selected: ${prediction.description}',
-              );
-              AppLogger.general(
-                'Lat: ${prediction.lat}, Lng: ${prediction.lng}',
-              );
-
-              // Update controllers with parsed address components
-              if (prediction.structuredFormatting != null) {
-                final mainText =
-                    prediction.structuredFormatting!.mainText ?? '';
-                final secondaryText =
-                    prediction.structuredFormatting!.secondaryText ?? '';
-
-                // Set street address from main text
-                controller.text = mainText;
-
-                // Parse city from secondary text (first part)
-                final parts = secondaryText.split(',');
-                if (parts.isNotEmpty) {
-                  cityController.text = parts[0].trim();
-                }
-
-                // Try to extract ZIP code from full description first
-                final fullDesc = prediction.description ?? '';
-                final zipMatch = RegExp(r'\b\d{5}(?:-\d{4})?\b')
-                    .firstMatch(fullDesc);
-
-                if (zipMatch != null) {
-                  // Found ZIP in description
-                  zipController.text = zipMatch.group(0)!.split('-')[0];
-                  AppLogger.general(
-                    'ZIP found in description: ${zipController.text}',
-                  );
-                } else if (prediction.lat != null &&
-                    prediction.lng != null) {
-                  // Fallback: Use reverse geocoding to get ZIP
-                  AppLogger.general(
-                    'No ZIP in description, using reverse geocoding',
-                  );
-                  try {
-                    final geocodeResult = await GeocodingService.reverseGeocode(
-                      latitude: double.parse(prediction.lat!),
-                      longitude: double.parse(prediction.lng!),
-                    );
-                    if (geocodeResult != null &&
-                        geocodeResult['zip'] != null) {
-                      zipController.text = geocodeResult['zip']!;
-                      AppLogger.general(
-                        'ZIP from geocoding: ${zipController.text}',
-                      );
-                    }
-                  } catch (e) {
-                    AppLogger.e('Error reverse geocoding', error: e);
-                  }
-                }
-              }
-            },
-            itemClick: (Prediction prediction) {
-              // This is called when user clicks on a suggestion
-              AppLogger.general(
-                'Item clicked - Description: ${prediction.description}',
-              );
-              AppLogger.general(
-                'Main text: ${prediction.structuredFormatting?.mainText}',
-              );
-              AppLogger.general(
-                'Secondary: ${prediction.structuredFormatting?.secondaryText}',
-              );
-
-              // Parse and auto-fill all fields
-              if (prediction.structuredFormatting != null) {
-                final mainText =
-                    prediction.structuredFormatting!.mainText ?? '';
-                final secondaryText =
-                    prediction.structuredFormatting!.secondaryText ?? '';
-
-                // Set street address from main text
-                controller.text = mainText;
-                controller.selection = TextSelection.fromPosition(
-                  TextPosition(offset: controller.text.length),
-                );
-
-                // Parse city from secondary text (first part before comma)
-                final parts = secondaryText.split(',');
-                if (parts.isNotEmpty) {
-                  cityController.text = parts[0].trim();
-                }
-
-                // Try to extract ZIP from full description
-                // Description format: "Street, City, State ZIP, Country"
-                final fullDesc = prediction.description ?? '';
-                final zipMatch = RegExp(r'\b\d{5}(?:-\d{4})?\b')
-                    .firstMatch(fullDesc);
-                if (zipMatch != null) {
-                  zipController.text = zipMatch.group(0)!.split('-')[0];
-                }
-              } else {
-                // Fallback: full description if no structured formatting
-                controller.text = prediction.description ?? '';
-                controller.selection = TextSelection.fromPosition(
-                  TextPosition(offset: controller.text.length),
-                );
-              }
-            },
-            // Beautiful dropdown container styling
-            boxDecoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(16),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.1),
-                  blurRadius: 20,
-                  offset: const Offset(0, 8),
-                  spreadRadius: 0,
-                ),
-                BoxShadow(
-                  color: Colors.green.withValues(alpha: 0.05),
-                  blurRadius: 30,
-                  offset: const Offset(0, 4),
-                  spreadRadius: -5,
-                ),
-              ],
-              border: Border.all(
-                color: Colors.grey.withValues(alpha: 0.1),
-                width: 1,
-              ),
-            ),
-            // Elegant dividers between items
-            seperatedBuilder: Container(
-              margin: const EdgeInsets.symmetric(horizontal: 16),
-              height: 1,
               decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [
-                    Colors.transparent,
-                    Colors.grey.withValues(alpha: 0.15),
-                    Colors.transparent,
-                  ],
-                ),
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(14),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.04),
+                    blurRadius: 10,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
               ),
-            ),
-            containerHorizontalPadding: 10,
-            containerVerticalPadding: 8,
-            // Modern item styling with hover effect
-            itemBuilder: (context, index, Prediction prediction) {
-              return TweenAnimationBuilder<double>(
-                tween: Tween(begin: 0.0, end: 1.0),
-                duration: Duration(milliseconds: 200 + (index * 50)),
-                curve: Curves.easeOutCubic,
-                builder: (context, value, child) {
-                  return Transform.translate(
-                    offset: Offset(0, 10 * (1 - value)),
-                    child: Opacity(
-                      opacity: value,
-                      child: child,
-                    ),
-                  );
+              child: HerePlacesAutocompleteField(
+                textEditingController: controller,
+                focusNode: focusNode,
+                inputDecoration: InputDecoration(
+                  hintText: 'Start typing address...',
+                  hintStyle: TextStyle(
+                    color: Colors.grey[400],
+                    fontWeight: FontWeight.normal,
+                  ),
+                  prefixIcon: Icon(
+                    Icons.search,
+                    color: Colors.green[600],
+                    size: 22,
+                  ),
+                  filled: true,
+                  fillColor: Colors.white,
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 18,
+                  ),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(14),
+                    borderSide: BorderSide.none,
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(14),
+                    borderSide: BorderSide.none,
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(14),
+                    borderSide: BorderSide.none,
+                  ),
+                ),
+                textStyle: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w500,
+                ),
+                debounceTime: 600,
+                onPlaceSelected: (HerePlaceSelection selection) {
+                  AppLogger.general('🗺️ HERE MAPS: Place selected');
+                  AppLogger.general('   Street: ${selection.street}');
+                  AppLogger.general('   City: ${selection.city}');
+                  AppLogger.general('   ZIP: ${selection.zip}');
+                  AppLogger.general('   Latitude: ${selection.latitude}');
+                  AppLogger.general('   Longitude: ${selection.longitude}');
+
+                  // Auto-fill form fields
+                  controller.text = selection.street;
+                  cityController.text = selection.city;
+                  zipController.text = selection.zip;
+
+                  // Save coordinates from autocomplete selection
+                  if (selection.latitude.isNotEmpty &&
+                      selection.longitude.isNotEmpty) {
+                    selectedLatitude.value =
+                        double.tryParse(selection.latitude);
+                    selectedLongitude.value =
+                        double.tryParse(selection.longitude);
+                    AppLogger.general(
+                        '   ✅ Coordinates saved: ${selectedLatitude.value}, ${selectedLongitude.value}');
+                  }
                 },
-                child: Container(
-                  margin: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 4,
-                  ),
-                  decoration: BoxDecoration(
-                    color: Colors.grey[50],
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: Colors.grey.withValues(alpha: 0.1),
-                      width: 1,
+                boxDecoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.1),
+                      blurRadius: 20,
+                      offset: const Offset(0, 8),
+                      spreadRadius: 0,
                     ),
+                    BoxShadow(
+                      color: Colors.green.withValues(alpha: 0.05),
+                      blurRadius: 30,
+                      offset: const Offset(0, 4),
+                      spreadRadius: -5,
+                    ),
+                  ],
+                  border: Border.all(
+                    color: Colors.grey.withValues(alpha: 0.1),
+                    width: 1,
                   ),
-                  child: Material(
-                    color: Colors.transparent,
-                    child: InkWell(
-                      borderRadius: BorderRadius.circular(12),
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 14,
-                          vertical: 14,
-                        ),
-                        child: Row(
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.all(8),
-                              decoration: BoxDecoration(
-                                gradient: LinearGradient(
-                                  colors: [
-                                    Colors.green[400]!,
-                                    Colors.green[600]!,
-                                  ],
-                                  begin: Alignment.topLeft,
-                                  end: Alignment.bottomRight,
-                                ),
-                                borderRadius: BorderRadius.circular(10),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color:
-                                        Colors.green.withValues(alpha: 0.25),
-                                    blurRadius: 8,
-                                    offset: const Offset(0, 2),
-                                  ),
-                                ],
-                              ),
-                              child: const Icon(
-                                Icons.location_on_rounded,
-                                color: Colors.white,
-                                size: 18,
-                              ),
-                            ),
-                            const SizedBox(width: 14),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    prediction.structuredFormatting?.mainText ??
-                                        '',
-                                    style: const TextStyle(
-                                      fontSize: 15,
-                                      fontWeight: FontWeight.w600,
-                                      color: Colors.black87,
-                                      letterSpacing: -0.2,
-                                    ),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                  if (prediction.structuredFormatting
-                                          ?.secondaryText !=
-                                      null) ...[
-                                    const SizedBox(height: 3),
-                                    Text(
-                                      prediction
-                                          .structuredFormatting!.secondaryText!,
-                                      style: TextStyle(
-                                        fontSize: 13,
-                                        color: Colors.grey[600],
-                                        letterSpacing: -0.1,
-                                      ),
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                  ],
-                                ],
-                              ),
-                            ),
-                            Icon(
-                              Icons.arrow_forward_ios_rounded,
-                              size: 14,
-                              color: Colors.grey[400],
-                            ),
-                          ],
-                        ),
-                      ),
+                ),
+                seperatedBuilder: Container(
+                  margin: const EdgeInsets.symmetric(horizontal: 16),
+                  height: 1,
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [
+                        Colors.transparent,
+                        Colors.grey.withValues(alpha: 0.15),
+                        Colors.transparent,
+                      ],
                     ),
                   ),
                 ),
-              );
-            },
-            isCrossBtnShown: true,
-            placeType: PlaceType.address,
-          ),
+                containerHorizontalPadding: 10,
+                containerVerticalPadding: 8,
+                isCrossBtnShown: true,
+              ),
             ),
           ],
         ),
       ],
     );
   }
+
+  /// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  /// GOOGLE AUTOCOMPLETE FIELD BUILDER (DEPRECATED - KEPT FOR ROLLBACK)
+  /// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  // Widget _buildAutocompleteField({
+  //   required TextEditingController controller,
+  //   required TextEditingController cityController,
+  //   required TextEditingController zipController,
+  //   required FocusNode focusNode,
+  //   required bool enabled,
+  // }) {
+  //   final apiKey = dotenv.env['GOOGLE_MAPS_API_KEY'] ?? '';
+  //
+  //   return Stack(
+  //     clipBehavior: Clip.none,
+  //     children: [
+  //       Column(
+  //         crossAxisAlignment: CrossAxisAlignment.start,
+  //         children: [
+  //           Padding(
+  //             padding: const EdgeInsets.only(left: 4, bottom: 8),
+  //             child: Text(
+  //               'Street Address',
+  //               style: TextStyle(
+  //                 fontSize: 14,
+  //                 fontWeight: FontWeight.w600,
+  //                 color: Colors.grey[800],
+  //               ),
+  //             ),
+  //           ),
+  //           Container(
+  //         decoration: BoxDecoration(
+  //           color: Colors.white,
+  //           borderRadius: BorderRadius.circular(14),
+  //           boxShadow: [
+  //             BoxShadow(
+  //               color: Colors.black.withValues(alpha: 0.04),
+  //               blurRadius: 10,
+  //               offset: const Offset(0, 2),
+  //             ),
+  //           ],
+  //         ),
+  //         child: GooglePlaceAutoCompleteTextField(
+  //           textEditingController: controller,
+  //           googleAPIKey: apiKey,
+  //           focusNode: focusNode,
+  //             inputDecoration: InputDecoration(
+  //               hintText: 'Start typing address...',
+  //               hintStyle: TextStyle(
+  //                 color: Colors.grey[400],
+  //                 fontWeight: FontWeight.normal,
+  //               ),
+  //               prefixIcon: Icon(
+  //                 Icons.search,
+  //                 color: Colors.green[600],
+  //                 size: 22,
+  //               ),
+  //               filled: true,
+  //               fillColor: Colors.white,
+  //               contentPadding: const EdgeInsets.symmetric(
+  //                 horizontal: 16,
+  //                 vertical: 18,
+  //               ),
+  //               border: OutlineInputBorder(
+  //                 borderRadius: BorderRadius.circular(14),
+  //                 borderSide: BorderSide.none,
+  //               ),
+  //               enabledBorder: OutlineInputBorder(
+  //                 borderRadius: BorderRadius.circular(14),
+  //                 borderSide: BorderSide.none,
+  //               ),
+  //               focusedBorder: OutlineInputBorder(
+  //                 borderRadius: BorderRadius.circular(14),
+  //                 borderSide: BorderSide.none,
+  //               ),
+  //             ),
+  //             textStyle: const TextStyle(
+  //               fontSize: 16,
+  //               fontWeight: FontWeight.w500,
+  //             ),
+  //             debounceTime: 600,
+  //             countries: const ['us', 'co'], // US and Colombia
+  //             isLatLngRequired: true,
+  //             getPlaceDetailWithLatLng: (Prediction prediction) async {
+  //               // Parse the place details and auto-fill form fields
+  //               AppLogger.general(
+  //                 'Place selected: ${prediction.description}',
+  //               );
+  //               AppLogger.general(
+  //                 'Lat: ${prediction.lat}, Lng: ${prediction.lng}',
+  //               );
+  // 
+  //               // Update controllers with parsed address components
+  //               if (prediction.structuredFormatting != null) {
+  //                 final mainText =
+  //                     prediction.structuredFormatting!.mainText ?? '';
+  //                 final secondaryText =
+  //                     prediction.structuredFormatting!.secondaryText ?? '';
+  // 
+  //                 // Set street address from main text
+  //                 controller.text = mainText;
+  // 
+  //                 // Parse city from secondary text (first part)
+  //                 final parts = secondaryText.split(',');
+  //                 if (parts.isNotEmpty) {
+  //                   cityController.text = parts[0].trim();
+  //                 }
+  // 
+  //                 // Try to extract ZIP code from full description first
+  //                 final fullDesc = prediction.description ?? '';
+  //                 final zipMatch = RegExp(r'\b\d{5}(?:-\d{4})?\b')
+  //                     .firstMatch(fullDesc);
+  // 
+  //                 if (zipMatch != null) {
+  //                   // Found ZIP in description
+  //                   zipController.text = zipMatch.group(0)!.split('-')[0];
+  //                   AppLogger.general(
+  //                     'ZIP found in description: ${zipController.text}',
+  //                   );
+  //                 } else if (prediction.lat != null &&
+  //                     prediction.lng != null) {
+  //                   // Fallback: Use HERE Maps reverse geocoding to get ZIP
+  //                   AppLogger.general(
+  //                     'No ZIP in description, using HERE Maps reverse geocoding',
+  //                   );
+  //                   try {
+  //                     final geocodeResult = await GeocodingService.hereReverseGeocode(
+  //                       latitude: double.parse(prediction.lat!),
+  //                       longitude: double.parse(prediction.lng!),
+  //                     );
+  //                     if (geocodeResult != null &&
+  //                         geocodeResult['zip'] != null) {
+  //                       zipController.text = geocodeResult['zip']!;
+  //                       AppLogger.general(
+  //                         'ZIP from geocoding: ${zipController.text}',
+  //                       );
+  //                     }
+  //                   } catch (e) {
+  //                     AppLogger.e('Error reverse geocoding', error: e);
+  //                   }
+  //                 }
+  //               }
+  //             },
+  //             itemClick: (Prediction prediction) {
+  //               // This is called when user clicks on a suggestion
+  //               AppLogger.general(
+  //                 'Item clicked - Description: ${prediction.description}',
+  //               );
+  //               AppLogger.general(
+  //                 'Main text: ${prediction.structuredFormatting?.mainText}',
+  //               );
+  //               AppLogger.general(
+  //                 'Secondary: ${prediction.structuredFormatting?.secondaryText}',
+  //               );
+  // 
+  //               // Parse and auto-fill all fields
+  //               if (prediction.structuredFormatting != null) {
+  //                 final mainText =
+  //                     prediction.structuredFormatting!.mainText ?? '';
+  //                 final secondaryText =
+  //                     prediction.structuredFormatting!.secondaryText ?? '';
+  // 
+  //                 // Set street address from main text
+  //                 controller.text = mainText;
+  //                 controller.selection = TextSelection.fromPosition(
+  //                   TextPosition(offset: controller.text.length),
+  //                 );
+  // 
+  //                 // Parse city from secondary text (first part before comma)
+  //                 final parts = secondaryText.split(',');
+  //                 if (parts.isNotEmpty) {
+  //                   cityController.text = parts[0].trim();
+  //                 }
+  // 
+  //                 // Try to extract ZIP from full description
+  //                 // Description format: "Street, City, State ZIP, Country"
+  //                 final fullDesc = prediction.description ?? '';
+  //                 final zipMatch = RegExp(r'\b\d{5}(?:-\d{4})?\b')
+  //                     .firstMatch(fullDesc);
+  //                 if (zipMatch != null) {
+  //                   zipController.text = zipMatch.group(0)!.split('-')[0];
+  //                 }
+  //               } else {
+  //                 // Fallback: full description if no structured formatting
+  //                 controller.text = prediction.description ?? '';
+  //                 controller.selection = TextSelection.fromPosition(
+  //                   TextPosition(offset: controller.text.length),
+  //                 );
+  //               }
+  //             },
+  //             // Beautiful dropdown container styling
+  //             boxDecoration: BoxDecoration(
+  //               color: Colors.white,
+  //               borderRadius: BorderRadius.circular(16),
+  //               boxShadow: [
+  //                 BoxShadow(
+  //                   color: Colors.black.withValues(alpha: 0.1),
+  //                   blurRadius: 20,
+  //                   offset: const Offset(0, 8),
+  //                   spreadRadius: 0,
+  //                 ),
+  //                 BoxShadow(
+  //                   color: Colors.green.withValues(alpha: 0.05),
+  //                   blurRadius: 30,
+  //                   offset: const Offset(0, 4),
+  //                   spreadRadius: -5,
+  //                 ),
+  //               ],
+  //               border: Border.all(
+  //                 color: Colors.grey.withValues(alpha: 0.1),
+  //                 width: 1,
+  //               ),
+  //             ),
+  //             // Elegant dividers between items
+  //             seperatedBuilder: Container(
+  //               margin: const EdgeInsets.symmetric(horizontal: 16),
+  //               height: 1,
+  //               decoration: BoxDecoration(
+  //                 gradient: LinearGradient(
+  //                   colors: [
+  //                     Colors.transparent,
+  //                     Colors.grey.withValues(alpha: 0.15),
+  //                     Colors.transparent,
+  //                   ],
+  //                 ),
+  //               ),
+  //             ),
+  //             containerHorizontalPadding: 10,
+  //             containerVerticalPadding: 8,
+  //             // Modern item styling with hover effect
+  //             itemBuilder: (context, index, Prediction prediction) {
+  //               return TweenAnimationBuilder<double>(
+  //                 tween: Tween(begin: 0.0, end: 1.0),
+  //                 duration: Duration(milliseconds: 200 + (index * 50)),
+  //                 curve: Curves.easeOutCubic,
+  //                 builder: (context, value, child) {
+  //                   return Transform.translate(
+  //                     offset: Offset(0, 10 * (1 - value)),
+  //                     child: Opacity(
+  //                       opacity: value,
+  //                       child: child,
+  //                     ),
+  //                   );
+  //                 },
+  //                 child: Container(
+  //                   margin: const EdgeInsets.symmetric(
+  //                     horizontal: 8,
+  //                     vertical: 4,
+  //                   ),
+  //                   decoration: BoxDecoration(
+  //                     color: Colors.grey[50],
+  //                     borderRadius: BorderRadius.circular(12),
+  //                     border: Border.all(
+  //                       color: Colors.grey.withValues(alpha: 0.1),
+  //                       width: 1,
+  //                     ),
+  //                   ),
+  //                   child: Material(
+  //                     color: Colors.transparent,
+  //                     child: InkWell(
+  //                       borderRadius: BorderRadius.circular(12),
+  //                       child: Padding(
+  //                         padding: const EdgeInsets.symmetric(
+  //                           horizontal: 14,
+  //                           vertical: 14,
+  //                         ),
+  //                         child: Row(
+  //                           children: [
+  //                             Container(
+  //                               padding: const EdgeInsets.all(8),
+  //                               decoration: BoxDecoration(
+  //                                 gradient: LinearGradient(
+  //                                   colors: [
+  //                                     Colors.green[400]!,
+  //                                     Colors.green[600]!,
+  //                                   ],
+  //                                   begin: Alignment.topLeft,
+  //                                   end: Alignment.bottomRight,
+  //                                 ),
+  //                                 borderRadius: BorderRadius.circular(10),
+  //                                 boxShadow: [
+  //                                   BoxShadow(
+  //                                     color:
+  //                                         Colors.green.withValues(alpha: 0.25),
+  //                                     blurRadius: 8,
+  //                                     offset: const Offset(0, 2),
+  //                                   ),
+  //                                 ],
+  //                               ),
+  //                               child: const Icon(
+  //                                 Icons.location_on_rounded,
+  //                                 color: Colors.white,
+  //                                 size: 18,
+  //                               ),
+  //                             ),
+  //                             const SizedBox(width: 14),
+  //                             Expanded(
+  //                               child: Column(
+  //                                 crossAxisAlignment: CrossAxisAlignment.start,
+  //                                 children: [
+  //                                   Text(
+  //                                     prediction.structuredFormatting?.mainText ??
+  //                                         '',
+  //                                     style: const TextStyle(
+  //                                       fontSize: 15,
+  //                                       fontWeight: FontWeight.w600,
+  //                                       color: Colors.black87,
+  //                                       letterSpacing: -0.2,
+  //                                     ),
+  //                                     maxLines: 1,
+  //                                     overflow: TextOverflow.ellipsis,
+  //                                   ),
+  //                                   if (prediction.structuredFormatting
+  //                                           ?.secondaryText !=
+  //                                       null) ...[
+  //                                     const SizedBox(height: 3),
+  //                                     Text(
+  //                                       prediction
+  //                                           .structuredFormatting!.secondaryText!,
+  //                                       style: TextStyle(
+  //                                         fontSize: 13,
+  //                                         color: Colors.grey[600],
+  //                                         letterSpacing: -0.1,
+  //                                       ),
+  //                                       maxLines: 1,
+  //                                       overflow: TextOverflow.ellipsis,
+  //                                     ),
+  //                                   ],
+  //                                 ],
+  //                               ),
+  //                             ),
+  //                             Icon(
+  //                               Icons.arrow_forward_ios_rounded,
+  //                               size: 14,
+  //                               color: Colors.grey[400],
+  //                             ),
+  //                           ],
+  //                         ),
+  //                       ),
+  //                     ),
+  //                   ),
+  //                 ),
+  //               );
+  //             },
+  //             isCrossBtnShown: true,
+  //             placeType: PlaceType.address,
+  //           ),
+  //             ),
+  //           ],
+  //         ),
+  //       ],
+  //     );
+  // }
 
   Widget _buildModernTextField({
     required TextEditingController controller,

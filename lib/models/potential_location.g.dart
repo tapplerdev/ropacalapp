@@ -23,6 +23,9 @@ _$PotentialLocationImpl _$$PotentialLocationImplFromJson(
   convertedToBinId: json['converted_to_bin_id'] as String?,
   convertedAtIso: json['converted_at_iso'] as String?,
   convertedByUserId: json['converted_by_user_id'] as String?,
+  convertedViaShiftId: json['converted_via_shift_id'] as String?,
+  convertedByDriverName: json['converted_by_driver_name'] as String?,
+  convertedByManagerName: json['converted_by_manager_name'] as String?,
   binNumber: (json['bin_number'] as num?)?.toInt(),
 );
 
@@ -43,5 +46,8 @@ Map<String, dynamic> _$$PotentialLocationImplToJson(
   'converted_to_bin_id': instance.convertedToBinId,
   'converted_at_iso': instance.convertedAtIso,
   'converted_by_user_id': instance.convertedByUserId,
+  'converted_via_shift_id': instance.convertedViaShiftId,
+  'converted_by_driver_name': instance.convertedByDriverName,
+  'converted_by_manager_name': instance.convertedByManagerName,
   'bin_number': instance.binNumber,
 };

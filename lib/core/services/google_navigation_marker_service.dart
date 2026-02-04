@@ -4,6 +4,7 @@ import 'package:google_navigation_flutter/google_navigation_flutter.dart';
 import 'package:ropacalapp/core/utils/app_logger.dart';
 import 'package:ropacalapp/features/driver/widgets/pin_marker_painter.dart';
 import 'package:ropacalapp/models/route_bin.dart';
+import 'package:ropacalapp/core/enums/stop_type.dart';
 
 /// Service for creating custom markers, circles, and polylines for Google Navigation
 class GoogleNavigationMarkerService {
@@ -22,8 +23,22 @@ class GoogleNavigationMarkerService {
       final bin = bins[i];
       final binNumber = i + 1;
 
-      // Create custom marker icon
-      final icon = await createBinMarkerIcon(bin.binNumber, bin.fillPercentage);
+      // Create custom marker icon based on stop type
+      final ImageDescriptor icon;
+      switch (bin.stopType) {
+        case StopType.warehouseStop:
+          icon = await createWarehouseMarkerIcon();
+          AppLogger.navigation('   🏭 Creating warehouse marker');
+          break;
+        case StopType.placement:
+          icon = await createPlacementMarkerIcon(bin.newBinNumber ?? 0);
+          AppLogger.navigation('   📍 Creating placement marker for bin #${bin.newBinNumber}');
+          break;
+        default:
+          // Regular pickup bin (collection, pickup, dropoff, etc.)
+          icon = await createBinMarkerIcon(bin.binNumber, bin.fillPercentage);
+          break;
+      }
 
       final markerId = 'bin_${bin.id}';
       markerToBinMap[markerId] = bin;
@@ -352,6 +367,170 @@ class GoogleNavigationMarkerService {
       AppLogger.navigation('Stack: $stack');
       rethrow;
     }
+  }
+
+  /// Create custom warehouse marker icon
+  static Future<ImageDescriptor> createWarehouseMarkerIcon() async {
+    final recorder = ui.PictureRecorder();
+    final canvas = Canvas(recorder);
+
+    const canvasSize = 60.0;
+    const renderScale = 3.0;
+
+    final center = Offset(
+      canvasSize * renderScale / 2,
+      canvasSize * renderScale / 2,
+    );
+    final radius = 22.0 * renderScale;
+
+    // Draw purple circle background
+    final bgPaint = Paint()
+      ..color = const Color(0xFF9C27B0) // Purple
+      ..style = PaintingStyle.fill;
+    canvas.drawCircle(center, radius, bgPaint);
+
+    // Draw white border
+    final borderPaint = Paint()
+      ..color = Colors.white
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 3.0 * renderScale;
+    canvas.drawCircle(center, radius - 1.5 * renderScale, borderPaint);
+
+    // Draw warehouse icon (simplified building)
+    final iconPaint = Paint()
+      ..color = Colors.white
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2.5 * renderScale
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round;
+
+    final iconSize = 18.0 * renderScale;
+    final left = center.dx - iconSize / 2;
+    final right = center.dx + iconSize / 2;
+    final top = center.dy - iconSize / 2;
+    final bottom = center.dy + iconSize / 2;
+
+    // Draw warehouse outline (rectangle with roof)
+    final path = Path();
+    path.moveTo(center.dx, top); // Roof peak
+    path.lineTo(right, top + iconSize * 0.25); // Right roof
+    path.lineTo(right, bottom); // Right wall
+    path.lineTo(left, bottom); // Floor
+    path.lineTo(left, top + iconSize * 0.25); // Left wall
+    path.close();
+    canvas.drawPath(path, iconPaint);
+
+    // Draw door
+    final doorWidth = iconSize * 0.3;
+    final doorHeight = iconSize * 0.4;
+    canvas.drawRect(
+      Rect.fromLTWH(
+        center.dx - doorWidth / 2,
+        bottom - doorHeight,
+        doorWidth,
+        doorHeight,
+      ),
+      iconPaint,
+    );
+
+    final picture = recorder.endRecording();
+    final image = await picture.toImage(
+      (canvasSize * renderScale).toInt(),
+      (canvasSize * renderScale).toInt(),
+    );
+    final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
+
+    if (bytes == null) {
+      throw Exception('Failed to create warehouse marker icon');
+    }
+
+    return await registerBitmapImage(
+      bitmap: bytes,
+      imagePixelRatio: 3.0,
+    );
+  }
+
+  /// Create custom placement marker icon with bin number
+  static Future<ImageDescriptor> createPlacementMarkerIcon(int binNumber) async {
+    final recorder = ui.PictureRecorder();
+    final canvas = Canvas(recorder);
+
+    const canvasSize = 60.0;
+    const renderScale = 3.0;
+
+    final pinHeight = 45.0 * renderScale;
+    final circleRadius = 20.0 * renderScale;
+
+    final center = Offset(
+      canvasSize * renderScale / 2,
+      circleRadius + 5.0 * renderScale,
+    );
+
+    // Draw teal/cyan pin
+    final pinColor = const Color(0xFF00BCD4); // Teal/Cyan
+
+    final pinPaint = Paint()
+      ..color = pinColor
+      ..style = PaintingStyle.fill;
+
+    // Draw circle part
+    canvas.drawCircle(center, circleRadius, pinPaint);
+
+    // Draw teardrop/point part
+    final path = Path();
+    path.moveTo(center.dx, center.dy + circleRadius);
+    path.lineTo(center.dx - circleRadius * 0.4, center.dy + circleRadius);
+    path.lineTo(center.dx, center.dy + pinHeight - circleRadius);
+    path.lineTo(center.dx + circleRadius * 0.4, center.dy + circleRadius);
+    path.close();
+    canvas.drawPath(path, pinPaint);
+
+    // Draw white border around circle
+    final borderPaint = Paint()
+      ..color = Colors.white
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 3.0 * renderScale;
+    canvas.drawCircle(center, circleRadius - 1.5 * renderScale, borderPaint);
+
+    // Draw bin number
+    final textPainter = TextPainter(
+      text: TextSpan(
+        text: binNumber.toString(),
+        style: TextStyle(
+          color: Colors.white,
+          fontWeight: FontWeight.bold,
+          fontSize: 16.0 * renderScale,
+          fontFamily: 'sans-serif',
+        ),
+      ),
+      textDirection: TextDirection.ltr,
+      textAlign: TextAlign.center,
+    );
+
+    textPainter.layout();
+    textPainter.paint(
+      canvas,
+      Offset(
+        center.dx - textPainter.width / 2,
+        center.dy - textPainter.height / 2,
+      ),
+    );
+
+    final picture = recorder.endRecording();
+    final image = await picture.toImage(
+      (canvasSize * renderScale).toInt(),
+      (canvasSize * renderScale).toInt(),
+    );
+    final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
+
+    if (bytes == null) {
+      throw Exception('Failed to create placement marker icon');
+    }
+
+    return await registerBitmapImage(
+      bitmap: bytes,
+      imagePixelRatio: 3.0,
+    );
   }
 
   /// Get fill color based on fill percentage

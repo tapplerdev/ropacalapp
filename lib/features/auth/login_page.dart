@@ -82,16 +82,20 @@ class LoginPage extends HookConsumerWidget {
         AppLogger.general('⚠️  Failed to start background tracking: $e');
       }
 
-      // Fetch current shift from backend after login with retry logic
-      // This ensures we have the latest shift state (not cached data)
-      AppLogger.general('🔄 Fetching current shift from backend with retry logic...');
-      final success = await ref.read(shiftNotifierProvider.notifier).fetchCurrentShiftWithRetry(maxAttempts: 3);
+      // Fetch current shift from backend after login (ONLY for drivers)
+      // Managers don't have shifts, so skip this API call for them
+      if (user.role == UserRole.driver) {
+        AppLogger.general('🔄 Driver logged in - fetching current shift with retry logic...');
+        final success = await ref.read(shiftNotifierProvider.notifier).fetchCurrentShiftWithRetry(maxAttempts: 3);
 
-      if (!success) {
-        AppLogger.general('⚠️ Failed to fetch shift after 3 attempts');
-        // Polling will continue to check in background
+        if (!success) {
+          AppLogger.general('⚠️ Failed to fetch shift after 3 attempts');
+          // Polling will continue to check in background
+        } else {
+          AppLogger.general('✅ Current shift fetched successfully');
+        }
       } else {
-        AppLogger.general('✅ Current shift fetched successfully');
+        AppLogger.general('👔 Manager logged in - skipping shift fetch (managers don\'t have shifts)');
       }
 
       // Navigate directly to home

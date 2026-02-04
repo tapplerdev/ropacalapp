@@ -12,6 +12,8 @@ import 'package:ropacalapp/services/fcm_service.dart';
 import 'package:ropacalapp/core/services/session_manager.dart';
 import 'package:ropacalapp/core/utils/app_logger.dart';
 import 'package:ropacalapp/providers/shift_provider.dart';
+import 'package:ropacalapp/providers/auth_provider.dart';
+import 'package:ropacalapp/core/enums/user_role.dart';
 
 void main() async {
   // Note: Navigation session is now initialized lazily when first needed
@@ -87,8 +89,7 @@ class _RopacalAppState extends ConsumerState<RopacalApp>
   void didChangeAppLifecycleState(AppLifecycleState state) {
     switch (state) {
       case AppLifecycleState.resumed:
-        // App came to foreground - restore shift state from backend
-        AppLogger.general('[LIFECYCLE] 📱 App resumed - fetching current shift...');
+        // App came to foreground - restore shift state from backend (drivers only)
         _restoreShiftState();
         break;
       case AppLifecycleState.inactive:
@@ -101,11 +102,20 @@ class _RopacalAppState extends ConsumerState<RopacalApp>
     }
   }
 
-  /// Restore shift state from backend when app resumes
+  /// Restore shift state from backend when app resumes (ONLY for drivers)
   Future<void> _restoreShiftState() async {
     try {
-      await ref.read(shiftNotifierProvider.notifier).fetchCurrentShift();
-      AppLogger.general('[LIFECYCLE] ✅ Shift state restored from backend');
+      // Get current user to check role
+      final user = ref.read(authNotifierProvider).valueOrNull;
+
+      // Only fetch shift for drivers - managers don't have shifts
+      if (user?.role == UserRole.driver) {
+        AppLogger.general('[LIFECYCLE] 📱 Driver app resumed - fetching current shift...');
+        await ref.read(shiftNotifierProvider.notifier).fetchCurrentShift();
+        AppLogger.general('[LIFECYCLE] ✅ Shift state restored from backend');
+      } else {
+        AppLogger.general('[LIFECYCLE] 👔 Manager app resumed - skipping shift fetch (managers don\'t have shifts)');
+      }
     } catch (e) {
       AppLogger.general('[LIFECYCLE] ⚠️  Error restoring shift: $e');
       // Continue anyway - user can refresh manually if needed
@@ -149,6 +159,14 @@ class _RopacalAppState extends ConsumerState<RopacalApp>
             letterSpacing: -0.5,
           ),
         ),
+        elevatedButtonTheme: ElevatedButtonThemeData(
+          style: ElevatedButton.styleFrom(
+            foregroundColor: Colors.white,
+            textStyle: const TextStyle(
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ),
       ),
       darkTheme: ThemeData(
         colorScheme: ColorScheme.fromSeed(
@@ -179,6 +197,14 @@ class _RopacalAppState extends ConsumerState<RopacalApp>
             fontWeight: FontWeight.bold,
             color: AppColors.brandGreen,
             letterSpacing: -0.5,
+          ),
+        ),
+        elevatedButtonTheme: ElevatedButtonThemeData(
+          style: ElevatedButton.styleFrom(
+            foregroundColor: Colors.white,
+            textStyle: const TextStyle(
+              fontWeight: FontWeight.bold,
+            ),
           ),
         ),
       ),

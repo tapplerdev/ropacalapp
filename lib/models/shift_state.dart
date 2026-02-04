@@ -65,6 +65,32 @@ class ShiftState with _$ShiftState {
   /// Get logical bin count (count pickup+dropoff pairs as 1)
   /// This treats a move request (pickup + dropoff) as a single action
   int get logicalTotalBins {
+    // Use task-based system if available
+    if (usesTasks) {
+      final moveRequestIds = <String>{};
+      int count = 0;
+
+      for (final task in tasks) {
+        if (task.taskType == StopType.pickup && task.moveRequestId != null) {
+          // Only count pickup once per move request
+          if (!moveRequestIds.contains(task.moveRequestId)) {
+            moveRequestIds.add(task.moveRequestId!);
+            count++;
+          }
+        } else if (task.taskType == StopType.dropoff &&
+            task.moveRequestId != null) {
+          // Skip dropoff in count (already counted with pickup)
+          continue;
+        } else {
+          // Regular collection task, warehouse, or placement
+          count++;
+        }
+      }
+
+      return count;
+    }
+
+    // Legacy bin-based system
     final moveRequestIds = <String>{};
     int count = 0;
 
@@ -92,6 +118,42 @@ class ShiftState with _$ShiftState {
   /// Move requests are only counted as complete when BOTH pickup AND dropoff
   /// are finished
   int get logicalCompletedBins {
+    // Use task-based system if available
+    if (usesTasks) {
+      final completedMoveRequests = <String>{};
+      int count = 0;
+
+      for (final task in tasks) {
+        if (task.taskType == StopType.pickup && task.moveRequestId != null) {
+          // Check if corresponding dropoff is also completed
+          final dropoff = tasks.firstWhere(
+            (t) =>
+                t.taskType == StopType.dropoff &&
+                t.moveRequestId == task.moveRequestId,
+            orElse: () => task,
+          );
+
+          // Only count if BOTH pickup and dropoff are completed
+          if (task.isCompleted == 1 &&
+              dropoff.isCompleted == 1 &&
+              !completedMoveRequests.contains(task.moveRequestId)) {
+            completedMoveRequests.add(task.moveRequestId!);
+            count++;
+          }
+        } else if (task.taskType == StopType.dropoff &&
+            task.moveRequestId != null) {
+          // Skip dropoff - already handled in pickup branch
+          continue;
+        } else if (task.isCompleted == 1) {
+          // Regular completed task (collection, warehouse, placement)
+          count++;
+        }
+      }
+
+      return count;
+    }
+
+    // Legacy bin-based system
     final completedMoveRequests = <String>{};
     int count = 0;
 

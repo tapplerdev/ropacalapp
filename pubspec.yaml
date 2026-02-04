@@ -74,7 +74,8 @@ dependencies:
   google_places_flutter: ^2.0.9  # Google Places autocomplete
 
   # Real-time Communication
-  web_socket_channel: ^2.4.0
+  centrifuge: ^0.11.0  # Centrifugo WebSocket client for real-time messaging
+  web_socket_channel: ^2.4.0  # Legacy WebSocket (to be removed)
 
   # Firebase (upgraded to latest versions)
   firebase_core: ^4.2.1
@@ -86,6 +87,7 @@ dependencies:
   fused_location: ^0.8.0
   google_fonts: ^6.2.1  # Google Fonts package (includes Montserrat)
   url_launcher: ^6.3.2
+  wakelock_plus: ^1.2.8  # Keep screen awake during navigation
 
 dev_dependencies:
   flutter_test:

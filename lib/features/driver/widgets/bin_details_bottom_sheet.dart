@@ -192,50 +192,16 @@ class BinDetailsBottomSheet extends StatelessWidget {
 
                 const SizedBox(height: 20),
 
-                // Action buttons grid
-                Row(
-                  children: [
-                    Expanded(
-                      child: _buildActionButton(
-                        context: context,
-                        icon: Icons.local_shipping_outlined,
-                        label: 'Move Bin',
-                        color: AppColors.primaryGreen,
-                        onTap: () {
-                          Navigator.pop(context);
-                          // TODO: Navigate to move bin page
-                          context.push('/bin/${bin.id}/move');
-                        },
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: _buildActionButton(
-                        context: context,
-                        icon: Icons.history_rounded,
-                        label: 'Check History',
-                        color: Colors.blue.shade600,
-                        onTap: () {
-                          Navigator.pop(context);
-                          context.push('/bin/${bin.id}/check-history');
-                        },
-                      ),
-                    ),
-                  ],
-                ),
-
-                const SizedBox(height: 12),
-
-                // Move History button (full width)
+                // View Details button (full width)
                 _buildActionButton(
                   context: context,
-                  icon: Icons.drive_eta_outlined,
-                  label: 'Move History',
-                  color: Colors.orange.shade700,
+                  icon: Icons.info_outline_rounded,
+                  label: 'View Details',
+                  color: AppColors.primaryGreen,
                   fullWidth: true,
                   onTap: () {
                     Navigator.pop(context);
-                    context.push('/bin/${bin.id}/move-history');
+                    context.push('/bin/${bin.id}');
                   },
                 ),
               ],

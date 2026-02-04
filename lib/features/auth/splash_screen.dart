@@ -7,6 +7,7 @@ import 'package:ropacalapp/providers/shift_provider.dart';
 import 'package:ropacalapp/providers/location_provider.dart';
 import 'package:ropacalapp/core/utils/app_logger.dart';
 import 'package:ropacalapp/core/services/session_manager.dart';
+import 'package:ropacalapp/core/enums/user_role.dart';
 
 /// Splash screen shown on app startup
 ///
@@ -38,11 +39,24 @@ class SplashScreen extends HookConsumerWidget {
           AppLogger.general(
             '⚡ INSTANT RESUME: Skipping validation, navigating to home',
           );
+          AppLogger.general(
+            '   📊 Shift fetch will be handled by event-driven listener',
+          );
           if (context.mounted && !hasNavigated.value) {
             hasNavigated.value = true;
+
             // Pre-fetch location in background (don't wait)
             ref.read(currentLocationProvider);
-            context.go('/home');
+
+            // NOTE: Shift fetch is now handled by event-driven listener in auth_provider
+            // No need to manually fetch here - prevents duplicate fetches
+
+            // Defer navigation to avoid setState during build
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (context.mounted) {
+                context.go('/home');
+              }
+            });
           }
           return;
         }
@@ -76,21 +90,33 @@ class SplashScreen extends HookConsumerWidget {
       if (!context.mounted || hasNavigated.value) return;
       hasNavigated.value = true;
 
-      // 🆕 Restore active shift from Go backend (SQLite database) with retry logic
-      AppLogger.general('🔄 Restoring shift from backend (SQLite) with retry logic...');
-      final success = await ref.read(shiftNotifierProvider.notifier).fetchCurrentShiftWithRetry(maxAttempts: 3);
+      // Get user data to check role
+      final user = authState.valueOrNull;
 
-      if (!success) {
-        AppLogger.general('⚠️ Failed to fetch shift after 3 attempts');
-        // Polling will continue to check in background
+      // Restore active shift from backend (ONLY for drivers)
+      // Managers don't have shifts, so skip this API call for them
+      if (user?.role == UserRole.driver) {
+        AppLogger.general('🔄 Driver startup - restoring shift from backend with retry logic...');
+        final success = await ref.read(shiftNotifierProvider.notifier).fetchCurrentShiftWithRetry(maxAttempts: 3);
+
+        if (!success) {
+          AppLogger.general('⚠️ Failed to fetch shift after 3 attempts');
+          // Polling will continue to check in background
+        } else {
+          AppLogger.general('✅ Shift state restored from backend');
+        }
       } else {
-        AppLogger.general('✅ Shift state restored from backend');
+        AppLogger.general('👔 Manager startup - skipping shift fetch (managers don\'t have shifts)');
       }
 
-      // Navigate to home
+      // Navigate to home (defer to avoid setState during build)
       if (context.mounted) {
         AppLogger.general('➡️  Splash: Navigating to /home');
-        context.go('/home');
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (context.mounted) {
+            context.go('/home');
+          }
+        });
       }
     }
 

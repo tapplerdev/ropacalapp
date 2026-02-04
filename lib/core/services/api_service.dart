@@ -382,8 +382,11 @@ class ApiService {
       AppLogger.api(
         '📍 createPotentialLocation: Response status ${response.statusCode}',
       );
+
+      // Backend returns an array with one element, extract it
+      final List<dynamic> data = response.data as List<dynamic>;
       return PotentialLocation.fromJson(
-        response.data as Map<String, dynamic>,
+        data.first as Map<String, dynamic>,
       );
     } catch (e) {
       AppLogger.api('📍 createPotentialLocation: Exception caught: $e');
@@ -394,17 +397,30 @@ class ApiService {
   Future<List<PotentialLocation>> getPotentialLocations() async {
     try {
       AppLogger.api(
-        '📍 getPotentialLocations: Making request to ${ApiConstants.potentialLocationsEndpoint}',
-      );
-      final response = await _dio.get(
-        ApiConstants.potentialLocationsEndpoint,
-      );
-      AppLogger.api(
-        '📍 getPotentialLocations: Response status ${response.statusCode}',
+        '📍 getPotentialLocations: Fetching active and converted locations',
       );
 
-      final List<dynamic> data = response.data as List<dynamic>;
-      return data
+      // Fetch both active and converted locations
+      final activeResponse = await _dio.get(
+        ApiConstants.potentialLocationsEndpoint,
+        queryParameters: {'status': 'active'},
+      );
+
+      final convertedResponse = await _dio.get(
+        ApiConstants.potentialLocationsEndpoint,
+        queryParameters: {'status': 'converted'},
+      );
+
+      AppLogger.api(
+        '📍 getPotentialLocations: Got ${(activeResponse.data as List).length} active, ${(convertedResponse.data as List).length} converted',
+      );
+
+      // Combine both lists
+      final List<dynamic> activeData = activeResponse.data as List<dynamic>;
+      final List<dynamic> convertedData = convertedResponse.data as List<dynamic>;
+      final allData = [...activeData, ...convertedData];
+
+      return allData
           .map((json) =>
               PotentialLocation.fromJson(json as Map<String, dynamic>))
           .toList();
@@ -438,6 +454,21 @@ class ApiService {
       AppLogger.api(
         '📍 convertPotentialLocationToBin: Exception caught: $e',
       );
+      throw _handleError(e);
+    }
+  }
+
+  // Centrifugo real-time messaging
+  Future<Map<String, dynamic>> getCentrifugoToken() async {
+    try {
+      AppLogger.api('🔑 getCentrifugoToken: Fetching Centrifugo JWT token');
+      final response = await _dio.get(ApiConstants.centrifugoTokenEndpoint);
+      AppLogger.api(
+        '🔑 getCentrifugoToken: Token received (expires: ${response.data['expires_at']})',
+      );
+      return response.data as Map<String, dynamic>;
+    } catch (e) {
+      AppLogger.api('🔑 getCentrifugoToken: Exception caught: $e');
       throw _handleError(e);
     }
   }

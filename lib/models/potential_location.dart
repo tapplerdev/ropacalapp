@@ -20,6 +20,9 @@ class PotentialLocation with _$PotentialLocation {
     @JsonKey(name: 'converted_to_bin_id') String? convertedToBinId,
     @JsonKey(name: 'converted_at_iso') String? convertedAtIso,
     @JsonKey(name: 'converted_by_user_id') String? convertedByUserId,
+    @JsonKey(name: 'converted_via_shift_id') String? convertedViaShiftId,
+    @JsonKey(name: 'converted_by_driver_name') String? convertedByDriverName,
+    @JsonKey(name: 'converted_by_manager_name') String? convertedByManagerName,
     @JsonKey(name: 'bin_number') int? binNumber,
   }) = _PotentialLocation;
 

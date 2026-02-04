@@ -4,16 +4,39 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:ropacalapp/core/theme/app_colors.dart';
 import 'package:ropacalapp/features/manager/widgets/convert_location_dialog.dart';
+import 'package:ropacalapp/features/driver/widgets/potential_location_form_dialog.dart';
 import 'package:ropacalapp/models/potential_location.dart';
 import 'package:ropacalapp/providers/potential_locations_list_provider.dart';
 import 'package:ropacalapp/providers/focused_potential_location_provider.dart';
 
 /// Potential Locations Page - Shows all potential locations for managers
-class PotentialLocationsPage extends HookConsumerWidget {
+class PotentialLocationsPage extends ConsumerStatefulWidget {
   const PotentialLocationsPage({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<PotentialLocationsPage> createState() =>
+      _PotentialLocationsPageState();
+}
+
+class _PotentialLocationsPageState
+    extends ConsumerState<PotentialLocationsPage>
+    with SingleTickerProviderStateMixin {
+  late TabController _tabController;
+
+  @override
+  void initState() {
+    super.initState();
+    _tabController = TabController(length: 2, vsync: this);
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final potentialLocationsAsync =
         ref.watch(potentialLocationsListNotifierProvider);
 
@@ -29,13 +52,127 @@ class PotentialLocationsPage extends HookConsumerWidget {
         backgroundColor: Colors.white,
         surfaceTintColor: Colors.transparent,
         scrolledUnderElevation: 0,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.add_rounded),
+            color: AppColors.primaryGreen,
+            onPressed: () async {
+              await showDialog(
+                context: context,
+                builder: (context) => const PotentialLocationFormDialog(),
+              );
+              // Refresh list after dialog closes
+              ref.read(potentialLocationsListNotifierProvider.notifier).refresh();
+            },
+            tooltip: 'Add Location',
+          ),
+          const SizedBox(width: 8),
+        ],
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(48),
+          child: Container(
+            decoration: BoxDecoration(
+              border: Border(
+                bottom: BorderSide(
+                  color: Colors.grey.withValues(alpha: 0.2),
+                  width: 1,
+                ),
+              ),
+            ),
+            child: TabBar(
+              controller: _tabController,
+              labelColor: AppColors.primaryGreen,
+              unselectedLabelColor: Colors.grey[600],
+              indicatorColor: AppColors.primaryGreen,
+              indicatorWeight: 3,
+              labelStyle: const TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w600,
+              ),
+              unselectedLabelStyle: const TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w500,
+              ),
+              tabs: [
+                Tab(
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Text('Pending'),
+                      const SizedBox(width: 6),
+                      potentialLocationsAsync.whenOrNull(
+                            data: (locations) {
+                              final count = locations
+                                  .where((loc) => loc.convertedToBinId == null)
+                                  .length;
+                              if (count == 0) return null;
+                              return Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 6,
+                                  vertical: 2,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: AppColors.primaryGreen,
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                child: Text(
+                                  count.toString(),
+                                  style: const TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                              );
+                            },
+                          ) ??
+                          const SizedBox.shrink(),
+                    ],
+                  ),
+                ),
+                Tab(
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Text('History'),
+                      const SizedBox(width: 6),
+                      potentialLocationsAsync.whenOrNull(
+                            data: (locations) {
+                              final count = locations
+                                  .where((loc) => loc.convertedToBinId != null)
+                                  .length;
+                              if (count == 0) return null;
+                              return Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 6,
+                                  vertical: 2,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: Colors.grey[400],
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                child: Text(
+                                  count.toString(),
+                                  style: const TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                              );
+                            },
+                          ) ??
+                          const SizedBox.shrink(),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
       body: potentialLocationsAsync.when(
         data: (locations) {
-          if (locations.isEmpty) {
-            return _buildEmptyState();
-          }
-
           // Separate pending and converted locations
           final pending = locations
               .where((loc) => loc.convertedToBinId == null)
@@ -44,30 +181,13 @@ class PotentialLocationsPage extends HookConsumerWidget {
               .where((loc) => loc.convertedToBinId != null)
               .toList();
 
-          return ListView(
-            padding: const EdgeInsets.all(16),
+          return TabBarView(
+            controller: _tabController,
             children: [
-              if (pending.isNotEmpty) ...[
-                _buildSectionHeader('Pending', pending.length),
-                const SizedBox(height: 12),
-                ...pending.map((location) => _buildLocationCard(
-                      context,
-                      ref,
-                      location,
-                      isPending: true,
-                    )),
-                const SizedBox(height: 24),
-              ],
-              if (converted.isNotEmpty) ...[
-                _buildSectionHeader('Converted', converted.length),
-                const SizedBox(height: 12),
-                ...converted.map((location) => _buildLocationCard(
-                      context,
-                      ref,
-                      location,
-                      isPending: false,
-                    )),
-              ],
+              // Pending Tab
+              _buildPendingTab(pending),
+              // History Tab
+              _buildHistoryTab(converted),
             ],
           );
         },
@@ -116,6 +236,62 @@ class PotentialLocationsPage extends HookConsumerWidget {
     );
   }
 
+  Widget _buildPendingTab(List<PotentialLocation> pending) {
+    if (pending.isEmpty) {
+      return _buildEmptyState(
+        icon: Icons.location_on_outlined,
+        title: 'No Pending Locations',
+        subtitle: 'New location suggestions from\ndrivers will appear here',
+      );
+    }
+
+    return RefreshIndicator(
+      onRefresh: () async {
+        ref.read(potentialLocationsListNotifierProvider.notifier).refresh();
+      },
+      color: AppColors.primaryGreen,
+      child: ListView.builder(
+        padding: const EdgeInsets.all(16),
+        itemCount: pending.length,
+        itemBuilder: (context, index) {
+          return _buildLocationCard(
+            context,
+            pending[index],
+            isPending: true,
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildHistoryTab(List<PotentialLocation> converted) {
+    if (converted.isEmpty) {
+      return _buildEmptyState(
+        icon: Icons.history,
+        title: 'No History Yet',
+        subtitle: 'Approved locations will\nappear here',
+      );
+    }
+
+    return RefreshIndicator(
+      onRefresh: () async {
+        ref.read(potentialLocationsListNotifierProvider.notifier).refresh();
+      },
+      color: AppColors.primaryGreen,
+      child: ListView.builder(
+        padding: const EdgeInsets.all(16),
+        itemCount: converted.length,
+        itemBuilder: (context, index) {
+          return _buildLocationCard(
+            context,
+            converted[index],
+            isPending: false,
+          );
+        },
+      ),
+    );
+  }
+
   Widget _buildSectionHeader(String title, int count) {
     return Row(
       children: [
@@ -147,7 +323,11 @@ class PotentialLocationsPage extends HookConsumerWidget {
     );
   }
 
-  Widget _buildEmptyState() {
+  Widget _buildEmptyState({
+    required IconData icon,
+    required String title,
+    required String subtitle,
+  }) {
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -159,14 +339,14 @@ class PotentialLocationsPage extends HookConsumerWidget {
               shape: BoxShape.circle,
             ),
             child: Icon(
-              Icons.location_on_outlined,
+              icon,
               size: 64,
               color: Colors.grey[400],
             ),
           ),
           const SizedBox(height: 24),
           Text(
-            'No Potential Locations',
+            title,
             style: TextStyle(
               fontSize: 20,
               fontWeight: FontWeight.bold,
@@ -175,7 +355,7 @@ class PotentialLocationsPage extends HookConsumerWidget {
           ),
           const SizedBox(height: 8),
           Text(
-            'Location suggestions from drivers\nwill appear here',
+            subtitle,
             textAlign: TextAlign.center,
             style: TextStyle(
               fontSize: 14,
@@ -189,7 +369,6 @@ class PotentialLocationsPage extends HookConsumerWidget {
 
   Widget _buildLocationCard(
     BuildContext context,
-    WidgetRef ref,
     PotentialLocation location, {
     required bool isPending,
   }) {
@@ -217,7 +396,7 @@ class PotentialLocationsPage extends HookConsumerWidget {
         child: InkWell(
           borderRadius: BorderRadius.circular(16),
           onTap: () {
-            _showLocationDetail(context, ref, location, isPending);
+            _showLocationDetail(context, location, isPending);
           },
           child: Padding(
             padding: const EdgeInsets.all(16),
@@ -379,13 +558,90 @@ class PotentialLocationsPage extends HookConsumerWidget {
                     ),
                   ),
                 ],
+                // Conversion Details (for history items)
+                if (!isPending && location.binNumber != null) ...[
+                  const SizedBox(height: 12),
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [
+                          Colors.green[50]!,
+                          Colors.green[100]!.withValues(alpha: 0.3),
+                        ],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: Colors.green[200]!,
+                        width: 1.5,
+                      ),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(6),
+                              decoration: BoxDecoration(
+                                color: Colors.green[600],
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: const Icon(
+                                Icons.check_circle,
+                                color: Colors.white,
+                                size: 16,
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Converted to Bin #${location.binNumber}',
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w600,
+                                      color: Colors.green[900],
+                                    ),
+                                  ),
+                                  if (location.convertedAtIso != null) ...[
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      'Approved ${_formatDate(location.convertedAtIso!)}',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: Colors.green[700],
+                                      ),
+                                    ),
+                                  ],
+                                ],
+                              ),
+                            ),
+                            Icon(
+                              Icons.arrow_forward_ios,
+                              size: 14,
+                              color: Colors.green[700],
+                            ),
+                          ],
+                        ),
+                        // Conversion Type Badge
+                        const SizedBox(height: 10),
+                        _buildConversionTypeBadge(location),
+                      ],
+                    ),
+                  ),
+                ],
                 // Locate on Map Button
                 if (location.latitude != null && location.longitude != null) ...[
                   const SizedBox(height: 12),
                   SizedBox(
                     width: double.infinity,
                     child: ElevatedButton.icon(
-                      onPressed: () => _locateOnMap(context, ref, location),
+                      onPressed: () => _locateOnMap(context, location),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppColors.primaryGreen,
                         foregroundColor: Colors.white,
@@ -434,9 +690,54 @@ class PotentialLocationsPage extends HookConsumerWidget {
     }
   }
 
+  Widget _buildConversionTypeBadge(PotentialLocation location) {
+    final bool isDriverPlacement = location.convertedViaShiftId != null;
+    final String converterName = isDriverPlacement
+        ? (location.convertedByDriverName ?? 'Driver')
+        : (location.convertedByManagerName ?? 'Manager');
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: isDriverPlacement ? Colors.blue[50] : Colors.purple[50],
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(
+          color: isDriverPlacement ? Colors.blue[200]! : Colors.purple[200]!,
+          width: 1,
+        ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            isDriverPlacement ? Icons.local_shipping : Icons.person_outline,
+            size: 14,
+            color: isDriverPlacement ? Colors.blue[700] : Colors.purple[700],
+          ),
+          const SizedBox(width: 6),
+          Text(
+            isDriverPlacement ? 'Driver Placement' : 'Manager Conversion',
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: isDriverPlacement ? Colors.blue[700] : Colors.purple[700],
+            ),
+          ),
+          const SizedBox(width: 4),
+          Text(
+            '• $converterName',
+            style: TextStyle(
+              fontSize: 11,
+              color: isDriverPlacement ? Colors.blue[600] : Colors.purple[600],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   void _locateOnMap(
     BuildContext context,
-    WidgetRef ref,
     PotentialLocation location,
   ) {
     // Set the focused potential location
@@ -450,16 +751,17 @@ class PotentialLocationsPage extends HookConsumerWidget {
 
   void _showLocationDetail(
     BuildContext context,
-    WidgetRef ref,
     PotentialLocation location,
     bool isPending,
-  ) {
-    showDialog(
+  ) async {
+    await showDialog(
       context: context,
       builder: (context) => ConvertLocationDialog(
         location: location,
         isPending: isPending,
       ),
     );
+    // Refresh list after dialog closes (in case location was converted)
+    ref.read(potentialLocationsListNotifierProvider.notifier).refresh();
   }
 }

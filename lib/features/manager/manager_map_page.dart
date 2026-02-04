@@ -20,11 +20,15 @@ import 'package:ropacalapp/features/driver/notifications_page.dart';
 import 'package:ropacalapp/features/driver/widgets/bin_details_bottom_sheet.dart';
 import 'package:ropacalapp/features/manager/widgets/potential_location_bottom_sheet.dart';
 import 'package:ropacalapp/core/services/google_navigation_marker_service.dart';
-import 'package:ropacalapp/core/services/google_navigation_service.dart';
 import 'package:ropacalapp/core/services/marker_animation_service.dart';
 import 'package:ropacalapp/core/theme/app_colors.dart';
+import 'package:ropacalapp/core/services/centrifugo_service.dart';
+import 'package:ropacalapp/models/driver_location.dart';
 
 /// Manager dashboard map showing all active drivers
+///
+/// Uses standard Google Maps view (GoogleMapsMapView) since managers never need navigation.
+/// Drivers use GoogleMapsNavigationView when on active shifts via DriverMapWrapper.
 class ManagerMapPage extends HookConsumerWidget {
   const ManagerMapPage({super.key});
 
@@ -111,8 +115,7 @@ class ManagerMapPage extends HookConsumerWidget {
 
     AppLogger.general('✅ Initial data loaded - proceeding with map render');
 
-    final mapController = useState<GoogleNavigationViewController?>(null);
-    final navigatorInitialized = useState(false);
+    final mapController = useState<GoogleMapViewController?>(null);
 
     // Bin markers (added once, never cleared)
     final binMarkers = useState<List<Marker>>([]);
@@ -146,39 +149,6 @@ class ManagerMapPage extends HookConsumerWidget {
     // Flag to prevent concurrent marker updates
     final isUpdatingMarkers = useState<bool>(false);
 
-    // Initialize Google Maps Navigator BEFORE view creation
-    // This prevents SDK 0.8.2 crashes when using GoogleMapsNavigationView without navigation session
-    useEffect(() {
-      var isMounted = true;
-
-      Future<void> initializeNavigator() async {
-        AppLogger.map('🚀 [Manager Map] Initializing navigation session...');
-
-        try {
-          await GoogleNavigationService.initializeNavigation(context, ref);
-          if (!isMounted) {
-            AppLogger.map('⚠️  [Manager Map] Widget disposed during initialization');
-            return;
-          }
-
-          navigatorInitialized.value = true;
-          AppLogger.map('✅ [Manager Map] Navigation session initialized successfully');
-        } catch (e) {
-          AppLogger.map('❌ [Manager Map] Navigation initialization error: $e');
-          // Don't prevent map loading even if initialization fails
-          if (isMounted) {
-            navigatorInitialized.value = true; // Still allow map to load
-          }
-        }
-      }
-
-      initializeNavigator();
-
-      return () {
-        isMounted = false;
-      };
-    }, []); // Run once on mount
-
     return Scaffold(
       body: driversAsync.when(
         data: (drivers) {
@@ -211,6 +181,85 @@ class ManagerMapPage extends HookConsumerWidget {
               return filtered;
             },
             [drivers],
+          );
+
+          // Effect 0: Subscribe to driver locations via Centrifugo
+          // This replaces OLD WebSocket for real-time location updates
+          useEffect(
+            () {
+              AppLogger.map('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+              AppLogger.map('📡 CENTRIFUGO: Setting up driver location subscriptions');
+              AppLogger.map('   Total drivers: ${drivers.length}');
+
+              final centrifugo = ref.read(centrifugoServiceProvider);
+              final subscriptions = <StreamSubscription>[];
+
+              // Subscribe to all active drivers' locations
+              for (final driver in drivers) {
+                if (driver.status == ShiftStatus.active ||
+                    driver.status == ShiftStatus.ready ||
+                    driver.status == ShiftStatus.paused) {
+                  AppLogger.map('   📍 Subscribing to driver: ${driver.driverName} (${driver.driverId})');
+
+                  centrifugo.subscribeToDriverLocation(
+                    driver.driverId,
+                    (locationData) {
+                      AppLogger.map('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+                      AppLogger.map('📍 CENTRIFUGO: Location update received');
+                      AppLogger.map('   Driver ID: ${locationData['driver_id'] ?? 'unknown'}');
+                      AppLogger.map('   Latitude: ${locationData['latitude']}');
+                      AppLogger.map('   Longitude: ${locationData['longitude']}');
+                      AppLogger.map('   Shift ID: ${locationData['shift_id']}');
+
+                      try {
+                        // Parse location data
+                        final location = DriverLocation(
+                          driverId: locationData['driver_id'] ?? driver.driverId,
+                          latitude: (locationData['latitude'] as num).toDouble(),
+                          longitude: (locationData['longitude'] as num).toDouble(),
+                          heading: (locationData['heading'] as num?)?.toDouble(),
+                          speed: (locationData['speed'] as num?)?.toDouble(),
+                          accuracy: (locationData['accuracy'] as num?)?.toDouble(),
+                          shiftId: locationData['shift_id'] as String?,
+                          timestamp: locationData['timestamp'] as int?,
+                        );
+
+                        // Update driver location in provider
+                        ref.read(driversNotifierProvider.notifier)
+                            .updateDriverLocation(location);
+
+                        AppLogger.map('   ✅ Location updated in provider');
+                      } catch (e) {
+                        AppLogger.map('   ❌ Error parsing location: $e');
+                      }
+                      AppLogger.map('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+                    },
+                  ).then((subscription) {
+                    subscriptions.add(subscription);
+                  }).catchError((error) {
+                    AppLogger.map('   ❌ Failed to subscribe to ${driver.driverName}: $error');
+                  });
+                }
+              }
+
+              AppLogger.map('✅ CENTRIFUGO: Subscription setup complete');
+              AppLogger.map('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+
+              // Cleanup function
+              return () {
+                AppLogger.map('🧹 CENTRIFUGO: Cleaning up driver location subscriptions');
+                for (final subscription in subscriptions) {
+                  subscription.cancel();
+                }
+
+                // Unsubscribe from all driver channels
+                for (final driver in drivers) {
+                  centrifugo.unsubscribe('driver:location:${driver.driverId}');
+                }
+                AppLogger.map('✅ CENTRIFUGO: Cleanup complete');
+              };
+            },
+            [drivers.map((d) => '${d.driverId}:${d.status}').join('|')],
           );
 
           // Effect 1a: Add/remove bin markers (add new bins, remove deleted bins)
@@ -943,28 +992,28 @@ class ManagerMapPage extends HookConsumerWidget {
 
           return Stack(
             children: [
-              // Google Navigation Map View
-              GoogleMapsNavigationView(
+              // Standard Google Maps View (no navigation)
+              GoogleMapsMapView(
                 key: const ValueKey('fleet_map'),
                 initialCameraPosition: const CameraPosition(
                   target: LatLng(latitude: 32.886534, longitude: -96.7642497), // Dallas
                   zoom: 12,
+                  tilt: 0.0, // Flat 2D view
+                  bearing: 0.0, // North-up orientation
                 ),
+                initialMapType: MapType.normal,
                 initialZoomControlsEnabled: false,
-                onViewCreated: (controller) async {
+                onViewCreated: (GoogleMapViewController controller) async {
                   mapController.value = controller;
-                  AppLogger.map('Manager fleet map created');
+                  AppLogger.map('✅ Manager fleet map created (standard Google Maps view)');
 
                   // Enable MyLocation to show manager's current location (blue dot)
                   await controller.setMyLocationEnabled(true);
-
-                  // Disable navigation UI elements
-                  await controller.setNavigationHeaderEnabled(false);
-                  await controller.setNavigationFooterEnabled(false);
-                  await controller.setRecenterButtonEnabled(false);
+                  AppLogger.map('✅ My Location (blue dot) enabled');
 
                   // Disable Google's native My Location button (use our custom one instead)
                   await controller.settings.setMyLocationButtonEnabled(false);
+                  AppLogger.map('✅ Default My Location button disabled (using custom button)');
                 },
                 onMarkerClicked: (markerId) {
                   AppLogger.map('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');

@@ -653,7 +653,7 @@ class MoveDialog extends HookConsumerWidget {
                   zipController.text = zipMatch.group(0)!.split('-')[0];
                 } else if (prediction.lat != null && prediction.lng != null) {
                   try {
-                    final geocodeResult = await GeocodingService.reverseGeocode(
+                    final geocodeResult = await GeocodingService.hereReverseGeocode(
                       latitude: double.parse(prediction.lat!),
                       longitude: double.parse(prediction.lng!),
                     );

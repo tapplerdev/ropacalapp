@@ -41,6 +41,12 @@ mixin _$PotentialLocation {
   String? get convertedAtIso => throw _privateConstructorUsedError;
   @JsonKey(name: 'converted_by_user_id')
   String? get convertedByUserId => throw _privateConstructorUsedError;
+  @JsonKey(name: 'converted_via_shift_id')
+  String? get convertedViaShiftId => throw _privateConstructorUsedError;
+  @JsonKey(name: 'converted_by_driver_name')
+  String? get convertedByDriverName => throw _privateConstructorUsedError;
+  @JsonKey(name: 'converted_by_manager_name')
+  String? get convertedByManagerName => throw _privateConstructorUsedError;
   @JsonKey(name: 'bin_number')
   int? get binNumber => throw _privateConstructorUsedError;
 
@@ -76,6 +82,9 @@ abstract class $PotentialLocationCopyWith<$Res> {
     @JsonKey(name: 'converted_to_bin_id') String? convertedToBinId,
     @JsonKey(name: 'converted_at_iso') String? convertedAtIso,
     @JsonKey(name: 'converted_by_user_id') String? convertedByUserId,
+    @JsonKey(name: 'converted_via_shift_id') String? convertedViaShiftId,
+    @JsonKey(name: 'converted_by_driver_name') String? convertedByDriverName,
+    @JsonKey(name: 'converted_by_manager_name') String? convertedByManagerName,
     @JsonKey(name: 'bin_number') int? binNumber,
   });
 }
@@ -109,6 +118,9 @@ class _$PotentialLocationCopyWithImpl<$Res, $Val extends PotentialLocation>
     Object? convertedToBinId = freezed,
     Object? convertedAtIso = freezed,
     Object? convertedByUserId = freezed,
+    Object? convertedViaShiftId = freezed,
+    Object? convertedByDriverName = freezed,
+    Object? convertedByManagerName = freezed,
     Object? binNumber = freezed,
   }) {
     return _then(
@@ -169,6 +181,18 @@ class _$PotentialLocationCopyWithImpl<$Res, $Val extends PotentialLocation>
                 ? _value.convertedByUserId
                 : convertedByUserId // ignore: cast_nullable_to_non_nullable
                       as String?,
+            convertedViaShiftId: freezed == convertedViaShiftId
+                ? _value.convertedViaShiftId
+                : convertedViaShiftId // ignore: cast_nullable_to_non_nullable
+                      as String?,
+            convertedByDriverName: freezed == convertedByDriverName
+                ? _value.convertedByDriverName
+                : convertedByDriverName // ignore: cast_nullable_to_non_nullable
+                      as String?,
+            convertedByManagerName: freezed == convertedByManagerName
+                ? _value.convertedByManagerName
+                : convertedByManagerName // ignore: cast_nullable_to_non_nullable
+                      as String?,
             binNumber: freezed == binNumber
                 ? _value.binNumber
                 : binNumber // ignore: cast_nullable_to_non_nullable
@@ -203,6 +227,9 @@ abstract class _$$PotentialLocationImplCopyWith<$Res>
     @JsonKey(name: 'converted_to_bin_id') String? convertedToBinId,
     @JsonKey(name: 'converted_at_iso') String? convertedAtIso,
     @JsonKey(name: 'converted_by_user_id') String? convertedByUserId,
+    @JsonKey(name: 'converted_via_shift_id') String? convertedViaShiftId,
+    @JsonKey(name: 'converted_by_driver_name') String? convertedByDriverName,
+    @JsonKey(name: 'converted_by_manager_name') String? convertedByManagerName,
     @JsonKey(name: 'bin_number') int? binNumber,
   });
 }
@@ -235,6 +262,9 @@ class __$$PotentialLocationImplCopyWithImpl<$Res>
     Object? convertedToBinId = freezed,
     Object? convertedAtIso = freezed,
     Object? convertedByUserId = freezed,
+    Object? convertedViaShiftId = freezed,
+    Object? convertedByDriverName = freezed,
+    Object? convertedByManagerName = freezed,
     Object? binNumber = freezed,
   }) {
     return _then(
@@ -295,6 +325,18 @@ class __$$PotentialLocationImplCopyWithImpl<$Res>
             ? _value.convertedByUserId
             : convertedByUserId // ignore: cast_nullable_to_non_nullable
                   as String?,
+        convertedViaShiftId: freezed == convertedViaShiftId
+            ? _value.convertedViaShiftId
+            : convertedViaShiftId // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        convertedByDriverName: freezed == convertedByDriverName
+            ? _value.convertedByDriverName
+            : convertedByDriverName // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        convertedByManagerName: freezed == convertedByManagerName
+            ? _value.convertedByManagerName
+            : convertedByManagerName // ignore: cast_nullable_to_non_nullable
+                  as String?,
         binNumber: freezed == binNumber
             ? _value.binNumber
             : binNumber // ignore: cast_nullable_to_non_nullable
@@ -322,6 +364,9 @@ class _$PotentialLocationImpl implements _PotentialLocation {
     @JsonKey(name: 'converted_to_bin_id') this.convertedToBinId,
     @JsonKey(name: 'converted_at_iso') this.convertedAtIso,
     @JsonKey(name: 'converted_by_user_id') this.convertedByUserId,
+    @JsonKey(name: 'converted_via_shift_id') this.convertedViaShiftId,
+    @JsonKey(name: 'converted_by_driver_name') this.convertedByDriverName,
+    @JsonKey(name: 'converted_by_manager_name') this.convertedByManagerName,
     @JsonKey(name: 'bin_number') this.binNumber,
   });
 
@@ -363,12 +408,21 @@ class _$PotentialLocationImpl implements _PotentialLocation {
   @JsonKey(name: 'converted_by_user_id')
   final String? convertedByUserId;
   @override
+  @JsonKey(name: 'converted_via_shift_id')
+  final String? convertedViaShiftId;
+  @override
+  @JsonKey(name: 'converted_by_driver_name')
+  final String? convertedByDriverName;
+  @override
+  @JsonKey(name: 'converted_by_manager_name')
+  final String? convertedByManagerName;
+  @override
   @JsonKey(name: 'bin_number')
   final int? binNumber;
 
   @override
   String toString() {
-    return 'PotentialLocation(id: $id, address: $address, street: $street, city: $city, zip: $zip, latitude: $latitude, longitude: $longitude, requestedByUserId: $requestedByUserId, requestedByName: $requestedByName, notes: $notes, createdAtIso: $createdAtIso, convertedToBinId: $convertedToBinId, convertedAtIso: $convertedAtIso, convertedByUserId: $convertedByUserId, binNumber: $binNumber)';
+    return 'PotentialLocation(id: $id, address: $address, street: $street, city: $city, zip: $zip, latitude: $latitude, longitude: $longitude, requestedByUserId: $requestedByUserId, requestedByName: $requestedByName, notes: $notes, createdAtIso: $createdAtIso, convertedToBinId: $convertedToBinId, convertedAtIso: $convertedAtIso, convertedByUserId: $convertedByUserId, convertedViaShiftId: $convertedViaShiftId, convertedByDriverName: $convertedByDriverName, convertedByManagerName: $convertedByManagerName, binNumber: $binNumber)';
   }
 
   @override
@@ -398,6 +452,12 @@ class _$PotentialLocationImpl implements _PotentialLocation {
                 other.convertedAtIso == convertedAtIso) &&
             (identical(other.convertedByUserId, convertedByUserId) ||
                 other.convertedByUserId == convertedByUserId) &&
+            (identical(other.convertedViaShiftId, convertedViaShiftId) ||
+                other.convertedViaShiftId == convertedViaShiftId) &&
+            (identical(other.convertedByDriverName, convertedByDriverName) ||
+                other.convertedByDriverName == convertedByDriverName) &&
+            (identical(other.convertedByManagerName, convertedByManagerName) ||
+                other.convertedByManagerName == convertedByManagerName) &&
             (identical(other.binNumber, binNumber) ||
                 other.binNumber == binNumber));
   }
@@ -420,6 +480,9 @@ class _$PotentialLocationImpl implements _PotentialLocation {
     convertedToBinId,
     convertedAtIso,
     convertedByUserId,
+    convertedViaShiftId,
+    convertedByDriverName,
+    convertedByManagerName,
     binNumber,
   );
 
@@ -457,6 +520,11 @@ abstract class _PotentialLocation implements PotentialLocation {
     @JsonKey(name: 'converted_to_bin_id') final String? convertedToBinId,
     @JsonKey(name: 'converted_at_iso') final String? convertedAtIso,
     @JsonKey(name: 'converted_by_user_id') final String? convertedByUserId,
+    @JsonKey(name: 'converted_via_shift_id') final String? convertedViaShiftId,
+    @JsonKey(name: 'converted_by_driver_name')
+    final String? convertedByDriverName,
+    @JsonKey(name: 'converted_by_manager_name')
+    final String? convertedByManagerName,
     @JsonKey(name: 'bin_number') final int? binNumber,
   }) = _$PotentialLocationImpl;
 
@@ -497,6 +565,15 @@ abstract class _PotentialLocation implements PotentialLocation {
   @override
   @JsonKey(name: 'converted_by_user_id')
   String? get convertedByUserId;
+  @override
+  @JsonKey(name: 'converted_via_shift_id')
+  String? get convertedViaShiftId;
+  @override
+  @JsonKey(name: 'converted_by_driver_name')
+  String? get convertedByDriverName;
+  @override
+  @JsonKey(name: 'converted_by_manager_name')
+  String? get convertedByManagerName;
   @override
   @JsonKey(name: 'bin_number')
   int? get binNumber;

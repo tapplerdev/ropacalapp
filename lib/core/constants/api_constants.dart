@@ -30,4 +30,7 @@ class ApiConstants {
 
   // Route optimization
   static const String routeEndpoint = '/api/route';
+
+  // Centrifugo real-time messaging
+  static const String centrifugoTokenEndpoint = '/api/centrifugo/token';
 }

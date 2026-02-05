@@ -45,12 +45,30 @@ class CentrifugoService {
 
       log('🔑 [Centrifugo] Token received (expires: ${DateTime.fromMillisecondsSinceEpoch(expiresAt * 1000)})');
 
-      // Create Centrifuge client with v0.11.0 API
+      // Create Centrifuge client with production configuration
       _client = createClient(
         _websocketUrl,
         ClientConfig(
           token: token,
           timeout: const Duration(seconds: 30),
+          // Reconnection settings (exponential backoff with jitter)
+          minReconnectDelay: const Duration(milliseconds: 500), // Start fast
+          maxReconnectDelay: const Duration(seconds: 20), // Cap at 20s
+          // Ping configuration for faster dead connection detection
+          maxServerPingDelay: const Duration(seconds: 10),
+          // Token refresh callback - called when token is expiring
+          getToken: (event) async {
+            log('🔑 [Centrifugo] Token expiring, fetching fresh token from backend...');
+            try {
+              final response = await _apiService.getCentrifugoToken();
+              final newToken = response['token'] as String;
+              log('✅ [Centrifugo] Token refreshed successfully');
+              return newToken;
+            } catch (e) {
+              log('❌ [Centrifugo] Token refresh failed: $e');
+              rethrow;
+            }
+          },
         ),
       );
 
@@ -291,6 +309,28 @@ class CentrifugoService {
 
   /// Get list of active subscriptions
   List<String> get activeChannels => _subscriptions.keys.toList();
+
+  /// Publish location data to Centrifugo channel
+  /// This publishes directly to Centrifugo, which triggers the publish proxy
+  /// Backend flow: Centrifugo receives → calls publish proxy → saves to Redis → snaps to roads → broadcasts
+  Future<void> publish(String channel, Map<String, dynamic> data) async {
+    if (_client == null) {
+      log('❌ [Centrifugo] Cannot publish - client is null!');
+      throw StateError('Centrifugo client not connected. Call connect() first.');
+    }
+
+    log('🔌 [Centrifugo] Client state: ${_client!.state}');
+
+    try {
+      log('📤 [Centrifugo] Publishing to $channel...');
+      log('📦 [Centrifugo] Data: $data');
+      await _client!.publish(channel, utf8.encode(jsonEncode(data)));
+      log('✅ [Centrifugo] Published to $channel successfully');
+    } catch (e) {
+      log('❌ [Centrifugo] Failed to publish to $channel: $e');
+      rethrow;
+    }
+  }
 
   /// DEPRECATED: Location publishing now handled by backend
   /// Driver sends location to backend via POST /api/driver/location

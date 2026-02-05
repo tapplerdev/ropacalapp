@@ -4,6 +4,7 @@ import 'package:fused_location/fused_location_provider.dart';
 import 'package:fused_location/fused_location_options.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:ropacalapp/core/utils/app_logger.dart';
+import 'package:ropacalapp/core/services/centrifugo_service.dart';
 import 'package:ropacalapp/providers/auth_provider.dart';
 
 /// Location tracking service for drivers using fused_location with native
@@ -220,6 +221,14 @@ class LocationTrackingService {
         '📍 [LocationTracking] Publishing location to Centrifugo: '
         'lat=${lat.toStringAsFixed(6)}, lng=${lng.toStringAsFixed(6)}, '
         'accuracy=${accuracy.toStringAsFixed(1)}m, shift_id=$_currentShiftId',
+      );
+
+      AppLogger.general(
+        '📦 [LocationTracking] Full location data: $locationData',
+      );
+
+      AppLogger.general(
+        '🔑 [LocationTracking] Publishing to channel: driver:location:${user.id}',
       );
 
       // Publish to Centrifugo channel via WebSocket

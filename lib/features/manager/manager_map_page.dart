@@ -170,10 +170,11 @@ class ManagerMapPage extends HookConsumerWidget {
                 }
               }
 
+              // TEMPORARY: Show all drivers with location regardless of status (for testing)
+              // TODO: Revert to: d.status == ShiftStatus.active && d.currentLocation != null
               final filtered = drivers
                   .where(
-                    (d) =>
-                        d.status == ShiftStatus.active && d.currentLocation != null,
+                    (d) => d.currentLocation != null,
                   )
                   .toList();
 

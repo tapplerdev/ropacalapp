@@ -11,7 +11,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
-	<string>Ropacalapp</string>
+	<string>Binly</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -19,7 +19,7 @@
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>
-	<string>ropacalapp</string>
+	<string>Binly</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
@@ -34,22 +34,53 @@
 	<true/>
 	<key>MBXAccessToken</key>
 	<string>pk.eyJ1IjoiYXRham9lIiwiYSI6ImNsMjhqbm5nYTA3bm8zY3J0NTR4bjczcTEifQ.OpvLYThGfRCuldBjjNr5iQ</string>
+	<key>NSCameraUsageDescription</key>
+	<string>We need camera access to take photos of bins during check-in</string>
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
 	<string>We need your location to track your route and update bin statuses</string>
 	<key>NSLocationUsageDescription</key>
 	<string>We need your location to show nearby bins and optimize your route</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>We need your location to show nearby bins and optimize your route</string>
-	<key>NSCameraUsageDescription</key>
-	<string>We need camera access to take photos of bins during check-in</string>
-	<key>NSPhotoLibraryUsageDescription</key>
-	<string>We need photo library access to save bin photos</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>
 	<string>We need permission to save bin photos to your photo library</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>We need photo library access to save bin photos</string>
+	<key>UIApplicationSceneManifest</key>
+	<dict>
+		<key>UIApplicationSupportsMultipleScenes</key>
+		<true/>
+		<key>UISceneConfigurations</key>
+		<dict>
+			<!-- TODO: Uncomment CarPlay scene when entitlement is approved by Apple -->
+			<!-- <key>CPTemplateApplicationSceneSessionRoleApplication</key>
+			<array>
+				<dict>
+					<key>UISceneClassName</key>
+					<string>CPTemplateApplicationScene</string>
+					<key>UISceneConfigurationName</key>
+					<string>CarPlay</string>
+					<key>UISceneDelegateClassName</key>
+					<string>$(PRODUCT_MODULE_NAME).CarSceneDelegate</string>
+				</dict>
+			</array> -->
+			<key>UIWindowSceneSessionRoleApplication</key>
+			<array>
+				<dict>
+					<key>UISceneClassName</key>
+					<string>UIWindowScene</string>
+					<key>UISceneConfigurationName</key>
+					<string>Phone</string>
+					<key>UISceneDelegateClassName</key>
+					<string>$(PRODUCT_MODULE_NAME).PhoneSceneDelegate</string>
+					<key>UISceneStoryboardFile</key>
+					<string>Main</string>
+				</dict>
+			</array>
+		</dict>
+	</dict>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
-	<key>UIUserInterfaceStyle</key>
-	<string>Light</string>
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>location</string>
@@ -74,5 +105,7 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
+	<key>UIUserInterfaceStyle</key>
+	<string>Light</string>
 </dict>
 </plist>

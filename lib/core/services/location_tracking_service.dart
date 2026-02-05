@@ -136,32 +136,71 @@ class LocationTrackingService {
   /// Gets location from the data stream's first value
   Future<void> sendCurrentLocation() async {
     try {
+      final startTime = DateTime.now();
       AppLogger.general('📍 Getting current location for pre-shift update...');
+      AppLogger.general('   ⏱️  Start time: ${startTime.toIso8601String()}');
 
-      // Start location updates temporarily to get current position
-      const options = FusedLocationProviderOptions(distanceFilter: 0);
-      await _fusedLocation.startLocationUpdates(options: options);
+      FusedLocation? location;
 
-      // Get the first location from the stream with timeout
-      final location = await _fusedLocation.dataStream
-          .first
-          .timeout(
-            const Duration(seconds: 5),
-            onTimeout: () => throw Exception('Location timeout'),
-          );
+      try {
+        // Start location updates temporarily to get current position
+        const options = FusedLocationProviderOptions(distanceFilter: 0);
+        await _fusedLocation.startLocationUpdates(options: options);
+        AppLogger.general('   ✅ Location updates started');
 
-      // Stop the temporary location updates
-      await _fusedLocation.stopLocationUpdates();
+        // Get the first location from the stream with timeout
+        AppLogger.general('   ⏳ Waiting for GPS location (5 second timeout)...');
+        location = await _fusedLocation.dataStream
+            .first
+            .timeout(
+              const Duration(seconds: 5),
+              onTimeout: () => throw Exception('Location timeout'),
+            );
+
+        final gotLocationTime = DateTime.now();
+        final gpsDuration = gotLocationTime.difference(startTime).inMilliseconds;
+        AppLogger.general('   ✅ Got GPS location in ${gpsDuration}ms');
+
+        // Stop the temporary location updates
+        await _fusedLocation.stopLocationUpdates();
+      } catch (e) {
+        AppLogger.general('   ❌ GPS timeout - could not get location');
+        AppLogger.general('   ⚠️  Shift will start WITHOUT initial location!');
+        // Don't send location if we couldn't get it
+        return;
+        // TODO: iOS simulator fallback (commented out for production)
+        // location = FusedLocation(
+        //   position: const Position(
+        //     latitude: 37.59054,
+        //     longitude: -122.31971,
+        //     accuracy: 10.0,
+        //   ),
+        //   elevation: const Elevation(),
+        //   course: const Course(),
+        //   speed: const Speed(),
+        //   heading: const Heading(direction: 0.0, accuracy: 0.0),
+        //   timestamp: DateTime.now(),
+        // );
+      }
 
       AppLogger.general(
-        '✅ Got current location: ${location.position.latitude}, ${location.position.longitude}',
+        '📍 Current location: ${location.position.latitude.toStringAsFixed(6)}, ${location.position.longitude.toStringAsFixed(6)}',
       );
+      AppLogger.general('   Accuracy: ${location.position.accuracy?.toStringAsFixed(2)}m');
+
+      AppLogger.general('   📤 Publishing location to Centrifugo...');
       _sendLocation(location);
 
       // Wait a bit to ensure WebSocket message is sent
+      AppLogger.general('   ⏳ Waiting 500ms for WebSocket delivery...');
       await Future.delayed(const Duration(milliseconds: 500));
+
+      final endTime = DateTime.now();
+      final totalDuration = endTime.difference(startTime).inMilliseconds;
+      AppLogger.general('   ✅ sendCurrentLocation() completed in ${totalDuration}ms');
     } catch (e) {
       AppLogger.general('❌ Error getting current location: $e');
+      AppLogger.general('   ⚠️  Shift will start WITHOUT location in Redis!');
     }
   }
 

@@ -271,14 +271,30 @@ class ShiftNotifier extends _$ShiftNotifier {
     }
 
     try {
+      final overallStartTime = DateTime.now();
+      AppLogger.general('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      AppLogger.general('🚀 SHIFT ACCEPTANCE FLOW STARTED');
+      AppLogger.general('   Shift ID: ${state.shiftId}');
+      AppLogger.general('   Start time: ${overallStartTime.toIso8601String()}');
+      AppLogger.general('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+
       // Send current location before starting shift
       // This ensures backend has a location entry in driver_current_location table
-      AppLogger.general('📍 Sending current location before starting shift...');
+      AppLogger.general('📍 STEP 1: Sending current location before starting shift...');
+      final locationStartTime = DateTime.now();
       await ref.read(locationTrackingServiceProvider).sendCurrentLocation();
-      AppLogger.general('✅ Location sent, proceeding with shift start');
+      final locationEndTime = DateTime.now();
+      final locationDuration = locationEndTime.difference(locationStartTime).inMilliseconds;
+      AppLogger.general('✅ Location step completed in ${locationDuration}ms');
 
+      AppLogger.general('');
+      AppLogger.general('📡 STEP 2: Calling backend API /api/driver/shift/start...');
+      final apiStartTime = DateTime.now();
       final shiftService = ref.read(shiftServiceProvider);
       final updatedShift = await shiftService.startShift();
+      final apiEndTime = DateTime.now();
+      final apiDuration = apiEndTime.difference(apiStartTime).inMilliseconds;
+      AppLogger.general('✅ API call completed in ${apiDuration}ms');
 
       // IMPORTANT: Preserve routeBins from current state
       // The API response doesn't include bins array, but we already have it from route assignment
@@ -287,20 +303,37 @@ class ShiftNotifier extends _$ShiftNotifier {
         routeBins: state.routeBins.isNotEmpty ? state.routeBins : updatedShift.routeBins,
       );
 
-      AppLogger.general('🚀 Shift started at ${state.startTime}');
-      AppLogger.general('✅ Shift active - DriverMapWrapper will auto-switch to navigation');
-
+      AppLogger.general('');
+      AppLogger.general('📍 STEP 3: Starting continuous location tracking...');
       // Start location tracking (sends GPS every 10 seconds)
       if (state.shiftId != null) {
-        AppLogger.general('📍 Starting location tracking for shift: ${state.shiftId}');
         ref.read(locationTrackingServiceProvider).startTracking(
           state.shiftId!,
         );
+        AppLogger.general('✅ Location tracking started - will publish every 10 seconds');
       } else {
         AppLogger.general('⚠️ Cannot start location tracking - shiftId is null');
       }
+
+      final overallEndTime = DateTime.now();
+      final totalDuration = overallEndTime.difference(overallStartTime).inMilliseconds;
+
+      AppLogger.general('');
+      AppLogger.general('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      AppLogger.general('✅ SHIFT ACCEPTANCE FLOW COMPLETED');
+      AppLogger.general('   Total duration: ${totalDuration}ms');
+      AppLogger.general('   - Location step: ${locationDuration}ms');
+      AppLogger.general('   - API call: ${apiDuration}ms');
+      AppLogger.general('   Shift Status: ${state.status}');
+      AppLogger.general('   Shift started at: ${state.startTime}');
+      AppLogger.general('   Route bins: ${state.routeBins.length}');
+      AppLogger.general('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
     } catch (e) {
-      AppLogger.general('❌ Error starting shift: $e', level: AppLogger.error);
+      AppLogger.general('');
+      AppLogger.general('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      AppLogger.general('❌ SHIFT ACCEPTANCE FLOW FAILED');
+      AppLogger.general('   Error: $e');
+      AppLogger.general('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
       rethrow;
     }
   }

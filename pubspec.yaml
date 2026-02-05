@@ -74,8 +74,8 @@ dependencies:
   google_places_flutter: ^2.0.9  # Google Places autocomplete
 
   # Real-time Communication
-  centrifuge: ^0.11.0  # Centrifugo WebSocket client for real-time messaging
-  web_socket_channel: ^2.4.0  # Legacy WebSocket (to be removed)
+  centrifuge: ^0.18.0  # Centrifugo WebSocket client for real-time messaging
+  web_socket_channel: ^3.0.0  # WebSocket channel (required by centrifuge 0.18.0)
 
   # Firebase (upgraded to latest versions)
   firebase_core: ^4.2.1

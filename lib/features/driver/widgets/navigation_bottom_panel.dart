@@ -1734,19 +1734,7 @@ class NavigationBottomPanel extends HookConsumerWidget {
                                         fontWeight: FontWeight.w500,
                                       ),
                                     ),
-                                    const SizedBox(height: 16),
-
-                                    // Content
-                                    const Text(
-                                      'Ready to proceed to the next stop?',
-                                      textAlign: TextAlign.center,
-                                      style: TextStyle(
-                                        fontSize: 16,
-                                        color: Colors.black87,
-                                        height: 1.4,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 28),
+                                    const SizedBox(height: 24),
 
                                     // Buttons
                                     Row(

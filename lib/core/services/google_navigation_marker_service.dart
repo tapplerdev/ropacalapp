@@ -31,8 +31,8 @@ class GoogleNavigationMarkerService {
           AppLogger.navigation('   🏭 Creating warehouse marker');
           break;
         case StopType.placement:
-          icon = await createPlacementMarkerIcon(bin.newBinNumber ?? 0);
-          AppLogger.navigation('   📍 Creating placement marker for bin #${bin.newBinNumber}');
+          icon = await createPotentialLocationMarkerIcon(isPending: true);
+          AppLogger.navigation('   📍 Creating placement marker (potential location style)');
           break;
         default:
           // Regular pickup bin (collection, pickup, dropoff, etc.)

@@ -215,33 +215,39 @@ class NavigationBottomPanel extends HookConsumerWidget {
     final Color statusColor;
     final String displayLabel;
     final bool showBadge;
+    final String badgeText;
 
     switch (task.taskType) {
       case StopType.pickup:
         statusColor = Colors.orange.shade600;
         displayLabel = task.displayTitle;
         showBadge = task.binNumber != null;
+        badgeText = '${task.binNumber}';
         break;
       case StopType.dropoff:
         statusColor = Colors.green.shade600;
         displayLabel = task.displayTitle;
         showBadge = false;
+        badgeText = '';
         break;
       case StopType.warehouseStop:
         statusColor = Colors.grey.shade700;
         displayLabel = task.displayTitle;
-        showBadge = false;
+        showBadge = true;
+        badgeText = '🏭';
         break;
       case StopType.placement:
         statusColor = Colors.orange.shade600;
         displayLabel = task.displayTitle;
-        showBadge = false;
+        showBadge = true;
+        badgeText = '📍';
         break;
       case StopType.collection:
       default:
         statusColor = AppColors.primaryGreen;
         displayLabel = task.displayTitle;
         showBadge = task.binNumber != null;
+        badgeText = '${task.binNumber}';
         break;
     }
 
@@ -263,7 +269,7 @@ class NavigationBottomPanel extends HookConsumerWidget {
               ),
               const SizedBox(width: 10),
 
-              // Task badge (only for tasks with bin numbers)
+              // Task badge (bin numbers, warehouse emoji, placement emoji)
               if (showBadge) ...[
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -272,11 +278,17 @@ class NavigationBottomPanel extends HookConsumerWidget {
                     borderRadius: BorderRadius.circular(6),
                   ),
                   child: Text(
-                    '${task.binNumber}',
+                    badgeText,
                     style: TextStyle(
-                      fontSize: 14,
+                      fontSize: task.taskType == StopType.warehouseStop ||
+                              task.taskType == StopType.placement
+                          ? 16
+                          : 14,
                       fontWeight: FontWeight.bold,
-                      color: statusColor,
+                      color: task.taskType == StopType.warehouseStop ||
+                              task.taskType == StopType.placement
+                          ? Colors.black87
+                          : statusColor,
                     ),
                   ),
                 ),
@@ -351,6 +363,20 @@ class NavigationBottomPanel extends HookConsumerWidget {
         ? shift.logicalCompletedBins / shift.logicalTotalBins
         : 0.0;
 
+    // Determine badge display
+    final bool showBadge = bin.binNumber != null ||
+        bin.stopType == StopType.warehouseStop ||
+        bin.stopType == StopType.placement;
+
+    final String badgeText = bin.stopType == StopType.warehouseStop
+        ? '🏭'
+        : bin.stopType == StopType.placement
+            ? '📍'
+            : '${bin.binNumber}';
+
+    final bool isEmoji = bin.stopType == StopType.warehouseStop ||
+        bin.stopType == StopType.placement;
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       child: Column(
@@ -367,7 +393,7 @@ class NavigationBottomPanel extends HookConsumerWidget {
                 ),
               ),
               const SizedBox(width: 10),
-              if (bin.binNumber != null) ...[
+              if (showBadge) ...[
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
@@ -375,11 +401,11 @@ class NavigationBottomPanel extends HookConsumerWidget {
                     borderRadius: BorderRadius.circular(6),
                   ),
                   child: Text(
-                    '${bin.binNumber}',
-                    style: const TextStyle(
-                      fontSize: 14,
+                    badgeText,
+                    style: TextStyle(
+                      fontSize: isEmoji ? 16 : 14,
                       fontWeight: FontWeight.bold,
-                      color: AppColors.primaryGreen,
+                      color: isEmoji ? Colors.black87 : AppColors.primaryGreen,
                     ),
                   ),
                 ),
@@ -1780,115 +1806,25 @@ class NavigationBottomPanel extends HookConsumerWidget {
                           break;
 
                         case StopType.placement:
-                          // Show placement confirmation dialog
+                          // Convert RouteBin to RouteTask for placement dialog
+                          final placementTask = RouteTask(
+                            id: bin.id,
+                            shiftId: bin.shiftId ?? '',
+                            sequenceOrder: bin.sequenceOrder ?? 0,
+                            taskType: StopType.placement,
+                            latitude: bin.latitude ?? 0,
+                            longitude: bin.longitude ?? 0,
+                            address: bin.currentStreet,
+                            isCompleted: 0,
+                            createdAt: DateTime.now().millisecondsSinceEpoch ~/ 1000,
+                          );
+
                           showDialog(
                             context: context,
                             barrierDismissible: false,
-                            builder: (context) => AlertDialog(
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(16),
-                              ),
-                              title: Row(
-                                children: [
-                                  Container(
-                                    padding: const EdgeInsets.all(8),
-                                    decoration: BoxDecoration(
-                                      color: AppColors.primaryGreen.withOpacity(0.15),
-                                      borderRadius: BorderRadius.circular(8),
-                                    ),
-                                    child: const Text(
-                                      '📍',
-                                      style: TextStyle(fontSize: 24),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 12),
-                                  const Expanded(
-                                    child: Text(
-                                      'Bin Placement',
-                                      style: TextStyle(
-                                        fontSize: 18,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              content: Column(
-                                mainAxisSize: MainAxisSize.min,
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    bin.currentStreet,
-                                    style: TextStyle(
-                                      fontSize: 15,
-                                      color: Colors.grey.shade700,
-                                      fontWeight: FontWeight.w500,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 16),
-                                  const Text(
-                                    'Bin placed successfully?',
-                                    style: TextStyle(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.w500,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              actions: [
-                                TextButton(
-                                  onPressed: () => Navigator.of(context).pop(),
-                                  child: Text(
-                                    'Cancel',
-                                    style: TextStyle(
-                                      color: Colors.grey.shade600,
-                                      fontSize: 16,
-                                    ),
-                                  ),
-                                ),
-                                ElevatedButton(
-                                  onPressed: () async {
-                                    Navigator.of(context).pop();
-
-                                    AppLogger.general('✅ Bin placement confirmed');
-
-                                    // Mark placement stop as complete (no fill % or photo needed)
-                                    await ref.read(shiftNotifierProvider.notifier).completeTask(
-                                      bin.id, // shiftBinId
-                                      bin.binId ?? '', // binId (deprecated)
-                                      0, // New bin starts at 0% full
-                                    );
-
-                                    // Show success message
-                                    if (context.mounted) {
-                                      ScaffoldMessenger.of(context).showSnackBar(
-                                        const SnackBar(
-                                          content: Text('✅ Bin placed successfully'),
-                                          duration: Duration(seconds: 2),
-                                          backgroundColor: AppColors.primaryGreen,
-                                        ),
-                                      );
-                                    }
-                                  },
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: AppColors.primaryGreen,
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 24,
-                                      vertical: 12,
-                                    ),
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(8),
-                                    ),
-                                  ),
-                                  child: const Text(
-                                    'Continue',
-                                    style: TextStyle(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                ),
-                              ],
+                            builder: (context) => PlacementCheckinDialog(
+                              task: placementTask,
+                              shiftBinId: bin.id,
                             ),
                           );
                           break;

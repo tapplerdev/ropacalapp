@@ -114,10 +114,15 @@ class PlacementCheckinDialog extends HookConsumerWidget {
     }
 
     return Dialog(
+      backgroundColor: Colors.white,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       child: Container(
         constraints: const BoxConstraints(maxHeight: 580),
         padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(20),
+        ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -165,19 +170,24 @@ class PlacementCheckinDialog extends HookConsumerWidget {
               decoration: InputDecoration(
                 labelText: 'Bin Number *',
                 hintText: 'Enter bin number',
-                prefixIcon: Icon(Icons.tag, color: Colors.blue.shade600),
+                prefixIcon: Icon(Icons.tag, color: AppColors.primaryGreen),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(color: Colors.grey.shade300),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(color: Colors.grey.shade300),
                 ),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
                   borderSide: BorderSide(
-                    color: Colors.blue.shade600,
+                    color: AppColors.primaryGreen,
                     width: 2,
                   ),
                 ),
                 filled: true,
-                fillColor: Colors.grey.shade50,
+                fillColor: Colors.white,
               ),
             ),
 
@@ -191,7 +201,7 @@ class PlacementCheckinDialog extends HookConsumerWidget {
                 child: Container(
                   height: 180,
                   decoration: BoxDecoration(
-                    color: Colors.grey.shade100,
+                    color: Colors.grey.shade50,
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(
                       color: Colors.grey.shade300,
@@ -284,28 +294,35 @@ class PlacementCheckinDialog extends HookConsumerWidget {
                 Expanded(
                   flex: 2,
                   child: ElevatedButton(
-                    onPressed: isSubmitting.value ||
-                            binNumberController.text.trim().isEmpty ||
-                            photoFile.value == null
-                        ? null
-                        : handlePlacement,
+                    onPressed: isSubmitting.value ? null : handlePlacement,
                     style: ElevatedButton.styleFrom(
                       padding: const EdgeInsets.symmetric(vertical: 14),
-                      backgroundColor: Colors.orange.shade600,
+                      backgroundColor: AppColors.primaryGreen,
                       foregroundColor: Colors.white,
                       disabledBackgroundColor: Colors.grey.shade300,
-                      elevation: 0,
+                      elevation: 2,
+                      shadowColor: AppColors.primaryGreen.withOpacity(0.3),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
                       ),
                     ),
-                    child: const Text(
-                      'Confirm Placement',
-                      style: TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
+                    child: isSubmitting.value
+                        ? const SizedBox(
+                            height: 20,
+                            width: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              valueColor:
+                                  AlwaysStoppedAnimation<Color>(Colors.white),
+                            ),
+                          )
+                        : const Text(
+                            'Confirm Placement',
+                            style: TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
                   ),
                 ),
               ],

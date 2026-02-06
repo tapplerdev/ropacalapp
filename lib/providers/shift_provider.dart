@@ -6,6 +6,7 @@ import 'package:ropacalapp/services/shift_service.dart';
 import 'package:ropacalapp/providers/api_provider.dart';
 import 'package:ropacalapp/providers/location_provider.dart';
 import 'package:ropacalapp/core/services/location_tracking_service.dart';
+import 'package:ropacalapp/core/services/centrifugo_service.dart';
 
 part 'shift_provider.g.dart';
 
@@ -19,14 +20,17 @@ ShiftService shiftService(ShiftServiceRef ref) {
 @Riverpod(keepAlive: true)
 class ShiftNotifier extends _$ShiftNotifier {
   Timer? _pollingTimer;
+  StreamSubscription? _shiftUpdatesSubscription;
+  String? _subscribedShiftId;
   static const Duration _pollingInterval = Duration(seconds: 30);
 
   @override
   ShiftState build() {
     // Don't fetch on initialization - will be called after login
-    // Clean up timer when provider is disposed
+    // Clean up timer and subscription when provider is disposed
     ref.onDispose(() {
       _stopPolling();
+      _unsubscribeFromShiftUpdates();
     });
     return const ShiftState(status: ShiftStatus.inactive);
   }
@@ -60,6 +64,65 @@ class ShiftNotifier extends _$ShiftNotifier {
       AppLogger.general('📊 Stopping shift polling');
       _pollingTimer?.cancel();
       _pollingTimer = null;
+    }
+  }
+
+  /// Manage Centrifugo subscription based on shift status
+  /// Subscribe when shift is active/ready, unsubscribe when inactive
+  void _manageShiftSubscription() {
+    final shiftId = state.shiftId;
+    final isActiveOrReady = state.status == ShiftStatus.active ||
+        state.status == ShiftStatus.ready;
+
+    // Subscribe if shift is active/ready and we haven't subscribed yet
+    if (isActiveOrReady && shiftId != null && _subscribedShiftId != shiftId) {
+      _subscribeToShiftUpdates(shiftId);
+    }
+
+    // Unsubscribe if shift is no longer active/ready
+    if (!isActiveOrReady && _shiftUpdatesSubscription != null) {
+      _unsubscribeFromShiftUpdates();
+    }
+  }
+
+  /// Subscribe to shift updates channel via Centrifugo
+  Future<void> _subscribeToShiftUpdates(String shiftId) async {
+    try {
+      AppLogger.general('🔔 Subscribing to shift updates for shift: $shiftId');
+
+      final centrifugo = ref.read(centrifugoServiceProvider);
+      _shiftUpdatesSubscription = await centrifugo.subscribeToShiftUpdates(
+        shiftId,
+        (data) {
+          final type = data['type'] as String?;
+          AppLogger.general('🔔 Received shift update via Centrifugo: type=$type');
+
+          if (type == 'shift_cancelled') {
+            AppLogger.general('❌ Shift cancelled via Centrifugo - calling handleShiftCancellation()');
+            handleShiftCancellation();
+          }
+        },
+      );
+
+      _subscribedShiftId = shiftId;
+      AppLogger.general('✅ Subscribed to shift:updates:$shiftId channel');
+    } catch (e) {
+      AppLogger.general(
+        '⚠️  Failed to subscribe to shift updates: $e',
+        level: AppLogger.warning,
+      );
+      // Don't throw - subscription is not critical (API polling is fallback)
+    }
+  }
+
+  /// Unsubscribe from shift updates channel
+  void _unsubscribeFromShiftUpdates() {
+    if (_shiftUpdatesSubscription != null) {
+      AppLogger.general('🔕 Unsubscribing from shift updates (shift: $_subscribedShiftId)');
+      _shiftUpdatesSubscription?.cancel();
+      _shiftUpdatesSubscription = null;
+      _subscribedShiftId = null;
+      AppLogger.general('✅ Unsubscribed from shift updates');
     }
   }
 
@@ -103,6 +166,9 @@ class ShiftNotifier extends _$ShiftNotifier {
         state = currentShift;
         AppLogger.general('[DIAGNOSTIC] 📥 Current shift loaded and state updated');
 
+        // Manage Centrifugo subscription based on shift status
+        _manageShiftSubscription();
+
         // Stop polling since we found a shift
         _stopPolling();
 
@@ -118,6 +184,9 @@ class ShiftNotifier extends _$ShiftNotifier {
         state = const ShiftState(status: ShiftStatus.inactive);
         AppLogger.general('[DIAGNOSTIC] 📥 No active shift found in backend - state reset to inactive');
 
+        // Manage subscription (will unsubscribe since status is inactive)
+        _manageShiftSubscription();
+
         // Start polling to check for new assignments
         _startPolling();
 
@@ -132,6 +201,9 @@ class ShiftNotifier extends _$ShiftNotifier {
       AppLogger.general('[DIAGNOSTIC] Stack trace: $stack');
       // On error, reset to inactive to be safe
       state = const ShiftState(status: ShiftStatus.inactive);
+
+      // Manage subscription (will unsubscribe since status is inactive)
+      _manageShiftSubscription();
 
       // Start polling to keep checking for shifts
       _startPolling();
@@ -182,6 +254,7 @@ class ShiftNotifier extends _$ShiftNotifier {
   void reset() {
     AppLogger.general('🔄 Resetting shift state to inactive');
     _stopPolling();
+    _unsubscribeFromShiftUpdates();
     state = const ShiftState(status: ShiftStatus.inactive);
     AppLogger.general('✅ Shift state reset complete');
   }
@@ -439,6 +512,7 @@ class ShiftNotifier extends _$ShiftNotifier {
     String binId, // DEPRECATED: kept for reference only
     int? updatedFillPercentage, { // Now nullable for incident reports
     String? photoUrl,
+    int? newBinNumber, // REQUIRED for placement tasks
     bool hasIncident = false,
     String? incidentType,
     String? incidentPhotoUrl,
@@ -457,6 +531,7 @@ class ShiftNotifier extends _$ShiftNotifier {
         binId,
         updatedFillPercentage,
         photoUrl: photoUrl,
+        newBinNumber: newBinNumber,
         hasIncident: hasIncident,
         incidentType: incidentType,
         incidentPhotoUrl: incidentPhotoUrl,
@@ -516,6 +591,9 @@ class ShiftNotifier extends _$ShiftNotifier {
       }
 
       state = updatedShift;
+
+      // Manage Centrifugo subscription based on updated shift status
+      _manageShiftSubscription();
     } catch (e) {
       AppLogger.general(
         '❌ Error updating shift from WebSocket: $e',

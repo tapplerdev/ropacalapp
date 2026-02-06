@@ -160,6 +160,7 @@ class ShiftService {
     String binId, // DEPRECATED: kept for reference only
     int? updatedFillPercentage, { // Now nullable for incidents
     String? photoUrl,
+    int? newBinNumber, // REQUIRED for placement tasks
     bool hasIncident = false,
     String? incidentType,
     String? incidentPhotoUrl,
@@ -174,6 +175,7 @@ class ShiftService {
         'bin_id': binId, // DEPRECATED: Kept for backward compatibility
         if (updatedFillPercentage != null) 'updated_fill_percentage': updatedFillPercentage,
         if (photoUrl != null) 'photo_url': photoUrl,
+        if (newBinNumber != null) 'new_bin_number': newBinNumber, // Driver-provided bin number
         if (hasIncident) 'has_incident': hasIncident,
         if (incidentType != null) 'incident_type': incidentType,
         if (incidentPhotoUrl != null) 'incident_photo_url': incidentPhotoUrl,

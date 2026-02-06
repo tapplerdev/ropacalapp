@@ -46,7 +46,10 @@ class ShiftAcceptancePage extends ConsumerWidget {
                 isOptimized: false,
               ),
               onAccept: () async {
-                AppLogger.general('🚀 SHIFT ACCEPTED - Starting shift');
+                AppLogger.general('═══════════════════════════════════════════');
+                AppLogger.general('🚀 [SHIFT ACCEPTANCE] Driver pressed START button');
+                AppLogger.general('   Timestamp: ${DateTime.now().toIso8601String()}');
+                AppLogger.general('═══════════════════════════════════════════');
 
                 // Show loading overlay
                 EasyLoading.show(
@@ -54,10 +57,12 @@ class ShiftAcceptancePage extends ConsumerWidget {
                 );
 
                 try {
+                  AppLogger.general('📞 [SHIFT ACCEPTANCE] Calling shiftNotifier.startShift()...');
+
                   // Start the shift via HTTP
                   await ref.read(shiftNotifierProvider.notifier).startShift();
 
-                  AppLogger.general('✅ Shift started successfully via HTTP');
+                  AppLogger.general('✅ [SHIFT ACCEPTANCE] Shift started successfully via HTTP');
 
                   // Hide loading
                   await EasyLoading.dismiss();

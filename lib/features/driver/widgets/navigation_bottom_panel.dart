@@ -601,7 +601,18 @@ class NavigationBottomPanel extends HookConsumerWidget {
                             ],
                           ),
                         ),
-                      const SizedBox(width: 8),
+                      // Three-dot menu icon
+                      IconButton(
+                        icon: Icon(
+                          Icons.more_vert,
+                          color: Colors.grey.shade600,
+                          size: 22,
+                        ),
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                        onPressed: () => _showTaskMenu(context, ref, task),
+                      ),
+                      const SizedBox(width: 4),
                       // Down arrow
                       Icon(
                         Icons.keyboard_arrow_down,
@@ -1257,7 +1268,18 @@ class NavigationBottomPanel extends HookConsumerWidget {
                             ],
                           ),
                         ),
-                      const SizedBox(width: 8),
+                      // Three-dot menu icon
+                      IconButton(
+                        icon: Icon(
+                          Icons.more_vert,
+                          color: Colors.grey.shade600,
+                          size: 22,
+                        ),
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                        onPressed: () => _showTaskMenu(context, ref, _convertBinToTask(bin)),
+                      ),
+                      const SizedBox(width: 4),
                       // Down arrow
                       Icon(
                         Icons.keyboard_arrow_down,
@@ -1958,6 +1980,37 @@ class NavigationBottomPanel extends HookConsumerWidget {
     );
   }
 
+  /// Helper to convert RouteBin to RouteTask for skip task menu
+  RouteTask _convertBinToTask(RouteBin bin) {
+    final address = [bin.currentStreet, bin.city, bin.zip]
+        .where((part) => part.isNotEmpty)
+        .join(', ');
+
+    return RouteTask(
+      id: bin.id,
+      shiftId: bin.shiftId,
+      binId: bin.binId.isEmpty ? null : bin.binId,
+      sequenceOrder: bin.sequenceOrder,
+      taskType: bin.stopType,
+      moveRequestId: bin.moveRequestId,
+      address: address.isEmpty ? bin.originalAddress : address,
+      destinationAddress: bin.newAddress,
+      moveType: bin.moveType,
+      potentialLocationId: bin.potentialLocationId,
+      newBinNumber: bin.newBinNumber,
+      warehouseAction: bin.warehouseAction,
+      binsToLoad: bin.binsToLoad,
+      isCompleted: bin.isCompleted,
+      completedAt: bin.completedAt,
+      updatedFillPercentage: bin.updatedFillPercentage,
+      createdAt: bin.createdAt,
+      binNumber: bin.binNumber == 0 ? null : bin.binNumber,
+      fillPercentage: bin.fillPercentage == 0 ? null : bin.fillPercentage,
+      latitude: bin.latitude,
+      longitude: bin.longitude,
+    );
+  }
+
   /// Format distance for geofence warnings
   /// - If >= 1 mile (1609m): show in miles (e.g., "1.2 mi")
   /// - If < 1 mile: show in meters (e.g., "328 m")
@@ -1972,5 +2025,433 @@ class NavigationBottomPanel extends HookConsumerWidget {
       // Show in meters with no decimals
       return '${meters.toInt()} m';
     }
+  }
+
+  /// Show task actions menu
+  void _showTaskMenu(
+    BuildContext context,
+    WidgetRef ref,
+    RouteTask task,
+  ) {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (context) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SizedBox(height: 8),
+            Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: Colors.grey.shade300,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const SizedBox(height: 16),
+            ListTile(
+              leading: Icon(
+                Icons.skip_next,
+                color: Colors.orange.shade600,
+              ),
+              title: const Text('Skip This Task'),
+              subtitle: const Text('Requires explanation'),
+              onTap: () {
+                Navigator.pop(context);
+                _showSkipDialog(context, ref, task);
+              },
+            ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Show skip task confirmation dialog with required reason
+  void _showSkipDialog(
+    BuildContext context,
+    WidgetRef ref,
+    RouteTask task,
+  ) {
+    final reasonController = TextEditingController();
+    final formKey = GlobalKey<FormState>();
+    final isSubmitting = ValueNotifier<bool>(false);
+
+    showDialog(
+      context: context,
+      builder: (context) => Dialog(
+        backgroundColor: Colors.transparent,
+        insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 60),
+        child: Container(
+          constraints: const BoxConstraints(maxWidth: 500, maxHeight: 500),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(24),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Header
+              Container(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: Colors.orange.shade50,
+                  borderRadius: const BorderRadius.only(
+                    topLeft: Radius.circular(24),
+                    topRight: Radius.circular(24),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.orange.shade600,
+                        borderRadius: BorderRadius.circular(14),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.orange.shade600.withValues(alpha: 0.3),
+                            blurRadius: 8,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: const Icon(
+                        Icons.skip_next_rounded,
+                        color: Colors.white,
+                        size: 24,
+                      ),
+                    ),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Skip Task',
+                            style: TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.black87,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            'Provide a reason',
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: Colors.grey[700],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.close_rounded),
+                      onPressed: () => Navigator.of(context).pop(),
+                      style: IconButton.styleFrom(
+                        backgroundColor: Colors.white,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              // Content
+              Flexible(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.all(20),
+                  child: Form(
+                    key: formKey,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        // Info banner for pickup pairing
+                        if (task.taskType == StopType.pickup &&
+                            task.moveRequestId != null)
+                          Container(
+                            padding: const EdgeInsets.all(14),
+                            margin: const EdgeInsets.only(bottom: 20),
+                            decoration: BoxDecoration(
+                              color: Colors.blue.shade50,
+                              borderRadius: BorderRadius.circular(14),
+                              border: Border.all(
+                                color: Colors.blue.shade100,
+                                width: 1,
+                              ),
+                            ),
+                            child: Row(
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.all(8),
+                                  decoration: BoxDecoration(
+                                    color: Colors.blue.shade600,
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                  child: const Icon(
+                                    Icons.info_outline,
+                                    color: Colors.white,
+                                    size: 18,
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Text(
+                                    'Skipping this pickup will also skip the paired dropoff',
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w500,
+                                      color: Colors.blue.shade900,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+
+                        // Reason label
+                        Padding(
+                          padding: const EdgeInsets.only(left: 4, bottom: 8),
+                          child: Text(
+                            'Why are you skipping this task?',
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.grey[800],
+                            ),
+                          ),
+                        ),
+
+                        // Reason text field
+                        TextFormField(
+                          controller: reasonController,
+                          maxLines: 3,
+                          autofocus: true,
+                          textCapitalization: TextCapitalization.sentences,
+                          decoration: InputDecoration(
+                            hintText: 'Enter reason...',
+                            hintStyle: TextStyle(
+                              color: Colors.grey.shade400,
+                              fontSize: 14,
+                            ),
+                            filled: true,
+                            fillColor: Colors.grey.shade50,
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: BorderSide(
+                                color: Colors.grey.shade300,
+                              ),
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: BorderSide(
+                                color: Colors.grey.shade300,
+                              ),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: BorderSide(
+                                color: Colors.orange.shade600,
+                                width: 2,
+                              ),
+                            ),
+                            errorBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: const BorderSide(
+                                color: Colors.red,
+                                width: 1,
+                              ),
+                            ),
+                            contentPadding: const EdgeInsets.all(14),
+                          ),
+                          validator: (value) {
+                            if (value == null || value.trim().isEmpty) {
+                              return 'Reason is required';
+                            }
+                            if (value.trim().length < 3) {
+                              return 'Reason must be at least 3 characters';
+                            }
+                            return null;
+                          },
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+
+              // Action buttons
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: TextButton(
+                        onPressed: isSubmitting.value
+                            ? null
+                            : () => Navigator.pop(context),
+                        style: TextButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          backgroundColor: Colors.grey.shade100,
+                        ),
+                        child: const Text(
+                          'Cancel',
+                          style: TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.black54,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      flex: 2,
+                      child: ValueListenableBuilder<bool>(
+                        valueListenable: isSubmitting,
+                        builder: (context, submitting, child) {
+                          return ElevatedButton(
+                            onPressed: submitting
+                                ? null
+                                : () async {
+                                    if (formKey.currentState?.validate() ??
+                                        false) {
+                                      isSubmitting.value = true;
+
+                                      try {
+                                        await ref
+                                            .read(
+                                              shiftNotifierProvider.notifier,
+                                            )
+                                            .skipTask(
+                                              task.id,
+                                              reasonController.text.trim(),
+                                            );
+
+                                        if (context.mounted) {
+                                          Navigator.pop(context);
+                                          ScaffoldMessenger.of(context)
+                                              .showSnackBar(
+                                            SnackBar(
+                                              content: Row(
+                                                children: [
+                                                  Container(
+                                                    padding:
+                                                        const EdgeInsets.all(6),
+                                                    decoration: BoxDecoration(
+                                                      color: Colors.white
+                                                          .withValues(
+                                                        alpha: 0.2,
+                                                      ),
+                                                      shape: BoxShape.circle,
+                                                    ),
+                                                    child: const Icon(
+                                                      Icons.check,
+                                                      color: Colors.white,
+                                                      size: 16,
+                                                    ),
+                                                  ),
+                                                  const SizedBox(width: 12),
+                                                  const Expanded(
+                                                    child: Text(
+                                                      'Task skipped successfully',
+                                                      style: TextStyle(
+                                                        fontWeight:
+                                                            FontWeight.w500,
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                              backgroundColor:
+                                                  Colors.orange[600],
+                                              behavior:
+                                                  SnackBarBehavior.floating,
+                                              shape: RoundedRectangleBorder(
+                                                borderRadius:
+                                                    BorderRadius.circular(12),
+                                              ),
+                                              margin: const EdgeInsets.all(16),
+                                            ),
+                                          );
+                                        }
+                                      } catch (e) {
+                                        isSubmitting.value = false;
+                                        if (context.mounted) {
+                                          ScaffoldMessenger.of(context)
+                                              .showSnackBar(
+                                            SnackBar(
+                                              content: Row(
+                                                children: [
+                                                  const Icon(
+                                                    Icons.error_outline,
+                                                    color: Colors.white,
+                                                  ),
+                                                  const SizedBox(width: 12),
+                                                  Expanded(
+                                                    child: Text(
+                                                      'Failed to skip task: $e',
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                              backgroundColor: Colors.red[600],
+                                              behavior:
+                                                  SnackBarBehavior.floating,
+                                              shape: RoundedRectangleBorder(
+                                                borderRadius:
+                                                    BorderRadius.circular(12),
+                                              ),
+                                              margin: const EdgeInsets.all(16),
+                                            ),
+                                          );
+                                        }
+                                      }
+                                    }
+                                  },
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.orange.shade600,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(vertical: 14),
+                              elevation: 0,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                            child: submitting
+                                ? const SizedBox(
+                                    width: 18,
+                                    height: 18,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2.5,
+                                      color: Colors.white,
+                                    ),
+                                  )
+                                : const Text(
+                                    'Skip Task',
+                                    style: TextStyle(
+                                      fontSize: 15,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                          );
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 }

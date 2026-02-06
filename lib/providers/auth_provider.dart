@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
+import 'package:google_navigation_flutter/google_navigation_flutter.dart';
 import 'package:ropacalapp/core/services/api_service.dart';
 import 'package:ropacalapp/models/user.dart';
 import 'package:ropacalapp/models/driver_location.dart';
@@ -120,37 +121,8 @@ class WebSocketManager extends _$WebSocketManager {
       ref.read(shiftNotifierProvider.notifier).handleShiftCancellation();
     };
 
-    _service!.onDriverLocationUpdate = (data) {
-      try {
-        AppLogger.general('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-        AppLogger.general('🟢 AUTH_PROVIDER: onDriverLocationUpdate CALLBACK TRIGGERED');
-        AppLogger.general('   Raw data: $data');
-        AppLogger.general('   Data type: ${data.runtimeType}');
-        AppLogger.general('   Data keys: ${data.keys.toList()}');
-
-        AppLogger.general('   📊 Getting driversNotifier...');
-        final driversNotifier = ref.read(driversNotifierProvider.notifier);
-        AppLogger.general('   ✅ Got driversNotifier: ${driversNotifier.runtimeType}');
-
-        AppLogger.general('   🔄 Parsing DriverLocation from JSON...');
-        final location = DriverLocation.fromJson(data);
-        AppLogger.general('   ✅ Parsed location:');
-        AppLogger.general('      Driver ID: ${location.driverId}');
-        AppLogger.general('      Lat: ${location.latitude}, Lng: ${location.longitude}');
-        AppLogger.general('      Timestamp: ${location.timestamp}');
-
-        AppLogger.general('   📍 Calling driversNotifier.updateDriverLocation()...');
-        driversNotifier.updateDriverLocation(location);
-        AppLogger.general('   ✅ Called updateDriverLocation successfully');
-        AppLogger.general('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-      } catch (e, stack) {
-        AppLogger.general('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-        AppLogger.general('❌❌❌ ERROR in AUTH_PROVIDER callback');
-        AppLogger.general('   Error: $e');
-        AppLogger.general('   Stack: $stack');
-        AppLogger.general('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-      }
-    };
+    // Driver location updates are now received via Centrifugo (manager_map_page.dart:243)
+    // OLD WebSocket handler removed - managers subscribe directly to Centrifugo channels
 
     _service!.onDriverShiftChange = (data) {
       try {
@@ -506,6 +478,21 @@ class AuthNotifier extends _$AuthNotifier {
     // Clear session timestamp
     await SessionManager.clearSession();
     AppLogger.general('🗑️  Session cleared on logout');
+
+    // CRITICAL: Clean up Google Maps Navigation session
+    // Prevents navigation state from persisting between users
+    // cleanup() stops guidance, clears destinations, and terminates the session
+    // T&C acceptance state is preserved (user won't need to accept again)
+    try {
+      await GoogleMapsNavigator.cleanup();
+      AppLogger.general('🗑️  Navigation session cleaned up on logout');
+    } catch (e) {
+      // Don't fail logout if navigation cleanup fails (might not be initialized)
+      AppLogger.general(
+        '⚠️  Navigation cleanup failed (likely not initialized): $e',
+        level: AppLogger.warning,
+      );
+    }
 
     state = const AsyncValue.data(null);
   }

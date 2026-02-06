@@ -17,6 +17,7 @@ import 'package:ropacalapp/core/services/google_navigation_service.dart';
 import 'package:ropacalapp/providers/shift_provider.dart';
 import 'package:ropacalapp/providers/location_provider.dart';
 import 'package:ropacalapp/providers/navigation_page_provider.dart';
+import 'package:ropacalapp/providers/centrifugo_provider.dart';
 import 'package:ropacalapp/features/driver/widgets/turn_by_turn_navigation_card.dart';
 import 'package:ropacalapp/features/driver/widgets/navigation_bottom_panel.dart';
 import 'package:ropacalapp/features/driver/widgets/check_in_dialog_v2.dart';
@@ -40,6 +41,11 @@ class GoogleNavigationPage extends HookConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // ✅ CRITICAL: Keep Centrifugo connected during active navigation
+    // This ensures location tracking can publish to WebSocket while navigating
+    ref.watch(centrifugoManagerProvider);
+    AppLogger.general('🔵 [GoogleNavigationPage] Watching centrifugoManagerProvider');
+
     // Local UI-only state (keep as hooks)
     final navigationController = useState<GoogleNavigationViewController?>(null);
 
@@ -563,19 +569,6 @@ class GoogleNavigationPage extends HookConsumerWidget {
             ),
           ),
 
-          // Potential Location button - positioned below notification button
-          Positioned(
-            top: Responsive.spacing(context, mobile: 72),
-            left: Responsive.spacing(context, mobile: 16),
-            child: SafeArea(
-              child: CircularMapButton(
-                icon: Icons.add_location_alt_outlined,
-                iconColor: AppColors.primaryGreen,
-                onTap: () => _showPotentialLocationMenu(context, ref),
-              ),
-            ),
-          ),
-
           // Audio button - positioned above recenter button
           Positioned(
             bottom: Responsive.spacing(context, mobile: 360),
@@ -586,6 +579,17 @@ class GoogleNavigationPage extends HookConsumerWidget {
                 navState.isAudioMuted,
                 navNotifier.setAudioMuted,
               ),
+            ),
+          ),
+
+          // Potential Location button - positioned above audio button
+          Positioned(
+            bottom: Responsive.spacing(context, mobile: 420),
+            right: Responsive.spacing(context, mobile: 16),
+            child: CircularMapButton(
+              icon: Icons.add_location_alt_outlined,
+              iconColor: AppColors.primaryGreen,
+              onTap: () => _showPotentialLocationMenu(context, ref),
             ),
           ),
 
@@ -1039,6 +1043,11 @@ class GoogleNavigationPage extends HookConsumerWidget {
       try {
         await GoogleMapsNavigator.stopGuidance();
         AppLogger.general('   ✅ Stopped guidance');
+
+        // Small delay to let stop guidance animations complete
+        // Prevents visual flicker when clearing destinations immediately
+        await Future.delayed(const Duration(milliseconds: 500));
+        AppLogger.general('   ⏱️  Waited 500ms for guidance animations to complete');
       } catch (e) {
         AppLogger.general('   ⚠️  Error stopping guidance: $e');
       }
@@ -1313,6 +1322,13 @@ class GoogleNavigationPage extends HookConsumerWidget {
   }
 
   /// Setup navigation event listeners
+  ///
+  /// Note on Listener Lifecycle:
+  /// All listeners are automatically cancelled when GoogleMapsNavigator.cleanup() is called.
+  /// This is the official SDK pattern - no need for explicit subscription.cancel() calls.
+  /// cleanup() is called in two places:
+  /// 1. useEffect disposal (line 345) - when navigation page unmounts
+  /// 2. logout() (auth_provider.dart:516) - when user logs out
   static void _setupNavigationListeners(
     BuildContext context,
     WidgetRef ref,
@@ -1324,6 +1340,24 @@ class GoogleNavigationPage extends HookConsumerWidget {
 
     // Track if we've received the first location (for route calculation timing)
     bool hasReceivedFirstLocation = false;
+
+    // Session Recreation Listener
+    // Called when Android kills the app in background and session is recreated
+    // Reapply all user preferences (audio settings, etc.)
+    GoogleMapsNavigator.setOnNewNavigationSessionListener(() {
+      AppLogger.general('🔄 Navigation session recreated - reapplying settings');
+
+      // Reapply audio settings from state
+      final currentAudioMuted = navNotifier.state.isAudioMuted;
+      GoogleMapsNavigator.setAudioGuidance(
+        NavigationAudioGuidanceSettings(
+          guidanceType: currentAudioMuted
+            ? NavigationAudioGuidanceType.silent
+            : NavigationAudioGuidanceType.alertsAndGuidance,
+        ),
+      );
+      AppLogger.general('   ✅ Audio settings reapplied: ${currentAudioMuted ? "muted" : "unmuted"}');
+    });
 
     // Listen to NavInfo updates (turn-by-turn data)
     GoogleMapsNavigator.setNavInfoListener((navInfoEvent) {
@@ -1353,23 +1387,42 @@ class GoogleNavigationPage extends HookConsumerWidget {
       // Update distance to next maneuver
       navNotifier.updateDistanceToNextManeuver(navInfo.distanceToCurrentStepMeters?.toDouble() ?? 0);
 
-      // DEBUG: Log both distance values to understand which one is correct
+      // DEBUG: Comprehensive NavInfo logging
+      AppLogger.general('🔍 NavInfo Debug - COMPLETE DUMP:');
+      AppLogger.general('   ⏱️  Time to Next Destination: ${navInfo.timeToNextDestinationSeconds} seconds');
+      AppLogger.general('   ⏱️  Time to Final Destination: ${navInfo.timeToFinalDestinationSeconds} seconds');
+      AppLogger.general('   📏 Distance to Next Destination: ${navInfo.distanceToNextDestinationMeters} meters');
+      AppLogger.general('   📏 Distance to Final Destination: ${navInfo.distanceToFinalDestinationMeters} meters');
+      AppLogger.general('   📏 Distance to Current Step: ${navInfo.distanceToCurrentStepMeters} meters');
+      AppLogger.general('   ⏱️  Time to Current Step: ${navInfo.timeToCurrentStepSeconds} seconds');
+
+      // Convert to readable format
       final distanceToNext = navInfo.distanceToNextDestinationMeters?.toDouble();
       final distanceToFinal = navInfo.distanceToFinalDestinationMeters?.toDouble();
+      final timeToNext = navInfo.timeToNextDestinationSeconds;
+      final timeToFinal = navInfo.timeToFinalDestinationSeconds;
 
-      if (distanceToNext != null || distanceToFinal != null) {
-        AppLogger.general('📏 Distance Debug:');
-        AppLogger.general('   → To Next Waypoint: ${distanceToNext != null ? "${(distanceToNext / 1609.0).toStringAsFixed(1)} mi" : "null"}');
-        AppLogger.general('   → To Final Destination: ${distanceToFinal != null ? "${(distanceToFinal / 1609.0).toStringAsFixed(1)} mi" : "null"}');
-      }
+      AppLogger.general('   📊 Readable Format:');
+      AppLogger.general('      Next: ${distanceToNext != null ? "${(distanceToNext / 1609.0).toStringAsFixed(1)} mi" : "null"} / ${timeToNext != null ? "${timeToNext ~/ 60}m ${timeToNext % 60}s" : "null"}');
+      AppLogger.general('      Final: ${distanceToFinal != null ? "${(distanceToFinal / 1609.0).toStringAsFixed(1)} mi" : "null"} / ${timeToFinal != null ? "${timeToFinal ~/ 60}m ${timeToFinal % 60}s" : "null"}');
 
-      // Update remaining time and distance to NEXT waypoint (not final destination)
-      // This shows time/distance to the next bin, not the entire route
-      navNotifier.updateRemainingTime(navInfo.timeToNextDestinationSeconds != null
-          ? Duration(seconds: navInfo.timeToNextDestinationSeconds!)
+      // Update remaining time and distance
+      // iOS SDK bug: timeToNextDestinationSeconds and distanceToNextDestinationMeters are often null
+      // Fallback to Final Destination values when Next Destination is null
+      final timeSeconds = navInfo.timeToNextDestinationSeconds ?? navInfo.timeToFinalDestinationSeconds;
+      final distanceMeters = navInfo.distanceToNextDestinationMeters ?? navInfo.distanceToFinalDestinationMeters;
+
+      navNotifier.updateRemainingTime(timeSeconds != null
+          ? Duration(seconds: timeSeconds)
           : null);
 
-      navNotifier.updateTotalDistanceRemaining(navInfo.distanceToNextDestinationMeters?.toDouble());
+      navNotifier.updateTotalDistanceRemaining(distanceMeters?.toDouble());
+
+      // Log what we're actually setting in state
+      AppLogger.general('   ✅ State Updated:');
+      AppLogger.general('      remainingTime: ${navNotifier.state.remainingTime}');
+      AppLogger.general('      totalDistanceRemaining: ${navNotifier.state.totalDistanceRemaining}');
+      AppLogger.general('      (Using ${navInfo.timeToNextDestinationSeconds != null ? "Next" : "Final"} Destination values)');
     });
 
     // Listen to location updates (SDK best practice: wait for first location before route calculation)

@@ -185,6 +185,12 @@ class _HeroSection extends StatelessWidget {
                   label: 'View on Map',
                   color: AppColors.brandGreen,
                   onTap: () {
+                    // Check if driver is online (has current location)
+                    if (driver.currentLocation == null) {
+                      _showDriverOfflineDialog(context);
+                      return;
+                    }
+
                     // Start following the driver (continuous auto-center with banner)
                     ref
                         .read(focusedDriverProvider.notifier)
@@ -1089,4 +1095,98 @@ class _ActionRow extends StatelessWidget {
       ),
     );
   }
+}
+
+/// Show styled dialog when driver is offline
+void _showDriverOfflineDialog(BuildContext context) {
+  showDialog(
+    context: context,
+    builder: (context) => Dialog(
+      backgroundColor: Colors.transparent,
+      elevation: 0,
+      child: Container(
+        padding: const EdgeInsets.all(28),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(24),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.15),
+              offset: const Offset(0, 8),
+              blurRadius: 24,
+            ),
+          ],
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Offline icon with circular background
+            Container(
+              width: 72,
+              height: 72,
+              decoration: BoxDecoration(
+                color: Colors.grey.shade100,
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                Icons.signal_wifi_off_rounded,
+                size: 36,
+                color: Colors.grey.shade600,
+              ),
+            ),
+            const SizedBox(height: 20),
+
+            // Title
+            const Text(
+              'Driver Not Online',
+              style: TextStyle(
+                fontSize: 22,
+                fontWeight: FontWeight.bold,
+                color: Colors.black87,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 12),
+
+            // Message
+            Text(
+              'This driver is currently offline. Please try again later.',
+              style: TextStyle(
+                fontSize: 15,
+                color: Colors.grey.shade700,
+                height: 1.4,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 24),
+
+            // Dismiss button
+            SizedBox(
+              width: double.infinity,
+              child: Material(
+                color: AppColors.brandGreen,
+                borderRadius: BorderRadius.circular(12),
+                child: InkWell(
+                  onTap: () => Navigator.of(context).pop(),
+                  borderRadius: BorderRadius.circular(12),
+                  child: const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 14),
+                    child: Text(
+                      'Got It',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    ),
+  );
 }

@@ -79,7 +79,7 @@ class DriverMapPage extends HookConsumerWidget {
     // ✅ CRITICAL: Initialize Centrifugo connection by watching the provider
     // This ensures the CentrifugoManager build() method is called and connects
     ref.watch(centrifugoManagerProvider);
-    // AppLogger.general('🔵 [DriverMapPage] Watching centrifugoManagerProvider');
+    AppLogger.general('🔵 [DriverMapPage] Watching centrifugoManagerProvider');
 
     final binsState = ref.watch(binsListProvider); // Used for Bins tab, NOT for map markers
     // AppLogger.general('   📦 binsState: ${binsState.runtimeType}, hasValue: ${binsState.hasValue}, valueOrNull?.length: ${binsState.valueOrNull?.length}');
@@ -400,18 +400,18 @@ class DriverMapPage extends HookConsumerWidget {
                     left: 16,
                     child: MapNotificationButton(binsState: binsState),
                   ),
-                  // Potential Location button (below notification button)
+                  // Location button (bottom right)
+                  _DynamicLocationButton(mapController: mapController.value),
+                  // Potential Location button (above location button)
                   Positioned(
-                    top: 72, // Match manager view spacing
-                    left: 16,
+                    bottom: 500,
+                    right: 16,
                     child: CircularMapButton(
                       icon: Icons.add_location_alt_outlined,
                       iconColor: AppColors.primaryGreen,
                       onTap: () => _showPotentialLocationMenu(context, ref),
                     ),
                   ),
-                  // Location button (bottom right)
-                  _DynamicLocationButton(mapController: mapController.value),
                 ],
               ),
             ),

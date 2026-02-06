@@ -184,6 +184,47 @@ class ManagerMapPage extends HookConsumerWidget {
             [drivers],
           );
 
+          // Centrifugo connection status
+          final centrifugoConnected = useState<bool>(false);
+
+          // Effect -1: Initialize Centrifugo connection (MUST run before subscriptions)
+          useEffect(
+            () {
+              AppLogger.map('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+              AppLogger.map('🔌 CENTRIFUGO: Initializing connection for manager...');
+
+              Future<void> initCentrifugo() async {
+                try {
+                  final centrifugo = ref.read(centrifugoServiceProvider);
+                  await centrifugo.connect();
+                  centrifugoConnected.value = true;
+                  AppLogger.map('✅ CENTRIFUGO: Connection established');
+                  AppLogger.map('   Manager can now receive real-time driver updates');
+                } catch (e) {
+                  centrifugoConnected.value = false;
+                  AppLogger.map('❌ CENTRIFUGO: Connection failed: $e');
+                  AppLogger.map('   Real-time tracking disabled - will use polling fallback');
+                }
+                AppLogger.map('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+              }
+
+              initCentrifugo();
+
+              // Cleanup: disconnect on unmount
+              return () {
+                AppLogger.map('🔌 CENTRIFUGO: Disconnecting...');
+                try {
+                  ref.read(centrifugoServiceProvider).disconnect();
+                  centrifugoConnected.value = false;
+                  AppLogger.map('✅ CENTRIFUGO: Disconnected');
+                } catch (e) {
+                  AppLogger.map('⚠️ CENTRIFUGO: Disconnect error: $e');
+                }
+              };
+            },
+            [], // Run once on mount
+          );
+
           // Effect 0: Subscribe to driver locations via Centrifugo
           // This replaces OLD WebSocket for real-time location updates
           useEffect(
@@ -195,14 +236,11 @@ class ManagerMapPage extends HookConsumerWidget {
               final centrifugo = ref.read(centrifugoServiceProvider);
               final subscriptions = <StreamSubscription>[];
 
-              // Subscribe to all active drivers' locations
+              // Subscribe to ALL drivers' locations (no status filter - matches dashboard behavior)
               for (final driver in drivers) {
-                if (driver.status == ShiftStatus.active ||
-                    driver.status == ShiftStatus.ready ||
-                    driver.status == ShiftStatus.paused) {
-                  AppLogger.map('   📍 Subscribing to driver: ${driver.driverName} (${driver.driverId})');
+                AppLogger.map('   📍 Subscribing to driver: ${driver.driverName} (${driver.driverId}) - Status: ${driver.status}');
 
-                  centrifugo.subscribeToDriverLocation(
+                centrifugo.subscribeToDriverLocation(
                     driver.driverId,
                     (locationData) {
                       AppLogger.map('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
@@ -235,12 +273,11 @@ class ManagerMapPage extends HookConsumerWidget {
                       }
                       AppLogger.map('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
                     },
-                  ).then((subscription) {
-                    subscriptions.add(subscription);
-                  }).catchError((error) {
-                    AppLogger.map('   ❌ Failed to subscribe to ${driver.driverName}: $error');
-                  });
-                }
+                ).then((subscription) {
+                  subscriptions.add(subscription);
+                }).catchError((error) {
+                  AppLogger.map('   ❌ Failed to subscribe to ${driver.driverName}: $error');
+                });
               }
 
               AppLogger.map('✅ CENTRIFUGO: Subscription setup complete');
@@ -1147,6 +1184,51 @@ class ManagerMapPage extends HookConsumerWidget {
                 ),
               ),
 
+              // Centrifugo connection status indicator
+              // Small green dot when connected, gray when disconnected
+              Positioned(
+                top: MediaQuery.of(context).padding.top + 16,
+                right: 200, // Position to the left of driver count
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: centrifugoConnected.value
+                        ? Colors.green.withValues(alpha: 0.9)
+                        : Colors.grey.withValues(alpha: 0.6),
+                    borderRadius: BorderRadius.circular(12),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.1),
+                        blurRadius: 6,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        width: 6,
+                        height: 6,
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        centrifugoConnected.value ? 'Live' : 'Offline',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+
               // Driver count indicator - tap to view active drivers list
               // Hidden when following mode is active
               // Positioned top-right with pulsing green dot - aligned with notification bell
@@ -1182,7 +1264,7 @@ class ManagerMapPage extends HookConsumerWidget {
                           _PulsingDot(),
                           const SizedBox(width: 7),
                           Text(
-                            '${activeDrivers.length} Active Drivers',
+                            '${activeDrivers.length} Drivers',
                             style: const TextStyle(
                               fontWeight: FontWeight.w600,
                               fontSize: 12,

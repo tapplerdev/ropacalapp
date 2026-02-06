@@ -87,6 +87,38 @@ class ShiftService {
     }
   }
 
+  /// Preflight check - validates GPS readiness before starting shift
+  Future<Map<String, dynamic>> preflightCheck() async {
+    try {
+      print('📤 REQUEST: POST /api/driver/shift/preflight');
+
+      final response = await _apiService.post('/api/driver/shift/preflight', {});
+
+      print('📥 RESPONSE: ${response.statusCode}');
+      print('   Data: ${response.data}');
+
+      if (response.data['success'] == true) {
+        final data = response.data as Map<String, dynamic>;
+        final ready = data['ready'] as bool? ?? false;
+        final message = data['message'] as String? ?? '';
+        final retryAfter = data['retry_after'] as int? ?? 2;
+
+        print('   Ready: $ready');
+        print('   Message: $message');
+        if (!ready) {
+          print('   Retry after: ${retryAfter}s');
+        }
+
+        return data;
+      }
+
+      throw Exception(response.data['error'] ?? 'Preflight check failed');
+    } catch (e) {
+      print('   ❌ ERROR: $e');
+      rethrow;
+    }
+  }
+
   /// Pause shift
   Future<void> pauseShift() async {
     try {
@@ -208,6 +240,42 @@ class ShiftService {
       }
 
       throw Exception(response.data['error'] ?? 'Failed to complete bin');
+    } catch (e) {
+      print('   ❌ ERROR: $e');
+      rethrow;
+    }
+  }
+
+  /// Skip a task with a required reason
+  Future<Map<String, dynamic>> skipTask(
+    String taskId,
+    String reason,
+  ) async {
+    try {
+      print('📤 REQUEST: POST /api/driver/shift/skip-task');
+
+      final requestData = {
+        'task_id': taskId,
+        'reason': reason,
+      };
+
+      print('   Body: $requestData');
+
+      final response = await _apiService.post(
+        '/api/driver/shift/skip-task',
+        requestData,
+      );
+
+      print('📥 RESPONSE: ${response.statusCode}');
+      print('   Data: ${response.data}');
+
+      if (response.data['success'] == true) {
+        final data = response.data;
+        print('   ✅ Task(s) skipped: ${data['tasks_skipped']}');
+        return data;
+      }
+
+      throw Exception(response.data['error'] ?? 'Failed to skip task');
     } catch (e) {
       print('   ❌ ERROR: $e');
       rethrow;

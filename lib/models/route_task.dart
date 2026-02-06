@@ -126,7 +126,7 @@ class RouteTask with _$RouteTask {
       case StopType.collection:
         return binNumber != null ? 'Bin #$binNumber' : 'Collection';
       case StopType.placement:
-        return newBinNumber != null ? 'Place Bin #$newBinNumber' : 'Place New Bin';
+        return 'Place Bin';
       case StopType.pickup:
         return binNumber != null ? 'Pickup Bin #$binNumber' : 'Pickup Bin';
       case StopType.dropoff:

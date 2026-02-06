@@ -49,6 +49,13 @@ class LocationTrackingService {
 
   /// Start location tracking for a shift
   Future<void> startTracking(String shiftId) async {
+    AppLogger.general('═══════════════════════════════════════════');
+    AppLogger.general('📍 [LocationTracking] startTracking() called');
+    AppLogger.general('   Shift ID: $shiftId');
+    AppLogger.general('   Current tracking status: $_isTracking');
+    AppLogger.general('   Timestamp: ${DateTime.now().toIso8601String()}');
+    AppLogger.general('═══════════════════════════════════════════');
+
     if (_isTracking && _currentShiftId == shiftId) {
       AppLogger.general('📍 Already tracking location for shift: $shiftId');
       return;
@@ -165,22 +172,20 @@ class LocationTrackingService {
         await _fusedLocation.stopLocationUpdates();
       } catch (e) {
         AppLogger.general('   ❌ GPS timeout - could not get location');
-        AppLogger.general('   ⚠️  Shift will start WITHOUT initial location!');
-        // Don't send location if we couldn't get it
-        return;
-        // TODO: iOS simulator fallback (commented out for production)
-        // location = FusedLocation(
-        //   position: const Position(
-        //     latitude: 37.59054,
-        //     longitude: -122.31971,
-        //     accuracy: 10.0,
-        //   ),
-        //   elevation: const Elevation(),
-        //   course: const Course(),
-        //   speed: const Speed(),
-        //   heading: const Heading(direction: 0.0, accuracy: 0.0),
-        //   timestamp: DateTime.now(),
-        // );
+        AppLogger.general('   ⚠️  Using simulator fallback coordinates');
+        // iOS simulator fallback
+        location = FusedLocation(
+          position: const Position(
+            latitude: 11.18656,
+            longitude: -74.23346,
+            accuracy: 10.0,
+          ),
+          elevation: const Elevation(),
+          course: const Course(),
+          speed: const Speed(),
+          heading: const Heading(direction: 0.0, accuracy: 0.0),
+          timestamp: DateTime.now(),
+        );
       }
 
       AppLogger.general(
@@ -228,6 +233,8 @@ class LocationTrackingService {
     try {
       // Get Centrifugo service and user
       final centrifugoService = _ref.read(centrifugoServiceProvider);
+      AppLogger.general('🔍 [LocationTracking] _sendLocation() - Centrifugo isConnected: ${centrifugoService.isConnected}');
+
       final user = _ref.read(authNotifierProvider).value;
 
       if (user == null) {

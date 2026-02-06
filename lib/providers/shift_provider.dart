@@ -360,14 +360,67 @@ class ShiftNotifier extends _$ShiftNotifier {
       final locationDuration = locationEndTime.difference(locationStartTime).inMilliseconds;
       AppLogger.general('✅ Location step completed in ${locationDuration}ms');
 
+      // STEP 2: Preflight check with retry logic
       AppLogger.general('');
-      AppLogger.general('📡 STEP 2: Calling backend API /api/driver/shift/start...');
-      final apiStartTime = DateTime.now();
+      AppLogger.general('🔍 STEP 2: Running preflight checks...');
+      final preflightStartTime = DateTime.now();
       final shiftService = ref.read(shiftServiceProvider);
+
+      // Retry logic: Max 3 attempts with exponential backoff (1s, 2s, 4s)
+      bool preflightReady = false;
+      int attempt = 0;
+      const maxAttempts = 3;
+      String? preflightMessage;
+
+      while (!preflightReady && attempt < maxAttempts) {
+        attempt++;
+        AppLogger.general('   Attempt $attempt/$maxAttempts...');
+
+        try {
+          final preflightResult = await shiftService.preflightCheck();
+          preflightReady = preflightResult['ready'] as bool? ?? false;
+          preflightMessage = preflightResult['message'] as String?;
+
+          if (preflightReady) {
+            AppLogger.general('   ✅ Preflight passed: $preflightMessage');
+            break;
+          } else {
+            final retryAfter = preflightResult['retry_after'] as int? ?? 2;
+            AppLogger.general('   ⚠️  Not ready: $preflightMessage');
+
+            if (attempt < maxAttempts) {
+              final delay = Duration(seconds: retryAfter);
+              AppLogger.general('   ⏳ Retrying in ${delay.inSeconds}s...');
+              await Future.delayed(delay);
+            }
+          }
+        } catch (e) {
+          AppLogger.general('   ❌ Preflight error: $e');
+          if (attempt < maxAttempts) {
+            final delay = Duration(seconds: 1 << (attempt - 1)); // 1s, 2s, 4s
+            AppLogger.general('   ⏳ Retrying in ${delay.inSeconds}s...');
+            await Future.delayed(delay);
+          }
+        }
+      }
+
+      final preflightEndTime = DateTime.now();
+      final preflightDuration = preflightEndTime.difference(preflightStartTime).inMilliseconds;
+
+      if (!preflightReady) {
+        throw Exception(preflightMessage ?? 'Preflight checks failed after $maxAttempts attempts');
+      }
+
+      AppLogger.general('✅ Preflight checks completed in ${preflightDuration}ms');
+
+      // STEP 3: Start shift (instant - already validated)
+      AppLogger.general('');
+      AppLogger.general('📡 STEP 3: Starting shift...');
+      final apiStartTime = DateTime.now();
       final updatedShift = await shiftService.startShift();
       final apiEndTime = DateTime.now();
       final apiDuration = apiEndTime.difference(apiStartTime).inMilliseconds;
-      AppLogger.general('✅ API call completed in ${apiDuration}ms');
+      AppLogger.general('✅ Shift started in ${apiDuration}ms');
 
       // IMPORTANT: Preserve routeBins from current state
       // The API response doesn't include bins array, but we already have it from route assignment
@@ -377,13 +430,13 @@ class ShiftNotifier extends _$ShiftNotifier {
       );
 
       AppLogger.general('');
-      AppLogger.general('📍 STEP 3: Starting continuous location tracking...');
-      // Start location tracking (sends GPS every 10 seconds)
+      AppLogger.general('📍 STEP 4: Starting continuous location tracking...');
+      // Start location tracking (sends GPS every ~1 second)
       if (state.shiftId != null) {
         ref.read(locationTrackingServiceProvider).startTracking(
           state.shiftId!,
         );
-        AppLogger.general('✅ Location tracking started - will publish every 10 seconds');
+        AppLogger.general('✅ Location tracking started - will publish every ~1 second');
       } else {
         AppLogger.general('⚠️ Cannot start location tracking - shiftId is null');
       }
@@ -395,8 +448,9 @@ class ShiftNotifier extends _$ShiftNotifier {
       AppLogger.general('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
       AppLogger.general('✅ SHIFT ACCEPTANCE FLOW COMPLETED');
       AppLogger.general('   Total duration: ${totalDuration}ms');
-      AppLogger.general('   - Location step: ${locationDuration}ms');
-      AppLogger.general('   - API call: ${apiDuration}ms');
+      AppLogger.general('   - Step 1 (Location): ${locationDuration}ms');
+      AppLogger.general('   - Step 2 (Preflight): ${preflightDuration}ms');
+      AppLogger.general('   - Step 3 (Start): ${apiDuration}ms');
       AppLogger.general('   Shift Status: ${state.status}');
       AppLogger.general('   Shift started at: ${state.startTime}');
       AppLogger.general('   Route bins: ${state.routeBins.length}');
@@ -553,6 +607,30 @@ class ShiftNotifier extends _$ShiftNotifier {
       // No need to manually refresh - this avoids read-after-write consistency issues
     } catch (e) {
       AppLogger.general('❌ Error completing bin: $e', level: AppLogger.error);
+      rethrow;
+    }
+  }
+
+  /// Skip a task with a required reason
+  /// If skipping a pickup, the paired dropoff will also be skipped automatically
+  Future<void> skipTask(String taskId, String reason) async {
+    if (state.status != ShiftStatus.active) {
+      AppLogger.general('⚠️ Cannot skip task - shift not active');
+      return;
+    }
+
+    try {
+      final shiftService = ref.read(shiftServiceProvider);
+      await shiftService.skipTask(taskId, reason);
+
+      AppLogger.general(
+        '⏭️  Task skipped via API (reason: $reason), waiting for WebSocket update...',
+      );
+
+      // Note: WebSocket will receive shift_update and call updateFromWebSocket()
+      // No need to manually refresh - this avoids read-after-write consistency issues
+    } catch (e) {
+      AppLogger.general('❌ Error skipping task: $e', level: AppLogger.error);
       rethrow;
     }
   }

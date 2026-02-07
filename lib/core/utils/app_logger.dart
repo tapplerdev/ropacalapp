@@ -39,8 +39,14 @@ class AppLogger {
   }
 
   /// Send log to backend via WebSocket
+  /// DISABLED: Verbose logging makes backend logs difficult to read
+  /// Only ERROR-level logs are sent remotely for critical issue tracking
   static void _sendToBackend(String category, String message, int level) {
     if (_sendLogCallback == null) return;
+
+    // Only send ERROR level logs to backend (level >= 1000)
+    // This reduces log spam while still capturing critical issues
+    if (level < error) return;
 
     try {
       // Truncate large messages to prevent WebSocket close code 1009 (message too big)

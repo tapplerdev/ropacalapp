@@ -149,44 +149,26 @@ class LocationTrackingService {
 
       FusedLocation? location;
 
-      try {
-        // Start location updates temporarily to get current position
-        const options = FusedLocationProviderOptions(distanceFilter: 0);
-        await _fusedLocation.startLocationUpdates(options: options);
-        AppLogger.general('   ✅ Location updates started');
+      // Start location updates temporarily to get current position
+      const options = FusedLocationProviderOptions(distanceFilter: 0);
+      await _fusedLocation.startLocationUpdates(options: options);
+      AppLogger.general('   ✅ Location updates started');
 
-        // Get the first location from the stream with timeout
-        AppLogger.general('   ⏳ Waiting for GPS location (5 second timeout)...');
-        location = await _fusedLocation.dataStream
-            .first
-            .timeout(
-              const Duration(seconds: 5),
-              onTimeout: () => throw Exception('Location timeout'),
-            );
+      // Get the first location from the stream with timeout
+      AppLogger.general('   ⏳ Waiting for GPS location (5 second timeout)...');
+      location = await _fusedLocation.dataStream
+          .first
+          .timeout(
+            const Duration(seconds: 5),
+            onTimeout: () => throw Exception('GPS_TIMEOUT'),
+          );
 
-        final gotLocationTime = DateTime.now();
-        final gpsDuration = gotLocationTime.difference(startTime).inMilliseconds;
-        AppLogger.general('   ✅ Got GPS location in ${gpsDuration}ms');
+      final gotLocationTime = DateTime.now();
+      final gpsDuration = gotLocationTime.difference(startTime).inMilliseconds;
+      AppLogger.general('   ✅ Got GPS location in ${gpsDuration}ms');
 
-        // Stop the temporary location updates
-        await _fusedLocation.stopLocationUpdates();
-      } catch (e) {
-        AppLogger.general('   ❌ GPS timeout - could not get location');
-        AppLogger.general('   ⚠️  Using simulator fallback coordinates');
-        // iOS simulator fallback
-        location = FusedLocation(
-          position: const Position(
-            latitude: 11.18656,
-            longitude: -74.23346,
-            accuracy: 10.0,
-          ),
-          elevation: const Elevation(),
-          course: const Course(),
-          speed: const Speed(),
-          heading: const Heading(direction: 0.0, accuracy: 0.0),
-          timestamp: DateTime.now(),
-        );
-      }
+      // Stop the temporary location updates
+      await _fusedLocation.stopLocationUpdates();
 
       AppLogger.general(
         '📍 Current location: ${location.position.latitude.toStringAsFixed(6)}, ${location.position.longitude.toStringAsFixed(6)}',
@@ -205,7 +187,8 @@ class LocationTrackingService {
       AppLogger.general('   ✅ sendCurrentLocation() completed in ${totalDuration}ms');
     } catch (e) {
       AppLogger.general('❌ Error getting current location: $e');
-      AppLogger.general('   ⚠️  Shift will start WITHOUT location in Redis!');
+      // Rethrow to allow caller to handle (e.g., show permission modal)
+      rethrow;
     }
   }
 

@@ -212,32 +212,25 @@ class PotentialLocationBottomSheet extends HookConsumerWidget {
                     const Text(
                       'Convert to Bin',
                       style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
                       ),
                     ),
-                    const SizedBox(height: 8),
-                    Text(
-                      'Enter a bin number or leave empty to auto-assign the next available number.',
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: Colors.grey.shade600,
-                      ),
-                    ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 12),
 
                     // Bin number input
                     TextField(
                       controller: binNumberController,
                       enabled: !isSubmitting.value,
                       keyboardType: TextInputType.number,
+                      autofocus: true,
                       style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
                       ),
                       decoration: InputDecoration(
-                        labelText: 'Bin Number (Optional)',
-                        hintText: 'Leave empty for auto-assignment',
+                        labelText: 'Bin Number *',
+                        hintText: 'Enter bin number',
                         prefixIcon: Icon(
                           Icons.tag,
                           color: AppColors.primaryGreen,
@@ -261,7 +254,7 @@ class PotentialLocationBottomSheet extends HookConsumerWidget {
                         fillColor: Colors.white,
                       ),
                     ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 20),
 
                     // Convert button
                     SizedBox(
@@ -270,19 +263,26 @@ class PotentialLocationBottomSheet extends HookConsumerWidget {
                         onPressed: isSubmitting.value
                             ? null
                             : () async {
-                                // Parse bin number if provided
-                                int? binNumber;
-                                if (binNumberController.text.trim().isNotEmpty) {
-                                  binNumber = int.tryParse(binNumberController.text.trim());
-                                  if (binNumber == null || binNumber <= 0) {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(
-                                        content: Text('Please enter a valid bin number'),
-                                        backgroundColor: Colors.red,
-                                      ),
-                                    );
-                                    return;
-                                  }
+                                // Validate bin number is required
+                                if (binNumberController.text.trim().isEmpty) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text('Please enter a bin number'),
+                                      backgroundColor: Colors.red,
+                                    ),
+                                  );
+                                  return;
+                                }
+
+                                final binNumber = int.tryParse(binNumberController.text.trim());
+                                if (binNumber == null || binNumber <= 0) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text('Please enter a valid bin number'),
+                                      backgroundColor: Colors.red,
+                                    ),
+                                  );
+                                  return;
                                 }
 
                                 isSubmitting.value = true;
@@ -302,9 +302,7 @@ class PotentialLocationBottomSheet extends HookConsumerWidget {
                                         .showSnackBar(
                                       SnackBar(
                                         content: Text(
-                                          binNumber != null
-                                              ? 'Successfully converted to Bin #$binNumber'
-                                              : 'Successfully converted to bin',
+                                          '✅ Converted to Bin #$binNumber',
                                         ),
                                         backgroundColor: AppColors.successGreen,
                                       ),
@@ -312,9 +310,19 @@ class PotentialLocationBottomSheet extends HookConsumerWidget {
                                   }
                                 } catch (e) {
                                   if (context.mounted) {
-                                    final errorMessage = e.toString().contains('already exists')
-                                        ? 'Bin number already exists'
-                                        : 'Error: $e';
+                                    final errorString = e.toString();
+                                    final errorMessage = errorString.contains('required')
+                                        ? 'Bin number is required'
+                                        : errorString.contains('already converted')
+                                            ? 'This location has already been converted'
+                                            : 'Failed to convert: $e';
+
+                                    // If already converted, refresh the list and close dialog
+                                    if (errorString.contains('already converted')) {
+                                      ref.read(potentialLocationsListNotifierProvider.notifier).refresh();
+                                      Navigator.pop(context);
+                                    }
+
                                     ScaffoldMessenger.of(context)
                                         .showSnackBar(
                                       SnackBar(

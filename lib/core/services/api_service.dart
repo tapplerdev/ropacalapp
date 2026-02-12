@@ -539,13 +539,22 @@ class ApiService {
           return 'Connection timeout. Please check your internet connection.';
         case DioExceptionType.badResponse:
           final statusCode = error.response?.statusCode;
-          final message = error.response?.data?['message'];
+          final responseData = error.response?.data;
+
+          // Check if response data is a string (plain text error) or a map
+          String? message;
+          if (responseData is String) {
+            message = responseData;
+          } else if (responseData is Map<String, dynamic>) {
+            message = responseData['message'] as String?;
+          }
+
           if (statusCode == 401) {
             return 'Unauthorized. Please log in again.';
           } else if (statusCode == 404) {
-            return 'Resource not found.';
+            return message ?? 'Resource not found.';
           } else if (message != null) {
-            return message as String;
+            return message;
           }
           return 'Server error: $statusCode';
         case DioExceptionType.cancel:

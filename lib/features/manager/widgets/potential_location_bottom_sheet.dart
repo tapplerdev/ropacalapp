@@ -16,6 +16,7 @@ class PotentialLocationBottomSheet extends HookConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final isSubmitting = useState(false);
+    final binNumberController = useTextEditingController();
 
     final isPending = location.convertedToBinId == null;
 
@@ -217,10 +218,47 @@ class PotentialLocationBottomSheet extends HookConsumerWidget {
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      'This will automatically create a new bin at this location with the next available bin number.',
+                      'Enter a bin number or leave empty to auto-assign the next available number.',
                       style: TextStyle(
                         fontSize: 13,
                         color: Colors.grey.shade600,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Bin number input
+                    TextField(
+                      controller: binNumberController,
+                      enabled: !isSubmitting.value,
+                      keyboardType: TextInputType.number,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                      ),
+                      decoration: InputDecoration(
+                        labelText: 'Bin Number (Optional)',
+                        hintText: 'Leave empty for auto-assignment',
+                        prefixIcon: Icon(
+                          Icons.tag,
+                          color: AppColors.primaryGreen,
+                        ),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide(color: Colors.grey.shade300),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide(color: Colors.grey.shade300),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide(
+                            color: AppColors.primaryGreen,
+                            width: 2,
+                          ),
+                        ),
+                        filled: true,
+                        fillColor: Colors.white,
                       ),
                     ),
                     const SizedBox(height: 16),
@@ -232,6 +270,21 @@ class PotentialLocationBottomSheet extends HookConsumerWidget {
                         onPressed: isSubmitting.value
                             ? null
                             : () async {
+                                // Parse bin number if provided
+                                int? binNumber;
+                                if (binNumberController.text.trim().isNotEmpty) {
+                                  binNumber = int.tryParse(binNumberController.text.trim());
+                                  if (binNumber == null || binNumber <= 0) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(
+                                        content: Text('Please enter a valid bin number'),
+                                        backgroundColor: Colors.red,
+                                      ),
+                                    );
+                                    return;
+                                  }
+                                }
+
                                 isSubmitting.value = true;
                                 try {
                                   await ref
@@ -240,15 +293,18 @@ class PotentialLocationBottomSheet extends HookConsumerWidget {
                                       )
                                       .convertToBin(
                                         potentialLocationId: location.id,
+                                        binNumber: binNumber,
                                       );
 
                                   if (context.mounted) {
                                     Navigator.pop(context);
                                     ScaffoldMessenger.of(context)
                                         .showSnackBar(
-                                      const SnackBar(
+                                      SnackBar(
                                         content: Text(
-                                          'Successfully converted to bin',
+                                          binNumber != null
+                                              ? 'Successfully converted to Bin #$binNumber'
+                                              : 'Successfully converted to bin',
                                         ),
                                         backgroundColor: AppColors.successGreen,
                                       ),
@@ -256,10 +312,13 @@ class PotentialLocationBottomSheet extends HookConsumerWidget {
                                   }
                                 } catch (e) {
                                   if (context.mounted) {
+                                    final errorMessage = e.toString().contains('already exists')
+                                        ? 'Bin number already exists'
+                                        : 'Error: $e';
                                     ScaffoldMessenger.of(context)
                                         .showSnackBar(
                                       SnackBar(
-                                        content: Text('Error: $e'),
+                                        content: Text(errorMessage),
                                         backgroundColor: Colors.red,
                                       ),
                                     );

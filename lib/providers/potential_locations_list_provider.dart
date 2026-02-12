@@ -70,8 +70,10 @@ class PotentialLocationsListNotifier
 
   /// Convert a potential location to a bin
   /// Updates both providers locally without full refresh for smooth UX
+  /// If binNumber is provided, uses that; otherwise auto-assigns next available
   Future<void> convertToBin({
     required String potentialLocationId,
+    int? binNumber,
   }) async {
     try {
       AppLogger.general(
@@ -82,6 +84,9 @@ class PotentialLocationsListNotifier
       );
       AppLogger.general(
         '   Location ID: $potentialLocationId',
+      );
+      AppLogger.general(
+        '   Bin Number: ${binNumber ?? "auto-assign"}',
       );
 
       // Log current state before conversion
@@ -99,6 +104,7 @@ class PotentialLocationsListNotifier
       AppLogger.general('   📡 Calling API...');
       final newBin = await apiService.convertPotentialLocationToBin(
         potentialLocationId: potentialLocationId,
+        binNumber: binNumber,
       );
       AppLogger.general('   ✅ API returned new bin #${newBin.binNumber}');
 

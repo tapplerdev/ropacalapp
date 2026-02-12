@@ -432,13 +432,22 @@ class ApiService {
 
   Future<Bin> convertPotentialLocationToBin({
     required String potentialLocationId,
+    int? binNumber,
   }) async {
     try {
       AppLogger.api(
-        '📍 convertPotentialLocationToBin: Converting location $potentialLocationId to bin',
+        '📍 convertPotentialLocationToBin: Converting location $potentialLocationId to bin'
+        '${binNumber != null ? ' with bin_number=$binNumber' : ' (auto-assign)'}',
       );
+
+      // Build request body with optional bin_number
+      final requestBody = binNumber != null
+          ? {'bin_number': binNumber}
+          : null;
+
       final response = await _dio.post(
         '${ApiConstants.potentialLocationsEndpoint}/$potentialLocationId/convert',
+        data: requestBody,
       );
       AppLogger.api(
         '📍 convertPotentialLocationToBin: Response status ${response.statusCode}',

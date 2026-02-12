@@ -223,7 +223,6 @@ class PotentialLocationBottomSheet extends HookConsumerWidget {
                       controller: binNumberController,
                       enabled: !isSubmitting.value,
                       keyboardType: TextInputType.number,
-                      autofocus: true,
                       style: const TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.bold,

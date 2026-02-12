@@ -22,16 +22,24 @@ class _PotentialLocationsPageState
     extends ConsumerState<PotentialLocationsPage>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
+  final TextEditingController _searchController = TextEditingController();
+  String _searchQuery = '';
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
+    _searchController.addListener(() {
+      setState(() {
+        _searchQuery = _searchController.text.toLowerCase();
+      });
+    });
   }
 
   @override
   void dispose() {
     _tabController.dispose();
+    _searchController.dispose();
     super.dispose();
   }
 
@@ -171,67 +179,148 @@ class _PotentialLocationsPageState
           ),
         ),
       ),
-      body: potentialLocationsAsync.when(
-        data: (locations) {
-          // Separate pending and converted locations
-          final pending = locations
-              .where((loc) => loc.convertedToBinId == null)
-              .toList();
-          final converted = locations
-              .where((loc) => loc.convertedToBinId != null)
-              .toList();
-
-          return TabBarView(
-            controller: _tabController,
-            children: [
-              // Pending Tab
-              _buildPendingTab(pending),
-              // History Tab
-              _buildHistoryTab(converted),
-            ],
-          );
-        },
-        loading: () => const Center(
-          child: CircularProgressIndicator(
-            valueColor: AlwaysStoppedAnimation<Color>(AppColors.primaryGreen),
-          ),
-        ),
-        error: (error, stackTrace) => Center(
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Icon(
-                  Icons.error_outline,
-                  size: 48,
-                  color: Colors.red,
+      body: Column(
+        children: [
+          // Search Bar
+          Container(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              border: Border(
+                bottom: BorderSide(
+                  color: Colors.grey.withValues(alpha: 0.2),
+                  width: 1,
                 ),
-                const SizedBox(height: 16),
-                Text(
-                  'Error loading potential locations',
-                  style: Theme.of(context).textTheme.titleMedium,
+              ),
+            ),
+            child: TextField(
+              controller: _searchController,
+              decoration: InputDecoration(
+                hintText: 'Search by address, city, or ZIP...',
+                hintStyle: TextStyle(
+                  fontSize: 14,
+                  color: Colors.grey[500],
                 ),
-                const SizedBox(height: 8),
-                Text(
-                  error.toString(),
-                  textAlign: TextAlign.center,
-                  style: Theme.of(context).textTheme.bodySmall,
+                prefixIcon: Icon(
+                  Icons.search,
+                  color: Colors.grey[600],
+                  size: 22,
                 ),
-                const SizedBox(height: 16),
-                ElevatedButton.icon(
-                  onPressed: () {
-                    ref
-                        .read(potentialLocationsListNotifierProvider.notifier)
-                        .refresh();
-                  },
-                  icon: const Icon(Icons.refresh),
-                  label: const Text('Retry'),
+                suffixIcon: _searchQuery.isNotEmpty
+                    ? IconButton(
+                        icon: Icon(
+                          Icons.clear,
+                          color: Colors.grey[600],
+                          size: 20,
+                        ),
+                        onPressed: () {
+                          _searchController.clear();
+                        },
+                      )
+                    : null,
+                filled: true,
+                fillColor: Colors.grey[50],
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide.none,
                 ),
-              ],
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(
+                    color: Colors.grey.withValues(alpha: 0.2),
+                    width: 1,
+                  ),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(
+                    color: AppColors.primaryGreen,
+                    width: 1.5,
+                  ),
+                ),
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 12,
+                ),
+              ),
             ),
           ),
-        ),
+          // Tab Content
+          Expanded(
+            child: potentialLocationsAsync.when(
+              data: (locations) {
+                // Filter based on search query
+                final filteredLocations = _searchQuery.isEmpty
+                    ? locations
+                    : locations.where((loc) {
+                        final searchLower = _searchQuery.toLowerCase();
+                        return loc.street.toLowerCase().contains(searchLower) ||
+                            loc.city.toLowerCase().contains(searchLower) ||
+                            loc.zip.toLowerCase().contains(searchLower);
+                      }).toList();
+
+                // Separate pending and converted locations
+                final pending = filteredLocations
+                    .where((loc) => loc.convertedToBinId == null)
+                    .toList();
+                final converted = filteredLocations
+                    .where((loc) => loc.convertedToBinId != null)
+                    .toList();
+
+                return TabBarView(
+                  controller: _tabController,
+                  children: [
+                    // Pending Tab
+                    _buildPendingTab(pending),
+                    // History Tab
+                    _buildHistoryTab(converted),
+                  ],
+                );
+              },
+              loading: () => const Center(
+                child: CircularProgressIndicator(
+                  valueColor: AlwaysStoppedAnimation<Color>(AppColors.primaryGreen),
+                ),
+              ),
+              error: (error, stackTrace) => Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(
+                        Icons.error_outline,
+                        size: 48,
+                        color: Colors.red,
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        'Error loading potential locations',
+                        style: Theme.of(context).textTheme.titleMedium,
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        error.toString(),
+                        textAlign: TextAlign.center,
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
+                      const SizedBox(height: 16),
+                      ElevatedButton.icon(
+                        onPressed: () {
+                          ref
+                              .read(potentialLocationsListNotifierProvider.notifier)
+                              .refresh();
+                        },
+                        icon: const Icon(Icons.refresh),
+                        label: const Text('Retry'),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

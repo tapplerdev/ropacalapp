@@ -44,7 +44,7 @@ class GoogleNavigationPage extends HookConsumerWidget {
     // ✅ CRITICAL: Keep Centrifugo connected during active navigation
     // This ensures location tracking can publish to WebSocket while navigating
     ref.watch(centrifugoManagerProvider);
-    AppLogger.general('🔵 [GoogleNavigationPage] Watching centrifugoManagerProvider');
+    // AppLogger.general('🔵 [GoogleNavigationPage] Watching centrifugoManagerProvider'); // Commented out - too verbose
 
     // Local UI-only state (keep as hooks)
     final navigationController = useState<GoogleNavigationViewController?>(null);

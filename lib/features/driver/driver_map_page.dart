@@ -79,7 +79,7 @@ class DriverMapPage extends HookConsumerWidget {
     // ✅ CRITICAL: Initialize Centrifugo connection by watching the provider
     // This ensures the CentrifugoManager build() method is called and connects
     ref.watch(centrifugoManagerProvider);
-    AppLogger.general('🔵 [DriverMapPage] Watching centrifugoManagerProvider');
+    // AppLogger.general('🔵 [DriverMapPage] Watching centrifugoManagerProvider'); // Commented out - too verbose
 
     final binsState = ref.watch(binsListProvider); // Used for Bins tab, NOT for map markers
     // AppLogger.general('   📦 binsState: ${binsState.runtimeType}, hasValue: ${binsState.hasValue}, valueOrNull?.length: ${binsState.valueOrNull?.length}');

@@ -187,8 +187,10 @@ class LocationTrackingService {
         final gpsDuration = gotLocationTime.difference(startTime).inMilliseconds;
         AppLogger.general('   ✅ Got cached location in ${gpsDuration}ms');
 
-        // Note: FusedLocation.Position doesn't have timestamp, so we can't calculate age
-        AppLogger.general('   📅 Using cached location from active stream');
+        // Calculate age of cached location
+        final locationAge = DateTime.now().millisecondsSinceEpoch -
+                           _lastLocation!.timestamp.millisecondsSinceEpoch;
+        AppLogger.general('   📅 Location age: ${locationAge}ms (${(locationAge / 1000).toStringAsFixed(1)}s)');
       }
       // OPTION 2: Start new stream (FALLBACK - slower on emulator)
       else {

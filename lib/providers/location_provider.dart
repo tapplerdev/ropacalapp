@@ -176,14 +176,14 @@ class CurrentLocation extends _$CurrentLocation {
     return geolocator.Position(
       latitude: fusedLocation.position.latitude,
       longitude: fusedLocation.position.longitude,
-      timestamp: DateTime.now(), // FusedLocation.Position doesn't have timestamp
+      timestamp: fusedLocation.timestamp,
       accuracy: fusedLocation.position.accuracy ?? 0.0,
-      altitude: 0.0, // FusedLocation.Position doesn't have altitude
-      altitudeAccuracy: 0.0, // Not provided by FusedLocation
-      heading: fusedLocation.heading.direction, // direction is non-nullable
-      headingAccuracy: 0.0, // Not provided by FusedLocation
+      altitude: fusedLocation.elevation.meanSeaLevel ?? 0.0,
+      altitudeAccuracy: fusedLocation.elevation.meanSeaLevelAccuracy ?? 0.0,
+      heading: fusedLocation.heading.direction,
+      headingAccuracy: fusedLocation.heading.accuracy,
       speed: fusedLocation.speed.magnitude ?? 0.0,
-      speedAccuracy: 0.0, // Not provided by FusedLocation
+      speedAccuracy: fusedLocation.speed.accuracy ?? 0.0,
     );
   }
 }

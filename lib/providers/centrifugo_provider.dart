@@ -2,10 +2,8 @@ import 'dart:async';
 import 'dart:developer';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:ropacalapp/core/services/centrifugo_service.dart';
-import 'package:ropacalapp/core/services/api_service.dart';
 import 'package:ropacalapp/core/enums/user_role.dart';
 import 'package:ropacalapp/providers/auth_provider.dart';
-import 'package:ropacalapp/providers/api_service_provider.dart';
 
 part 'centrifugo_provider.g.dart';
 

@@ -28,7 +28,23 @@ class LocationTrackingService {
   bool _isTracking = false;
   FusedLocation? _lastLocation; // Cache last received location
 
+  // Callback for location updates (for UI integration)
+  void Function(FusedLocation)? _onLocationUpdate;
+
   LocationTrackingService(this._ref);
+
+  /// Get the last cached location (null if not tracking or no location yet)
+  FusedLocation? get lastLocation => _lastLocation;
+
+  /// Set callback for location updates (for UI integration)
+  /// This allows other parts of the app to react to location changes
+  void setLocationUpdateCallback(void Function(FusedLocation)? callback) {
+    _onLocationUpdate = callback;
+    // If we already have a location, notify immediately
+    if (callback != null && _lastLocation != null) {
+      callback(_lastLocation!);
+    }
+  }
 
   /// Start background location tracking (no shift required)
   /// Used when driver logs in to allow managers to see their location
@@ -100,6 +116,9 @@ class LocationTrackingService {
         (FusedLocation location) {
           // Cache the location for instant access by sendCurrentLocation()
           _lastLocation = location;
+
+          // Notify callback (for UI integration like currentLocationProvider)
+          _onLocationUpdate?.call(location);
 
           // Measure actual GPS update interval (commented out to reduce log clutter)
           // final now = DateTime.now();
@@ -233,6 +252,7 @@ class LocationTrackingService {
     _currentShiftId = null;
     _isTracking = false;
     _lastLocation = null; // Clear cached location
+    _onLocationUpdate = null; // Clear callback
 
     AppLogger.general('✅ Location tracking stopped');
   }

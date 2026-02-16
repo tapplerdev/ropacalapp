@@ -59,13 +59,32 @@ class CentrifugoService {
           // Token refresh callback - called when token is expiring
           getToken: (event) async {
             log('🔑 [Centrifugo] Token expiring, fetching fresh token from backend...');
+            log('🔑 [Centrifugo] Refresh attempt triggered by SDK');
+
             try {
               final response = await _apiService.getCentrifugoToken();
               final newToken = response['token'] as String;
+              final expiresAt = response['expires_at'] as int;
+
               log('✅ [Centrifugo] Token refreshed successfully');
+              log('🔑 [Centrifugo] New token expires: ${DateTime.fromMillisecondsSinceEpoch(expiresAt * 1000)}');
+
               return newToken;
             } catch (e) {
-              log('❌ [Centrifugo] Token refresh failed: $e');
+              log('❌ [Centrifugo] Token refresh FAILED: $e');
+
+              // Check if it's an authentication error (401)
+              if (e.toString().contains('Authentication expired') ||
+                  e.toString().contains('401')) {
+                log('🔴 [Centrifugo] JWT token is expired - user needs to re-login');
+                log('💡 [Centrifugo] WebSocket will disconnect and wait for user re-authentication');
+              } else if (e.toString().contains('Auth token not ready')) {
+                log('⚠️  [Centrifugo] Auth token not loaded - possible race condition');
+              } else {
+                log('⚠️  [Centrifugo] Network or server error - will retry with backoff');
+              }
+
+              // Rethrow to let Centrifuge SDK handle reconnection with exponential backoff
               rethrow;
             }
           },

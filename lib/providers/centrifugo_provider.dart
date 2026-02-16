@@ -2,8 +2,10 @@ import 'dart:async';
 import 'dart:developer';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:ropacalapp/core/services/centrifugo_service.dart';
+import 'package:ropacalapp/core/services/api_service.dart';
 import 'package:ropacalapp/core/enums/user_role.dart';
 import 'package:ropacalapp/providers/auth_provider.dart';
+import 'package:ropacalapp/providers/api_service_provider.dart';
 
 part 'centrifugo_provider.g.dart';
 
@@ -51,14 +53,44 @@ class CentrifugoManager extends _$CentrifugoManager {
     }
 
     try {
+      // CRITICAL: Wait for auth token to be ready before connecting
+      // This prevents 401 "No authorization header" errors
+      final apiService = ref.read(apiServiceProvider);
+
+      if (!apiService.isAuthTokenReady) {
+        log('⏳ [CentrifugoManager] Auth token not ready yet, waiting...');
+
+        // Wait with timeout to prevent infinite hang
+        int attempts = 0;
+        const maxAttempts = 10; // 1 second total (10 * 100ms)
+
+        while (!apiService.isAuthTokenReady && attempts < maxAttempts) {
+          await Future.delayed(const Duration(milliseconds: 100));
+          attempts++;
+          log('⏳ [CentrifugoManager] Waiting for auth token (attempt $attempts/$maxAttempts)');
+        }
+
+        if (!apiService.isAuthTokenReady) {
+          log('❌ [CentrifugoManager] Auth token not ready after ${maxAttempts * 100}ms - aborting connection');
+          throw Exception(
+            'Auth token not loaded within timeout. Cannot connect to Centrifugo without authentication.',
+          );
+        }
+
+        log('✅ [CentrifugoManager] Auth token ready after ${attempts * 100}ms');
+      } else {
+        log('✅ [CentrifugoManager] Auth token already ready');
+      }
+
       log('🔌 [CentrifugoManager] Connecting to Centrifugo...');
       final centrifugoService = ref.read(centrifugoServiceProvider);
       await centrifugoService.connect();
       _isConnected = true;
-      log('✅ [CentrifugoManager] Connected to Centrifugo');
+      log('✅ [CentrifugoManager] Connected to Centrifugo successfully');
     } catch (e) {
       log('❌ [CentrifugoManager] Failed to connect: $e');
-      rethrow;
+      log('💡 [CentrifugoManager] This is not critical - connection will retry automatically');
+      // Don't rethrow - allow app to continue working, Centrifugo will retry
     }
   }
 

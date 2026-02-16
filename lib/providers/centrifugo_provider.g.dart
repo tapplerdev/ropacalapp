@@ -6,7 +6,7 @@ part of 'centrifugo_provider.dart';
 // RiverpodGenerator
 // **************************************************************************
 
-String _$centrifugoManagerHash() => r'dba598b0b72c3922236616505591e6c5343298b9';
+String _$centrifugoManagerHash() => r'5801e22f5292020717d899128be0eccecb09fed2';
 
 /// Centrifugo connection lifecycle manager
 ///

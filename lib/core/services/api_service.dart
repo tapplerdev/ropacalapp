@@ -95,6 +95,12 @@ class ApiService {
     );
   }
 
+  /// Check if auth token is loaded and ready for API calls
+  bool get isAuthTokenReady => _authToken != null;
+
+  /// Get current auth token (for debugging/logging only)
+  String? get currentAuthToken => _authToken;
+
   /// Load auth token from secure storage (call on app startup)
   Future<void> loadAuthToken() async {
     AppLogger.api('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
@@ -470,15 +476,44 @@ class ApiService {
   // Centrifugo real-time messaging
   Future<Map<String, dynamic>> getCentrifugoToken() async {
     try {
+      // Pre-flight check: Ensure auth token is loaded
+      if (!isAuthTokenReady) {
+        AppLogger.api(
+          '🔑 getCentrifugoToken: ⚠️  Auth token not loaded! This will cause 401 error.',
+        );
+        throw Exception(
+          'Auth token not ready. Call loadAuthToken() first or wait for auth to complete.',
+        );
+      }
+
       AppLogger.api('🔑 getCentrifugoToken: Fetching Centrifugo JWT token');
+      AppLogger.api('🔑 getCentrifugoToken: Auth token ready: $isAuthTokenReady');
+
       final response = await _dio.get(ApiConstants.centrifugoTokenEndpoint);
+
       AppLogger.api(
         '🔑 getCentrifugoToken: Token received (expires: ${response.data['expires_at']})',
       );
       return response.data as Map<String, dynamic>;
-    } catch (e) {
+    } on DioException catch (e) {
+      // Handle 401 Unauthorized specifically (expired JWT token)
+      if (e.response?.statusCode == 401) {
+        AppLogger.api(
+          '🔑 getCentrifugoToken: ❌ 401 Unauthorized - JWT token is expired or invalid',
+        );
+        AppLogger.api(
+          '🔑 getCentrifugoToken: 💡 User needs to re-authenticate to get fresh JWT',
+        );
+        throw Exception(
+          'Authentication expired. Please log in again to refresh your session.',
+        );
+      }
+
       AppLogger.api('🔑 getCentrifugoToken: Exception caught: $e');
       throw _handleError(e);
+    } catch (e) {
+      AppLogger.api('🔑 getCentrifugoToken: Unexpected error: $e');
+      rethrow;
     }
   }
 

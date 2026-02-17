@@ -284,6 +284,69 @@ class CentrifugoService {
     });
   }
 
+  /// Subscribe to company-wide broadcast events (managers/admins only)
+  ///
+  /// Channel: company:events
+  ///
+  /// Authorization:
+  /// - Only admins and managers can subscribe (enforced by backend proxy)
+  ///
+  /// Event shape from backend: { "type": "...", "data": {...} }
+  /// Event types:
+  ///   - potential_location_created
+  ///   - potential_location_converted
+  ///   - potential_location_deleted
+  Future<StreamSubscription> subscribeToCompanyEvents(
+    void Function(Map<String, dynamic> event) onEvent,
+  ) async {
+    const channel = 'company:events';
+
+    if (_client == null) {
+      throw StateError(
+        'Centrifugo client not connected. Call connect() first.',
+      );
+    }
+
+    if (_subscriptions.containsKey(channel)) {
+      log('⚠️ [Centrifugo] Already subscribed to $channel');
+      return _subscriptions[channel]!.publication.listen((pub) {
+        final data = jsonDecode(utf8.decode(pub.data));
+        onEvent(data as Map<String, dynamic>);
+      });
+    }
+
+    log('🔄 [Centrifugo] Subscribing to $channel...');
+
+    final subscription = _client!.newSubscription(channel);
+
+    subscription.subscribing.listen((event) {
+      log('🔄 [Centrifugo] Subscribing to $channel...');
+    });
+
+    subscription.subscribed.listen((event) {
+      log('✅ [Centrifugo] Subscribed to $channel');
+    });
+
+    subscription.unsubscribed.listen((event) {
+      log('❌ [Centrifugo] Unsubscribed from $channel '
+          '(${event.code}: ${event.reason})');
+      _subscriptions.remove(channel);
+    });
+
+    subscription.error.listen((event) {
+      log('❌ [Centrifugo] Subscription error on $channel: ${event.error}');
+    });
+
+    _subscriptions[channel] = subscription;
+    await subscription.subscribe();
+
+    return subscription.publication.listen((pub) {
+      log('📢 [Centrifugo] Company event received on $channel');
+      final data = jsonDecode(utf8.decode(pub.data));
+      onEvent(data as Map<String, dynamic>);
+    });
+  }
+
   /// Unsubscribe from a channel
   void unsubscribe(String channel) {
     final subscription = _subscriptions[channel];

@@ -12,7 +12,6 @@ import 'package:ropacalapp/services/websocket_service.dart';
 import 'package:ropacalapp/providers/shift_provider.dart';
 import 'package:ropacalapp/providers/drivers_provider.dart';
 import 'package:ropacalapp/providers/simulation_provider.dart';
-import 'package:ropacalapp/providers/potential_locations_list_provider.dart';
 import 'package:ropacalapp/providers/bins_provider.dart';
 import 'package:ropacalapp/providers/move_request_provider.dart';
 import 'package:ropacalapp/providers/move_request_notification_provider.dart';
@@ -259,23 +258,6 @@ class WebSocketManager extends _$WebSocketManager {
         AppLogger.general('   Stack: $stack');
         AppLogger.general('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
       }
-    };
-
-    // Potential locations events - invalidate provider to trigger refetch
-    _service!.onPotentialLocationCreated = (data) {
-      AppLogger.general('📡 WebSocket: Potential location created, invalidating provider');
-      ref.invalidate(potentialLocationsListNotifierProvider);
-    };
-
-    _service!.onPotentialLocationConverted = (data) {
-      AppLogger.general('📡 WebSocket: Potential location converted, invalidating both providers');
-      ref.invalidate(potentialLocationsListNotifierProvider);
-      ref.invalidate(binsListProvider);
-    };
-
-    _service!.onPotentialLocationDeleted = (data) {
-      AppLogger.general('📡 WebSocket: Potential location deleted, invalidating provider');
-      ref.invalidate(potentialLocationsListNotifierProvider);
     };
 
     // Bin events - invalidate provider to trigger refetch

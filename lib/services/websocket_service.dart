@@ -26,9 +26,6 @@ class WebSocketService {
   Function(Map<String, dynamic>)? onDriverShiftChange;
   Function(Map<String, dynamic>)? onMoveRequestAssigned;
   Function(Map<String, dynamic>)? onRouteUpdated;
-  Function(Map<String, dynamic>)? onPotentialLocationCreated;
-  Function(Map<String, dynamic>)? onPotentialLocationConverted;
-  Function(Map<String, dynamic>)? onPotentialLocationDeleted;
   Function(Map<String, dynamic>)? onBinCreated;
   Function(Map<String, dynamic>)? onBinUpdated;
   Function(Map<String, dynamic>)? onBinDeleted;
@@ -188,21 +185,6 @@ class WebSocketService {
           AppLogger.general('   Callback status: ${onRouteUpdated != null ? "✅ SET" : "❌ NULL"}');
           AppLogger.general('   Route update data: $data');
           onRouteUpdated?.call(data);
-          break;
-        case 'potential_location_created':
-          AppLogger.general('   📍 POTENTIAL LOCATION CREATED MESSAGE');
-          AppLogger.general('   Callback status: ${onPotentialLocationCreated != null ? "✅ SET" : "❌ NULL"}');
-          onPotentialLocationCreated?.call(data['data'] as Map<String, dynamic>);
-          break;
-        case 'potential_location_converted':
-          AppLogger.general('   🔄 POTENTIAL LOCATION CONVERTED MESSAGE');
-          AppLogger.general('   Callback status: ${onPotentialLocationConverted != null ? "✅ SET" : "❌ NULL"}');
-          onPotentialLocationConverted?.call(data['data'] as Map<String, dynamic>);
-          break;
-        case 'potential_location_deleted':
-          AppLogger.general('   🗑️  POTENTIAL LOCATION DELETED MESSAGE');
-          AppLogger.general('   Callback status: ${onPotentialLocationDeleted != null ? "✅ SET" : "❌ NULL"}');
-          onPotentialLocationDeleted?.call(data['data'] as Map<String, dynamic>);
           break;
         case 'bin_created':
           AppLogger.general('   📦 BIN CREATED MESSAGE');

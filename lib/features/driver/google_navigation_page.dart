@@ -935,7 +935,7 @@ class GoogleNavigationPage extends HookConsumerWidget {
       }
 
       return NavigationWaypoint.withLatLngTarget(
-        title: 'Bin #${bin.binNumber}',
+        title: bin.getTaskLabel(),
         target: LatLng(latitude: lat, longitude: lng),
       );
     }).toList();

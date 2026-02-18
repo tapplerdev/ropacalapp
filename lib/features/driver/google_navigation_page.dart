@@ -696,16 +696,8 @@ class GoogleNavigationPage extends HookConsumerWidget {
 
       AppLogger.general('📍 Found ${remainingBins.length} remaining bins');
 
-      // Convert bins to waypoints
-      final waypoints = remainingBins.map((bin) {
-        return NavigationWaypoint.withLatLngTarget(
-          title: 'Bin #${bin.binNumber}',
-          target: LatLng(
-            latitude: bin.latitude,
-            longitude: bin.longitude,
-          ),
-        );
-      }).toList();
+      // Convert bins to waypoints (deduplicate identical coordinates)
+      final waypoints = _buildDeduplicatedWaypoints(remainingBins);
 
       // Create destinations
       final destinations = Destinations(
@@ -902,6 +894,53 @@ class GoogleNavigationPage extends HookConsumerWidget {
     }
   }
 
+  /// Builds a list of [NavigationWaypoint] from [bins], offsetting any bins
+  /// that share identical coordinates by a tiny amount (~1m per duplicate)
+  /// to avoid a [NavigationRouteStatus.duplicateWaypointsError] from the SDK.
+  /// Only bins that are actual duplicates are touched; unique coords are used
+  /// as-is.
+  static List<NavigationWaypoint> _buildDeduplicatedWaypoints(
+    List<RouteBin> bins,
+  ) {
+    // Count how many times each rounded coordinate key appears.
+    String coordKey(RouteBin b) =>
+        '${b.latitude.toStringAsFixed(5)},'
+        '${b.longitude.toStringAsFixed(5)}';
+
+    final coordCount = <String, int>{};
+    for (final bin in bins) {
+      final key = coordKey(bin);
+      coordCount[key] = (coordCount[key] ?? 0) + 1;
+    }
+
+    // Track how many times we have already emitted each key so we can apply
+    // a cumulative offset for the 2nd, 3rd, … occurrence.
+    final coordSeen = <String, int>{};
+
+    return bins.map((bin) {
+      final key = coordKey(bin);
+      final occurrences = coordCount[key] ?? 1;
+
+      double lat = bin.latitude;
+      double lng = bin.longitude;
+
+      if (occurrences > 1) {
+        final seenCount = coordSeen[key] ?? 0;
+        coordSeen[key] = seenCount + 1;
+        // Apply offset only from the 2nd occurrence onward (~1 m per step).
+        if (seenCount > 0) {
+          lat += seenCount * 0.00001;
+          lng += seenCount * 0.00001;
+        }
+      }
+
+      return NavigationWaypoint.withLatLngTarget(
+        title: 'Bin #${bin.binNumber}',
+        target: LatLng(latitude: lat, longitude: lng),
+      );
+    }).toList();
+  }
+
   /// Advance navigation to next bin after completing current bin
   /// Uses efficient updates - SDK auto-replaces route when setDestinations() is called
   static Future<void> _advanceToNextBin(
@@ -923,15 +962,9 @@ class GoogleNavigationPage extends HookConsumerWidget {
     try {
       // If there are remaining bins, update destinations
       if (shift.remainingBins.isNotEmpty) {
-        final waypoints = shift.remainingBins.map((bin) {
-          return NavigationWaypoint.withLatLngTarget(
-            title: 'Bin #${bin.binNumber}',
-            target: LatLng(
-              latitude: bin.latitude,
-              longitude: bin.longitude,
-            ),
-          );
-        }).toList();
+        // Build waypoints with duplicate coordinate offset
+        final waypoints =
+            _buildDeduplicatedWaypoints(shift.remainingBins);
 
         final destinations = Destinations(
           waypoints: waypoints,

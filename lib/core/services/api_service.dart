@@ -403,30 +403,22 @@ class ApiService {
   Future<List<PotentialLocation>> getPotentialLocations() async {
     try {
       AppLogger.api(
-        '📍 getPotentialLocations: Fetching active and converted locations',
+        '📍 getPotentialLocations: Fetching active locations only',
       );
 
-      // Fetch both active and converted locations
-      final activeResponse = await _dio.get(
+      // Fetch only active (non-converted) locations
+      final response = await _dio.get(
         ApiConstants.potentialLocationsEndpoint,
         queryParameters: {'status': 'active'},
       );
 
-      final convertedResponse = await _dio.get(
-        ApiConstants.potentialLocationsEndpoint,
-        queryParameters: {'status': 'converted'},
-      );
-
       AppLogger.api(
-        '📍 getPotentialLocations: Got ${(activeResponse.data as List).length} active, ${(convertedResponse.data as List).length} converted',
+        '📍 getPotentialLocations: Got ${(response.data as List).length} active locations',
       );
 
-      // Combine both lists
-      final List<dynamic> activeData = activeResponse.data as List<dynamic>;
-      final List<dynamic> convertedData = convertedResponse.data as List<dynamic>;
-      final allData = [...activeData, ...convertedData];
+      final List<dynamic> data = response.data as List<dynamic>;
 
-      return allData
+      return data
           .map((json) =>
               PotentialLocation.fromJson(json as Map<String, dynamic>))
           .toList();

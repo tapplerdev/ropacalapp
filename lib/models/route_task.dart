@@ -130,9 +130,8 @@ class RouteTask with _$RouteTask {
       case StopType.pickup:
         return binNumber != null ? 'Pickup Bin #$binNumber' : 'Pickup Bin';
       case StopType.dropoff:
-        return destinationAddress != null
-            ? 'Dropoff to ${_truncateAddress(destinationAddress!)}'
-            : 'Dropoff';
+        final dest = destinationAddress ?? address; // Fallback for old data
+        return dest != null ? 'Dropoff to ${_truncateAddress(dest)}' : 'Dropoff';
       case StopType.warehouseStop:
         final action = warehouseAction == 'both' ? 'Load/Unload' :
                        warehouseAction == 'load' ? 'Load' :
@@ -156,7 +155,7 @@ class RouteTask with _$RouteTask {
       case StopType.placement:
         return address ?? 'No address';
       case StopType.dropoff:
-        return destinationAddress ?? 'No address';
+        return destinationAddress ?? address ?? 'No address'; // Fallback for old data
       case StopType.warehouseStop:
         return address ?? 'Warehouse Location';
     }

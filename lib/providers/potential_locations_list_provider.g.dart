@@ -7,7 +7,7 @@ part of 'potential_locations_list_provider.dart';
 // **************************************************************************
 
 String _$potentialLocationsListNotifierHash() =>
-    r'292bddcd1138d3b05f5e96cf997dac8b13029468';
+    r'5e739ddac1e2c48014449af1aaaf531e2e5ba6af';
 
 /// Provider for managing potential locations list (manager view)
 ///

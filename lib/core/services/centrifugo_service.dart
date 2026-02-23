@@ -59,13 +59,32 @@ class CentrifugoService {
           // Token refresh callback - called when token is expiring
           getToken: (event) async {
             log('🔑 [Centrifugo] Token expiring, fetching fresh token from backend...');
+            log('🔑 [Centrifugo] Refresh attempt triggered by SDK');
+
             try {
               final response = await _apiService.getCentrifugoToken();
               final newToken = response['token'] as String;
+              final expiresAt = response['expires_at'] as int;
+
               log('✅ [Centrifugo] Token refreshed successfully');
+              log('🔑 [Centrifugo] New token expires: ${DateTime.fromMillisecondsSinceEpoch(expiresAt * 1000)}');
+
               return newToken;
             } catch (e) {
-              log('❌ [Centrifugo] Token refresh failed: $e');
+              log('❌ [Centrifugo] Token refresh FAILED: $e');
+
+              // Check if it's an authentication error (401)
+              if (e.toString().contains('Authentication expired') ||
+                  e.toString().contains('401')) {
+                log('🔴 [Centrifugo] JWT token is expired - user needs to re-login');
+                log('💡 [Centrifugo] WebSocket will disconnect and wait for user re-authentication');
+              } else if (e.toString().contains('Auth token not ready')) {
+                log('⚠️  [Centrifugo] Auth token not loaded - possible race condition');
+              } else {
+                log('⚠️  [Centrifugo] Network or server error - will retry with backoff');
+              }
+
+              // Rethrow to let Centrifuge SDK handle reconnection with exponential backoff
               rethrow;
             }
           },
@@ -262,6 +281,69 @@ class CentrifugoService {
       log('🔔 [Centrifugo] Manager notification received on $channel');
       final data = jsonDecode(utf8.decode(event.data));
       onNotification(data as Map<String, dynamic>);
+    });
+  }
+
+  /// Subscribe to company-wide broadcast events (managers/admins only)
+  ///
+  /// Channel: company:events
+  ///
+  /// Authorization:
+  /// - Only admins and managers can subscribe (enforced by backend proxy)
+  ///
+  /// Event shape from backend: { "type": "...", "data": {...} }
+  /// Event types:
+  ///   - potential_location_created
+  ///   - potential_location_converted
+  ///   - potential_location_deleted
+  Future<StreamSubscription> subscribeToCompanyEvents(
+    void Function(Map<String, dynamic> event) onEvent,
+  ) async {
+    const channel = 'company:events';
+
+    if (_client == null) {
+      throw StateError(
+        'Centrifugo client not connected. Call connect() first.',
+      );
+    }
+
+    if (_subscriptions.containsKey(channel)) {
+      log('⚠️ [Centrifugo] Already subscribed to $channel');
+      return _subscriptions[channel]!.publication.listen((pub) {
+        final data = jsonDecode(utf8.decode(pub.data));
+        onEvent(data as Map<String, dynamic>);
+      });
+    }
+
+    log('🔄 [Centrifugo] Subscribing to $channel...');
+
+    final subscription = _client!.newSubscription(channel);
+
+    subscription.subscribing.listen((event) {
+      log('🔄 [Centrifugo] Subscribing to $channel...');
+    });
+
+    subscription.subscribed.listen((event) {
+      log('✅ [Centrifugo] Subscribed to $channel');
+    });
+
+    subscription.unsubscribed.listen((event) {
+      log('❌ [Centrifugo] Unsubscribed from $channel '
+          '(${event.code}: ${event.reason})');
+      _subscriptions.remove(channel);
+    });
+
+    subscription.error.listen((event) {
+      log('❌ [Centrifugo] Subscription error on $channel: ${event.error}');
+    });
+
+    _subscriptions[channel] = subscription;
+    await subscription.subscribe();
+
+    return subscription.publication.listen((pub) {
+      log('📢 [Centrifugo] Company event received on $channel');
+      final data = jsonDecode(utf8.decode(pub.data));
+      onEvent(data as Map<String, dynamic>);
     });
   }
 

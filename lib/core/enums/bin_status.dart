@@ -5,9 +5,8 @@ enum BinStatus {
   active('active'),
   missing('missing'),
   pendingMove('pending_move'),
-  relocate('relocate'),
-  retire('retire'),
-  warehouseStorage('warehouse_storage');
+  retired('retired'),
+  inStorage('in_storage');
 
   const BinStatus(this.value);
 

@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:ropacalapp/core/utils/app_logger.dart';
+import 'package:ropacalapp/core/enums/stop_type.dart';
 import 'package:ropacalapp/models/shift_state.dart';
 import 'package:ropacalapp/services/shift_service.dart';
 import 'package:ropacalapp/providers/api_provider.dart';
@@ -561,6 +562,7 @@ class ShiftNotifier extends _$ShiftNotifier {
   }
 
   /// Mark a task as completed with updated fill percentage and optional photo
+  /// Uses optimistic updates for instant UI feedback
   Future<void> completeTask(
     String taskId, // ID of route_tasks record (route task UUID)
     String binId, // DEPRECATED: kept for reference only
@@ -578,7 +580,35 @@ class ShiftNotifier extends _$ShiftNotifier {
       return;
     }
 
+    // STEP 1: Save previous state for rollback
+    final previousState = state;
+
+    // STEP 2: Optimistic update - update UI immediately
     try {
+      AppLogger.general('⚡ Optimistic update: Marking task complete instantly');
+
+      // Find and mark the bin as completed
+      final updatedRouteBins = state.routeBins.map((bin) {
+        if (bin.id == taskId) {
+          return bin.copyWith(
+            isCompleted: 1,
+            fillPercentage: updatedFillPercentage ?? bin.fillPercentage,
+          );
+        }
+        return bin;
+      }).toList();
+
+      // Update state immediately (navigation will recalculate now!)
+      state = state.copyWith(
+        routeBins: updatedRouteBins,
+        completedBins: state.completedBins + 1,
+      );
+
+      AppLogger.general('✅ Optimistic update applied - UI updated instantly');
+      AppLogger.general('   Completed: ${state.completedBins}/${state.totalBins}');
+      AppLogger.general('   Remaining bins: ${state.remainingBins.length}');
+
+      // STEP 3: Confirm with server in background
       final shiftService = ref.read(shiftServiceProvider);
       await shiftService.completeTask(
         taskId,
@@ -595,48 +625,110 @@ class ShiftNotifier extends _$ShiftNotifier {
 
       if (hasIncident) {
         AppLogger.general(
-          '🚨 Task completed with incident report (type: $incidentType)${photoUrl != null ? ' with photo' : ''}, waiting for WebSocket update...',
+          '🚨 Task completed with incident report (type: $incidentType)${photoUrl != null ? ' with photo' : ''}, confirmed by server',
         );
       } else {
         AppLogger.general(
-          '✅ Task completed via API (fill: $updatedFillPercentage%)${photoUrl != null ? ' with photo' : ''}, waiting for WebSocket update...',
+          '✅ Task completion confirmed by server (fill: $updatedFillPercentage%)${photoUrl != null ? ' with photo' : ''}',
         );
       }
 
-      // Note: WebSocket will receive shift_update and call updateFromWebSocket()
-      // No need to manually refresh - this avoids read-after-write consistency issues
+      // Note: WebSocket will receive shift_update later
+      // If WebSocket state differs from our optimistic update, server state wins
     } catch (e) {
-      AppLogger.general('❌ Error completing bin: $e', level: AppLogger.error);
+      // STEP 4: Rollback on failure
+      AppLogger.general('❌ Error completing task - rolling back optimistic update: $e', level: AppLogger.error);
+      state = previousState;
+      AppLogger.general('↩️  Rolled back to previous state');
       rethrow;
     }
   }
 
   /// Skip a task with a required reason
   /// If skipping a pickup, the paired dropoff will also be skipped automatically
+  /// Uses optimistic updates for instant UI feedback
   Future<void> skipTask(String taskId, String reason) async {
     if (state.status != ShiftStatus.active) {
       AppLogger.general('⚠️ Cannot skip task - shift not active');
       return;
     }
 
+    // STEP 1: Save previous state for rollback
+    final previousState = state;
+
+    // STEP 2: Optimistic update - update UI immediately
     try {
+      AppLogger.general('⚡ Optimistic update: Skipping task instantly');
+
+      // Find the bin being skipped and check if it's a pickup (for paired dropoff)
+      final binToSkip = state.routeBins.firstWhere(
+        (bin) => bin.id == taskId,
+        orElse: () => state.routeBins.first, // Fallback
+      );
+
+      final isPickup = binToSkip.stopType == StopType.pickup;
+      final moveRequestId = binToSkip.moveRequestId;
+
+      // Mark the bin as skipped (isCompleted = 2 means skipped)
+      final updatedRouteBins = state.routeBins.map((bin) {
+        // Skip the target bin
+        if (bin.id == taskId) {
+          return bin.copyWith(isCompleted: 2); // 2 = skipped
+        }
+
+        // If skipping a pickup, also skip paired dropoff automatically
+        if (isPickup &&
+            moveRequestId != null &&
+            bin.moveRequestId == moveRequestId &&
+            bin.stopType == StopType.dropoff) {
+          AppLogger.general('   Also skipping paired dropoff for move request: $moveRequestId');
+          return bin.copyWith(isCompleted: 2); // 2 = skipped
+        }
+
+        return bin;
+      }).toList();
+
+      // Count how many bins were skipped (1 or 2)
+      final skippedCount = updatedRouteBins.where((bin) => bin.isCompleted == 2).length -
+          previousState.routeBins.where((bin) => bin.isCompleted == 2).length;
+
+      // Update state immediately (navigation will recalculate now!)
+      state = state.copyWith(
+        routeBins: updatedRouteBins,
+        completedBins: state.completedBins + skippedCount,
+      );
+
+      AppLogger.general('✅ Optimistic update applied - task skipped instantly');
+      AppLogger.general('   Skipped count: $skippedCount (includes paired dropoff if applicable)');
+      AppLogger.general('   Completed: ${state.completedBins}/${state.totalBins}');
+      AppLogger.general('   Remaining bins: ${state.remainingBins.length}');
+
+      // STEP 3: Confirm with server in background
       final shiftService = ref.read(shiftServiceProvider);
       await shiftService.skipTask(taskId, reason);
 
       AppLogger.general(
-        '⏭️  Task skipped via API (reason: $reason), waiting for WebSocket update...',
+        '✅ Task skip confirmed by server (reason: $reason)',
       );
 
-      // Note: WebSocket will receive shift_update and call updateFromWebSocket()
-      // No need to manually refresh - this avoids read-after-write consistency issues
+      // Note: WebSocket will receive shift_update later
+      // If WebSocket state differs from our optimistic update, server state wins
     } catch (e) {
-      AppLogger.general('❌ Error skipping task: $e', level: AppLogger.error);
+      // STEP 4: Rollback on failure
+      AppLogger.general('❌ Error skipping task - rolling back optimistic update: $e', level: AppLogger.error);
+      state = previousState;
+      AppLogger.general('↩️  Rolled back to previous state');
       rethrow;
     }
   }
 
   /// Update shift state from WebSocket data (called by WebSocket listener)
   /// This is more efficient and reliable than calling refreshShift()
+  ///
+  /// SYNC STRATEGY: Server always wins
+  /// - If we have an optimistic update and server confirms it → No visual change
+  /// - If server state differs from optimistic update → Server state overwrites ours
+  /// - This prevents sync bugs and race conditions
   void updateFromWebSocket(Map<String, dynamic> data) {
     try {
       AppLogger.general('📡 WebSocket: Updating shift state from WebSocket data');
@@ -668,6 +760,8 @@ class ShiftNotifier extends _$ShiftNotifier {
         AppLogger.general('   - Move request ID: ${nextBin.moveRequestId}');
       }
 
+      // Server state always wins (overwrites optimistic updates)
+      // This ensures eventual consistency and prevents sync bugs
       state = updatedShift;
 
       // Manage Centrifugo subscription based on updated shift status

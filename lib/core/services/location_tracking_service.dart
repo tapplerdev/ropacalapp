@@ -26,8 +26,25 @@ class LocationTrackingService {
   StreamSubscription<FusedLocation>? _locationSubscription;
   String? _currentShiftId;
   bool _isTracking = false;
+  FusedLocation? _lastLocation; // Cache last received location
+
+  // Callback for location updates (for UI integration)
+  void Function(FusedLocation)? _onLocationUpdate;
 
   LocationTrackingService(this._ref);
+
+  /// Get the last cached location (null if not tracking or no location yet)
+  FusedLocation? get lastLocation => _lastLocation;
+
+  /// Set callback for location updates (for UI integration)
+  /// This allows other parts of the app to react to location changes
+  void setLocationUpdateCallback(void Function(FusedLocation)? callback) {
+    _onLocationUpdate = callback;
+    // If we already have a location, notify immediately
+    if (callback != null && _lastLocation != null) {
+      callback(_lastLocation!);
+    }
+  }
 
   /// Start background location tracking (no shift required)
   /// Used when driver logs in to allow managers to see their location
@@ -97,6 +114,12 @@ class LocationTrackingService {
       // Subscribe to location stream
       _locationSubscription = _fusedLocation.dataStream.listen(
         (FusedLocation location) {
+          // Cache the location for instant access by sendCurrentLocation()
+          _lastLocation = location;
+
+          // Notify callback (for UI integration like currentLocationProvider)
+          _onLocationUpdate?.call(location);
+
           // Measure actual GPS update interval (commented out to reduce log clutter)
           // final now = DateTime.now();
           // if (_lastGpsUpdate != null) {
@@ -140,35 +163,60 @@ class LocationTrackingService {
 
   /// Send current location immediately (one-time update)
   /// Used before starting shift to ensure backend has a location
-  /// Gets location from the data stream's first value
+  ///
+  /// Strategy:
+  /// - If already tracking: Use cached location from stream (INSTANT!)
+  /// - If not tracking: Start new stream temporarily (slower, but necessary)
   Future<void> sendCurrentLocation() async {
     try {
       final startTime = DateTime.now();
       AppLogger.general('📍 Getting current location for pre-shift update...');
       AppLogger.general('   ⏱️  Start time: ${startTime.toIso8601String()}');
+      AppLogger.general('   🔍 Already tracking: $_isTracking');
+      AppLogger.general('   🔍 Cached location available: ${_lastLocation != null}');
 
       FusedLocation? location;
 
-      // Start location updates temporarily to get current position
-      const options = FusedLocationProviderOptions(distanceFilter: 0);
-      await _fusedLocation.startLocationUpdates(options: options);
-      AppLogger.general('   ✅ Location updates started');
+      // OPTION 1: Use cached location from already-running stream (INSTANT!)
+      if (_isTracking && _lastLocation != null) {
+        AppLogger.general('   ⚡ Using cached location from active stream (INSTANT!)');
 
-      // Get the first location from the stream with timeout
-      AppLogger.general('   ⏳ Waiting for GPS location (5 second timeout)...');
-      location = await _fusedLocation.dataStream
-          .first
-          .timeout(
-            const Duration(seconds: 5),
-            onTimeout: () => throw Exception('GPS_TIMEOUT'),
-          );
+        location = _lastLocation!;
 
-      final gotLocationTime = DateTime.now();
-      final gpsDuration = gotLocationTime.difference(startTime).inMilliseconds;
-      AppLogger.general('   ✅ Got GPS location in ${gpsDuration}ms');
+        final gotLocationTime = DateTime.now();
+        final gpsDuration = gotLocationTime.difference(startTime).inMilliseconds;
+        AppLogger.general('   ✅ Got cached location in ${gpsDuration}ms');
 
-      // Stop the temporary location updates
-      await _fusedLocation.stopLocationUpdates();
+        // Calculate age of cached location
+        final locationAge = DateTime.now().millisecondsSinceEpoch -
+                           _lastLocation!.timestamp.millisecondsSinceEpoch;
+        AppLogger.general('   📅 Location age: ${locationAge}ms (${(locationAge / 1000).toStringAsFixed(1)}s)');
+      }
+      // OPTION 2: Start new stream (FALLBACK - slower on emulator)
+      else {
+        AppLogger.general('   🆕 No cached location - starting new GPS stream');
+
+        // Start location updates temporarily to get current position
+        const options = FusedLocationProviderOptions(distanceFilter: 0);
+        await _fusedLocation.startLocationUpdates(options: options);
+        AppLogger.general('   ✅ Location updates started');
+
+        // Get the first location from the stream with 10s timeout (increased for emulator)
+        AppLogger.general('   ⏳ Waiting for GPS location (10 second timeout)...');
+        location = await _fusedLocation.dataStream
+            .first
+            .timeout(
+              const Duration(seconds: 10),
+              onTimeout: () => throw Exception('GPS_TIMEOUT_NEW_STREAM'),
+            );
+
+        final gotLocationTime = DateTime.now();
+        final gpsDuration = gotLocationTime.difference(startTime).inMilliseconds;
+        AppLogger.general('   ✅ Got GPS location from new stream in ${gpsDuration}ms');
+
+        // Stop the temporary location updates
+        await _fusedLocation.stopLocationUpdates();
+      }
 
       AppLogger.general(
         '📍 Current location: ${location.position.latitude.toStringAsFixed(6)}, ${location.position.longitude.toStringAsFixed(6)}',
@@ -203,6 +251,8 @@ class LocationTrackingService {
     _fusedLocation.stopLocationUpdates();
     _currentShiftId = null;
     _isTracking = false;
+    _lastLocation = null; // Clear cached location
+    _onLocationUpdate = null; // Clear callback
 
     AppLogger.general('✅ Location tracking stopped');
   }

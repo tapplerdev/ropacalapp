@@ -48,7 +48,6 @@ const _$BinStatusEnumMap = {
   BinStatus.active: 'active',
   BinStatus.missing: 'missing',
   BinStatus.pendingMove: 'pending_move',
-  BinStatus.relocate: 'relocate',
-  BinStatus.retire: 'retire',
-  BinStatus.warehouseStorage: 'warehouse_storage',
+  BinStatus.retired: 'retired',
+  BinStatus.inStorage: 'in_storage',
 };

@@ -44,7 +44,7 @@ class GoogleNavigationPage extends HookConsumerWidget {
     // ✅ CRITICAL: Keep Centrifugo connected during active navigation
     // This ensures location tracking can publish to WebSocket while navigating
     ref.watch(centrifugoManagerProvider);
-    AppLogger.general('🔵 [GoogleNavigationPage] Watching centrifugoManagerProvider');
+    // AppLogger.general('🔵 [GoogleNavigationPage] Watching centrifugoManagerProvider'); // Commented out - too verbose
 
     // Local UI-only state (keep as hooks)
     final navigationController = useState<GoogleNavigationViewController?>(null);
@@ -179,6 +179,36 @@ class GoogleNavigationPage extends HookConsumerWidget {
       return null;
     }, [routeUpdateNotification]);
 
+    // Listen for automatic rerouting (when driver goes off-route)
+    // Android only - SDK automatically recalculates route when driver deviates
+    useEffect(() {
+      StreamSubscription? subscription;
+
+      // Only set up listener if on Android and navigation is initialized
+      if (Platform.isAndroid && navigatorInitialized.value) {
+        try {
+          subscription = GoogleMapsNavigator.setOnReroutingListener(() {
+            AppLogger.general('🔄 SDK automatic reroute detected (driver went off-route)');
+            AppLogger.general('   Route automatically recalculated by Navigation SDK');
+            // SDK already handled the reroute - no action needed
+            // This is just for logging/analytics
+          });
+          AppLogger.general('✅ Automatic rerouting listener registered (Android)');
+        } catch (e) {
+          AppLogger.general('⚠️  Failed to register rerouting listener: $e');
+        }
+      } else if (!Platform.isAndroid) {
+        AppLogger.general('ℹ️  Automatic rerouting listener not available on iOS');
+      }
+
+      return () {
+        subscription?.cancel();
+        if (Platform.isAndroid) {
+          AppLogger.general('🔕 Automatic rerouting listener unregistered');
+        }
+      };
+    }, [navigatorInitialized.value]);
+
     // Listen for shift changes (bin completed) and recalculate route
     ref.listen(shiftNotifierProvider, (previous, next) {
       // Handle bin completion - recalculate route
@@ -204,8 +234,8 @@ class GoogleNavigationPage extends HookConsumerWidget {
           AppLogger.general('🔄 Next waypoint changed: $previousNextWaypointId → $nextNextWaypointId');
         }
         AppLogger.general('   Remaining bins: ${next?.remainingBins.length}');
-        AppLogger.general('   Triggering route recalculation...');
-        _recalculateNavigationRoute(
+        AppLogger.general('   Advancing to next bin...');
+        _advanceToNextBin(
           context,
           navigationController.value,
           ref,
@@ -666,16 +696,8 @@ class GoogleNavigationPage extends HookConsumerWidget {
 
       AppLogger.general('📍 Found ${remainingBins.length} remaining bins');
 
-      // Convert bins to waypoints
-      final waypoints = remainingBins.map((bin) {
-        return NavigationWaypoint.withLatLngTarget(
-          title: 'Bin #${bin.binNumber}',
-          target: LatLng(
-            latitude: bin.latitude,
-            longitude: bin.longitude,
-          ),
-        );
-      }).toList();
+      // Convert bins to waypoints (deduplicate identical coordinates)
+      final waypoints = _buildDeduplicatedWaypoints(remainingBins);
 
       // Create destinations
       final destinations = Destinations(
@@ -872,8 +894,56 @@ class GoogleNavigationPage extends HookConsumerWidget {
     }
   }
 
-  /// Recalculate navigation route when bins are completed
-  static Future<void> _recalculateNavigationRoute(
+  /// Builds a list of [NavigationWaypoint] from [bins], offsetting any bins
+  /// that share identical coordinates by a tiny amount (~1m per duplicate)
+  /// to avoid a [NavigationRouteStatus.duplicateWaypointsError] from the SDK.
+  /// Only bins that are actual duplicates are touched; unique coords are used
+  /// as-is.
+  static List<NavigationWaypoint> _buildDeduplicatedWaypoints(
+    List<RouteBin> bins,
+  ) {
+    // Count how many times each rounded coordinate key appears.
+    String coordKey(RouteBin b) =>
+        '${b.latitude.toStringAsFixed(5)},'
+        '${b.longitude.toStringAsFixed(5)}';
+
+    final coordCount = <String, int>{};
+    for (final bin in bins) {
+      final key = coordKey(bin);
+      coordCount[key] = (coordCount[key] ?? 0) + 1;
+    }
+
+    // Track how many times we have already emitted each key so we can apply
+    // a cumulative offset for the 2nd, 3rd, … occurrence.
+    final coordSeen = <String, int>{};
+
+    return bins.map((bin) {
+      final key = coordKey(bin);
+      final occurrences = coordCount[key] ?? 1;
+
+      double lat = bin.latitude;
+      double lng = bin.longitude;
+
+      if (occurrences > 1) {
+        final seenCount = coordSeen[key] ?? 0;
+        coordSeen[key] = seenCount + 1;
+        // Apply offset only from the 2nd occurrence onward (~1 m per step).
+        if (seenCount > 0) {
+          lat += seenCount * 0.00001;
+          lng += seenCount * 0.00001;
+        }
+      }
+
+      return NavigationWaypoint.withLatLngTarget(
+        title: bin.getTaskLabel(),
+        target: LatLng(latitude: lat, longitude: lng),
+      );
+    }).toList();
+  }
+
+  /// Advance navigation to next bin after completing current bin
+  /// Uses efficient updates - SDK auto-replaces route when setDestinations() is called
+  static Future<void> _advanceToNextBin(
     BuildContext context,
     GoogleNavigationViewController? controller,
     WidgetRef ref,
@@ -881,38 +951,20 @@ class GoogleNavigationPage extends HookConsumerWidget {
     NavigationPageNotifier navNotifier,
   ) async {
     if (controller == null) {
-      AppLogger.general('⚠️  Cannot recalculate: controller is null');
+      AppLogger.general('⚠️  Cannot advance: controller is null');
       return;
     }
 
-    AppLogger.general('🔄 Recalculating navigation route...');
+    AppLogger.general('🚀 Advancing to next bin...');
     AppLogger.general('   Completed bins: ${shift.completedBins}');
     AppLogger.general('   Remaining bins: ${shift.remainingBins.length}');
 
     try {
-      // Clear existing destinations
-      await GoogleMapsNavigator.clearDestinations();
-      AppLogger.general('🗑️  Cleared existing destinations');
-
-      // Stop current guidance
-      await GoogleMapsNavigator.stopGuidance();
-      AppLogger.general('⏹️  Stopped current guidance');
-
-      // Clear existing markers first
-      await controller.clearMarkers();
-      AppLogger.general('🗑️  Cleared existing markers');
-
-      // If there are remaining bins, set new destinations FIRST
+      // If there are remaining bins, update destinations
       if (shift.remainingBins.isNotEmpty) {
-        final waypoints = shift.remainingBins.map((bin) {
-          return NavigationWaypoint.withLatLngTarget(
-            title: 'Bin #${bin.binNumber}',
-            target: LatLng(
-              latitude: bin.latitude,
-              longitude: bin.longitude,
-            ),
-          );
-        }).toList();
+        // Build waypoints with duplicate coordinate offset
+        final waypoints =
+            _buildDeduplicatedWaypoints(shift.remainingBins);
 
         final destinations = Destinations(
           waypoints: waypoints,
@@ -925,19 +977,23 @@ class GoogleNavigationPage extends HookConsumerWidget {
           ),
         );
 
+        // Update destinations - SDK automatically:
+        // 1. Replaces old route with new route
+        // 2. Continues guidance automatically (no need to call startGuidance!)
+        // 3. Recalculates turn-by-turn directions
         final result = await GoogleMapsNavigator.setDestinations(destinations);
 
         if (result == NavigationRouteStatus.statusOk) {
-          await GoogleMapsNavigator.startGuidance();
           navNotifier.setCurrentBinIndex(0);
-          AppLogger.general('✅ Route set with destinations hidden');
+          AppLogger.general('✅ Navigation updated to next bin - guidance continues automatically');
 
-          // NOW add custom markers AFTER destinations are set
+          // Clear and recreate custom markers for remaining bins
+          await controller.clearMarkers();
           final tempMarkerMap = <String, RouteBin>{};
           final markers = await GoogleNavigationMarkerService.createCustomBinMarkers(shift.remainingBins, tempMarkerMap);
           await controller.addMarkers(markers);
           navNotifier.updateMarkerToBinMap(tempMarkerMap);
-          AppLogger.general('📍 Added ${markers.length} custom markers');
+          AppLogger.general('📍 Updated ${markers.length} custom markers');
 
           // Add geofence circles
           final circles = await GoogleNavigationMarkerService.createGeofenceCircles(shift.remainingBins);
@@ -988,9 +1044,9 @@ class GoogleNavigationPage extends HookConsumerWidget {
             AppLogger.general('⚠️  Failed to animate camera to next bin: $e');
           }
 
-          AppLogger.general('✅ Route recalculation complete');
+          AppLogger.general('✅ Navigation advance complete');
         } else {
-          AppLogger.general('❌ Route recalculation failed: $result');
+          AppLogger.general('❌ Navigation advance failed: $result');
         }
       } else {
         AppLogger.general('🎉 All bins completed! Navigation finished.');

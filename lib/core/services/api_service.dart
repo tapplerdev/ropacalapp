@@ -95,6 +95,12 @@ class ApiService {
     );
   }
 
+  /// Check if auth token is loaded and ready for API calls
+  bool get isAuthTokenReady => _authToken != null;
+
+  /// Get current auth token (for debugging/logging only)
+  String? get currentAuthToken => _authToken;
+
   /// Load auth token from secure storage (call on app startup)
   Future<void> loadAuthToken() async {
     AppLogger.api('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
@@ -397,30 +403,22 @@ class ApiService {
   Future<List<PotentialLocation>> getPotentialLocations() async {
     try {
       AppLogger.api(
-        '📍 getPotentialLocations: Fetching active and converted locations',
+        '📍 getPotentialLocations: Fetching active locations only',
       );
 
-      // Fetch both active and converted locations
-      final activeResponse = await _dio.get(
+      // Fetch only active (non-converted) locations
+      final response = await _dio.get(
         ApiConstants.potentialLocationsEndpoint,
         queryParameters: {'status': 'active'},
       );
 
-      final convertedResponse = await _dio.get(
-        ApiConstants.potentialLocationsEndpoint,
-        queryParameters: {'status': 'converted'},
-      );
-
       AppLogger.api(
-        '📍 getPotentialLocations: Got ${(activeResponse.data as List).length} active, ${(convertedResponse.data as List).length} converted',
+        '📍 getPotentialLocations: Got ${(response.data as List).length} active locations',
       );
 
-      // Combine both lists
-      final List<dynamic> activeData = activeResponse.data as List<dynamic>;
-      final List<dynamic> convertedData = convertedResponse.data as List<dynamic>;
-      final allData = [...activeData, ...convertedData];
+      final List<dynamic> data = response.data as List<dynamic>;
 
-      return allData
+      return data
           .map((json) =>
               PotentialLocation.fromJson(json as Map<String, dynamic>))
           .toList();
@@ -470,15 +468,44 @@ class ApiService {
   // Centrifugo real-time messaging
   Future<Map<String, dynamic>> getCentrifugoToken() async {
     try {
+      // Pre-flight check: Ensure auth token is loaded
+      if (!isAuthTokenReady) {
+        AppLogger.api(
+          '🔑 getCentrifugoToken: ⚠️  Auth token not loaded! This will cause 401 error.',
+        );
+        throw Exception(
+          'Auth token not ready. Call loadAuthToken() first or wait for auth to complete.',
+        );
+      }
+
       AppLogger.api('🔑 getCentrifugoToken: Fetching Centrifugo JWT token');
+      AppLogger.api('🔑 getCentrifugoToken: Auth token ready: $isAuthTokenReady');
+
       final response = await _dio.get(ApiConstants.centrifugoTokenEndpoint);
+
       AppLogger.api(
         '🔑 getCentrifugoToken: Token received (expires: ${response.data['expires_at']})',
       );
       return response.data as Map<String, dynamic>;
-    } catch (e) {
+    } on DioException catch (e) {
+      // Handle 401 Unauthorized specifically (expired JWT token)
+      if (e.response?.statusCode == 401) {
+        AppLogger.api(
+          '🔑 getCentrifugoToken: ❌ 401 Unauthorized - JWT token is expired or invalid',
+        );
+        AppLogger.api(
+          '🔑 getCentrifugoToken: 💡 User needs to re-authenticate to get fresh JWT',
+        );
+        throw Exception(
+          'Authentication expired. Please log in again to refresh your session.',
+        );
+      }
+
       AppLogger.api('🔑 getCentrifugoToken: Exception caught: $e');
       throw _handleError(e);
+    } catch (e) {
+      AppLogger.api('🔑 getCentrifugoToken: Unexpected error: $e');
+      rethrow;
     }
   }
 

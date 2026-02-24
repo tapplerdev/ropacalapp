@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:ropacalapp/core/utils/app_logger.dart';
 import 'package:ropacalapp/core/enums/stop_type.dart';
@@ -18,11 +19,17 @@ ShiftService shiftService(ShiftServiceRef ref) {
   return ShiftService(apiService);
 }
 
+/// State provider for route reoptimization events
+/// Used to trigger navigation refresh when route is updated
+final routeReoptimizationEventProvider =
+    StateProvider<Map<String, dynamic>?>((ref) => null);
+
 @Riverpod(keepAlive: true)
 class ShiftNotifier extends _$ShiftNotifier {
   Timer? _pollingTimer;
   StreamSubscription? _shiftUpdatesSubscription;
   String? _subscribedShiftId;
+  DateTime? _lastTaskRemovedTime; // Track when task_removed was last handled (debounce)
   static const Duration _pollingInterval = Duration(seconds: 30);
 
   @override
@@ -96,11 +103,48 @@ class ShiftNotifier extends _$ShiftNotifier {
         shiftId,
         (data) {
           final type = data['type'] as String?;
-          AppLogger.general('🔔 Received shift update via Centrifugo: type=$type');
+          AppLogger.general('🔔 Received shift update via Centrifugo: type=$type, data=$data');
 
-          if (type == 'shift_cancelled') {
-            AppLogger.general('❌ Shift cancelled via Centrifugo - calling handleShiftCancellation()');
-            handleShiftCancellation();
+          switch (type) {
+            case 'shift_cancelled':
+              AppLogger.general('❌ Shift cancelled via Centrifugo - calling handleShiftCancellation()');
+              handleShiftCancellation();
+              break;
+
+            case 'route_reoptimized':
+              AppLogger.general('🔄 Route re-optimized - handling route update');
+              _handleRouteReoptimized(data);
+              break;
+
+            case 'move_request_cancelled':
+              AppLogger.general('❌ Move request cancelled - handling task removal');
+              _handleTaskRemoved(data, 'Move request cancelled by manager');
+              break;
+
+            case 'potential_location_deleted':
+              AppLogger.general('🗑️ Potential location deleted - handling task removal');
+              _handleTaskRemoved(data, 'Placement location deleted by manager');
+              break;
+
+            case 'potential_location_converted':
+              AppLogger.general('🔄 Potential location converted to bin - handling task removal');
+              _handleTaskRemoved(data, 'Placement location converted to bin');
+              break;
+
+            case 'move_request_address_changed':
+              AppLogger.general('📍 Move request address changed - refreshing shift');
+              fetchCurrentShift();
+              break;
+
+            case 'task_removed':
+              final removedCount = data['removed_count'] as int? ?? 0;
+              final managerName = data['manager_name'] as String? ?? 'Manager';
+              AppLogger.general('🗑️ Tasks removed by manager - handling removal');
+              _handleTaskRemoved(data, '$managerName removed $removedCount task(s) from your shift');
+              break;
+
+            default:
+              AppLogger.general('⚠️ Unknown shift update type: $type');
           }
         },
       );
@@ -821,6 +865,84 @@ class ShiftNotifier extends _$ShiftNotifier {
     // Downgrade to background tracking
     AppLogger.general('📍 Downgrading to background tracking after cancellation');
     await ref.read(locationTrackingServiceProvider).startBackgroundTracking();
+  }
+
+  /// Handle route re-optimization event
+  /// Triggers navigation refresh with updated task sequence
+  Future<void> _handleRouteReoptimized(Map<String, dynamic> data) async {
+    AppLogger.general('🔄 [Route Reopt] Handling route reoptimization event');
+
+    // Skip if we just handled task_removed within last 3 seconds (prevents duplicate updates)
+    if (_lastTaskRemovedTime != null &&
+        DateTime.now().difference(_lastTaskRemovedTime!) < const Duration(seconds: 3)) {
+      AppLogger.general('⏭️  [Route Reopt] Skipping - already handled by task_removed event');
+      _lastTaskRemovedTime = null; // Reset debounce timer
+      return;
+    }
+
+    // Extract updated tasks from event data
+    final tasks = data['tasks'] as List<dynamic>?;
+    final message = data['message'] as String? ?? 'Your route has been re-optimized';
+
+    if (tasks != null) {
+      AppLogger.general('🔄 [Route Reopt] Received ${tasks.length} updated tasks');
+
+      // Refresh shift to get latest task data from backend
+      // This ensures we have the updated sequence_order for all tasks
+      await fetchCurrentShift();
+
+      // Trigger navigation refresh event
+      // The google_navigation_page will listen to this and rebuild navigation
+      ref.read(routeReoptimizationEventProvider.notifier).state = {
+        'timestamp': DateTime.now().millisecondsSinceEpoch,
+        'message': message,
+        'task_count': tasks.length,
+      };
+
+      AppLogger.general('✅ [Route Reopt] Shift refreshed and navigation event triggered');
+    } else {
+      AppLogger.general('⚠️  [Route Reopt] No tasks in reoptimization event');
+    }
+  }
+
+  /// Handle task removal events (cancelled/deleted)
+  /// Shows notification and refreshes shift
+  Future<void> _handleTaskRemoved(Map<String, dynamic> data, String reason) async {
+    AppLogger.general('🗑️ [Task Removed] Handling task removal: $reason');
+
+    // Set debounce timer to prevent duplicate navigation updates from route_reoptimized
+    _lastTaskRemovedTime = DateTime.now();
+
+    // Support both formats: removed_tasks (array) or removed_count (number)
+    final removedTasks = data['removed_tasks'] as List<dynamic>?;
+    final removedCount = data['removed_count'] as int?;
+    final binNumber = data['bin_number'] as int?;
+    final moveRequestId = data['move_request_id'] as String?;
+
+    // Calculate count from either source
+    final taskCount = removedTasks?.length ?? removedCount ?? 0;
+
+    if (taskCount > 0) {
+      AppLogger.general('🗑️ [Task Removed] $taskCount task(s) removed');
+
+      // Refresh shift to get updated task list (already re-optimized by backend)
+      await fetchCurrentShift();
+
+      // Trigger navigation refresh with removal notification
+      ref.read(routeReoptimizationEventProvider.notifier).state = {
+        'timestamp': DateTime.now().millisecondsSinceEpoch,
+        'message': reason,
+        'removed_task_count': taskCount,
+        'bin_number': binNumber,
+        'move_request_id': moveRequestId,
+      };
+
+      AppLogger.general('✅ [Task Removed] Shift refreshed and navigation event triggered');
+    } else {
+      AppLogger.general('⚠️  [Task Removed] No task count provided');
+      // Still refresh to be safe
+      await fetchCurrentShift();
+    }
   }
 
   /// Get current shift duration (excluding pause time)

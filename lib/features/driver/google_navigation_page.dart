@@ -148,7 +148,7 @@ class GoogleNavigationPage extends HookConsumerWidget {
       return null;
     }, [moveRequestNotification]);
 
-    // Listen for route update notifications and show dialog
+    // Listen for route update notifications and show dialog + update navigation
     final routeUpdateNotification = ref.watch(routeUpdateNotificationNotifierProvider);
 
     useEffect(() {
@@ -159,17 +159,102 @@ class GoogleNavigationPage extends HookConsumerWidget {
         AppLogger.general('   Bin: #${routeUpdateNotification.binNumber}');
 
         // Show dialog on next frame
-        WidgetsBinding.instance.addPostFrameCallback((_) {
+        WidgetsBinding.instance.addPostFrameCallback((_) async {
           if (context.mounted) {
+            // Show dialog to notify driver
             showDialog(
               context: context,
               barrierDismissible: false,
               builder: (dialogContext) => RouteUpdateNotificationDialog(
                 notification: routeUpdateNotification,
-                onClose: () {
+                onClose: () async {
                   Navigator.of(dialogContext).pop();
                   ref.read(routeUpdateNotificationNotifierProvider.notifier).clear();
                   AppLogger.general('✅ Route update notification dialog closed');
+
+                  // Update navigation waypoints with fresh route data
+                  AppLogger.general('🔄 Updating navigation waypoints after route change...');
+
+                  try {
+                    // Get updated shift data (already refreshed via WebSocket)
+                    final updatedShift = ref.read(shiftNotifierProvider);
+
+                    if (updatedShift.remainingBins.isEmpty) {
+                      AppLogger.general('⚠️  No remaining bins after route update');
+                      return;
+                    }
+
+                    // Clear current destinations and set new ones
+                    await GoogleMapsNavigator.clearDestinations();
+                    AppLogger.general('   ✅ Cleared old destinations');
+
+                    // Build new waypoints from updated shift
+                    final waypoints = _buildDeduplicatedWaypoints(updatedShift.remainingBins);
+                    final destinations = Destinations(
+                      waypoints: waypoints,
+                      displayOptions: NavigationDisplayOptions(
+                        showDestinationMarkers: false,
+                      ),
+                      routingOptions: RoutingOptions(
+                        travelMode: NavigationTravelMode.driving,
+                        alternateRoutesStrategy: NavigationAlternateRoutesStrategy.none,
+                      ),
+                    );
+
+                    final result = await GoogleMapsNavigator.setDestinations(destinations);
+
+                    if (result == NavigationRouteStatus.statusOk) {
+                      AppLogger.general('   ✅ Navigation waypoints updated successfully');
+
+                      // Restart guidance
+                      await GoogleMapsNavigator.startGuidance();
+                      AppLogger.general('   ✅ Guidance restarted');
+
+                      // Update markers for new route
+                      if (navigationController.value != null) {
+                        await navigationController.value!.clearMarkers();
+                        final tempMarkerMap = <String, RouteBin>{};
+                        final markers = await GoogleNavigationMarkerService.createCustomBinMarkers(
+                          updatedShift.remainingBins,
+                          tempMarkerMap,
+                        );
+                        await navigationController.value!.addMarkers(markers);
+                        navNotifier.updateMarkerToBinMap(tempMarkerMap);
+                        AppLogger.general('   📍 Updated ${markers.length} markers');
+                      }
+
+                      // Show success snackbar
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('🗺️ Route updated - navigation refreshed'),
+                            backgroundColor: Colors.green,
+                            duration: Duration(seconds: 3),
+                          ),
+                        );
+                      }
+                    } else {
+                      AppLogger.general('   ❌ Failed to update waypoints: $result');
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text('⚠️ Could not update navigation: $result'),
+                            backgroundColor: Colors.orange,
+                          ),
+                        );
+                      }
+                    }
+                  } catch (e) {
+                    AppLogger.general('   ❌ Error updating navigation: $e');
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('⚠️ Navigation update error: $e'),
+                          backgroundColor: Colors.red,
+                        ),
+                      );
+                    }
+                  }
                 },
               ),
             );

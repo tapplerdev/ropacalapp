@@ -1,10 +1,10 @@
 import 'dart:async';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
-import 'package:fused_location/fused_location.dart';
+import 'package:fused_location/fused_location.dart' as fused;
 import 'package:fused_location/fused_location_provider.dart';
 import 'package:fused_location/fused_location_options.dart';
-import 'package:geolocator/geolocator.dart';
+import 'package:geolocator/geolocator.dart' as geolocator;
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:ropacalapp/core/utils/app_logger.dart';
 import 'package:ropacalapp/core/services/centrifugo_service.dart';
@@ -26,22 +26,22 @@ import 'package:ropacalapp/providers/auth_provider.dart';
 class LocationTrackingService {
   final Ref _ref;
   final FusedLocationProvider _fusedLocation = FusedLocationProvider();
-  StreamSubscription<FusedLocation>? _locationSubscription;
+  StreamSubscription<fused.FusedLocation>? _locationSubscription;
   String? _currentShiftId;
   bool _isTracking = false;
-  FusedLocation? _lastLocation; // Cache last received location
+  fused.FusedLocation? _lastLocation; // Cache last received location
 
   // Callback for location updates (for UI integration)
-  void Function(FusedLocation)? _onLocationUpdate;
+  void Function(fused.FusedLocation)? _onLocationUpdate;
 
   LocationTrackingService(this._ref);
 
   /// Get the last cached location (null if not tracking or no location yet)
-  FusedLocation? get lastLocation => _lastLocation;
+  fused.FusedLocation? get lastLocation => _lastLocation;
 
   /// Set callback for location updates (for UI integration)
   /// This allows other parts of the app to react to location changes
-  void setLocationUpdateCallback(void Function(FusedLocation)? callback) {
+  void setLocationUpdateCallback(void Function(fused.FusedLocation)? callback) {
     _onLocationUpdate = callback;
     // If we already have a location, notify immediately
     if (callback != null && _lastLocation != null) {
@@ -55,28 +55,28 @@ class LocationTrackingService {
     AppLogger.general('🔐 Checking location permissions...');
 
     // Check if location services are enabled
-    bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    bool serviceEnabled = await geolocator.Geolocator.isLocationServiceEnabled();
     if (!serviceEnabled) {
       AppLogger.general('❌ Location services are disabled');
       return false;
     }
 
     // Check location permissions
-    LocationPermission permission = await Geolocator.checkPermission();
+    geolocator.LocationPermission permission = await geolocator.Geolocator.checkPermission();
     AppLogger.general('   Current permission status: $permission');
 
-    if (permission == LocationPermission.denied) {
+    if (permission == geolocator.LocationPermission.denied) {
       AppLogger.general('   📱 Requesting location permission...');
-      permission = await Geolocator.requestPermission();
+      permission = await geolocator.Geolocator.requestPermission();
       AppLogger.general('   Permission after request: $permission');
 
-      if (permission == LocationPermission.denied) {
+      if (permission == geolocator.LocationPermission.denied) {
         AppLogger.general('❌ Location permission denied by user');
         return false;
       }
     }
 
-    if (permission == LocationPermission.deniedForever) {
+    if (permission == geolocator.LocationPermission.deniedForever) {
       AppLogger.general('❌ Location permission permanently denied - user must enable in settings');
       return false;
     }
@@ -164,7 +164,7 @@ class LocationTrackingService {
 
       // Subscribe to location stream
       _locationSubscription = _fusedLocation.dataStream.listen(
-        (FusedLocation location) {
+        (fused.FusedLocation location) {
           // Cache the location for instant access by sendCurrentLocation()
           _lastLocation = location;
 
@@ -226,17 +226,16 @@ class LocationTrackingService {
       AppLogger.general('   🔍 Already tracking: $_isTracking');
       AppLogger.general('   🔍 Cached location available: ${_lastLocation != null}');
 
-      FusedLocation? location;
+      fused.FusedLocation? location;
 
       // ═══════════════════════════════════════════════════════════════════════
-      // 🧪 SIMULATOR TESTING WORKAROUND (COMMENTED OUT)
+      // 🧪 SIMULATOR TESTING WORKAROUND (ACTIVE)
       // ═══════════════════════════════════════════════════════════════════════
       // iOS Simulator GPS is extremely slow (30-60+ seconds for first fix).
-      // Uncomment this section to use hardcoded warehouse coordinates for testing.
+      // This section uses hardcoded warehouse coordinates for testing.
       //
-      // IMPORTANT: DO NOT COMMIT THIS UNCOMMENTED TO PRODUCTION!
+      // ⚠️ REMEMBER TO COMMENT THIS OUT BEFORE COMMITTING!
       // ═══════════════════════════════════════════════════════════════════════
-      /*
       if (kDebugMode && Platform.isIOS) {
         AppLogger.general('   🧪 SIMULATOR DETECTED: Using hardcoded warehouse location');
 
@@ -244,16 +243,17 @@ class LocationTrackingService {
         const warehouseLat = 37.3826;
         const warehouseLng = -121.9854;
 
-        location = FusedLocation(
-          position: Position(
+        location = fused.FusedLocation(
+          position: fused.Position(
             latitude: warehouseLat,
             longitude: warehouseLng,
             accuracy: 5.0,
           ),
           timestamp: DateTime.now(),
-          heading: Heading(direction: 0.0, accuracy: 0.0),
-          speed: Speed(magnitude: 0.0, accuracy: 0.0),
-          elevation: Elevation(meanSeaLevel: 0.0, meanSeaLevelAccuracy: 0.0),
+          heading: fused.Heading(direction: 0.0, accuracy: 0.0),
+          speed: fused.Speed(magnitude: 0.0, accuracy: 0.0),
+          elevation: fused.Elevation(meanSeaLevel: 0.0, meanSeaLevelAccuracy: 0.0),
+          course: fused.Course(direction: 0.0, accuracy: 0.0),
         );
 
         AppLogger.general('   ✅ Using hardcoded location: $warehouseLat, $warehouseLng');
@@ -267,7 +267,6 @@ class LocationTrackingService {
         AppLogger.general('   ✅ sendCurrentLocation() completed in ${totalDuration}ms (hardcoded)');
         return;
       }
-      */
       // ═══════════════════════════════════════════════════════════════════════
 
       // OPTION 1: Use cached location from already-running stream (INSTANT!)
@@ -353,7 +352,7 @@ class LocationTrackingService {
   /// Send location to Centrifugo via WebSocket publish
   /// Centrifugo publish proxy will intercept, process (save to Redis, snap to roads),
   /// and broadcast the modified location to all managers watching
-  Future<void> _sendLocation(FusedLocation location) async {
+  Future<void> _sendLocation(fused.FusedLocation location) async {
     // Note: _currentShiftId can be null for background tracking
 
     try {

@@ -7,6 +7,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:ropacalapp/providers/auth_provider.dart';
 import 'package:ropacalapp/providers/shift_provider.dart';
 import 'package:ropacalapp/core/services/location_tracking_service.dart';
+import 'package:ropacalapp/features/driver/widgets/dialogs/location_permission_dialog.dart';
 import 'package:ropacalapp/models/user.dart';
 import 'package:ropacalapp/core/enums/user_role.dart';
 import 'package:ropacalapp/core/utils/app_logger.dart';
@@ -80,6 +81,11 @@ class LoginPage extends HookConsumerWidget {
         }
       } catch (e) {
         AppLogger.general('⚠️  Failed to start background tracking: $e');
+
+        // Show location permission dialog if permission was denied
+        if (context.mounted && e.toString().contains('LOCATION_PERMISSION_DENIED')) {
+          await showLocationPermissionDialog(context);
+        }
       }
 
       // Fetch current shift from backend after login (ONLY for drivers)

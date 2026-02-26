@@ -314,8 +314,17 @@ class AuthNotifier extends _$AuthNotifier {
 
           // Start background location tracking for drivers on auto-login
           if (user.role == UserRole.driver) {
-            AppLogger.general('   📍 Starting background location tracking (driver auto-login)');
-            await ref.read(locationTrackingServiceProvider).startBackgroundTracking();
+            try {
+              AppLogger.general('   📍 Starting background location tracking (driver auto-login)');
+              await ref.read(locationTrackingServiceProvider).startBackgroundTracking();
+            } catch (locationError) {
+              // Log location permission errors but don't block login
+              // User will be prompted for permissions when they try to start a shift
+              AppLogger.general('   ⚠️  Failed to start background tracking: $locationError');
+              if (locationError.toString().contains('LOCATION_PERMISSION_DENIED')) {
+                AppLogger.general('   ℹ️  Location permissions not granted - driver will be prompted when starting shift');
+              }
+            }
           }
 
           AppLogger.general('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');

@@ -1,4 +1,6 @@
 import 'dart:async';
+import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:fused_location/fused_location.dart';
 import 'package:fused_location/fused_location_provider.dart';
 import 'package:fused_location/fused_location_options.dart';
@@ -225,6 +227,48 @@ class LocationTrackingService {
       AppLogger.general('   🔍 Cached location available: ${_lastLocation != null}');
 
       FusedLocation? location;
+
+      // ═══════════════════════════════════════════════════════════════════════
+      // 🧪 SIMULATOR TESTING WORKAROUND (COMMENTED OUT)
+      // ═══════════════════════════════════════════════════════════════════════
+      // iOS Simulator GPS is extremely slow (30-60+ seconds for first fix).
+      // Uncomment this section to use hardcoded warehouse coordinates for testing.
+      //
+      // IMPORTANT: DO NOT COMMIT THIS UNCOMMENTED TO PRODUCTION!
+      // ═══════════════════════════════════════════════════════════════════════
+      /*
+      if (kDebugMode && Platform.isIOS) {
+        AppLogger.general('   🧪 SIMULATOR DETECTED: Using hardcoded warehouse location');
+
+        // Hardcoded warehouse coordinates
+        const warehouseLat = 37.3826;
+        const warehouseLng = -121.9854;
+
+        location = FusedLocation(
+          position: Position(
+            latitude: warehouseLat,
+            longitude: warehouseLng,
+            accuracy: 5.0,
+          ),
+          timestamp: DateTime.now(),
+          heading: Heading(direction: 0.0, accuracy: 0.0),
+          speed: Speed(magnitude: 0.0, accuracy: 0.0),
+          elevation: Elevation(meanSeaLevel: 0.0, meanSeaLevelAccuracy: 0.0),
+        );
+
+        AppLogger.general('   ✅ Using hardcoded location: $warehouseLat, $warehouseLng');
+
+        // Send the hardcoded location
+        _sendLocation(location);
+        await Future.delayed(const Duration(milliseconds: 500));
+
+        final endTime = DateTime.now();
+        final totalDuration = endTime.difference(startTime).inMilliseconds;
+        AppLogger.general('   ✅ sendCurrentLocation() completed in ${totalDuration}ms (hardcoded)');
+        return;
+      }
+      */
+      // ═══════════════════════════════════════════════════════════════════════
 
       // OPTION 1: Use cached location from already-running stream (INSTANT!)
       if (_isTracking && _lastLocation != null) {

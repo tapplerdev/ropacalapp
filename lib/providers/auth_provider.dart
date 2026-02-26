@@ -3,20 +3,16 @@ import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:google_navigation_flutter/google_navigation_flutter.dart';
 import 'package:ropacalapp/core/services/api_service.dart';
 import 'package:ropacalapp/models/user.dart';
-import 'package:ropacalapp/models/driver_location.dart';
 import 'package:ropacalapp/models/move_request.dart';
 import 'package:ropacalapp/core/enums/user_role.dart';
 import 'package:ropacalapp/services/fcm_service.dart';
-import 'package:ropacalapp/services/shift_service.dart';
 import 'package:ropacalapp/services/websocket_service.dart';
-import 'package:ropacalapp/services/notification_sound_service.dart';
 import 'package:ropacalapp/providers/shift_provider.dart';
 import 'package:ropacalapp/providers/drivers_provider.dart';
 import 'package:ropacalapp/providers/simulation_provider.dart';
 import 'package:ropacalapp/providers/bins_provider.dart';
 import 'package:ropacalapp/providers/move_request_provider.dart';
 import 'package:ropacalapp/providers/move_request_notification_provider.dart';
-import 'package:ropacalapp/providers/route_update_notification_provider.dart';
 import 'package:ropacalapp/core/services/location_tracking_service.dart';
 import 'package:ropacalapp/core/utils/app_logger.dart';
 import 'package:ropacalapp/core/services/session_manager.dart';
@@ -207,62 +203,16 @@ class WebSocketManager extends _$WebSocketManager {
       }
     };
 
+    // DEPRECATED: Route updates now handled via Centrifugo in shift_provider.dart
+    // This old WebSocket handler is kept for backwards compatibility
+    // but is no longer used. Remove after confirming Centrifugo migration is stable.
     _service!.onRouteUpdated = (data) {
-      try {
-        AppLogger.general('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-        AppLogger.general('🔄 AUTH_PROVIDER: onRouteUpdated CALLBACK TRIGGERED');
-        AppLogger.general('   Route was updated by manager - processing...');
-        AppLogger.general('   Data keys: ${data.keys.toList()}');
+      AppLogger.general('⚠️  [DEPRECATED] Old WebSocket onRouteUpdated handler triggered');
+      AppLogger.general('   This handler is deprecated - route updates now handled via Centrifugo');
+      AppLogger.general('   If you see this message, the backend may still be using old WebSocket Hub');
 
-        final message = data['message'] as String?;
-        final moveRequestId = data['move_request_id'] as String?;
-        final managerName = data['manager_name'] as String?;
-        final actionType = data['action_type'] as String?;
-        final binNumber = data['bin_number'] as int?;
-
-        AppLogger.general('   📩 Message: $message');
-        AppLogger.general('   📦 Move Request ID: $moveRequestId');
-        AppLogger.general('   👤 Manager: $managerName');
-        AppLogger.general('   🔄 Action: $actionType');
-        AppLogger.general('   📦 Bin: #$binNumber');
-
-        // Trigger UI notification if we have all the details
-        if (managerName != null && actionType != null && binNumber != null && moveRequestId != null) {
-          AppLogger.general('   🔔 Triggering UI notification...');
-
-          // Play notification sound
-          NotificationSoundService().playRouteUpdateSound();
-
-          ref.read(routeUpdateNotificationNotifierProvider.notifier).notify(
-                managerName: managerName,
-                actionType: actionType,
-                binNumber: binNumber,
-                moveRequestId: moveRequestId,
-              );
-          AppLogger.general('   ✅ UI notification triggered');
-        } else {
-          AppLogger.general('   ⚠️  Missing notification data - skipping UI notification');
-        }
-
-        // Refresh shift to get updated move request details
-        // Only fetch shift for drivers - managers don't have shifts
-        final user = ref.read(authNotifierProvider).valueOrNull;
-        if (user?.role == UserRole.driver) {
-          AppLogger.general('   🔄 Fetching current shift to get updated move request...');
-          ref.read(shiftNotifierProvider.notifier).fetchCurrentShift();
-          AppLogger.general('   ✅ Shift refresh triggered');
-        } else {
-          AppLogger.general('   👔 Manager - skipping shift fetch (managers don\'t have shifts)');
-        }
-
-        AppLogger.general('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-      } catch (e, stack) {
-        AppLogger.general('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-        AppLogger.general('❌❌❌ ERROR in onRouteUpdated callback');
-        AppLogger.general('   Error: $e');
-        AppLogger.general('   Stack: $stack');
-        AppLogger.general('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-      }
+      // Fallback: Log the event but don't process it
+      // The new Centrifugo handler in shift_provider.dart will handle the notification
     };
 
     // Bin events - invalidate provider to trigger refetch

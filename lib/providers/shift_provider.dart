@@ -9,6 +9,8 @@ import 'package:ropacalapp/providers/api_provider.dart';
 import 'package:ropacalapp/providers/location_provider.dart';
 import 'package:ropacalapp/core/services/location_tracking_service.dart';
 import 'package:ropacalapp/core/services/centrifugo_service.dart';
+import 'package:ropacalapp/services/notification_sound_service.dart';
+import 'package:ropacalapp/providers/route_update_notification_provider.dart';
 
 part 'shift_provider.g.dart';
 
@@ -113,6 +115,36 @@ class ShiftNotifier extends _$ShiftNotifier {
             case 'shift_edited':
               AppLogger.general('✏️ Shift edited by manager - handling update');
               _handleShiftEdited(data);
+              break;
+
+            case 'route_updated':
+              AppLogger.general('🔄 Route updated via Centrifugo - triggering notification');
+
+              final managerName = data['manager_name'] as String?;
+              final actionType = data['action_type'] as String?;
+              final binNumber = data['bin_number'] as int?;
+              final moveRequestId = data['move_request_id'] as String?;
+
+              if (managerName != null && actionType != null && binNumber != null && moveRequestId != null) {
+                AppLogger.general('   📦 Bin #$binNumber $actionType by $managerName');
+
+                // Play notification sound
+                NotificationSoundService().playRouteUpdateSound();
+
+                // Show notification dialog
+                ref.read(routeUpdateNotificationNotifierProvider.notifier).notify(
+                  managerName: managerName,
+                  actionType: actionType,
+                  binNumber: binNumber,
+                  moveRequestId: moveRequestId,
+                );
+
+                // Refresh shift data to get updated task list
+                AppLogger.general('   🔄 Refreshing shift data...');
+                fetchCurrentShift();
+              } else {
+                AppLogger.general('   ⚠️  Missing notification data - skipping UI notification');
+              }
               break;
 
             case 'move_request_cancelled':

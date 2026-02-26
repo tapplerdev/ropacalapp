@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:fused_location/fused_location.dart';
 import 'package:fused_location/fused_location_provider.dart';
 import 'package:fused_location/fused_location_options.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:ropacalapp/core/utils/app_logger.dart';
 import 'package:ropacalapp/core/services/centrifugo_service.dart';
@@ -44,6 +45,42 @@ class LocationTrackingService {
     if (callback != null && _lastLocation != null) {
       callback(_lastLocation!);
     }
+  }
+
+  /// Check and request location permissions
+  /// Returns true if permissions are granted, false otherwise
+  Future<bool> _checkLocationPermissions() async {
+    AppLogger.general('🔐 Checking location permissions...');
+
+    // Check if location services are enabled
+    bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    if (!serviceEnabled) {
+      AppLogger.general('❌ Location services are disabled');
+      return false;
+    }
+
+    // Check location permissions
+    LocationPermission permission = await Geolocator.checkPermission();
+    AppLogger.general('   Current permission status: $permission');
+
+    if (permission == LocationPermission.denied) {
+      AppLogger.general('   📱 Requesting location permission...');
+      permission = await Geolocator.requestPermission();
+      AppLogger.general('   Permission after request: $permission');
+
+      if (permission == LocationPermission.denied) {
+        AppLogger.general('❌ Location permission denied by user');
+        return false;
+      }
+    }
+
+    if (permission == LocationPermission.deniedForever) {
+      AppLogger.general('❌ Location permission permanently denied - user must enable in settings');
+      return false;
+    }
+
+    AppLogger.general('✅ Location permissions granted');
+    return true;
   }
 
   /// Start background location tracking (no shift required)
@@ -92,6 +129,18 @@ class LocationTrackingService {
   Future<void> _startLocationUpdates() async {
 
     try {
+      // Check and request location permissions BEFORE starting GPS
+      final hasPermission = await _checkLocationPermissions();
+      if (!hasPermission) {
+        AppLogger.general(
+          '❌ Cannot start location tracking - permissions not granted',
+          level: AppLogger.error,
+        );
+        _isTracking = false;
+        _currentShiftId = null;
+        throw Exception('LOCATION_PERMISSION_DENIED');
+      }
+
       // Configure fused_location with 3-second interval
       // This balances real-time updates with battery life and server load
       // Industry standard: Uber uses 4 seconds, we use 3 seconds
@@ -201,12 +250,12 @@ class LocationTrackingService {
         await _fusedLocation.startLocationUpdates(options: options);
         AppLogger.general('   ✅ Location updates started');
 
-        // Get the first location from the stream with 10s timeout (increased for emulator)
-        AppLogger.general('   ⏳ Waiting for GPS location (10 second timeout)...');
+        // Get the first location from the stream with 30s timeout (for iOS simulator)
+        AppLogger.general('   ⏳ Waiting for GPS location (30 second timeout)...');
         location = await _fusedLocation.dataStream
             .first
             .timeout(
-              const Duration(seconds: 10),
+              const Duration(seconds: 30),
               onTimeout: () => throw Exception('GPS_TIMEOUT_NEW_STREAM'),
             );
 

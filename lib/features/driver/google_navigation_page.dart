@@ -30,6 +30,7 @@ import 'package:ropacalapp/features/driver/widgets/route_update_notification_dia
 import 'package:ropacalapp/providers/route_update_notification_provider.dart';
 import 'package:ropacalapp/features/driver/notifications_page.dart';
 import 'package:ropacalapp/models/route_bin.dart';
+import 'package:ropacalapp/models/route_task.dart';
 import 'package:ropacalapp/models/route_step.dart';
 import 'package:ropacalapp/models/shift_state.dart';
 import 'package:ropacalapp/features/driver/widgets/potential_location_form_dialog.dart';
@@ -66,12 +67,12 @@ class GoogleNavigationPage extends HookConsumerWidget {
     final navNotifier = ref.read(navigationPageNotifierProvider.notifier);
     final shift = ref.watch(shiftNotifierProvider);
 
-    // Guard: Wait for route bins to be populated via WebSocket
+    // Guard: Wait for tasks to be populated via WebSocket
     // Show loading screen while waiting
-    if (shift.status == ShiftStatus.active && shift.routeBins.isEmpty) {
-      AppLogger.general('⏳ Navigation page: Waiting for route bins...');
+    if (shift.status == ShiftStatus.active && shift.tasks.isEmpty) {
+      AppLogger.general('⏳ Navigation page: Waiting for tasks...');
       AppLogger.general('   Status: ${shift.status}');
-      AppLogger.general('   Route bins length: ${shift.routeBins.length}');
+      AppLogger.general('   Tasks length: ${shift.tasks.length}');
       AppLogger.general('   Total bins: ${shift.totalBins}');
       AppLogger.general('   Route ID: ${shift.assignedRouteId}');
 
@@ -179,8 +180,8 @@ class GoogleNavigationPage extends HookConsumerWidget {
                     // Get updated shift data (already refreshed via WebSocket)
                     final updatedShift = ref.read(shiftNotifierProvider);
 
-                    if (updatedShift.remainingBins.isEmpty) {
-                      AppLogger.general('⚠️  No remaining bins after route update');
+                    if (updatedShift.remainingTasks.isEmpty) {
+                      AppLogger.general('⚠️  No remaining tasks after route update');
                       return;
                     }
 
@@ -189,7 +190,7 @@ class GoogleNavigationPage extends HookConsumerWidget {
                     AppLogger.general('   ✅ Cleared old destinations');
 
                     // Build new waypoints from updated shift
-                    final waypoints = _buildDeduplicatedWaypoints(updatedShift.remainingBins);
+                    final waypoints = _buildDeduplicatedWaypoints(updatedShift.remainingTasks);
                     final destinations = Destinations(
                       waypoints: waypoints,
                       displayOptions: NavigationDisplayOptions(
@@ -213,13 +214,13 @@ class GoogleNavigationPage extends HookConsumerWidget {
                       // Update markers for new route
                       if (navigationController.value != null) {
                         await navigationController.value!.clearMarkers();
-                        final tempMarkerMap = <String, RouteBin>{};
+                        final tempMarkerMap = <String, RouteTask>{};
                         final markers = await GoogleNavigationMarkerService.createCustomBinMarkers(
-                          updatedShift.remainingBins,
+                          updatedShift.remainingTasks,
                           tempMarkerMap,
                         );
                         await navigationController.value!.addMarkers(markers);
-                        navNotifier.updateMarkerToBinMap(tempMarkerMap);
+                        navNotifier.updateMarkerToTaskMap(tempMarkerMap);
                         AppLogger.general('   📍 Updated ${markers.length} markers');
                       }
 
@@ -264,6 +265,27 @@ class GoogleNavigationPage extends HookConsumerWidget {
       return null;
     }, [routeUpdateNotification]);
 
+    // Listen for route reoptimization events (Centrifugo-based)
+    final reoptEvent = ref.watch(routeReoptimizationEventProvider);
+
+    useEffect(() {
+      if (reoptEvent != null && context.mounted) {
+        AppLogger.general('🔄 [Reopt] Route reoptimization event received');
+
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (context.mounted) {
+            _handleRouteReoptimization(
+              context,
+              ref,
+              reoptEvent,
+              navigationController.value,
+            );
+          }
+        });
+      }
+      return null;
+    }, [reoptEvent]);
+
     // Listen for automatic rerouting (when driver goes off-route)
     // Android only - SDK automatically recalculates route when driver deviates
     useEffect(() {
@@ -303,11 +325,11 @@ class GoogleNavigationPage extends HookConsumerWidget {
 
       // Check if next waypoint changed (important for move requests where pickup→dropoff doesn't change completedBins)
       // Use unique identifier: bin_id + stop_type + sequence_order (since id is always 0)
-      final String? previousNextWaypointId = previous?.remainingBins.isNotEmpty == true
-          ? '${previous!.remainingBins.first.binId}_${previous!.remainingBins.first.stopType}_${previous!.remainingBins.first.sequenceOrder}'
+      final String? previousNextWaypointId = previous?.remainingTasks.isNotEmpty == true
+          ? '${previous!.remainingTasks.first.binId}_${previous!.remainingTasks.first.stopType}_${previous!.remainingTasks.first.sequenceOrder}'
           : null;
-      final String? nextNextWaypointId = next?.remainingBins.isNotEmpty == true
-          ? '${next!.remainingBins.first.binId}_${next!.remainingBins.first.stopType}_${next!.remainingBins.first.sequenceOrder}'
+      final String? nextNextWaypointId = next?.remainingTasks.isNotEmpty == true
+          ? '${next!.remainingTasks.first.binId}_${next!.remainingTasks.first.stopType}_${next!.remainingTasks.first.sequenceOrder}'
           : null;
       final bool nextWaypointChanged = previousNextWaypointId != nextNextWaypointId;
 
@@ -318,8 +340,8 @@ class GoogleNavigationPage extends HookConsumerWidget {
         if (nextWaypointChanged) {
           AppLogger.general('🔄 Next waypoint changed: $previousNextWaypointId → $nextNextWaypointId');
         }
-        AppLogger.general('   Remaining bins: ${next?.remainingBins.length}');
-        AppLogger.general('   Advancing to next bin...');
+        AppLogger.general('   Remaining tasks: ${next?.remainingTasks.length}');
+        AppLogger.general('   Advancing to next task...');
         _advanceToNextBin(
           context,
           navigationController.value,
@@ -727,8 +749,8 @@ class GoogleNavigationPage extends HookConsumerWidget {
           //   ),
           // ),
 
-          // Bottom panel - expandable bin details
-          if (navState.isNavigationReady && shift.remainingBins.isNotEmpty)
+          // Bottom panel - expandable task details
+          if (navState.isNavigationReady && shift.remainingTasks.isNotEmpty)
             NavigationBottomPanel(
               shift: shift,
               currentIndex: navState.currentBinIndex,
@@ -771,18 +793,18 @@ class GoogleNavigationPage extends HookConsumerWidget {
     AppLogger.general('🗺️  Setting destinations from shift...');
 
     try {
-      // Get remaining bins (uncompleted bins)
-      final remainingBins = shift.remainingBins;
+      // Get remaining tasks (uncompleted tasks)
+      final remainingTasks = shift.remainingTasks;
 
-      if (remainingBins.isEmpty) {
-        AppLogger.general('⚠️  No remaining bins to navigate to');
+      if (remainingTasks.isEmpty) {
+        AppLogger.general('⚠️  No remaining tasks to navigate to');
         return;
       }
 
-      AppLogger.general('📍 Found ${remainingBins.length} remaining bins');
+      AppLogger.general('📍 Found ${remainingTasks.length} remaining tasks');
 
-      // Convert bins to waypoints (deduplicate identical coordinates)
-      final waypoints = _buildDeduplicatedWaypoints(remainingBins);
+      // Convert tasks to waypoints (deduplicate identical coordinates)
+      final waypoints = _buildDeduplicatedWaypoints(remainingTasks);
 
       // Create destinations
       final destinations = Destinations(
@@ -979,22 +1001,22 @@ class GoogleNavigationPage extends HookConsumerWidget {
     }
   }
 
-  /// Builds a list of [NavigationWaypoint] from [bins], offsetting any bins
+  /// Builds a list of [NavigationWaypoint] from [tasks], offsetting any tasks
   /// that share identical coordinates by a tiny amount (~1m per duplicate)
   /// to avoid a [NavigationRouteStatus.duplicateWaypointsError] from the SDK.
-  /// Only bins that are actual duplicates are touched; unique coords are used
+  /// Only tasks that are actual duplicates are touched; unique coords are used
   /// as-is.
   static List<NavigationWaypoint> _buildDeduplicatedWaypoints(
-    List<RouteBin> bins,
+    List<RouteTask> tasks,
   ) {
     // Count how many times each rounded coordinate key appears.
-    String coordKey(RouteBin b) =>
-        '${b.latitude.toStringAsFixed(5)},'
-        '${b.longitude.toStringAsFixed(5)}';
+    String coordKey(RouteTask t) =>
+        '${t.latitude.toStringAsFixed(5)},'
+        '${t.longitude.toStringAsFixed(5)}';
 
     final coordCount = <String, int>{};
-    for (final bin in bins) {
-      final key = coordKey(bin);
+    for (final task in tasks) {
+      final key = coordKey(task);
       coordCount[key] = (coordCount[key] ?? 0) + 1;
     }
 
@@ -1002,12 +1024,12 @@ class GoogleNavigationPage extends HookConsumerWidget {
     // a cumulative offset for the 2nd, 3rd, … occurrence.
     final coordSeen = <String, int>{};
 
-    return bins.map((bin) {
-      final key = coordKey(bin);
+    return tasks.map((task) {
+      final key = coordKey(task);
       final occurrences = coordCount[key] ?? 1;
 
-      double lat = bin.latitude;
-      double lng = bin.longitude;
+      double lat = task.latitude;
+      double lng = task.longitude;
 
       if (occurrences > 1) {
         final seenCount = coordSeen[key] ?? 0;
@@ -1020,7 +1042,7 @@ class GoogleNavigationPage extends HookConsumerWidget {
       }
 
       return NavigationWaypoint.withLatLngTarget(
-        title: bin.getTaskLabel(),
+        title: task.getTaskLabel(),
         target: LatLng(latitude: lat, longitude: lng),
       );
     }).toList();
@@ -1040,16 +1062,32 @@ class GoogleNavigationPage extends HookConsumerWidget {
       return;
     }
 
-    AppLogger.general('🚀 Advancing to next bin...');
+    AppLogger.general('🚀 Advancing to next task...');
     AppLogger.general('   Completed bins: ${shift.completedBins}');
-    AppLogger.general('   Remaining bins: ${shift.remainingBins.length}');
+    AppLogger.general('   Remaining tasks: ${shift.remainingTasks.length}');
 
     try {
-      // If there are remaining bins, update destinations
-      if (shift.remainingBins.isNotEmpty) {
+      // Check if tasks are ACTUALLY completed (not just skipped)
+      // Note: Backend sets isCompleted=1 for both completed AND skipped tasks
+      // So we must also check skipped=false to get truly completed tasks
+      final actuallyCompletedCount = shift.tasks
+          .where((task) => task.isCompleted == 1 && !task.skipped)  // Only truly completed, not skipped
+          .length;
+      final skippedCount = shift.tasks
+          .where((task) => task.skipped)  // Skipped tasks (isCompleted=1 + skipped=true)
+          .length;
+
+      AppLogger.general('📊 Task Status:');
+      AppLogger.general('   Total tasks: ${shift.tasks.length}');
+      AppLogger.general('   Actually completed: $actuallyCompletedCount');
+      AppLogger.general('   Skipped: $skippedCount');
+      AppLogger.general('   Remaining: ${shift.remainingTasks.length}');
+
+      // If there are remaining tasks, update destinations
+      if (shift.remainingTasks.isNotEmpty) {
         // Build waypoints with duplicate coordinate offset
         final waypoints =
-            _buildDeduplicatedWaypoints(shift.remainingBins);
+            _buildDeduplicatedWaypoints(shift.remainingTasks);
 
         final destinations = Destinations(
           waypoints: waypoints,
@@ -1070,26 +1108,26 @@ class GoogleNavigationPage extends HookConsumerWidget {
 
         if (result == NavigationRouteStatus.statusOk) {
           navNotifier.setCurrentBinIndex(0);
-          AppLogger.general('✅ Navigation updated to next bin - guidance continues automatically');
+          AppLogger.general('✅ Navigation updated to next task - guidance continues automatically');
 
-          // Clear and recreate custom markers for remaining bins
+          // Clear and recreate custom markers for remaining tasks
           await controller.clearMarkers();
-          final tempMarkerMap = <String, RouteBin>{};
-          final markers = await GoogleNavigationMarkerService.createCustomBinMarkers(shift.remainingBins, tempMarkerMap);
+          final tempMarkerMap = <String, RouteTask>{};
+          final markers = await GoogleNavigationMarkerService.createCustomBinMarkers(shift.remainingTasks, tempMarkerMap);
           await controller.addMarkers(markers);
-          navNotifier.updateMarkerToBinMap(tempMarkerMap);
+          navNotifier.updateMarkerToTaskMap(tempMarkerMap);
           AppLogger.general('📍 Updated ${markers.length} custom markers');
 
           // Add geofence circles
-          final circles = await GoogleNavigationMarkerService.createGeofenceCircles(shift.remainingBins);
+          final circles = await GoogleNavigationMarkerService.createGeofenceCircles(shift.remainingTasks);
           await controller.clearCircles();
           await controller.addCircles(circles);
           navNotifier.updateGeofenceCircles(circles);
           AppLogger.general('⭕ Added ${circles.length} geofence circles');
 
-          // Update completed route polyline
-          final completedBinsList = shift.routeBins.where((bin) => bin.isCompleted == 1).toList();
-          final polyline = await GoogleNavigationMarkerService.createCompletedRoutePolyline(completedBinsList);
+          // Update completed route polyline (only truly completed, not skipped)
+          final completedTasksList = shift.tasks.where((task) => task.isCompleted == 1 && !task.skipped).toList();
+          final polyline = await GoogleNavigationMarkerService.createCompletedRoutePolyline(completedTasksList);
           await controller.clearPolylines();
           if (polyline != null) {
             await controller.addPolylines([polyline]);
@@ -1097,19 +1135,19 @@ class GoogleNavigationPage extends HookConsumerWidget {
             AppLogger.general('📏 Added completed route polyline');
           }
 
-          // Animate camera to next bin (especially important for move requests)
-          final nextBin = shift.remainingBins.first;
+          // Animate camera to next task (especially important for move requests)
+          final nextTask = shift.remainingTasks.first;
           try {
             await controller.animateCamera(
               CameraUpdate.newLatLngZoom(
                 LatLng(
-                  latitude: nextBin.latitude,
-                  longitude: nextBin.longitude,
+                  latitude: nextTask.latitude,
+                  longitude: nextTask.longitude,
                 ),
                 17, // Zoom level
               ),
             );
-            AppLogger.general('📹 Camera animated to next bin: #${nextBin.binNumber}');
+            AppLogger.general('📹 Camera animated to next task: #${nextTask.binNumber}');
 
             // Auto re-center back to driver position after showing drop-off location
             AppLogger.general('⏱️  Waiting 5 seconds before re-centering to driver position...');
@@ -1134,34 +1172,76 @@ class GoogleNavigationPage extends HookConsumerWidget {
           AppLogger.general('❌ Navigation advance failed: $result');
         }
       } else {
-        AppLogger.general('🎉 All bins completed! Navigation finished.');
-        AppLogger.general('🏁 Auto-ending shift...');
+        // No remaining tasks - check if driver ACTUALLY completed all or just skipped
+        if (actuallyCompletedCount >= shift.logicalTotalBins) {
+          // Driver genuinely finished all tasks - auto-end with confirmation
+          AppLogger.general('🎉 All bins completed! Navigation finished.');
+          AppLogger.general('📊 Completion: $actuallyCompletedCount/${shift.logicalTotalBins}');
 
-        // Show loading overlay
-        EasyLoading.show(
-          status: 'All bins collected! Ending shift...',
-          maskType: EasyLoadingMaskType.black,
-        );
-
-        // Auto-end shift when all bins are completed
-        try {
-          await ref.read(shiftNotifierProvider.notifier).endShift();
-          AppLogger.general('✅ Shift auto-ended successfully');
-
-          // Dismiss loading
-          await EasyLoading.dismiss();
-
-          // Navigate back to home page
+          // Show confirmation dialog before auto-ending
           if (context.mounted) {
-            AppLogger.general('🏠 Navigating back to home page...');
-            context.pop();
+            final shouldEnd = await showDialog<bool>(
+              context: context,
+              barrierDismissible: false,
+              builder: (context) => AlertDialog(
+                title: const Text('🎉 Route Complete!'),
+                content: Text(
+                  'You\'ve completed all $actuallyCompletedCount tasks!\n\n'
+                  'Would you like to end your shift now?',
+                ),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.of(context).pop(false),
+                    child: const Text('Not Yet'),
+                  ),
+                  ElevatedButton(
+                    onPressed: () => Navigator.of(context).pop(true),
+                    child: const Text('End Shift'),
+                  ),
+                ],
+              ),
+            );
+
+            if (shouldEnd == true) {
+              AppLogger.general('🏁 User confirmed shift end - proceeding...');
+
+              // Show loading overlay
+              EasyLoading.show(
+                status: 'Ending shift...',
+                maskType: EasyLoadingMaskType.black,
+              );
+
+              try {
+                await ref.read(shiftNotifierProvider.notifier).endShift();
+                AppLogger.general('✅ Shift ended successfully');
+
+                // Dismiss loading
+                await EasyLoading.dismiss();
+
+                // Navigate back to home page
+                if (context.mounted) {
+                  AppLogger.general('🏠 Navigating back to home page...');
+                  context.pop();
+                }
+              } catch (e) {
+                AppLogger.general('⚠️  Failed to end shift: $e');
+                // Dismiss loading on error
+                await EasyLoading.dismiss();
+              }
+            } else {
+              AppLogger.general('ℹ️  User chose to continue - shift not ended');
+            }
           }
-        } catch (e) {
-          AppLogger.general('⚠️  Failed to auto-end shift: $e');
-          AppLogger.general('   Shift may need to be ended manually');
-          // Dismiss loading on error
-          await EasyLoading.dismiss();
-          // Don't crash - driver can end manually from home page
+        } else {
+          // All remaining tasks are skipped - DON'T auto-end
+          AppLogger.general('⚠️  All remaining tasks are skipped!');
+          AppLogger.general('📊 Actually completed: $actuallyCompletedCount/${shift.logicalTotalBins}');
+          AppLogger.general('📊 Skipped: $skippedCount tasks');
+          AppLogger.general('ℹ️  Driver must manually end shift - not auto-ending');
+
+          // Clear navigation since there are no more tasks
+          await GoogleMapsNavigator.clearDestinations();
+          AppLogger.general('🗺️  Navigation cleared - no more active destinations');
         }
       }
     } catch (e) {
@@ -1286,6 +1366,149 @@ class GoogleNavigationPage extends HookConsumerWidget {
     }
   }
 
+  /// Handle route reoptimization with proximity-based modal
+  static Future<void> _handleRouteReoptimization(
+    BuildContext context,
+    WidgetRef ref,
+    Map<String, dynamic> event,
+    GoogleNavigationViewController? controller,
+  ) async {
+    try {
+      AppLogger.general('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      AppLogger.general('🔄 [NAVIGATION REOPT] Handling route reoptimization event');
+      AppLogger.general('   Timestamp: ${DateTime.now().toIso8601String()}');
+      AppLogger.general('   Event: $event');
+
+      final message = event['message'] as String? ?? 'Your route has been updated';
+      final changes = event['changes'] as Map<String, dynamic>?;
+
+      AppLogger.general('   Message: "$message"');
+      AppLogger.general('   Changes: $changes');
+
+      final updatedShift = ref.read(shiftNotifierProvider);
+
+      AppLogger.general('   📊 UPDATED SHIFT DATA:');
+      AppLogger.general('      Total tasks: ${updatedShift.tasks.length}');
+      AppLogger.general('      Remaining tasks: ${updatedShift.remainingTasks.length}');
+      AppLogger.general('      Logical total: ${updatedShift.logicalTotalBins}');
+      AppLogger.general('      Logical completed: ${updatedShift.logicalCompletedBins}');
+
+      if (updatedShift.remainingTasks.isEmpty) {
+        AppLogger.general('   ⚠️  No tasks remaining after update - returning early');
+        AppLogger.general('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+        return;
+      }
+
+      AppLogger.general('   ✅ Has remaining tasks - proceeding with navigation update');
+      AppLogger.general('   📋 REMAINING TASKS:');
+      for (var i = 0; i < updatedShift.remainingTasks.length && i < 5; i++) {
+        final task = updatedShift.remainingTasks[i];
+        AppLogger.general('      ${i + 1}. ${task.taskType.name} - Bin #${task.binNumber ?? "N/A"} - ${task.address ?? "No address"}');
+      }
+
+      // Show auto-dismissing modal with OK button
+      if (context.mounted) {
+        bool dismissed = false;
+
+        showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (dialogContext) {
+            // Auto-dismiss after 5 seconds
+            Future.delayed(const Duration(seconds: 5), () {
+              if (!dismissed && Navigator.of(dialogContext).canPop()) {
+                Navigator.of(dialogContext).pop();
+                dismissed = true;
+              }
+            });
+
+            return AlertDialog(
+              title: const Row(
+                children: [
+                  Icon(Icons.route, color: Colors.blue),
+                  SizedBox(width: 8),
+                  Text('Route Updated'),
+                ],
+              ),
+              content: Text(message),
+              actions: [
+                TextButton(
+                  onPressed: () {
+                    dismissed = true;
+                    Navigator.of(dialogContext).pop();
+                  },
+                  child: const Text('OK'),
+                ),
+              ],
+            );
+          },
+        ).then((_) async {
+          // After modal dismissed, refresh navigation
+          AppLogger.general('🔄 [Reopt] Refreshing navigation with updated route');
+
+          try {
+            // Clear current destinations
+            await GoogleMapsNavigator.clearDestinations();
+            AppLogger.general('✅ [Reopt] Cleared old destinations');
+
+            // Build new waypoints from updated shift
+            final waypoints = _buildDeduplicatedWaypoints(updatedShift.remainingTasks);
+            final destinations = Destinations(
+              waypoints: waypoints,
+              displayOptions: NavigationDisplayOptions(
+                showDestinationMarkers: false,
+              ),
+              routingOptions: RoutingOptions(
+                travelMode: NavigationTravelMode.driving,
+                alternateRoutesStrategy: NavigationAlternateRoutesStrategy.none,
+              ),
+            );
+
+            final result = await GoogleMapsNavigator.setDestinations(destinations);
+
+            if (result == NavigationRouteStatus.statusOk) {
+              AppLogger.general('✅ [Reopt] Navigation updated successfully');
+
+              // Restart guidance
+              await GoogleMapsNavigator.startGuidance();
+
+              // Update markers
+              if (controller != null) {
+                await controller.clearMarkers();
+                final tempMarkerMap = <String, RouteTask>{};
+                final markers = await GoogleNavigationMarkerService.createCustomBinMarkers(
+                  updatedShift.remainingTasks,
+                  tempMarkerMap,
+                );
+                await controller.addMarkers(markers);
+                AppLogger.general('📍 [Reopt] Updated ${markers.length} markers');
+              }
+
+              // Show success feedback
+              if (context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('🗺️ Route updated - navigation refreshed'),
+                    backgroundColor: Colors.green,
+                    duration: Duration(seconds: 2),
+                  ),
+                );
+              }
+            } else {
+              AppLogger.general('❌ [Reopt] Failed to update navigation: $result');
+            }
+          } catch (e) {
+            AppLogger.general('❌ [Reopt] Error updating navigation: $e');
+          }
+
+          // Clear the event
+          ref.read(routeReoptimizationEventProvider.notifier).state = null;
+        });
+      }
+    } catch (e) {
+      AppLogger.general('❌ [Reopt] Error handling reoptimization: $e');
+    }
+  }
 
   /// Setup navigation after view is created (6-step process)
   static Future<void> _setupNavigationAfterViewCreated(
@@ -1322,19 +1545,19 @@ class GoogleNavigationPage extends HookConsumerWidget {
         // Setup listeners (needed for UI updates)
         _setupNavigationListeners(context, ref, shift, navNotifier);
 
-        // Restore markers for remaining bins
-        final tempMarkerMap = <String, RouteBin>{};
+        // Restore markers for remaining tasks
+        final tempMarkerMap = <String, RouteTask>{};
         final markers = await GoogleNavigationMarkerService.createCustomBinMarkers(
-          shift.remainingBins,
+          shift.remainingTasks,
           tempMarkerMap,
         );
         await controller.addMarkers(markers);
-        navNotifier.updateMarkerToBinMap(tempMarkerMap);
+        navNotifier.updateMarkerToTaskMap(tempMarkerMap);
         AppLogger.general('📍 Restored ${markers.length} custom markers');
 
         // Restore geofence circles
         final circles = await GoogleNavigationMarkerService.createGeofenceCircles(
-          shift.remainingBins,
+          shift.remainingTasks,
         );
         await controller.addCircles(circles);
         navNotifier.updateGeofenceCircles(circles);
@@ -1417,24 +1640,24 @@ class GoogleNavigationPage extends HookConsumerWidget {
       AppLogger.general('✅ [STEP 4/7] Route calculation initiated');
 
       // STEP 5: Add custom markers
-      AppLogger.general('📍 [STEP 5/7] Creating and adding custom bin markers...');
-      final tempMarkerMap = <String, RouteBin>{};
-      final markers = await GoogleNavigationMarkerService.createCustomBinMarkers(shift.remainingBins, tempMarkerMap);
+      AppLogger.general('📍 [STEP 5/7] Creating and adding custom task markers...');
+      final tempMarkerMap = <String, RouteTask>{};
+      final markers = await GoogleNavigationMarkerService.createCustomBinMarkers(shift.remainingTasks, tempMarkerMap);
       await controller.addMarkers(markers);
-      navNotifier.updateMarkerToBinMap(tempMarkerMap);
+      navNotifier.updateMarkerToTaskMap(tempMarkerMap);
       AppLogger.general('✅ [STEP 5/7] Added ${markers.length} custom markers');
 
       // STEP 6: Create geofence circles and completed route polyline
       AppLogger.general('⭕ [STEP 6/7] Adding geofence circles and polylines...');
-      final circles = await GoogleNavigationMarkerService.createGeofenceCircles(shift.remainingBins);
+      final circles = await GoogleNavigationMarkerService.createGeofenceCircles(shift.remainingTasks);
       await controller.addCircles(circles);
       navNotifier.updateGeofenceCircles(circles);
       AppLogger.general('   Added ${circles.length} geofence circles');
 
-      // Add completed route polyline if there are completed bins
+      // Add completed route polyline if there are completed tasks (only truly completed, not skipped)
       if (shift.completedBins > 0) {
-        final completedBinsList = shift.routeBins.where((bin) => bin.isCompleted == 1).toList();
-        final polyline = await GoogleNavigationMarkerService.createCompletedRoutePolyline(completedBinsList);
+        final completedTasksList = shift.tasks.where((task) => task.isCompleted == 1 && !task.skipped).toList();
+        final polyline = await GoogleNavigationMarkerService.createCompletedRoutePolyline(completedTasksList);
         if (polyline != null) {
           await controller.addPolylines([polyline]);
           navNotifier.updateCompletedRoutePolyline(polyline);

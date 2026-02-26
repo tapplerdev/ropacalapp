@@ -219,17 +219,22 @@ class ShiftNotifier extends _$ShiftNotifier {
         AppLogger.general('[DIAGNOSTIC] ✅ fetchCurrentShift: Shift data received!');
         AppLogger.general('[DIAGNOSTIC]    Status: ${currentShift.status}');
         AppLogger.general('[DIAGNOSTIC]    RouteID: ${currentShift.assignedRouteId}');
-        AppLogger.general('[DIAGNOSTIC]    RouteBins.length: ${currentShift.routeBins.length}');
-        AppLogger.general('[DIAGNOSTIC]    CompletedBins: ${currentShift.completedBins}/${currentShift.totalBins}');
+        AppLogger.general('[DIAGNOSTIC]    ShiftID: ${currentShift.shiftId}');
+        AppLogger.general('[DIAGNOSTIC]    Tasks.length: ${currentShift.tasks.length}');
+        AppLogger.general('[DIAGNOSTIC]    RemainingTasks.length: ${currentShift.remainingTasks.length}');
+        AppLogger.general('[DIAGNOSTIC]    LogicalTotalBins: ${currentShift.logicalTotalBins}');
+        AppLogger.general('[DIAGNOSTIC]    LogicalCompletedBins: ${currentShift.logicalCompletedBins}');
 
-        if (currentShift.routeBins.isNotEmpty) {
-          AppLogger.general('[DIAGNOSTIC]    First 3 bins:');
-          for (var i = 0; i < currentShift.routeBins.length && i < 3; i++) {
-            final bin = currentShift.routeBins[i];
-            AppLogger.general('[DIAGNOSTIC]      ${i + 1}. Bin #${bin.binNumber} - ${bin.currentStreet} (completed: ${bin.isCompleted})');
+        if (currentShift.tasks.isNotEmpty) {
+          AppLogger.general('[DIAGNOSTIC]    📋 ALL TASKS (${currentShift.tasks.length} total):');
+          for (var i = 0; i < currentShift.tasks.length; i++) {
+            final task = currentShift.tasks[i];
+            final statusIcon = task.isCompleted == 1 ? '✅' : '⏳';
+            final deletedFlag = task.isDeleted ? ' 🗑️DELETED' : '';
+            AppLogger.general('[DIAGNOSTIC]      $statusIcon ${i + 1}. ${task.taskType.name} - Bin #${task.binNumber ?? "N/A"} - ${task.address ?? "No address"}$deletedFlag');
           }
         } else {
-          AppLogger.general('[DIAGNOSTIC]    ⚠️  WARNING: routeBins array is EMPTY!');
+          AppLogger.general('[DIAGNOSTIC]    ⚠️  CRITICAL: Tasks array is EMPTY!');
         }
 
         state = currentShift;
@@ -761,14 +766,17 @@ class ShiftNotifier extends _$ShiftNotifier {
           previousState.routeBins.where((bin) => bin.isCompleted == 2).length;
 
       // Update state immediately (navigation will recalculate now!)
+      // NOTE: Do NOT increment completedBins for skipped tasks!
+      // Skipped tasks (isCompleted=2) should not count toward completion percentage.
+      // Only tasks with isCompleted=1 should count as completed.
       state = state.copyWith(
         routeBins: updatedRouteBins,
-        completedBins: state.completedBins + skippedCount,
+        // completedBins is NOT incremented - skipped tasks don't count as completed
       );
 
       AppLogger.general('✅ Optimistic update applied - task skipped instantly');
       AppLogger.general('   Skipped count: $skippedCount (includes paired dropoff if applicable)');
-      AppLogger.general('   Completed: ${state.completedBins}/${state.totalBins}');
+      AppLogger.general('   Completed: ${state.completedBins}/${state.totalBins} (skipped tasks NOT counted)');
       AppLogger.general('   Remaining bins: ${state.remainingBins.length}');
 
       // STEP 3: Confirm with server in background
@@ -894,12 +902,28 @@ class ShiftNotifier extends _$ShiftNotifier {
   /// Handle shift edited event from manager
   /// Refreshes shift data and triggers navigation update
   Future<void> _handleShiftEdited(Map<String, dynamic> data) async {
-    AppLogger.general('✏️ [Shift Edited] Handling shift edit event');
+    AppLogger.general('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    AppLogger.general('✏️ [SHIFT EDITED EVENT] Received shift_edited WebSocket event');
+    AppLogger.general('   Timestamp: ${DateTime.now().toIso8601String()}');
+    AppLogger.general('   Full event data: $data');
 
     // Extract changes information
     final changes = data['changes'] as Map<String, dynamic>?;
     final reason = data['reason'] as String?;
     final managerName = data['manager_name'] as String?;
+    final shiftId = data['shift_id'] as String?;
+
+    AppLogger.general('   Shift ID: $shiftId');
+    AppLogger.general('   Manager: $managerName');
+    AppLogger.general('   Reason: $reason');
+    AppLogger.general('   Changes object: $changes');
+
+    // Log current state BEFORE refresh
+    AppLogger.general('   📊 STATE BEFORE REFRESH:');
+    AppLogger.general('      Current tasks.length: ${state.tasks.length}');
+    AppLogger.general('      Current routeBins.length: ${state.routeBins.length}');
+    AppLogger.general('      Current remainingTasks.length: ${state.remainingTasks.length}');
+    AppLogger.general('      Current logicalTotalBins: ${state.logicalTotalBins}');
 
     // Build user-friendly message
     String message = 'Your shift has been updated';
@@ -908,6 +932,12 @@ class ShiftNotifier extends _$ShiftNotifier {
       final tasksRemoved = changes['tasks_removed'] as int? ?? 0;
       final driverChanged = changes['driver_changed'] as bool? ?? false;
       final timeChanged = changes['time_changed'] as bool? ?? false;
+
+      AppLogger.general('   📝 CHANGE DETAILS:');
+      AppLogger.general('      Tasks added: $tasksAdded');
+      AppLogger.general('      Tasks removed: $tasksRemoved');
+      AppLogger.general('      Driver changed: $driverChanged');
+      AppLogger.general('      Time changed: $timeChanged');
 
       if (tasksAdded > 0 || tasksRemoved > 0) {
         message = '';
@@ -927,21 +957,34 @@ class ShiftNotifier extends _$ShiftNotifier {
       }
     }
 
-    AppLogger.general('✏️ [Shift Edited] Changes: $changes');
-    AppLogger.general('✏️ [Shift Edited] Message: $message');
+    AppLogger.general('   💬 User-facing message: "$message"');
+    AppLogger.general('   🔄 Calling fetchCurrentShift() to get updated data...');
 
     // Refresh shift to get latest data (already re-optimized by backend if needed)
     await fetchCurrentShift();
 
+    AppLogger.general('   ✅ fetchCurrentShift() completed');
+    AppLogger.general('   📊 STATE AFTER REFRESH:');
+    AppLogger.general('      New tasks.length: ${state.tasks.length}');
+    AppLogger.general('      New routeBins.length: ${state.routeBins.length}');
+    AppLogger.general('      New remainingTasks.length: ${state.remainingTasks.length}');
+    AppLogger.general('      New logicalTotalBins: ${state.logicalTotalBins}');
+
     // Trigger navigation refresh event
-    ref.read(routeReoptimizationEventProvider.notifier).state = {
+    final eventData = {
       'timestamp': DateTime.now().millisecondsSinceEpoch,
       'message': message,
       'changes': changes,
       'manager_name': managerName,
     };
 
-    AppLogger.general('✅ [Shift Edited] Shift refreshed and navigation event triggered');
+    AppLogger.general('   🚀 Setting routeReoptimizationEventProvider to trigger navigation update');
+    AppLogger.general('      Event data: $eventData');
+
+    ref.read(routeReoptimizationEventProvider.notifier).state = eventData;
+
+    AppLogger.general('✅ [SHIFT EDITED EVENT] Processing complete!');
+    AppLogger.general('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
   }
 
   /// Get current shift duration (excluding pause time)

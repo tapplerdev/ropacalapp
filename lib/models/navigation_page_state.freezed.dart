@@ -26,8 +26,8 @@ mixin _$NavigationPageState {
   /// Current bin index in the route
   int get currentBinIndex => throw _privateConstructorUsedError;
 
-  /// Map of marker IDs to RouteBin objects for tap handling
-  Map<String, RouteBin> get markerToBinMap =>
+  /// Map of marker IDs to RouteTask objects for tap handling
+  Map<String, RouteTask> get markerToTaskMap =>
       throw _privateConstructorUsedError;
 
   /// Current navigation step (turn-by-turn instruction)
@@ -79,7 +79,7 @@ abstract class $NavigationPageStateCopyWith<$Res> {
     bool isNavigationReady,
     bool isNavigating,
     int currentBinIndex,
-    Map<String, RouteBin> markerToBinMap,
+    Map<String, RouteTask> markerToTaskMap,
     RouteStep? currentStep,
     double distanceToNextManeuver,
     Duration? remainingTime,
@@ -113,7 +113,7 @@ class _$NavigationPageStateCopyWithImpl<$Res, $Val extends NavigationPageState>
     Object? isNavigationReady = null,
     Object? isNavigating = null,
     Object? currentBinIndex = null,
-    Object? markerToBinMap = null,
+    Object? markerToTaskMap = null,
     Object? currentStep = freezed,
     Object? distanceToNextManeuver = null,
     Object? remainingTime = freezed,
@@ -139,10 +139,10 @@ class _$NavigationPageStateCopyWithImpl<$Res, $Val extends NavigationPageState>
                 ? _value.currentBinIndex
                 : currentBinIndex // ignore: cast_nullable_to_non_nullable
                       as int,
-            markerToBinMap: null == markerToBinMap
-                ? _value.markerToBinMap
-                : markerToBinMap // ignore: cast_nullable_to_non_nullable
-                      as Map<String, RouteBin>,
+            markerToTaskMap: null == markerToTaskMap
+                ? _value.markerToTaskMap
+                : markerToTaskMap // ignore: cast_nullable_to_non_nullable
+                      as Map<String, RouteTask>,
             currentStep: freezed == currentStep
                 ? _value.currentStep
                 : currentStep // ignore: cast_nullable_to_non_nullable
@@ -216,7 +216,7 @@ abstract class _$$NavigationPageStateImplCopyWith<$Res>
     bool isNavigationReady,
     bool isNavigating,
     int currentBinIndex,
-    Map<String, RouteBin> markerToBinMap,
+    Map<String, RouteTask> markerToTaskMap,
     RouteStep? currentStep,
     double distanceToNextManeuver,
     Duration? remainingTime,
@@ -250,7 +250,7 @@ class __$$NavigationPageStateImplCopyWithImpl<$Res>
     Object? isNavigationReady = null,
     Object? isNavigating = null,
     Object? currentBinIndex = null,
-    Object? markerToBinMap = null,
+    Object? markerToTaskMap = null,
     Object? currentStep = freezed,
     Object? distanceToNextManeuver = null,
     Object? remainingTime = freezed,
@@ -276,10 +276,10 @@ class __$$NavigationPageStateImplCopyWithImpl<$Res>
             ? _value.currentBinIndex
             : currentBinIndex // ignore: cast_nullable_to_non_nullable
                   as int,
-        markerToBinMap: null == markerToBinMap
-            ? _value._markerToBinMap
-            : markerToBinMap // ignore: cast_nullable_to_non_nullable
-                  as Map<String, RouteBin>,
+        markerToTaskMap: null == markerToTaskMap
+            ? _value._markerToTaskMap
+            : markerToTaskMap // ignore: cast_nullable_to_non_nullable
+                  as Map<String, RouteTask>,
         currentStep: freezed == currentStep
             ? _value.currentStep
             : currentStep // ignore: cast_nullable_to_non_nullable
@@ -332,7 +332,7 @@ class _$NavigationPageStateImpl implements _NavigationPageState {
     this.isNavigationReady = false,
     this.isNavigating = false,
     this.currentBinIndex = 0,
-    final Map<String, RouteBin> markerToBinMap = const {},
+    final Map<String, RouteTask> markerToTaskMap = const {},
     this.currentStep,
     this.distanceToNextManeuver = 0.0,
     this.remainingTime,
@@ -343,7 +343,7 @@ class _$NavigationPageStateImpl implements _NavigationPageState {
     this.hasReceivedFirstNavInfo = false,
     this.isAudioMuted = false,
     this.isBottomPanelExpanded = false,
-  }) : _markerToBinMap = markerToBinMap,
+  }) : _markerToTaskMap = markerToTaskMap,
        _geofenceCircles = geofenceCircles;
 
   /// Whether navigation system is ready (map loaded, listeners setup)
@@ -361,16 +361,16 @@ class _$NavigationPageStateImpl implements _NavigationPageState {
   @JsonKey()
   final int currentBinIndex;
 
-  /// Map of marker IDs to RouteBin objects for tap handling
-  final Map<String, RouteBin> _markerToBinMap;
+  /// Map of marker IDs to RouteTask objects for tap handling
+  final Map<String, RouteTask> _markerToTaskMap;
 
-  /// Map of marker IDs to RouteBin objects for tap handling
+  /// Map of marker IDs to RouteTask objects for tap handling
   @override
   @JsonKey()
-  Map<String, RouteBin> get markerToBinMap {
-    if (_markerToBinMap is EqualUnmodifiableMapView) return _markerToBinMap;
+  Map<String, RouteTask> get markerToTaskMap {
+    if (_markerToTaskMap is EqualUnmodifiableMapView) return _markerToTaskMap;
     // ignore: implicit_dynamic_type
-    return EqualUnmodifiableMapView(_markerToBinMap);
+    return EqualUnmodifiableMapView(_markerToTaskMap);
   }
 
   /// Current navigation step (turn-by-turn instruction)
@@ -427,7 +427,7 @@ class _$NavigationPageStateImpl implements _NavigationPageState {
 
   @override
   String toString() {
-    return 'NavigationPageState(isNavigationReady: $isNavigationReady, isNavigating: $isNavigating, currentBinIndex: $currentBinIndex, markerToBinMap: $markerToBinMap, currentStep: $currentStep, distanceToNextManeuver: $distanceToNextManeuver, remainingTime: $remainingTime, totalDistanceRemaining: $totalDistanceRemaining, navigationLocation: $navigationLocation, geofenceCircles: $geofenceCircles, completedRoutePolyline: $completedRoutePolyline, hasReceivedFirstNavInfo: $hasReceivedFirstNavInfo, isAudioMuted: $isAudioMuted, isBottomPanelExpanded: $isBottomPanelExpanded)';
+    return 'NavigationPageState(isNavigationReady: $isNavigationReady, isNavigating: $isNavigating, currentBinIndex: $currentBinIndex, markerToTaskMap: $markerToTaskMap, currentStep: $currentStep, distanceToNextManeuver: $distanceToNextManeuver, remainingTime: $remainingTime, totalDistanceRemaining: $totalDistanceRemaining, navigationLocation: $navigationLocation, geofenceCircles: $geofenceCircles, completedRoutePolyline: $completedRoutePolyline, hasReceivedFirstNavInfo: $hasReceivedFirstNavInfo, isAudioMuted: $isAudioMuted, isBottomPanelExpanded: $isBottomPanelExpanded)';
   }
 
   @override
@@ -442,8 +442,8 @@ class _$NavigationPageStateImpl implements _NavigationPageState {
             (identical(other.currentBinIndex, currentBinIndex) ||
                 other.currentBinIndex == currentBinIndex) &&
             const DeepCollectionEquality().equals(
-              other._markerToBinMap,
-              _markerToBinMap,
+              other._markerToTaskMap,
+              _markerToTaskMap,
             ) &&
             (identical(other.currentStep, currentStep) ||
                 other.currentStep == currentStep) &&
@@ -478,7 +478,7 @@ class _$NavigationPageStateImpl implements _NavigationPageState {
     isNavigationReady,
     isNavigating,
     currentBinIndex,
-    const DeepCollectionEquality().hash(_markerToBinMap),
+    const DeepCollectionEquality().hash(_markerToTaskMap),
     currentStep,
     distanceToNextManeuver,
     remainingTime,
@@ -508,7 +508,7 @@ abstract class _NavigationPageState implements NavigationPageState {
     final bool isNavigationReady,
     final bool isNavigating,
     final int currentBinIndex,
-    final Map<String, RouteBin> markerToBinMap,
+    final Map<String, RouteTask> markerToTaskMap,
     final RouteStep? currentStep,
     final double distanceToNextManeuver,
     final Duration? remainingTime,
@@ -533,9 +533,9 @@ abstract class _NavigationPageState implements NavigationPageState {
   @override
   int get currentBinIndex;
 
-  /// Map of marker IDs to RouteBin objects for tap handling
+  /// Map of marker IDs to RouteTask objects for tap handling
   @override
-  Map<String, RouteBin> get markerToBinMap;
+  Map<String, RouteTask> get markerToTaskMap;
 
   /// Current navigation step (turn-by-turn instruction)
   @override

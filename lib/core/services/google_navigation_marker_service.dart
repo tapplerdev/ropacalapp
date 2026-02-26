@@ -3,29 +3,29 @@ import 'package:flutter/material.dart';
 import 'package:google_navigation_flutter/google_navigation_flutter.dart';
 import 'package:ropacalapp/core/utils/app_logger.dart';
 import 'package:ropacalapp/features/driver/widgets/pin_marker_painter.dart';
-import 'package:ropacalapp/models/route_bin.dart';
+import 'package:ropacalapp/models/route_task.dart';
 import 'package:ropacalapp/core/enums/stop_type.dart';
 
 /// Service for creating custom markers, circles, and polylines for Google Navigation
 class GoogleNavigationMarkerService {
   GoogleNavigationMarkerService._(); // Private constructor - utility class
 
-  /// Create custom bin markers with numbered pins
-  /// Returns list of MarkerOptions and populates the markerToBinMap for tap handling
+  /// Create custom task markers with numbered pins
+  /// Returns list of MarkerOptions and populates the markerToTaskMap for tap handling
   static Future<List<MarkerOptions>> createCustomBinMarkers(
-    List<RouteBin> bins,
-    Map<String, RouteBin> markerToBinMap,
+    List<RouteTask> tasks,
+    Map<String, RouteTask> markerToTaskMap,
   ) async {
-    AppLogger.navigation('🎨 Creating ${bins.length} custom bin markers...');
+    AppLogger.navigation('🎨 Creating ${tasks.length} custom task markers...');
     final markers = <MarkerOptions>[];
 
-    for (int i = 0; i < bins.length; i++) {
-      final bin = bins[i];
-      final binNumber = i + 1;
+    for (int i = 0; i < tasks.length; i++) {
+      final task = tasks[i];
+      final taskNumber = i + 1;
 
       // Create custom marker icon based on stop type
       final ImageDescriptor icon;
-      switch (bin.stopType) {
+      switch (task.taskType) {
         case StopType.warehouseStop:
           icon = await createWarehouseMarkerIcon();
           AppLogger.navigation('   🏭 Creating warehouse marker');
@@ -36,43 +36,43 @@ class GoogleNavigationMarkerService {
           break;
         default:
           // Regular pickup bin (collection, pickup, dropoff, etc.)
-          icon = await createBinMarkerIcon(bin.binNumber, bin.fillPercentage);
+          icon = await createBinMarkerIcon(task.binNumber ?? 0, task.fillPercentage ?? 0);
           break;
       }
 
-      final markerId = 'bin_${bin.id}';
-      markerToBinMap[markerId] = bin;
+      final markerId = 'task_${task.id}';
+      markerToTaskMap[markerId] = task;
 
       final markerOptions = MarkerOptions(
         position: LatLng(
-          latitude: bin.latitude,
-          longitude: bin.longitude,
+          latitude: task.latitude,
+          longitude: task.longitude,
         ),
         icon: icon,
         anchor: const MarkerAnchor(u: 0.5, v: 0.5), // Center
-        zIndex: 9999.0 + binNumber.toDouble(), // Very high z-index to render above Google's default markers
+        zIndex: 9999.0 + taskNumber.toDouble(), // Very high z-index to render above Google's default markers
         consumeTapEvents: true,
       );
 
       markers.add(markerOptions);
-      AppLogger.navigation('   ✅ Marker $binNumber: Bin #${bin.binNumber} at (${bin.latitude}, ${bin.longitude})');
+      AppLogger.navigation('   ✅ Marker $taskNumber: Bin #${task.binNumber ?? "N/A"} at (${task.latitude}, ${task.longitude})');
     }
 
     AppLogger.navigation('📍 Created ${markers.length} custom markers total');
     return markers;
   }
 
-  /// Create geofence circles around bins (50m radius)
-  static Future<List<CircleOptions>> createGeofenceCircles(List<RouteBin> bins) async {
+  /// Create geofence circles around tasks (50m radius)
+  static Future<List<CircleOptions>> createGeofenceCircles(List<RouteTask> tasks) async {
     final circles = <CircleOptions>[];
 
-    for (int i = 0; i < bins.length; i++) {
-      final bin = bins[i];
+    for (int i = 0; i < tasks.length; i++) {
+      final task = tasks[i];
 
       final circleOptions = CircleOptions(
         position: LatLng(
-          latitude: bin.latitude,
-          longitude: bin.longitude,
+          latitude: task.latitude,
+          longitude: task.longitude,
         ),
         radius: 50, // 50 meters
         strokeWidth: 2,
@@ -89,15 +89,15 @@ class GoogleNavigationMarkerService {
   }
 
   /// Create polyline for completed route segments
-  static Future<PolylineOptions?> createCompletedRoutePolyline(List<RouteBin> completedBins) async {
-    if (completedBins.length < 2) {
+  static Future<PolylineOptions?> createCompletedRoutePolyline(List<RouteTask> completedTasks) async {
+    if (completedTasks.length < 2) {
       return null; // Need at least 2 points for a line
     }
 
-    final points = completedBins.map((bin) {
+    final points = completedTasks.map((task) {
       return LatLng(
-        latitude: bin.latitude,
-        longitude: bin.longitude,
+        latitude: task.latitude,
+        longitude: task.longitude,
       );
     }).toList();
 

@@ -290,10 +290,10 @@ class ShiftAcceptanceBottomSheet extends StatelessWidget {
         _buildTimelineStartPoint(),
 
         // Route bins
-        ...shiftOverview.routeBins.asMap().entries.map((entry) {
+        ...shiftOverview.tasks.asMap().entries.map((entry) {
           final index = entry.key;
           final bin = entry.value;
-          final isLast = index == shiftOverview.routeBins.length - 1;
+          final isLast = index == shiftOverview.tasks.length - 1;
 
           return _buildTimelineBinStop(
             bin: bin,

@@ -1,7 +1,7 @@
 import 'package:google_navigation_flutter/google_navigation_flutter.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:ropacalapp/models/navigation_page_state.dart';
-import 'package:ropacalapp/models/route_bin.dart';
+import 'package:ropacalapp/models/route_task.dart';
 import 'package:ropacalapp/models/route_step.dart';
 
 part 'navigation_page_provider.g.dart';
@@ -73,12 +73,12 @@ class NavigationPageNotifier extends _$NavigationPageNotifier {
 
   // ==================== Markers & Overlays ====================
 
-  void updateMarkerToBinMap(Map<String, RouteBin> markerMap) {
-    state = state.copyWith(markerToBinMap: markerMap);
+  void updateMarkerToTaskMap(Map<String, RouteTask> markerMap) {
+    state = state.copyWith(markerToTaskMap: markerMap);
   }
 
-  void clearMarkerToBinMap() {
-    state = state.copyWith(markerToBinMap: {});
+  void clearMarkerToTaskMap() {
+    state = state.copyWith(markerToTaskMap: {});
   }
 
   void updateGeofenceCircles(List<CircleOptions> circles) {

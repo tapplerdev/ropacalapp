@@ -96,7 +96,7 @@ class DriverMapPage extends HookConsumerWidget {
     // DON'T watch shiftState - we don't want to rebuild the entire page when shift changes
     // Individual shift-aware widgets will watch it internally
     // final shiftState = ref.watch(shiftNotifierProvider);
-    // AppLogger.general('   🚚 shiftState: status=${shiftState.status}, routeBins=${shiftState.routeBins.length}');
+    // AppLogger.general('   🚚 shiftState: status=${shiftState.status}, tasks=${shiftState.tasks.length}');
 
     // SIMULATION DISABLED - Not used in production
     // final simulationState = ref.watch(simulationNotifierProvider);
@@ -222,7 +222,7 @@ class DriverMapPage extends HookConsumerWidget {
     useEffect(
       () {
         final bins = binsState.value;
-        final routeBins = routeState.value;
+        final tasks = routeState.value;
         final location = locationState.value;
 
         // Read shift state without watching (doesn't cause rebuilds)
@@ -233,11 +233,11 @@ class DriverMapPage extends HookConsumerWidget {
         final newMarkers = <Marker>{};
 
         // ✅ ONLY show markers for bins in the assigned shift
-        // When no shift → routeBins is empty → clean map with just blue dot
-        if (currentShift.routeBins.isNotEmpty && bins != null) {
+        // When no shift → tasks is empty → clean map with just blue dot
+        if (currentShift.tasks.isNotEmpty && bins != null) {
 
-          for (var i = 0; i < currentShift.routeBins.length; i++) {
-            final routeBin = currentShift.routeBins[i];
+          for (var i = 0; i < currentShift.tasks.length; i++) {
+            final routeBin = currentShift.tasks[i];
 
             if (routeBin.latitude != null && routeBin.longitude != null) {
               // Find the corresponding Bin object for the bottom sheet
@@ -271,14 +271,14 @@ class DriverMapPage extends HookConsumerWidget {
 
         // ✅ ONLY show polylines if there's a shift with bins
         // When no shift → clean map (no route lines)
-        if (currentShift.routeBins.isNotEmpty && routeBins != null && routeBins.isNotEmpty) {
+        if (currentShift.tasks.isNotEmpty && tasks != null && tasks.isNotEmpty) {
           // Draw simple straight lines from current location through bins
           AppLogger.map('   → Drawing route polyline');
           if (location != null) {
             routePoints.add(LatLng(latitude: location.latitude, longitude: location.longitude));
           }
           routePoints.addAll(
-            routeBins
+            tasks
                 .where((b) => b.latitude != null && b.longitude != null)
                 .map((b) => LatLng(latitude: b.latitude!, longitude: b.longitude!)),
           );
@@ -332,7 +332,7 @@ class DriverMapPage extends HookConsumerWidget {
 
       // Force marker update by invalidating the bins list provider
       // This will trigger the useEffect above to re-run
-      if (previous?.status != next.status || previous?.routeBins.length != next.routeBins.length) {
+      if (previous?.status != next.status || previous?.tasks.length != next.tasks.length) {
         AppLogger.general('   → Triggering marker update');
         ref.invalidate(binsListProvider);
       }
@@ -591,7 +591,7 @@ class DriverMapPage extends HookConsumerWidget {
                           left: 16,
                           right: 16,
                           child: RouteSummaryCard(
-                            routeBins: routeState.value!,
+                            tasks: routeState.value!,
                             ref: ref,
                             currentLocation: locationState.value != null
                                 ? latlong.LatLng(
@@ -891,15 +891,15 @@ class _MapLayer extends HookConsumerWidget {
 }
 
 /// Calculate total distance for route in kilometers
-double _calculateTotalDistance(List<dynamic> routeBins) {
-  // print('🧮 Calculating distance for ${routeBins.length} bins');
+double _calculateTotalDistance(List<dynamic> tasks) {
+  // print('🧮 Calculating distance for ${tasks.length} bins');
 
-  if (routeBins.isEmpty) {
+  if (tasks.isEmpty) {
     // print('   ⚠️ Route bins is empty, returning 0');
     return 0.0;
   }
 
-  if (routeBins.length == 1) {
+  if (tasks.length == 1) {
     // print('   ⚠️ Only 1 bin in route, returning 0');
     return 0.0;
   }
@@ -907,9 +907,9 @@ double _calculateTotalDistance(List<dynamic> routeBins) {
   double totalKm = 0.0;
   final distance = const latlong.Distance();
 
-  for (int i = 0; i < routeBins.length - 1; i++) {
-    final current = routeBins[i];
-    final next = routeBins[i + 1];
+  for (int i = 0; i < tasks.length - 1; i++) {
+    final current = tasks[i];
+    final next = tasks[i + 1];
 
     // print('   Bin ${i + 1}: lat=${current.latitude}, lng=${current.longitude}');
     // print('   Bin ${i + 2}: lat=${next.latitude}, lng=${next.longitude}');
@@ -985,7 +985,7 @@ class _ShiftReadyOverlay extends ConsumerWidget {
                 estimatedEndTime: null,
                 totalBins: shiftState.totalBins,
                 totalDistanceKm: null,
-                routeBins: shiftState.routeBins,
+                tasks: shiftState.tasks,
                 routeTasks: tasks,
                 routeName: 'Route $shiftId',
                 isOptimized: false,
@@ -1141,15 +1141,15 @@ class _ShiftActiveOverlay extends ConsumerWidget {
       left: 0,
       right: 0,
       child: ActiveShiftBottomSheet(
-        routeBins: shiftState.routeBins,
+        tasks: shiftState.tasks,
         tasks: shiftState.tasks, // New task-based system
         completedBins: shiftState.completedBins,
         totalBins: shiftState.totalBins,
         onNavigateToNextBin: () {
           // Find next incomplete bin
-          final nextBin = shiftState.routeBins.firstWhere(
+          final nextBin = shiftState.tasks.firstWhere(
             (bin) => bin.isCompleted == 0,
-            orElse: () => shiftState.routeBins.first,
+            orElse: () => shiftState.tasks.first,
           );
 
           // Animate camera to next bin

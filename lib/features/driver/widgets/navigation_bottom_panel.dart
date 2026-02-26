@@ -32,11 +32,27 @@ class NavigationBottomPanel extends HookConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    AppLogger.general('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    AppLogger.general('🔄 [BOTTOM PANEL] build() called - Widget is rebuilding');
+    AppLogger.general('   Timestamp: ${DateTime.now().toIso8601String()}');
+    AppLogger.general('   📊 SHIFT DATA:');
+    AppLogger.general('      Shift ID: ${shift.shiftId}');
+    AppLogger.general('      Status: ${shift.status}');
+    AppLogger.general('      Total tasks: ${shift.tasks.length}');
+    AppLogger.general('      Remaining tasks: ${shift.remainingTasks.length}');
+    AppLogger.general('      Uses tasks: ${shift.usesTasks}');
+    AppLogger.general('      Logical total: ${shift.logicalTotalBins}');
+    AppLogger.general('      Logical completed: ${shift.logicalCompletedBins}');
+    AppLogger.general('      Current index: $currentIndex');
+
     final navState = ref.watch(navigationPageNotifierProvider);
     final navNotifier = ref.read(navigationPageNotifierProvider.notifier);
 
     // Support both task-based and bin-based systems
     final usesTasks = shift.usesTasks;
+
+    AppLogger.general('   🔍 SYSTEM CHECK:');
+    AppLogger.general('      Using task-based system: $usesTasks');
 
     if (usesTasks) {
       // New task-based system - FULL expandable panel
@@ -44,6 +60,20 @@ class NavigationBottomPanel extends HookConsumerWidget {
               currentIndex < shift.remainingTasks.length
           ? shift.remainingTasks[currentIndex]
           : null;
+
+      AppLogger.general('   📍 CURRENT TASK:');
+      if (currentTask != null) {
+        AppLogger.general('      Task type: ${currentTask.taskType.name}');
+        AppLogger.general('      Bin #: ${currentTask.binNumber ?? "N/A"}');
+        AppLogger.general('      Address: ${currentTask.address ?? "No address"}');
+        AppLogger.general('      Completed: ${currentTask.isCompleted}');
+        AppLogger.general('      Skipped: ${currentTask.skipped}');
+      } else {
+        AppLogger.general('      ⚠️  NO CURRENT TASK (null)');
+        AppLogger.general('      Remaining tasks empty: ${shift.remainingTasks.isEmpty}');
+        AppLogger.general('      Current index out of bounds: ${currentIndex >= shift.remainingTasks.length}');
+      }
+      AppLogger.general('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
 
       if (currentTask == null) {
         return const SizedBox.shrink();
@@ -58,9 +88,12 @@ class NavigationBottomPanel extends HookConsumerWidget {
       );
     } else {
       // Legacy bin-based system - FULL expandable panel
-      final currentBin = shift.remainingBins.isNotEmpty &&
-              currentIndex < shift.remainingBins.length
-          ? shift.remainingBins[currentIndex]
+      AppLogger.general('   ⚠️  Using LEGACY bin-based system (should not happen!)');
+      AppLogger.general('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+
+      final currentBin = shift.remainingTasks.isNotEmpty &&
+              currentIndex < shift.remainingTasks.length
+          ? shift.remainingTasks[currentIndex]
           : null;
 
       if (currentBin == null) {
@@ -365,17 +398,17 @@ class NavigationBottomPanel extends HookConsumerWidget {
 
     // Determine badge display
     final bool showBadge = bin.binNumber != null ||
-        bin.stopType == StopType.warehouseStop ||
-        bin.stopType == StopType.placement;
+        bin.taskType == StopType.warehouseStop ||
+        bin.taskType == StopType.placement;
 
-    final String badgeText = bin.stopType == StopType.warehouseStop
+    final String badgeText = bin.taskType == StopType.warehouseStop
         ? '🏭'
-        : bin.stopType == StopType.placement
+        : bin.taskType == StopType.placement
             ? '📍'
             : '${bin.binNumber}';
 
-    final bool isEmoji = bin.stopType == StopType.warehouseStop ||
-        bin.stopType == StopType.placement;
+    final bool isEmoji = bin.taskType == StopType.warehouseStop ||
+        bin.taskType == StopType.placement;
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -1145,10 +1178,10 @@ class NavigationBottomPanel extends HookConsumerWidget {
         : 0.0;
 
     // Get upcoming bins and filter out dropoffs if current bin is the pickup
-    final upcomingBins = shift.remainingBins.skip(1).where((upcomingBin) {
+    final upcomingBins = shift.remainingTasks.skip(1).where((upcomingBin) {
       // Filter out dropoff if current bin is its corresponding pickup
-      if (bin.stopType == StopType.pickup &&
-          upcomingBin.stopType == StopType.dropoff &&
+      if (bin.taskType == StopType.pickup &&
+          upcomingBin.taskType == StopType.dropoff &&
           bin.moveRequestId != null &&
           bin.moveRequestId == upcomingBin.moveRequestId) {
         return false; // Skip dropoff from "UP NEXT" (it's part of current action)
@@ -1181,7 +1214,7 @@ class NavigationBottomPanel extends HookConsumerWidget {
     final Color badgeColor;
     final String stopTypeLabel;
 
-    switch (bin.stopType) {
+    switch (bin.taskType) {
       case StopType.pickup:
         badgeColor = Colors.orange.shade600;
         stopTypeLabel = '🚚 PICKUP';
@@ -1313,7 +1346,7 @@ class NavigationBottomPanel extends HookConsumerWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       // Stop type badge (for non-collection bins)
-                      if (bin.stopType != StopType.collection) ...[
+                      if (bin.taskType != StopType.collection) ...[
                         Container(
                           padding: const EdgeInsets.symmetric(
                             horizontal: 8,
@@ -1352,16 +1385,16 @@ class NavigationBottomPanel extends HookConsumerWidget {
                             ),
                             child: Center(
                               child: Text(
-                                bin.stopType == StopType.warehouseStop
+                                bin.taskType == StopType.warehouseStop
                                     ? '🏭'
-                                    : bin.stopType == StopType.placement
+                                    : bin.taskType == StopType.placement
                                         ? '📍'
                                         : '${bin.binNumber ?? 0}',
                                 style: TextStyle(
                                   color: AppColors.primaryGreen,
                                   fontWeight: FontWeight.bold,
-                                  fontSize: bin.stopType == StopType.warehouseStop ||
-                                          bin.stopType == StopType.placement
+                                  fontSize: bin.taskType == StopType.warehouseStop ||
+                                          bin.taskType == StopType.placement
                                       ? 20
                                       : 18,
                                 ),
@@ -1391,8 +1424,8 @@ class NavigationBottomPanel extends HookConsumerWidget {
                                 Row(
                                   children: [
                                     // Fill percentage badge (only for collections - NOT warehouse or placement)
-                                    if (bin.stopType != StopType.warehouseStop &&
-                                        bin.stopType != StopType.placement)
+                                    if (bin.taskType != StopType.warehouseStop &&
+                                        bin.taskType != StopType.placement)
                                       Container(
                                         padding: const EdgeInsets.symmetric(
                                           horizontal: 7,
@@ -1419,8 +1452,8 @@ class NavigationBottomPanel extends HookConsumerWidget {
                                       ),
                                     // Distance badge
                                     if (totalDistanceRemaining != null) ...[
-                                      if (bin.stopType != StopType.warehouseStop &&
-                                          bin.stopType != StopType.placement)
+                                      if (bin.taskType != StopType.warehouseStop &&
+                                          bin.taskType != StopType.placement)
                                         const SizedBox(width: 6),
                                       Container(
                                         padding: const EdgeInsets.symmetric(
@@ -1545,16 +1578,16 @@ class NavigationBottomPanel extends HookConsumerWidget {
                                 ),
                                 child: Center(
                                   child: Text(
-                                    upcomingBin.stopType == StopType.warehouseStop
+                                    upcomingBin.taskType == StopType.warehouseStop
                                         ? '🏭'
-                                        : upcomingBin.stopType == StopType.placement
+                                        : upcomingBin.taskType == StopType.placement
                                             ? '📍'
                                             : '${upcomingBin.binNumber ?? 0}',
                                     style: TextStyle(
                                       color: AppColors.textSecondary,
                                       fontWeight: FontWeight.w600,
-                                      fontSize: upcomingBin.stopType == StopType.warehouseStop ||
-                                              upcomingBin.stopType == StopType.placement
+                                      fontSize: upcomingBin.taskType == StopType.warehouseStop ||
+                                              upcomingBin.taskType == StopType.placement
                                           ? 18
                                           : 14,
                                     ),
@@ -1577,8 +1610,8 @@ class NavigationBottomPanel extends HookConsumerWidget {
                               ),
                               const SizedBox(width: 10),
                               // Fill percentage badge (only for collections - NOT warehouse or placement)
-                              if (upcomingBin.stopType != StopType.warehouseStop &&
-                                  upcomingBin.stopType != StopType.placement)
+                              if (upcomingBin.taskType != StopType.warehouseStop &&
+                                  upcomingBin.taskType != StopType.placement)
                                 Container(
                                   padding: const EdgeInsets.symmetric(
                                     horizontal: 8,
@@ -1663,11 +1696,11 @@ class NavigationBottomPanel extends HookConsumerWidget {
               onPressed: isWithinGeofence
                   ? () {
                       AppLogger.general(
-                        'Complete Bin button pressed for Bin #${bin.binNumber} (stopType: ${bin.stopType})',
+                        'Complete Bin button pressed for Bin #${bin.binNumber} (stopType: ${bin.taskType})',
                       );
 
                       // Show different dialog based on stop type
-                      switch (bin.stopType) {
+                      switch (bin.taskType) {
                         case StopType.warehouseStop:
                           // Show warehouse check-in confirmation dialog
                           showDialog(
@@ -1900,7 +1933,7 @@ class NavigationBottomPanel extends HookConsumerWidget {
                 minimumSize: const Size(double.infinity, 54),
               ),
               child: Text(
-                isWithinGeofence ? _getButtonText(bin.stopType) : 'Too Far Away',
+                isWithinGeofence ? _getButtonText(bin.taskType) : 'Too Far Away',
                 style: const TextStyle(
                   fontSize: 17,
                   fontWeight: FontWeight.w600,
@@ -1979,7 +2012,7 @@ class NavigationBottomPanel extends HookConsumerWidget {
       shiftId: bin.shiftId,
       binId: bin.binId.isEmpty ? null : bin.binId,
       sequenceOrder: bin.sequenceOrder,
-      taskType: bin.stopType,
+      taskType: bin.taskType,
       moveRequestId: bin.moveRequestId,
       address: address.isEmpty ? bin.originalAddress : address,
       destinationAddress: bin.newAddress,

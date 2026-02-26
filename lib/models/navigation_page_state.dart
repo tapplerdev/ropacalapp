@@ -1,6 +1,6 @@
 import 'package:freezed_annotation/freezed_annotation.dart';
 import 'package:google_navigation_flutter/google_navigation_flutter.dart';
-import 'package:ropacalapp/models/route_bin.dart';
+import 'package:ropacalapp/models/route_task.dart';
 import 'package:ropacalapp/models/route_step.dart';
 
 part 'navigation_page_state.freezed.dart';
@@ -19,8 +19,8 @@ class NavigationPageState with _$NavigationPageState {
     /// Current bin index in the route
     @Default(0) int currentBinIndex,
 
-    /// Map of marker IDs to RouteBin objects for tap handling
-    @Default({}) Map<String, RouteBin> markerToBinMap,
+    /// Map of marker IDs to RouteTask objects for tap handling
+    @Default({}) Map<String, RouteTask> markerToTaskMap,
 
     /// Current navigation step (turn-by-turn instruction)
     RouteStep? currentStep,

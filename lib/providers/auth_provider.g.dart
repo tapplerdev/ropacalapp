@@ -25,7 +25,7 @@ final apiServiceProvider = Provider<ApiService>.internal(
 @Deprecated('Will be removed in 3.0. Use Ref instead')
 // ignore: unused_element
 typedef ApiServiceRef = ProviderRef<ApiService>;
-String _$webSocketManagerHash() => r'66fc237ea75f51def8ba2134e9d737647692d754';
+String _$webSocketManagerHash() => r'e3c4d4cb9e3601d401c785c299edcfd0cab08499';
 
 /// WebSocket service provider (global singleton)
 ///
@@ -43,7 +43,7 @@ final webSocketManagerProvider =
     );
 
 typedef _$WebSocketManager = Notifier<WebSocketService?>;
-String _$authNotifierHash() => r'ef251f4c79cbef0fffe9766719e5e7085f43b037';
+String _$authNotifierHash() => r'8bb2c93b441963d1ef72642f56f6b9898023870a';
 
 /// See also [AuthNotifier].
 @ProviderFor(AuthNotifier)

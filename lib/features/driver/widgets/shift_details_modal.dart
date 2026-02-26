@@ -141,10 +141,10 @@ class ShiftDetailsModal extends StatelessWidget {
 
   // Metrics row showing key stats
   Widget _buildMetricsRow() {
-    final highPriorityCount = shiftOverview.routeBins
+    final highPriorityCount = shiftOverview.tasks
         .where((bin) => bin.fillPercentage > 80)
         .length;
-    final mediumPriorityCount = shiftOverview.routeBins
+    final mediumPriorityCount = shiftOverview.tasks
         .where((bin) => bin.fillPercentage > 50 && bin.fillPercentage <= 80)
         .length;
 
@@ -272,10 +272,10 @@ class ShiftDetailsModal extends StatelessWidget {
   // Full bin list with timeline view
   Widget _buildFullBinList() {
     return Column(
-      children: shiftOverview.routeBins.asMap().entries.map((entry) {
+      children: shiftOverview.tasks.asMap().entries.map((entry) {
         final index = entry.key;
         final bin = entry.value;
-        final isLast = index == shiftOverview.routeBins.length - 1;
+        final isLast = index == shiftOverview.tasks.length - 1;
 
         // Determine priority color
         Color priorityColor;

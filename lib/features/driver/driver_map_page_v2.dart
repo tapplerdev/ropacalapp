@@ -173,7 +173,7 @@ class DriverMapPageV2 extends HookConsumerWidget {
                   left: 0,
                   right: 0,
                   child: RouteSummaryCard(
-                    routeBins: bins,
+                    tasks: bins,
                     ref: ref,
                     onClearRoute: () => showRouteCard.value = false,
                     currentLocation: locationState.value != null

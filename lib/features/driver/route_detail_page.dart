@@ -348,7 +348,7 @@ class _BinCard extends StatelessWidget {
                       const SizedBox(width: 12),
                       Expanded(
                         child: Text(
-                          bin.getTaskLabel(),
+                          bin.displayTitle,
                           style: const TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.bold,

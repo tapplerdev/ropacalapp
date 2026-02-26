@@ -21,7 +21,7 @@ import 'package:ropacalapp/core/services/geofence_service.dart';
 
 /// Bottom sheet showing active shift navigation
 class ActiveShiftBottomSheet extends HookConsumerWidget {
-  final List<RouteBin> routeBins;
+  final List<RouteBin> tasks;
   final List<RouteTask> tasks;  // New task-based system
   final int completedBins;
   final int totalBins;
@@ -35,7 +35,7 @@ class ActiveShiftBottomSheet extends HookConsumerWidget {
 
   const ActiveShiftBottomSheet({
     super.key,
-    required this.routeBins,
+    required this.tasks,
     this.tasks = const[],  // Optional, defaults to empty
     required this.completedBins,
     required this.totalBins,
@@ -62,7 +62,7 @@ class ActiveShiftBottomSheet extends HookConsumerWidget {
   /// Get next incomplete bin (legacy system)
   RouteBin? get nextBin {
     // Find first incomplete bin
-    for (final bin in routeBins) {
+    for (final bin in tasks) {
       if (bin.isCompleted == 0) {
         return bin;
       }
@@ -73,13 +73,13 @@ class ActiveShiftBottomSheet extends HookConsumerWidget {
   /// Get index of the next bin in the route (0-based)
   int _getNextBinIndex(RouteBin bin) {
     // Find how many incomplete bins are before this one
-    final incompleteBins = routeBins.where((b) => b.isCompleted == 0).toList();
+    final incompleteBins = tasks.where((b) => b.isCompleted == 0).toList();
     final index = incompleteBins.indexWhere((b) => b.binId == bin.binId);
 
     // AppLogger.routing('🔍 _getNextBinIndex:');
     // AppLogger.routing('   Looking for binId: ${bin.binId}');
     // AppLogger.routing('   Bin number: ${bin.binNumber}');
-    // AppLogger.routing('   Total route bins: ${routeBins.length}');
+    // AppLogger.routing('   Total route bins: ${tasks.length}');
     // AppLogger.routing('   Incomplete bins: ${incompleteBins.length}');
     // AppLogger.routing('   Calculated index: $index');
 
@@ -1046,7 +1046,7 @@ class ActiveShiftBottomSheet extends HookConsumerWidget {
 
   /// Get upcoming bins (next 2-3 bins after current)
   List<RouteBin> _getUpcomingBins(RouteBin currentBin) {
-    final incompleteBins = routeBins
+    final incompleteBins = tasks
         .where((bin) => bin.isCompleted == 0)
         .toList();
     final currentIndex = incompleteBins.indexWhere(
@@ -1073,10 +1073,10 @@ class ActiveShiftBottomSheet extends HookConsumerWidget {
   /// Calculate estimated finish time based on remaining bins
   /// Uses Google Navigation traffic-aware duration when available
   String _calculateEstimatedFinishTime() {
-    final remainingBins = totalBins - completedBins;
+    final remainingTasks = totalBins - completedBins;
     final now = DateTime.now();
 
-    if (remainingBins <= 0) {
+    if (remainingTasks <= 0) {
       return 'Complete!';
     }
 
@@ -1087,7 +1087,7 @@ class ActiveShiftBottomSheet extends HookConsumerWidget {
       estimatedMinutes = googleRemainingTime!.inMinutes;
     } else {
       // Fallback: Estimate ~15 minutes per bin
-      estimatedMinutes = remainingBins * 15;
+      estimatedMinutes = remainingTasks * 15;
     }
 
     final estimatedFinish = now.add(Duration(minutes: estimatedMinutes));

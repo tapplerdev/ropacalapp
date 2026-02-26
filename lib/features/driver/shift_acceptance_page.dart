@@ -42,7 +42,7 @@ class ShiftAcceptancePage extends ConsumerWidget {
                 estimatedEndTime: null,
                 totalBins: shiftState.totalBins,
                 totalDistanceKm: null,
-                routeBins: shiftState.routeBins,
+                tasks: shiftState.tasks,
                 routeName: 'Route ${shiftState.assignedRouteId ?? ''}',
                 isOptimized: false,
               ),
@@ -124,14 +124,14 @@ class ShiftAcceptancePage extends ConsumerWidget {
   }
 
   /// Calculate total distance from route bins
-  double _calculateTotalDistance(List<dynamic> routeBins) {
-    if (routeBins.isEmpty) return 0.0;
+  double _calculateTotalDistance(List<dynamic> tasks) {
+    if (tasks.isEmpty) return 0.0;
 
     double totalDistance = 0.0;
 
-    for (int i = 0; i < routeBins.length - 1; i++) {
-      final current = routeBins[i];
-      final next = routeBins[i + 1];
+    for (int i = 0; i < tasks.length - 1; i++) {
+      final current = tasks[i];
+      final next = tasks[i + 1];
 
       final currentLat = current.latitude;
       final currentLng = current.longitude;

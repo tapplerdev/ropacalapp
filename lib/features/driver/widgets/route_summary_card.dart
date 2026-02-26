@@ -9,14 +9,14 @@ import 'package:ropacalapp/models/bin.dart';
 import 'package:ropacalapp/core/services/geofence_service.dart';
 
 class RouteSummaryCard extends StatelessWidget {
-  final List<Bin> routeBins;
+  final List<Bin> tasks;
   final WidgetRef ref;
   final VoidCallback onClearRoute;
   final latlong.LatLng? currentLocation;
 
   const RouteSummaryCard({
     super.key,
-    required this.routeBins,
+    required this.tasks,
     required this.ref,
     required this.onClearRoute,
     required this.currentLocation,
@@ -26,15 +26,15 @@ class RouteSummaryCard extends StatelessWidget {
   Widget build(BuildContext context) {
     // Calculate estimated distance (rough approximation)
     double estimatedDistance = 0;
-    for (int i = 0; i < routeBins.length - 1; i++) {
-      if (routeBins[i].latitude != null &&
-          routeBins[i].longitude != null &&
-          routeBins[i + 1].latitude != null &&
-          routeBins[i + 1].longitude != null) {
-        final lat1 = routeBins[i].latitude!;
-        final lon1 = routeBins[i].longitude!;
-        final lat2 = routeBins[i + 1].latitude!;
-        final lon2 = routeBins[i + 1].longitude!;
+    for (int i = 0; i < tasks.length - 1; i++) {
+      if (tasks[i].latitude != null &&
+          tasks[i].longitude != null &&
+          tasks[i + 1].latitude != null &&
+          tasks[i + 1].longitude != null) {
+        final lat1 = tasks[i].latitude!;
+        final lon1 = tasks[i].longitude!;
+        final lat2 = tasks[i + 1].latitude!;
+        final lon2 = tasks[i + 1].longitude!;
 
         // Simple distance calculation (Euclidean approximation)
         // For small distances, this is reasonable
@@ -48,7 +48,7 @@ class RouteSummaryCard extends StatelessWidget {
     // Estimate time (assuming 30 km/h average speed + 5 min per stop)
     final drivingTime =
         (estimatedDistance / BinConstants.averageDrivingSpeed) * 60; // minutes
-    final stopTime = routeBins.length * 5; // 5 min per stop
+    final stopTime = tasks.length * 5; // 5 min per stop
     final totalTime = (drivingTime + stopTime).round();
 
     return Card(
@@ -84,7 +84,7 @@ class RouteSummaryCard extends StatelessWidget {
                   child: RouteInfoItem(
                     icon: Icons.location_on,
                     label: 'Stops',
-                    value: routeBins.length.toString(),
+                    value: tasks.length.toString(),
                   ),
                 ),
                 Expanded(
@@ -108,7 +108,7 @@ class RouteSummaryCard extends StatelessWidget {
               width: double.infinity,
               child: ElevatedButton.icon(
                 onPressed: () async {
-                  if (routeBins.isEmpty) return;
+                  if (tasks.isEmpty) return;
 
                   AppLogger.map('🚀 Starting Google Navigation...');
 

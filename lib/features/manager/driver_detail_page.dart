@@ -480,8 +480,8 @@ class _CurrentActivityCard extends StatelessWidget {
     if (driver.totalBins == 0 || driver.completedBins == 0) return 'N/A';
 
     final avgTimePerBin = driver.activeDuration.inMinutes / driver.completedBins;
-    final remainingBins = driver.totalBins - driver.completedBins;
-    final estimatedMinutesRemaining = (avgTimePerBin * remainingBins).round();
+    final remainingTasks = driver.totalBins - driver.completedBins;
+    final estimatedMinutesRemaining = (avgTimePerBin * remainingTasks).round();
 
     final completion = DateTime.now().add(Duration(minutes: estimatedMinutesRemaining));
     return DateFormat('h:mm a').format(completion);

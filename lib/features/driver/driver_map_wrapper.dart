@@ -63,7 +63,7 @@ class DriverMapWrapper extends HookConsumerWidget {
       '[DIAGNOSTIC]    RouteID: ${shiftState.assignedRouteId}',
     );
     AppLogger.general(
-      '[DIAGNOSTIC]    RouteBins: ${shiftState.routeBins.length}',
+      '[DIAGNOSTIC]    Tasks: ${shiftState.tasks.length}',
     );
     AppLogger.general(
       '[DIAGNOSTIC]    ShiftID: ${shiftState.shiftId}',
@@ -80,7 +80,7 @@ class DriverMapWrapper extends HookConsumerWidget {
         '[DIAGNOSTIC] 🚀 SWITCHING TO: GoogleNavigationPage',
       );
       AppLogger.general(
-        '[DIAGNOSTIC]    RouteBins: ${shiftState.routeBins.length} (for reference)',
+        '[DIAGNOSTIC]    Tasks: ${shiftState.tasks.length} (for reference)',
       );
       AppLogger.general(
         '[DIAGNOSTIC] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━',

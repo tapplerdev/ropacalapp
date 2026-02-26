@@ -326,10 +326,10 @@ class GoogleNavigationPage extends HookConsumerWidget {
       // Check if next waypoint changed (important for move requests where pickup→dropoff doesn't change completedBins)
       // Use unique identifier: bin_id + stop_type + sequence_order (since id is always 0)
       final String? previousNextWaypointId = previous?.remainingTasks.isNotEmpty == true
-          ? '${previous!.remainingTasks.first.binId}_${previous!.remainingTasks.first.stopType}_${previous!.remainingTasks.first.sequenceOrder}'
+          ? '${previous!.remainingTasks.first.binId}_${previous!.remainingTasks.first.taskType}_${previous!.remainingTasks.first.sequenceOrder}'
           : null;
       final String? nextNextWaypointId = next?.remainingTasks.isNotEmpty == true
-          ? '${next!.remainingTasks.first.binId}_${next!.remainingTasks.first.stopType}_${next!.remainingTasks.first.sequenceOrder}'
+          ? '${next!.remainingTasks.first.binId}_${next!.remainingTasks.first.taskType}_${next!.remainingTasks.first.sequenceOrder}'
           : null;
       final bool nextWaypointChanged = previousNextWaypointId != nextNextWaypointId;
 
@@ -593,7 +593,7 @@ class GoogleNavigationPage extends HookConsumerWidget {
                 ),
                 onMarkerClicked: (String markerId) {
                 AppLogger.general('🎯 Marker clicked: $markerId');
-                final bin = navState.markerToBinMap[markerId];
+                final bin = navState.markerToTaskMap[markerId];
                 if (bin != null) {
                   AppLogger.general('   Bin #${bin.binNumber} at ${bin.currentStreet}');
                   // TODO: Show bin details dialog (needs RouteBin support)
@@ -1042,7 +1042,7 @@ class GoogleNavigationPage extends HookConsumerWidget {
       }
 
       return NavigationWaypoint.withLatLngTarget(
-        title: task.getTaskLabel(),
+        title: task.displayTitle,
         target: LatLng(latitude: lat, longitude: lng),
       );
     }).toList();

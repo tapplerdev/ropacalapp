@@ -10,7 +10,7 @@ class ShiftOverview {
   final DateTime? estimatedEndTime;
   final int totalBins;
   final double? totalDistanceKm;
-  final List<RouteBin> routeBins;
+  final List<RouteBin> tasks;
   final List<RouteTask>? routeTasks; // New: support for task-based shifts
   final String routeName;
   final bool isOptimized;
@@ -21,7 +21,7 @@ class ShiftOverview {
     this.estimatedEndTime,
     required this.totalBins,
     this.totalDistanceKm,
-    required this.routeBins,
+    required this.tasks,
     this.routeTasks, // Optional: for task-based shifts
     required this.routeName,
     this.isOptimized = false,

@@ -49,7 +49,7 @@ class ShiftService {
         print('   ✅ Current shift: ${shiftData['status']}');
         print('   Route: ${shiftData['route_id']}');
         print(
-          '   Bins: ${shiftData['completed_bins']}/${shiftData['total_bins']} (${shiftState.routeBins.length} in route)',
+          '   Bins: ${shiftData['completed_bins']}/${shiftData['total_bins']} (${shiftState.tasks.length} in route)',
         );
 
         return shiftState;

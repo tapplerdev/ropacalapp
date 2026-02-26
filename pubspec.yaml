@@ -88,6 +88,7 @@ dependencies:
   google_fonts: ^6.2.1  # Google Fonts package (includes Montserrat)
   url_launcher: ^6.3.2
   wakelock_plus: ^1.2.8  # Keep screen awake during navigation
+  audioplayers: ^6.1.0  # Audio player for notification sounds
 
 dev_dependencies:
   flutter_test:
@@ -127,6 +128,7 @@ flutter:
   assets:
     - assets/icons/
     - assets/images/
+    - assets/sounds/
     - assets/map_style_light.json
     - assets/map_styles/
     - .env

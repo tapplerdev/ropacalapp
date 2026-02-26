@@ -9,6 +9,7 @@ import 'package:ropacalapp/core/enums/user_role.dart';
 import 'package:ropacalapp/services/fcm_service.dart';
 import 'package:ropacalapp/services/shift_service.dart';
 import 'package:ropacalapp/services/websocket_service.dart';
+import 'package:ropacalapp/services/notification_sound_service.dart';
 import 'package:ropacalapp/providers/shift_provider.dart';
 import 'package:ropacalapp/providers/drivers_provider.dart';
 import 'package:ropacalapp/providers/simulation_provider.dart';
@@ -228,6 +229,10 @@ class WebSocketManager extends _$WebSocketManager {
         // Trigger UI notification if we have all the details
         if (managerName != null && actionType != null && binNumber != null && moveRequestId != null) {
           AppLogger.general('   🔔 Triggering UI notification...');
+
+          // Play notification sound
+          NotificationSoundService().playRouteUpdateSound();
+
           ref.read(routeUpdateNotificationNotifierProvider.notifier).notify(
                 managerName: managerName,
                 actionType: actionType,

@@ -57,7 +57,7 @@ class ActiveShiftBottomSheet extends HookConsumerWidget {
   }
 
   /// Get next incomplete bin (legacy system)
-  RouteBin? get nextBin {
+  RouteTask? get nextBin {
     // Find first incomplete bin
     for (final bin in tasks) {
       if (bin.isCompleted == 0) {
@@ -68,7 +68,7 @@ class ActiveShiftBottomSheet extends HookConsumerWidget {
   }
 
   /// Get index of the next bin in the route (0-based)
-  int _getNextBinIndex(RouteBin bin) {
+  int _getNextBinIndex(RouteTask bin) {
     // Find how many incomplete bins are before this one
     final incompleteBins = tasks.where((b) => b.isCompleted == 0).toList();
     final index = incompleteBins.indexWhere((b) => b.binId == bin.binId);
@@ -85,7 +85,7 @@ class ActiveShiftBottomSheet extends HookConsumerWidget {
 
   /// Calculate distance to next bin in kilometers using straight-line distance
   double? _calculateDistance(
-    RouteBin bin,
+    RouteTask bin,
     latlong.LatLng? currentLocation,
     int binIndex,
   ) {
@@ -537,7 +537,7 @@ class ActiveShiftBottomSheet extends HookConsumerWidget {
   Widget _buildCollapsedContent(
     BuildContext context,
     WidgetRef ref,
-    RouteBin next,
+    RouteTask next,
     double progressPercentage,
     ValueNotifier<bool> isExpanded,
   ) {
@@ -640,7 +640,7 @@ class ActiveShiftBottomSheet extends HookConsumerWidget {
   Widget _buildExpandedContent(
     BuildContext context,
     WidgetRef ref,
-    RouteBin next,
+    RouteTask next,
     double progressPercentage,
     double? distanceKm,
     latlong.LatLng? currentLocation,
@@ -1042,7 +1042,7 @@ class ActiveShiftBottomSheet extends HookConsumerWidget {
   }
 
   /// Get upcoming bins (next 2-3 bins after current)
-  List<RouteBin> _getUpcomingBins(RouteBin currentBin) {
+  List<RouteTask> _getUpcomingBins(RouteTask currentBin) {
     final incompleteBins = tasks
         .where((bin) => bin.isCompleted == 0)
         .toList();
@@ -1181,7 +1181,7 @@ class ActiveShiftBottomSheet extends HookConsumerWidget {
     );
   }
 
-  Future<void> _completeBin(WidgetRef ref, RouteBin bin) async {
+  Future<void> _completeBin(WidgetRef ref, RouteTask bin) async {
     try {
       // Using 50% as placeholder - actual implementation uses check-in dialog
       await ref.read(shiftNotifierProvider.notifier).completeTask(

@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:ropacalapp/core/theme/app_colors.dart';
-import 'package:ropacalapp/models/route_bin.dart';
+import 'package:ropacalapp/models/route_task.dart';
 import 'package:ropacalapp/models/shift_history.dart';
 import 'package:ropacalapp/providers/route_history_provider.dart';
 

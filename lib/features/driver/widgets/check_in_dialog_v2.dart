@@ -8,7 +8,7 @@ import 'package:ropacalapp/core/constants/bin_constants.dart';
 import 'package:ropacalapp/core/services/cloudinary_service.dart';
 import 'package:ropacalapp/core/theme/app_colors.dart';
 import 'package:ropacalapp/core/utils/app_logger.dart';
-import 'package:ropacalapp/models/route_bin.dart';
+import 'package:ropacalapp/models/route_task.dart';
 import 'package:ropacalapp/providers/shift_provider.dart';
 import 'package:ropacalapp/features/driver/widgets/incident_components.dart';
 
@@ -16,7 +16,7 @@ import 'package:ropacalapp/features/driver/widgets/incident_components.dart';
 /// Normal flow: Step 1 (photo) → Step 2 (fill level) → Submit
 /// Incident flow: Step 1 (photo) → Report Issue → Step 2 (incident type) → Step 3 (incident details) → Submit
 class CheckInDialogV2 extends HookConsumerWidget {
-  final RouteBin bin;
+  final RouteTask bin;
   final VoidCallback? onCheckedIn;
 
   const CheckInDialogV2({
@@ -177,7 +177,7 @@ class CheckInDialogV2 extends HookConsumerWidget {
   /// Build modern header with gradient and animated progress
   Widget _buildModernHeader(
     BuildContext context,
-    RouteBin bin,
+    RouteTask bin,
     int step,
     bool hasIncident,
     String? incidentType,
@@ -614,7 +614,7 @@ class CheckInDialogV2 extends HookConsumerWidget {
   /// Build modern fill level UI with gradient slider
   Widget _buildModernFillLevel(
     BuildContext context,
-    RouteBin bin,
+    RouteTask bin,
     XFile? photo,
     ValueNotifier<int> fillPercentage,
   ) {

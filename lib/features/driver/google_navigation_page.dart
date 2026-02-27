@@ -29,7 +29,7 @@ import 'package:ropacalapp/providers/move_request_notification_provider.dart';
 import 'package:ropacalapp/features/driver/widgets/route_update_notification_dialog.dart';
 import 'package:ropacalapp/providers/route_update_notification_provider.dart';
 import 'package:ropacalapp/features/driver/notifications_page.dart';
-import 'package:ropacalapp/models/route_bin.dart';
+import 'package:ropacalapp/models/route_task.dart';
 import 'package:ropacalapp/models/route_task.dart';
 import 'package:ropacalapp/models/route_step.dart';
 import 'package:ropacalapp/models/shift_state.dart';
@@ -596,7 +596,7 @@ class GoogleNavigationPage extends HookConsumerWidget {
                 final bin = navState.markerToTaskMap[markerId];
                 if (bin != null) {
                   AppLogger.general('   Bin #${bin.binNumber} at ${bin.address}');
-                  // TODO: Show bin details dialog (needs RouteBin support)
+                  // TODO: Show bin details dialog (needs RouteTask support)
                   // showModalBottomSheet(
                   //   context: context,
                   //   isScrollControlled: true,

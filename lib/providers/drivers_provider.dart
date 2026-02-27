@@ -3,7 +3,7 @@ import 'package:ropacalapp/core/exceptions/shift_ended_exception.dart';
 import 'package:ropacalapp/core/utils/app_logger.dart';
 import 'package:ropacalapp/models/active_driver.dart';
 import 'package:ropacalapp/models/driver_location.dart';
-import 'package:ropacalapp/models/route_bin.dart';
+import 'package:ropacalapp/models/route_task.dart';
 import 'package:ropacalapp/models/shift_state.dart';
 import 'package:ropacalapp/providers/api_provider.dart';
 import 'package:ropacalapp/services/manager_service.dart';
@@ -233,7 +233,7 @@ class DriverShiftDetail extends _$DriverShiftDetail {
 
       // Parse bins array
       final bins = (data['bins'] as List)
-          .map((json) => RouteBin.fromJson(json as Map<String, dynamic>))
+          .map((json) => RouteTask.fromJson(json as Map<String, dynamic>))
           .toList();
 
       AppLogger.general('✅ Loaded driver shift with ${bins.length} bins');
@@ -258,7 +258,7 @@ class DriverShiftDetail extends _$DriverShiftDetail {
 /// Data class combining driver info with their route bins
 class DriverShiftDetailData {
   final ActiveDriver driver;
-  final List<RouteBin> bins;
+  final List<RouteTask> bins;
 
   DriverShiftDetailData({required this.driver, required this.bins});
 }

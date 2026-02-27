@@ -22,7 +22,7 @@ _$ShiftStateImpl _$$ShiftStateImplFromJson(Map<String, dynamic> json) =>
       completedBins: (json['completed_bins'] as num?)?.toInt() ?? 0,
       routeBins:
           (json['bins'] as List<dynamic>?)
-              ?.map((e) => RouteBin.fromJson(e as Map<String, dynamic>))
+              ?.map((e) => RouteTask.fromJson(e as Map<String, dynamic>))
               .toList() ??
           const [],
       tasks:

@@ -1,6 +1,6 @@
 import 'dart:math';
 import 'package:google_navigation_flutter/google_navigation_flutter.dart';
-import 'package:ropacalapp/models/route_bin.dart';
+import 'package:ropacalapp/models/route_task.dart';
 import 'package:ropacalapp/core/services/geofence_service.dart';
 
 /// Helper utilities for Google Navigation functionality
@@ -217,12 +217,12 @@ class GoogleNavigationHelpers {
   }
 
   /// Get upcoming bins (next 2-3 bins after current index)
-  static List<RouteBin> getUpcomingBins(List<RouteBin> allBins, int currentIndex) {
+  static List<RouteTask> getUpcomingBins(List<RouteTask> allBins, int currentIndex) {
     if (currentIndex >= allBins.length - 1) {
       return [];
     }
 
-    final upcoming = <RouteBin>[];
+    final upcoming = <RouteTask>[];
     for (int i = currentIndex + 1; i < allBins.length && upcoming.length < 3; i++) {
       upcoming.add(allBins[i]);
     }

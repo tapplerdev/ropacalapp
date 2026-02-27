@@ -5,7 +5,7 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:flutter_easyloading/flutter_easyloading.dart';
 import 'package:ropacalapp/core/utils/app_logger.dart';
-import 'package:ropacalapp/models/route_bin.dart';
+import 'package:ropacalapp/models/route_task.dart';
 import 'package:ropacalapp/core/services/cloudinary_service.dart';
 import 'package:ropacalapp/providers/shift_provider.dart';
 
@@ -13,7 +13,7 @@ import 'package:ropacalapp/providers/shift_provider.dart';
 ///
 /// Displayed when driver arrives at drop-off location (within 100m geofence)
 class MoveRequestPlacementDialog extends HookConsumerWidget {
-  final RouteBin bin;
+  final RouteTask bin;
   final VoidCallback onPlacementComplete;
 
   const MoveRequestPlacementDialog({

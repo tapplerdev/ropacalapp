@@ -6,7 +6,7 @@ import 'package:ropacalapp/core/exceptions/shift_ended_exception.dart';
 import 'package:ropacalapp/core/theme/app_colors.dart';
 import 'package:ropacalapp/core/utils/app_logger.dart';
 import 'package:ropacalapp/models/active_driver.dart';
-import 'package:ropacalapp/models/route_bin.dart';
+import 'package:ropacalapp/models/route_task.dart';
 import 'package:ropacalapp/models/shift_state.dart';
 import 'package:ropacalapp/providers/drivers_provider.dart';
 
@@ -435,7 +435,7 @@ class _SummaryStatColumn extends StatelessWidget {
 
 /// Individual bin card showing status
 class _BinCard extends StatelessWidget {
-  final RouteBin bin;
+  final RouteTask bin;
   final int index;
 
   const _BinCard({

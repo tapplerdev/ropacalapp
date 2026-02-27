@@ -15,12 +15,12 @@ final _privateConstructorUsedError = UnsupportedError(
   'It seems like you constructed your class using `MyClass._()`. This constructor is only meant to be used by freezed and you are not supposed to need it nor use it.\nPlease check the documentation here for more information: https://github.com/rrousselGit/freezed#adding-getters-and-methods-to-our-models',
 );
 
-RouteBin _$RouteBinFromJson(Map<String, dynamic> json) {
-  return _RouteBin.fromJson(json);
+RouteTask _$RouteBinFromJson(Map<String, dynamic> json) {
+  return _RouteTask.fromJson(json);
 }
 
 /// @nodoc
-mixin _$RouteBin {
+mixin _$RouteTask {
   /// Route bin ID (route_task UUID)
   String get id => throw _privateConstructorUsedError;
 
@@ -112,19 +112,19 @@ mixin _$RouteBin {
   /// Longitude coordinate
   double get longitude => throw _privateConstructorUsedError;
 
-  /// Serializes this RouteBin to a JSON map.
+  /// Serializes this RouteTask to a JSON map.
   Map<String, dynamic> toJson() => throw _privateConstructorUsedError;
 
   /// Create a copy of RouteBin
   /// with the given fields replaced by the non-null parameter values.
   @JsonKey(includeFromJson: false, includeToJson: false)
-  $RouteBinCopyWith<RouteBin> get copyWith =>
+  $RouteBinCopyWith<RouteTask> get copyWith =>
       throw _privateConstructorUsedError;
 }
 
 /// @nodoc
 abstract class $RouteBinCopyWith<$Res> {
-  factory $RouteBinCopyWith(RouteBin value, $Res Function(RouteBin) then) =
+  factory $RouteBinCopyWith(RouteTask value, $Res Function(RouteBin) then) =
       _$RouteBinCopyWithImpl<$Res, RouteBin>;
   @useResult
   $Res call({
@@ -480,7 +480,7 @@ class __$$RouteBinImplCopyWithImpl<$Res>
 
 /// @nodoc
 @JsonSerializable()
-class _$RouteBinImpl extends _RouteBin {
+class _$RouteBinImpl extends _RouteTask {
   const _$RouteBinImpl({
     required this.id,
     @JsonKey(name: 'shift_id') required this.shiftId,
@@ -725,7 +725,7 @@ class _$RouteBinImpl extends _RouteBin {
   }
 }
 
-abstract class _RouteBin extends RouteBin {
+abstract class _RouteTask extends RouteTask {
   const factory _RouteBin({
     required final String id,
     @JsonKey(name: 'shift_id') required final String shiftId,
@@ -754,7 +754,7 @@ abstract class _RouteBin extends RouteBin {
   }) = _$RouteBinImpl;
   const _RouteBin._() : super._();
 
-  factory _RouteBin.fromJson(Map<String, dynamic> json) =
+  factory _RouteTask.fromJson(Map<String, dynamic> json) =
       _$RouteBinImpl.fromJson;
 
   /// Route bin ID (route_task UUID)

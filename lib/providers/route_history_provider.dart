@@ -2,7 +2,7 @@ import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:ropacalapp/core/utils/app_logger.dart';
 import 'package:ropacalapp/models/shift_history.dart';
 import 'package:ropacalapp/models/shift_state.dart';
-import 'package:ropacalapp/models/route_bin.dart';
+import 'package:ropacalapp/models/route_task.dart';
 import 'package:ropacalapp/providers/api_provider.dart';
 import 'package:ropacalapp/services/shift_service.dart';
 import 'package:ropacalapp/providers/shift_provider.dart';
@@ -73,7 +73,7 @@ class ShiftDetail extends _$ShiftDetail {
 
       // Parse bins array
       final bins = (data['bins'] as List)
-          .map((json) => RouteBin.fromJson(json as Map<String, dynamic>))
+          .map((json) => RouteTask.fromJson(json as Map<String, dynamic>))
           .toList();
 
       AppLogger.general('✅ Loaded shift with ${bins.length} bins');
@@ -93,7 +93,7 @@ class ShiftDetail extends _$ShiftDetail {
 /// Data class combining shift history with bins
 class ShiftDetailData {
   final ShiftHistory shift;
-  final List<RouteBin> bins;
+  final List<RouteTask> bins;
 
   ShiftDetailData({required this.shift, required this.bins});
 }

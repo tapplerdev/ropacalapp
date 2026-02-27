@@ -26,7 +26,7 @@ mixin _$NavigationPageState {
   /// Current bin index in the route
   int get currentBinIndex => throw _privateConstructorUsedError;
 
-  /// Map of marker IDs to RouteBin objects for tap handling
+  /// Map of marker IDs to RouteTask objects for tap handling
   Map<String, RouteBin> get markerToTaskMap =>
       throw _privateConstructorUsedError;
 
@@ -361,10 +361,10 @@ class _$NavigationPageStateImpl implements _NavigationPageState {
   @JsonKey()
   final int currentBinIndex;
 
-  /// Map of marker IDs to RouteBin objects for tap handling
+  /// Map of marker IDs to RouteTask objects for tap handling
   final Map<String, RouteBin> _markerToTaskMap;
 
-  /// Map of marker IDs to RouteBin objects for tap handling
+  /// Map of marker IDs to RouteTask objects for tap handling
   @override
   @JsonKey()
   Map<String, RouteBin> get markerToTaskMap {
@@ -533,7 +533,7 @@ abstract class _NavigationPageState implements NavigationPageState {
   @override
   int get currentBinIndex;
 
-  /// Map of marker IDs to RouteBin objects for tap handling
+  /// Map of marker IDs to RouteTask objects for tap handling
   @override
   Map<String, RouteBin> get markerToTaskMap;
 

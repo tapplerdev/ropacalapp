@@ -14,7 +14,7 @@ import 'package:ropacalapp/features/driver/widgets/placement_checkin_dialog.dart
 import 'package:ropacalapp/core/enums/stop_type.dart';
 import 'package:ropacalapp/providers/navigation_page_provider.dart';
 import 'package:ropacalapp/providers/shift_provider.dart';
-import 'package:ropacalapp/models/route_bin.dart';
+import 'package:ropacalapp/models/route_task.dart';
 import 'package:ropacalapp/models/route_task.dart';
 import 'package:ropacalapp/models/shift_state.dart';
 

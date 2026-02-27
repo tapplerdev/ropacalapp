@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:ropacalapp/core/theme/app_colors.dart';
 import 'package:ropacalapp/models/shift_overview.dart';
-import 'package:ropacalapp/models/route_bin.dart';
+import 'package:ropacalapp/models/route_task.dart';
 import 'package:ropacalapp/core/enums/stop_type.dart';
 
 /// Timeline-based bottom sheet for shift acceptance
@@ -387,7 +387,7 @@ class ShiftAcceptanceBottomSheet extends StatelessWidget {
   }
 
   Widget _buildTimelineBinStop({
-    required RouteBin bin,
+    required RouteTask bin,
     required int index,
     required bool isLast,
   }) {

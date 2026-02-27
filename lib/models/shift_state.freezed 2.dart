@@ -56,7 +56,7 @@ mixin _$ShiftState {
 
   /// List of bins in the route with their details (legacy)
   @JsonKey(name: 'bins')
-  List<RouteBin> get routeBins => throw _privateConstructorUsedError;
+  List<RouteTask> get routeBins => throw _privateConstructorUsedError;
 
   /// List of tasks in the route (new task-based system)
   @JsonKey(name: 'tasks')
@@ -90,7 +90,7 @@ abstract class $ShiftStateCopyWith<$Res> {
     @JsonKey(name: 'route_id') String? assignedRouteId,
     @JsonKey(name: 'total_bins') int totalBins,
     @JsonKey(name: 'completed_bins') int completedBins,
-    @JsonKey(name: 'bins') List<RouteBin> routeBins,
+    @JsonKey(name: 'bins') List<RouteTask> routeBins,
     @JsonKey(name: 'tasks') List<RouteTask> tasks,
   });
 }
@@ -158,7 +158,7 @@ class _$ShiftStateCopyWithImpl<$Res, $Val extends ShiftState>
             routeBins: null == routeBins
                 ? _value.routeBins
                 : routeBins // ignore: cast_nullable_to_non_nullable
-                      as List<RouteBin>,
+                      as List<RouteTask>,
             tasks: null == tasks
                 ? _value.tasks
                 : tasks // ignore: cast_nullable_to_non_nullable
@@ -189,7 +189,7 @@ abstract class _$$ShiftStateImplCopyWith<$Res>
     @JsonKey(name: 'route_id') String? assignedRouteId,
     @JsonKey(name: 'total_bins') int totalBins,
     @JsonKey(name: 'completed_bins') int completedBins,
-    @JsonKey(name: 'bins') List<RouteBin> routeBins,
+    @JsonKey(name: 'bins') List<RouteTask> routeBins,
     @JsonKey(name: 'tasks') List<RouteTask> tasks,
   });
 }
@@ -256,7 +256,7 @@ class __$$ShiftStateImplCopyWithImpl<$Res>
         routeBins: null == routeBins
             ? _value._routeBins
             : routeBins // ignore: cast_nullable_to_non_nullable
-                  as List<RouteBin>,
+                  as List<RouteTask>,
         tasks: null == tasks
             ? _value._tasks
             : tasks // ignore: cast_nullable_to_non_nullable
@@ -280,7 +280,7 @@ class _$ShiftStateImpl extends _ShiftState {
     @JsonKey(name: 'route_id') this.assignedRouteId,
     @JsonKey(name: 'total_bins') this.totalBins = 0,
     @JsonKey(name: 'completed_bins') this.completedBins = 0,
-    @JsonKey(name: 'bins') final List<RouteBin> routeBins = const [],
+    @JsonKey(name: 'bins') final List<RouteTask> routeBins = const [],
     @JsonKey(name: 'tasks') final List<RouteTask> tasks = const [],
   }) : _routeBins = routeBins,
        _tasks = tasks,
@@ -331,12 +331,12 @@ class _$ShiftStateImpl extends _ShiftState {
   final int completedBins;
 
   /// List of bins in the route with their details (legacy)
-  final List<RouteBin> _routeBins;
+  final List<RouteTask> _routeBins;
 
   /// List of bins in the route with their details (legacy)
   @override
   @JsonKey(name: 'bins')
-  List<RouteBin> get routeBins {
+  List<RouteTask> get routeBins {
     if (_routeBins is EqualUnmodifiableListView) return _routeBins;
     // ignore: implicit_dynamic_type
     return EqualUnmodifiableListView(_routeBins);
@@ -429,7 +429,7 @@ abstract class _ShiftState extends ShiftState {
     @JsonKey(name: 'route_id') final String? assignedRouteId,
     @JsonKey(name: 'total_bins') final int totalBins,
     @JsonKey(name: 'completed_bins') final int completedBins,
-    @JsonKey(name: 'bins') final List<RouteBin> routeBins,
+    @JsonKey(name: 'bins') final List<RouteTask> routeBins,
     @JsonKey(name: 'tasks') final List<RouteTask> tasks,
   }) = _$ShiftStateImpl;
   const _ShiftState._() : super._();
@@ -481,7 +481,7 @@ abstract class _ShiftState extends ShiftState {
   /// List of bins in the route with their details (legacy)
   @override
   @JsonKey(name: 'bins')
-  List<RouteBin> get routeBins;
+  List<RouteTask> get routeBins;
 
   /// List of tasks in the route (new task-based system)
   @override

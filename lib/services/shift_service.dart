@@ -1,7 +1,7 @@
 import 'package:dio/dio.dart';
 import 'package:ropacalapp/core/utils/app_logger.dart';
 import 'package:ropacalapp/models/shift_state.dart';
-import 'package:ropacalapp/models/route_bin.dart';
+import 'package:ropacalapp/models/route_task.dart';
 import 'package:ropacalapp/core/services/api_service.dart';
 
 /// Service for shift management API calls

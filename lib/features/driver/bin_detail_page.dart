@@ -236,7 +236,7 @@ class BinDetailPage extends HookConsumerWidget {
           _buildInfoRow(
             Icons.home_outlined,
             'Address',
-            bin.currentStreet,
+            bin.address,
           ),
           const SizedBox(height: 12),
           _buildInfoRow(

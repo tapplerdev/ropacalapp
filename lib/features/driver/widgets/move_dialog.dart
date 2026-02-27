@@ -170,7 +170,7 @@ class MoveDialog extends HookConsumerWidget {
                                 ),
                                 const SizedBox(height: 2),
                                 Text(
-                                  '${bin.currentStreet}, ${bin.city}',
+                                  '${bin.address}, ${bin.city}',
                                   style: TextStyle(
                                     fontSize: 13,
                                     color: Colors.blue.shade800,

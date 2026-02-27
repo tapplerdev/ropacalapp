@@ -433,7 +433,7 @@ class ShiftAcceptanceBottomSheet extends StatelessWidget {
               // Street name - aligned with badge center
               Expanded(
                 child: Text(
-                  bin.currentStreet,
+                  bin.address,
                   style: const TextStyle(
                     fontSize: 15,
                     fontWeight: FontWeight.w600,

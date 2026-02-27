@@ -351,7 +351,7 @@ class ShiftDetailsModal extends StatelessWidget {
                           children: [
                             Expanded(
                               child: Text(
-                                bin.currentStreet,
+                                bin.address,
                                 style: const TextStyle(
                                   fontWeight: FontWeight.bold,
                                   fontSize: 14,

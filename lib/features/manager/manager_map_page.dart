@@ -392,7 +392,7 @@ class ManagerMapPage extends HookConsumerWidget {
                                 infoWindow: InfoWindow(
                                   title: 'Bin #${bin.binNumber}',
                                   snippet:
-                                      '${bin.currentStreet} - ${bin.fillPercentage ?? 0}% full',
+                                      '${bin.address} - ${bin.fillPercentage ?? 0}% full',
                                 ),
                               ),
                             );

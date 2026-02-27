@@ -282,7 +282,7 @@ class _SummaryStatColumn extends StatelessWidget {
 
 /// Individual bin card showing before/after fill
 class _BinCard extends StatelessWidget {
-  final RouteBin bin;
+  final RouteTask bin;
   final int index;
 
   const _BinCard({
@@ -386,7 +386,7 @@ class _BinCard extends StatelessWidget {
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    '${bin.currentStreet}, ${bin.city} ${bin.zip}',
+                    '${bin.address}, ${bin.city} ${bin.zip}',
                     style: TextStyle(
                       fontSize: 14,
                       color: Colors.grey.shade700,

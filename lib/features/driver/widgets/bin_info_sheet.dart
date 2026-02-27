@@ -34,7 +34,7 @@ class BinInfoSheet extends StatelessWidget {
           InfoRow(
             icon: Icons.location_on,
             label: 'Location',
-            value: '${bin.currentStreet}\n${bin.city}, ${bin.zip}',
+            value: '${bin.address}\n${bin.city}, ${bin.zip}',
           ),
           const SizedBox(height: 12),
           InfoRow(

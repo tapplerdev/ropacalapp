@@ -831,7 +831,7 @@ class ShiftNotifier extends _$ShiftNotifier {
         final nextBin = updatedShift.remainingTasks.first;
         AppLogger.general('   - Bin #${nextBin.binNumber}');
         AppLogger.general('   - Stop type: ${nextBin.taskType}');
-        AppLogger.general('   - Address: ${nextBin.currentStreet}');
+        AppLogger.general('   - Address: ${nextBin.address}');
         AppLogger.general('   - Is completed: ${nextBin.isCompleted}');
         AppLogger.general('   - Move request ID: ${nextBin.moveRequestId}');
       }

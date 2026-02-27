@@ -56,7 +56,7 @@ Map<String, dynamic> _$$RouteBinImplToJson(_$RouteBinImpl instance) =>
       'updated_fill_percentage': instance.updatedFillPercentage,
       'created_at': instance.createdAt,
       'bin_number': instance.binNumber,
-      'current_street': instance.currentStreet,
+      'current_street': instance.address,
       'city': instance.city,
       'zip': instance.zip,
       'fill_percentage': instance.fillPercentage,

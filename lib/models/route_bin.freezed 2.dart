@@ -270,7 +270,7 @@ class _$RouteBinCopyWithImpl<$Res, $Val extends RouteBin>
                 : binNumber // ignore: cast_nullable_to_non_nullable
                       as int,
             currentStreet: null == currentStreet
-                ? _value.currentStreet
+                ? _value.address
                 : currentStreet // ignore: cast_nullable_to_non_nullable
                       as String,
             city: null == city
@@ -450,7 +450,7 @@ class __$$RouteBinImplCopyWithImpl<$Res>
             : binNumber // ignore: cast_nullable_to_non_nullable
                   as int,
         currentStreet: null == currentStreet
-            ? _value.currentStreet
+            ? _value.address
             : currentStreet // ignore: cast_nullable_to_non_nullable
                   as String,
         city: null == city
@@ -500,7 +500,7 @@ class _$RouteBinImpl extends _RouteBin {
     @JsonKey(name: 'updated_fill_percentage') this.updatedFillPercentage,
     @JsonKey(name: 'created_at') required this.createdAt,
     @JsonKey(name: 'bin_number') required this.binNumber,
-    @JsonKey(name: 'current_street') required this.currentStreet,
+    @JsonKey(name: 'current_street') required this.address,
     required this.city,
     required this.zip,
     @JsonKey(name: 'fill_percentage') required this.fillPercentage,
@@ -669,8 +669,8 @@ class _$RouteBinImpl extends _RouteBin {
                 other.createdAt == createdAt) &&
             (identical(other.binNumber, binNumber) ||
                 other.binNumber == binNumber) &&
-            (identical(other.currentStreet, currentStreet) ||
-                other.currentStreet == currentStreet) &&
+            (identical(other.address, currentStreet) ||
+                other.address == currentStreet) &&
             (identical(other.city, city) || other.city == city) &&
             (identical(other.zip, zip) || other.zip == zip) &&
             (identical(other.fillPercentage, fillPercentage) ||

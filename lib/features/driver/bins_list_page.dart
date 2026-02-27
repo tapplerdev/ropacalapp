@@ -40,7 +40,7 @@ class BinsListPage extends HookConsumerWidget {
         filtered = filtered.where((bin) {
           final query = debouncedSearchQuery.value.toLowerCase();
           return bin.binNumber.toString().contains(query) ||
-              bin.currentStreet.toLowerCase().contains(query) ||
+              bin.address.toLowerCase().contains(query) ||
               bin.city.toLowerCase().contains(query);
         }).toList();
       }
@@ -326,7 +326,7 @@ class _BinListItem extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      bin.currentStreet,
+                      bin.address,
                       style: Theme.of(context).textTheme.titleMedium?.copyWith(
                         fontWeight: FontWeight.w600,
                       ),

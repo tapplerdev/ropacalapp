@@ -180,7 +180,7 @@ class NavigationBottomPanel extends HookConsumerWidget {
     WidgetRef ref,
     dynamic navState,
     dynamic navNotifier,
-    RouteBin currentBin,
+    RouteTask currentBin,
   ) {
     return Positioned(
       bottom: 0,
@@ -391,7 +391,7 @@ class NavigationBottomPanel extends HookConsumerWidget {
   }
 
   /// Collapsed content for BIN-based shifts (legacy)
-  Widget _buildBinCollapsedContent(RouteBin bin) {
+  Widget _buildBinCollapsedContent(RouteTask bin) {
     final progressPercentage = shift.logicalTotalBins > 0
         ? shift.logicalCompletedBins / shift.logicalTotalBins
         : 0.0;
@@ -446,7 +446,7 @@ class NavigationBottomPanel extends HookConsumerWidget {
               ],
               Expanded(
                 child: Text(
-                  bin.currentStreet,
+                  bin.address,
                   style: const TextStyle(
                     fontSize: 15,
                     fontWeight: FontWeight.w600,
@@ -1047,7 +1047,7 @@ class NavigationBottomPanel extends HookConsumerWidget {
 
                       // Show different dialog based on task type
                       // TODO: Task-based shifts need proper dialog implementations
-                      // Current dialogs expect RouteBin which has more fields than RouteTask
+                      // Current dialogs expect RouteTask which has more fields than RouteTask
                       switch (task.taskType) {
                         case StopType.warehouseStop:
                           showDialog(
@@ -1168,7 +1168,7 @@ class NavigationBottomPanel extends HookConsumerWidget {
   Widget _buildBinExpandedContent(
     BuildContext context,
     WidgetRef ref,
-    RouteBin bin,
+    RouteTask bin,
     Duration? remainingTime,
     double? totalDistanceRemaining,
     LatLng? driverLocation,
@@ -1410,7 +1410,7 @@ class NavigationBottomPanel extends HookConsumerWidget {
                               children: [
                                 // Address
                                 Text(
-                                  bin.currentStreet,
+                                  bin.address,
                                   style: const TextStyle(
                                     fontWeight: FontWeight.w600,
                                     fontSize: 15,
@@ -1598,7 +1598,7 @@ class NavigationBottomPanel extends HookConsumerWidget {
                               // Address
                               Expanded(
                                 child: Text(
-                                  upcomingBin.currentStreet,
+                                  upcomingBin.address,
                                   style: const TextStyle(
                                     fontSize: 15,
                                     fontWeight: FontWeight.w500,
@@ -1759,7 +1759,7 @@ class NavigationBottomPanel extends HookConsumerWidget {
 
                                     // Address
                                     Text(
-                                      bin.currentStreet,
+                                      bin.address,
                                       textAlign: TextAlign.center,
                                       style: TextStyle(
                                         fontSize: 15,
@@ -1849,7 +1849,7 @@ class NavigationBottomPanel extends HookConsumerWidget {
                           break;
 
                         case StopType.placement:
-                          // Convert RouteBin to RouteTask for placement dialog
+                          // Convert RouteTask to RouteTask for placement dialog
                           final placementTask = RouteTask(
                             id: bin.id,
                             shiftId: bin.shiftId ?? '',
@@ -1857,7 +1857,7 @@ class NavigationBottomPanel extends HookConsumerWidget {
                             taskType: StopType.placement,
                             latitude: bin.latitude ?? 0,
                             longitude: bin.longitude ?? 0,
-                            address: bin.currentStreet,
+                            address: bin.address,
                             isCompleted: 0,
                             createdAt: DateTime.now().millisecondsSinceEpoch ~/ 1000,
                           );
@@ -1963,17 +1963,17 @@ class NavigationBottomPanel extends HookConsumerWidget {
     }
   }
 
-  /// Helper to convert RouteTask to RouteBin for legacy dialog compatibility
+  /// Helper to convert RouteTask to RouteTask for legacy dialog compatibility
   /// The existing dialogs (MoveRequestPickupDialog, MoveRequestPlacementDialog, CheckInDialogV2)
-  /// expect RouteBin objects, so we need to convert RouteTask data to RouteBin format
-  RouteBin _convertTaskToBin(RouteTask task) {
+  /// expect RouteTask objects, so we need to convert RouteTask data to RouteTask format
+  RouteTask _convertTaskToBin(RouteTask task) {
     // Parse address into components (best effort - dialogs can handle nulls/defaults)
     final addressParts = (task.address ?? '').split(',');
     final street = addressParts.isNotEmpty ? addressParts[0].trim() : task.address ?? 'Unknown';
     final city = addressParts.length > 1 ? addressParts[1].trim() : '';
     final zip = addressParts.length > 2 ? addressParts[2].trim() : '';
 
-    return RouteBin(
+    return RouteTask(
       id: task.id,
       shiftId: task.shiftId,
       binId: task.binId ?? '',
@@ -2001,9 +2001,9 @@ class NavigationBottomPanel extends HookConsumerWidget {
     );
   }
 
-  /// Helper to convert RouteBin to RouteTask for skip task menu
-  RouteTask _convertBinToTask(RouteBin bin) {
-    final address = [bin.currentStreet, bin.city, bin.zip]
+  /// Helper to convert RouteTask to RouteTask for skip task menu
+  RouteTask _convertBinToTask(RouteTask bin) {
+    final address = [bin.address, bin.city, bin.zip]
         .where((part) => part.isNotEmpty)
         .join(', ');
 

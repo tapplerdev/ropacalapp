@@ -153,7 +153,7 @@ class BinDetailsBottomSheet extends StatelessWidget {
                   children: [
                     _buildInfoRow(
                       'Address',
-                      bin.currentStreet,
+                      bin.address,
                       Icons.home_outlined,
                     ),
                     const SizedBox(height: 8),

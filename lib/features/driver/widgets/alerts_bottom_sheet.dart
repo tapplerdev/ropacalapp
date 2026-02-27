@@ -224,7 +224,7 @@ class BinListBottomSheet extends StatelessWidget {
                       ),
                     ),
                   ),
-                  title: Text(bin.currentStreet),
+                  title: Text(bin.address),
                   subtitle: Text('${bin.city} • ${bin.fillPercentage}% full'),
                   trailing: const Icon(Icons.chevron_right),
                   onTap: () {

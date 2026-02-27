@@ -8,7 +8,6 @@ import 'package:latlong2/latlong.dart' as latlong;
 import 'package:flutter_easyloading/flutter_easyloading.dart';
 import 'package:ropacalapp/core/theme/app_colors.dart';
 import 'package:ropacalapp/core/enums/bin_status.dart';
-import 'package:ropacalapp/models/route_bin.dart';
 import 'package:ropacalapp/models/route_task.dart';
 import 'package:ropacalapp/models/bin.dart';
 import 'package:ropacalapp/providers/shift_provider.dart';
@@ -21,7 +20,6 @@ import 'package:ropacalapp/core/services/geofence_service.dart';
 
 /// Bottom sheet showing active shift navigation
 class ActiveShiftBottomSheet extends HookConsumerWidget {
-  final List<RouteBin> tasks;
   final List<RouteTask> tasks;  // New task-based system
   final int completedBins;
   final int totalBins;
@@ -35,7 +33,6 @@ class ActiveShiftBottomSheet extends HookConsumerWidget {
 
   const ActiveShiftBottomSheet({
     super.key,
-    required this.tasks,
     this.tasks = const[],  // Optional, defaults to empty
     required this.completedBins,
     required this.totalBins,
@@ -226,7 +223,7 @@ class ActiveShiftBottomSheet extends HookConsumerWidget {
         progressPercentage,
         simulationState,
         binLabel: 'Bin #${next.binNumber}',
-        binSubtitle: next.currentStreet,
+        binSubtitle: next.address,
         distanceKm: distanceKm,
         currentLocation: currentLocation,
       );
@@ -586,7 +583,7 @@ class ActiveShiftBottomSheet extends HookConsumerWidget {
                 // Address (truncated)
                 Expanded(
                   child: Text(
-                    next.currentStreet,
+                    next.address,
                     style: const TextStyle(
                       fontSize: 15,
                       fontWeight: FontWeight.w600,
@@ -777,7 +774,7 @@ class ActiveShiftBottomSheet extends HookConsumerWidget {
                       children: [
                         // Address as title (larger to match screenshot)
                         Text(
-                          next.currentStreet,
+                          next.address,
                           style: const TextStyle(
                             fontWeight: FontWeight.w600,
                             fontSize: 17,
@@ -1002,7 +999,7 @@ class ActiveShiftBottomSheet extends HookConsumerWidget {
                           // Address
                           Expanded(
                             child: Text(
-                              bin.currentStreet,
+                              bin.address,
                               style: const TextStyle(
                                 fontSize: 15,
                                 fontWeight: FontWeight.w500,

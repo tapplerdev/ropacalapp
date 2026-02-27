@@ -985,8 +985,7 @@ class _ShiftReadyOverlay extends ConsumerWidget {
                 estimatedEndTime: null,
                 totalBins: shiftState.totalBins,
                 totalDistanceKm: null,
-                tasks: shiftState.tasks,
-                routeTasks: tasks,
+                tasks: tasks,
                 routeName: 'Route $shiftId',
                 isOptimized: false,
               ),
@@ -1141,7 +1140,6 @@ class _ShiftActiveOverlay extends ConsumerWidget {
       left: 0,
       right: 0,
       child: ActiveShiftBottomSheet(
-        tasks: shiftState.tasks,
         tasks: shiftState.tasks, // New task-based system
         completedBins: shiftState.completedBins,
         totalBins: shiftState.totalBins,

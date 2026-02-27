@@ -595,7 +595,7 @@ class GoogleNavigationPage extends HookConsumerWidget {
                 AppLogger.general('🎯 Marker clicked: $markerId');
                 final bin = navState.markerToTaskMap[markerId];
                 if (bin != null) {
-                  AppLogger.general('   Bin #${bin.binNumber} at ${bin.currentStreet}');
+                  AppLogger.general('   Bin #${bin.binNumber} at ${bin.address}');
                   // TODO: Show bin details dialog (needs RouteBin support)
                   // showModalBottomSheet(
                   //   context: context,

@@ -115,7 +115,7 @@ class _$BinCopyWithImpl<$Res, $Val extends Bin> implements $BinCopyWith<$Res> {
                 : binNumber // ignore: cast_nullable_to_non_nullable
                       as int,
             currentStreet: null == currentStreet
-                ? _value.currentStreet
+                ? _value.address
                 : currentStreet // ignore: cast_nullable_to_non_nullable
                       as String,
             city: null == city
@@ -229,7 +229,7 @@ class __$$BinImplCopyWithImpl<$Res> extends _$BinCopyWithImpl<$Res, _$BinImpl>
             : binNumber // ignore: cast_nullable_to_non_nullable
                   as int,
         currentStreet: null == currentStreet
-            ? _value.currentStreet
+            ? _value.address
             : currentStreet // ignore: cast_nullable_to_non_nullable
                   as String,
         city: null == city
@@ -287,7 +287,7 @@ class _$BinImpl implements _Bin {
   const _$BinImpl({
     required this.id,
     @JsonKey(name: 'bin_number') required this.binNumber,
-    @JsonKey(name: 'current_street') required this.currentStreet,
+    @JsonKey(name: 'current_street') required this.address,
     required this.city,
     required this.zip,
     @JsonKey(name: 'last_moved') this.lastMoved,
@@ -354,8 +354,8 @@ class _$BinImpl implements _Bin {
             (identical(other.id, id) || other.id == id) &&
             (identical(other.binNumber, binNumber) ||
                 other.binNumber == binNumber) &&
-            (identical(other.currentStreet, currentStreet) ||
-                other.currentStreet == currentStreet) &&
+            (identical(other.address, currentStreet) ||
+                other.address == currentStreet) &&
             (identical(other.city, city) || other.city == city) &&
             (identical(other.zip, zip) || other.zip == zip) &&
             (identical(other.lastMoved, lastMoved) ||

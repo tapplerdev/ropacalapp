@@ -9,6 +9,7 @@ import 'package:flutter_easyloading/flutter_easyloading.dart';
 import 'package:ropacalapp/core/theme/app_colors.dart';
 import 'package:ropacalapp/core/enums/bin_status.dart';
 import 'package:ropacalapp/models/route_task.dart';
+import 'package:ropacalapp/core/extensions/route_task_extensions.dart';
 import 'package:ropacalapp/models/bin.dart';
 import 'package:ropacalapp/providers/shift_provider.dart';
 import 'package:ropacalapp/providers/location_provider.dart';
@@ -583,7 +584,7 @@ class ActiveShiftBottomSheet extends HookConsumerWidget {
                 // Address (truncated)
                 Expanded(
                   child: Text(
-                    next.address,
+                    next.safeAddress,
                     style: const TextStyle(
                       fontSize: 15,
                       fontWeight: FontWeight.w600,
@@ -774,7 +775,7 @@ class ActiveShiftBottomSheet extends HookConsumerWidget {
                       children: [
                         // Address as title (larger to match screenshot)
                         Text(
-                          next.address,
+                          next.safeAddress,
                           style: const TextStyle(
                             fontWeight: FontWeight.w600,
                             fontSize: 17,
@@ -794,14 +795,14 @@ class ActiveShiftBottomSheet extends HookConsumerWidget {
                                 vertical: 3,
                               ),
                               decoration: BoxDecoration(
-                                color: _getFillColor(next.fillPercentage).withValues(alpha: 0.2),
+                                color: _getFillColor(next.safeFillPercentage).withValues(alpha: 0.2),
                                 borderRadius: BorderRadius.circular(4),
                               ),
                               child: Text(
-                                '${next.fillPercentage}% full',
+                                '${next.safeFillPercentage}% full',
                                 style: TextStyle(
                                   fontSize: 12,
-                                  color: _getFillColor(next.fillPercentage),
+                                  color: _getFillColor(next.safeFillPercentage),
                                   fontWeight: FontWeight.bold,
                                 ),
                               ),
@@ -999,7 +1000,7 @@ class ActiveShiftBottomSheet extends HookConsumerWidget {
                           // Address
                           Expanded(
                             child: Text(
-                              bin.address,
+                              bin.safeAddress,
                               style: const TextStyle(
                                 fontSize: 15,
                                 fontWeight: FontWeight.w500,
@@ -1017,14 +1018,14 @@ class ActiveShiftBottomSheet extends HookConsumerWidget {
                               vertical: 4,
                             ),
                             decoration: BoxDecoration(
-                              color: _getFillColor(bin.fillPercentage).withValues(alpha: 0.2),
+                              color: _getFillColor(bin.safeFillPercentage).withValues(alpha: 0.2),
                               borderRadius: BorderRadius.circular(4),
                             ),
                             child: Text(
-                              '${bin.fillPercentage}% full',
+                              '${bin.safeFillPercentage}% full',
                               style: TextStyle(
                                 fontSize: 12,
-                                color: _getFillColor(bin.fillPercentage),
+                                color: _getFillColor(bin.safeFillPercentage),
                                 fontWeight: FontWeight.bold,
                               ),
                             ),
@@ -1186,7 +1187,7 @@ class ActiveShiftBottomSheet extends HookConsumerWidget {
       // Using 50% as placeholder - actual implementation uses check-in dialog
       await ref.read(shiftNotifierProvider.notifier).completeTask(
         bin.id, // shift_bin_id (identifies specific waypoint)
-        bin.binId, // bin_id (deprecated)
+        bin.safeBinId, // bin_id (deprecated)
         50,
       );
     } catch (e) {

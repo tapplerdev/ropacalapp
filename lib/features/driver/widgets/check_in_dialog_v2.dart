@@ -9,6 +9,7 @@ import 'package:ropacalapp/core/services/cloudinary_service.dart';
 import 'package:ropacalapp/core/theme/app_colors.dart';
 import 'package:ropacalapp/core/utils/app_logger.dart';
 import 'package:ropacalapp/models/route_task.dart';
+import 'package:ropacalapp/core/extensions/route_task_extensions.dart';
 import 'package:ropacalapp/providers/shift_provider.dart';
 import 'package:ropacalapp/features/driver/widgets/incident_components.dart';
 
@@ -718,13 +719,13 @@ class CheckInDialogV2 extends HookConsumerWidget {
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
                       colors: [
-                        _getSliderColor(bin.fillPercentage).withValues(alpha: 0.08),
-                        _getSliderColor(bin.fillPercentage).withValues(alpha: 0.04),
+                        _getSliderColor(bin.safeFillPercentage).withValues(alpha: 0.08),
+                        _getSliderColor(bin.safeFillPercentage).withValues(alpha: 0.04),
                       ],
                     ),
                     borderRadius: BorderRadius.circular(16),
                     border: Border.all(
-                      color: _getSliderColor(bin.fillPercentage).withValues(alpha: 0.2),
+                      color: _getSliderColor(bin.safeFillPercentage).withValues(alpha: 0.2),
                       width: 1.5,
                     ),
                   ),
@@ -741,11 +742,11 @@ class CheckInDialogV2 extends HookConsumerWidget {
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        '${bin.fillPercentage}%',
+                        '${bin.safeFillPercentage}%',
                         style: TextStyle(
                           fontSize: 28,
                           fontWeight: FontWeight.bold,
-                          color: _getSliderColor(bin.fillPercentage),
+                          color: _getSliderColor(bin.safeFillPercentage),
                           letterSpacing: -1,
                         ),
                       ),
@@ -1084,7 +1085,7 @@ class CheckInDialogV2 extends HookConsumerWidget {
       AppLogger.general('[DIAGNOSTIC] 📡 Calling completeBin API...');
       await ref.read(shiftNotifierProvider.notifier).completeTask(
             bin.id, // NEW: shift_bin_id (properly identifies this specific waypoint)
-            bin.binId, // DEPRECATED: kept for backward compatibility
+            bin.safeBinId, // DEPRECATED: kept for backward compatibility
             hasIncident.value ? null : fillPercentage.value, // NULL if incident
             photoUrl: binPhotoUrl,
             hasIncident: hasIncident.value,

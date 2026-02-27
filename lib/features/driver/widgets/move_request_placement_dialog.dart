@@ -6,6 +6,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:flutter_easyloading/flutter_easyloading.dart';
 import 'package:ropacalapp/core/utils/app_logger.dart';
 import 'package:ropacalapp/models/route_task.dart';
+import 'package:ropacalapp/core/extensions/route_task_extensions.dart';
 import 'package:ropacalapp/core/services/cloudinary_service.dart';
 import 'package:ropacalapp/providers/shift_provider.dart';
 
@@ -83,7 +84,7 @@ class MoveRequestPlacementDialog extends HookConsumerWidget {
 
         await ref.read(shiftNotifierProvider.notifier).completeTask(
           bin.id, // NEW: shift_bin_id (properly identifies this specific waypoint)
-          bin.binId, // DEPRECATED: kept for backward compatibility
+          bin.safeBinId, // DEPRECATED: kept for backward compatibility
           null, // No fill percentage for move request dropoffs
           photoUrl: photoUrl,
           hasIncident: hasAnyIssue,
@@ -200,7 +201,7 @@ class MoveRequestPlacementDialog extends HookConsumerWidget {
                           Padding(
                             padding: const EdgeInsets.only(left: 24),
                             child: Text(
-                              bin.originalAddress ?? 'Unknown',
+                              bin.safeAddress,
                               style: TextStyle(
                                 color: Colors.white,
                                 fontSize: 13,
@@ -230,8 +231,7 @@ class MoveRequestPlacementDialog extends HookConsumerWidget {
                           Padding(
                             padding: const EdgeInsets.only(left: 24),
                             child: Text(
-                              bin.newAddress ??
-                                  '${bin.safeAddress}, ${bin.city}',
+                              bin.destinationAddress ?? 'Unknown',
                               style: TextStyle(
                                 color: Colors.white,
                                 fontSize: 13,

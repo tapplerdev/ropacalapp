@@ -3,6 +3,7 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:ropacalapp/core/theme/app_colors.dart';
 import 'package:ropacalapp/models/route_task.dart';
+import 'package:ropacalapp/core/extensions/route_task_extensions.dart';
 import 'package:ropacalapp/models/shift_history.dart';
 import 'package:ropacalapp/providers/route_history_provider.dart';
 
@@ -386,7 +387,7 @@ class _BinCard extends StatelessWidget {
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    '${bin.address}, ${bin.city} ${bin.zip}',
+                    bin.address ?? 'No address',
                     style: TextStyle(
                       fontSize: 14,
                       color: Colors.grey.shade700,
@@ -431,7 +432,7 @@ class _BinCard extends StatelessWidget {
                 Expanded(
                   child: _FillBar(
                     label: 'Before',
-                    percentage: bin.fillPercentage,
+                    percentage: bin.safeFillPercentage,
                   ),
                 ),
                 const SizedBox(width: 16),
@@ -440,7 +441,7 @@ class _BinCard extends StatelessWidget {
                 Expanded(
                   child: _FillBar(
                     label: 'After',
-                    percentage: bin.updatedFillPercentage ?? bin.fillPercentage,
+                    percentage: bin.updatedFillPercentage ?? bin.safeFillPercentage,
                     isAfter: true,
                   ),
                 ),

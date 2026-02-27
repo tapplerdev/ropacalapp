@@ -2005,9 +2005,8 @@ class NavigationBottomPanel extends HookConsumerWidget {
 
   /// Helper to convert RouteTask to RouteTask for skip task menu
   RouteTask _convertBinToTask(RouteTask bin) {
-    final address = [bin.safeAddress, // bin.city, bin.zip - RouteTask only has address field]
-        .where((part) => part.isNotEmpty)
-        .join(', ');
+    // RouteTask already has complete address in address field
+    // No need to build it from parts like old RouteBin did
 
     return RouteTask(
       id: bin.id,
@@ -2016,8 +2015,8 @@ class NavigationBottomPanel extends HookConsumerWidget {
       sequenceOrder: bin.sequenceOrder,
       taskType: bin.taskType,
       moveRequestId: bin.moveRequestId,
-      address: address.isEmpty ? bin.address : address,
-      destinationAddress: null // newAddress field not in RouteTask,
+      address: bin.address, // Already the complete address
+      destinationAddress: bin.destinationAddress, // For move requests
       moveType: bin.moveType,
       potentialLocationId: bin.potentialLocationId,
       newBinNumber: bin.newBinNumber,
@@ -2027,8 +2026,8 @@ class NavigationBottomPanel extends HookConsumerWidget {
       completedAt: bin.completedAt,
       updatedFillPercentage: bin.updatedFillPercentage,
       createdAt: bin.createdAt,
-      binNumber: bin.binNumber == 0 ? null : bin.binNumber,
-      fillPercentage: bin.fillPercentage == 0 ? null : bin.safeFillPercentage,
+      binNumber: bin.binNumber,
+      fillPercentage: bin.fillPercentage,
       latitude: bin.latitude,
       longitude: bin.longitude,
     );

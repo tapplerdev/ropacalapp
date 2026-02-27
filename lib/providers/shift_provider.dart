@@ -206,7 +206,7 @@ class ShiftNotifier extends _$ShiftNotifier {
       AppLogger.general('[DIAGNOSTIC]    Current state BEFORE fetch:');
       AppLogger.general('[DIAGNOSTIC]      Status: ${state.status}');
       AppLogger.general('[DIAGNOSTIC]      RouteID: ${state.assignedRouteId}');
-      AppLogger.general('[DIAGNOSTIC]      RouteBins: ${state.tasks.length}');
+      AppLogger.general('[DIAGNOSTIC]      RouteTasks: ${state.tasks.length}');
       AppLogger.general('[DIAGNOSTIC]      ShiftID: ${state.shiftId}');
 
       final shiftService = ref.read(shiftServiceProvider);
@@ -661,7 +661,7 @@ class ShiftNotifier extends _$ShiftNotifier {
       AppLogger.general('⚡ Optimistic update: Marking task complete instantly');
 
       // Find and mark the bin as completed
-      final updatedRouteBins = state.tasks.map((bin) {
+      final updatedRouteTasks = state.tasks.map((bin) {
         if (bin.id == taskId) {
           return bin.copyWith(
             isCompleted: 1,
@@ -673,7 +673,7 @@ class ShiftNotifier extends _$ShiftNotifier {
 
       // Update state immediately (navigation will recalculate now!)
       state = state.copyWith(
-        tasks: updatedRouteBins,
+        tasks: updatedRouteTasks,
         completedBins: state.completedBins + 1,
       );
 
@@ -743,7 +743,7 @@ class ShiftNotifier extends _$ShiftNotifier {
       final moveRequestId = binToSkip.moveRequestId;
 
       // Mark the bin as skipped (isCompleted = 2 means skipped)
-      final updatedRouteBins = state.tasks.map((bin) {
+      final updatedRouteTasks = state.tasks.map((bin) {
         // Skip the target bin
         if (bin.id == taskId) {
           return bin.copyWith(isCompleted: 2); // 2 = skipped
@@ -762,7 +762,7 @@ class ShiftNotifier extends _$ShiftNotifier {
       }).toList();
 
       // Count how many bins were skipped (1 or 2)
-      final skippedCount = updatedRouteBins.where((bin) => bin.isCompleted == 2).length -
+      final skippedCount = updatedRouteTasks.where((bin) => bin.isCompleted == 2).length -
           previousState.tasks.where((bin) => bin.isCompleted == 2).length;
 
       // Update state immediately (navigation will recalculate now!)
@@ -770,7 +770,7 @@ class ShiftNotifier extends _$ShiftNotifier {
       // Skipped tasks (isCompleted=2) should not count toward completion percentage.
       // Only tasks with isCompleted=1 should count as completed.
       state = state.copyWith(
-        tasks: updatedRouteBins,
+        tasks: updatedRouteTasks,
         // completedBins is NOT incremented - skipped tasks don't count as completed
       );
 

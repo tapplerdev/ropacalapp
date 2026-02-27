@@ -3,6 +3,7 @@ import 'package:ropacalapp/core/theme/app_colors.dart';
 import 'package:ropacalapp/models/shift_overview.dart';
 import 'package:ropacalapp/models/route_task.dart';
 import 'package:ropacalapp/core/enums/stop_type.dart';
+import 'package:ropacalapp/core/extensions/route_task_extensions.dart';
 
 /// Timeline-based bottom sheet for shift acceptance
 /// Inspired by ride-sharing apps with compact, scannable design
@@ -391,7 +392,7 @@ class ShiftAcceptanceBottomSheet extends StatelessWidget {
     required int index,
     required bool isLast,
   }) {
-    final fillColor = _getFillColor(bin.fillPercentage);
+    final fillColor = _getFillColor(bin.safeFillPercentage);
 
     return Padding(
       padding: EdgeInsets.only(bottom: isLast ? 0 : 8),
@@ -433,7 +434,7 @@ class ShiftAcceptanceBottomSheet extends StatelessWidget {
               // Street name - aligned with badge center
               Expanded(
                 child: Text(
-                  bin.address,
+                  bin.safeAddress,
                   style: const TextStyle(
                     fontSize: 15,
                     fontWeight: FontWeight.w600,
@@ -462,7 +463,7 @@ class ShiftAcceptanceBottomSheet extends StatelessWidget {
                   borderRadius: BorderRadius.circular(6),
                 ),
                 child: Text(
-                  '${bin.fillPercentage}% full',
+                  '${bin.safeFillPercentage}% full',
                   style: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w600,

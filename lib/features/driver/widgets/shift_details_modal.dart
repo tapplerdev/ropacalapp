@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:ropacalapp/core/theme/app_colors.dart';
 import 'package:ropacalapp/models/shift_overview.dart';
+import 'package:ropacalapp/core/extensions/route_task_extensions.dart';
 
 /// Expandable modal showing detailed shift information
 /// Slides up from PreShiftOverviewCard
@@ -142,10 +143,10 @@ class ShiftDetailsModal extends StatelessWidget {
   // Metrics row showing key stats
   Widget _buildMetricsRow() {
     final highPriorityCount = shiftOverview.tasks
-        .where((bin) => bin.fillPercentage > 80)
+        .where((bin) => bin.safeFillPercentage > 80)
         .length;
     final mediumPriorityCount = shiftOverview.tasks
-        .where((bin) => bin.fillPercentage > 50 && bin.fillPercentage <= 80)
+        .where((bin) => bin.safeFillPercentage > 50 && bin.safeFillPercentage <= 80)
         .length;
 
     return Row(
@@ -280,10 +281,10 @@ class ShiftDetailsModal extends StatelessWidget {
         // Determine priority color
         Color priorityColor;
         String? priorityIndicator;
-        if (bin.fillPercentage > 80) {
+        if (bin.safeFillPercentage > 80) {
           priorityColor = Colors.red.shade600;
           priorityIndicator = '🔴';
-        } else if (bin.fillPercentage > 50) {
+        } else if (bin.safeFillPercentage > 50) {
           priorityColor = Colors.orange.shade600;
           priorityIndicator = '🟠';
         } else {
@@ -351,7 +352,7 @@ class ShiftDetailsModal extends StatelessWidget {
                           children: [
                             Expanded(
                               child: Text(
-                                bin.address,
+                                bin.safeAddress,
                                 style: const TextStyle(
                                   fontWeight: FontWeight.bold,
                                   fontSize: 14,
@@ -380,7 +381,7 @@ class ShiftDetailsModal extends StatelessWidget {
                                 borderRadius: BorderRadius.circular(4),
                               ),
                               child: Text(
-                                '${bin.fillPercentage}% full',
+                                '${bin.safeFillPercentage}% full',
                                 style: TextStyle(
                                   fontSize: 11,
                                   color: priorityColor,

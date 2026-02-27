@@ -1965,42 +1965,10 @@ class NavigationBottomPanel extends HookConsumerWidget {
     }
   }
 
-  /// Helper to convert RouteTask to RouteTask for legacy dialog compatibility
-  /// The existing dialogs (MoveRequestPickupDialog, MoveRequestPlacementDialog, CheckInDialogV2)
-  /// expect RouteTask objects, so we need to convert RouteTask data to RouteTask format
+  /// Helper to convert RouteTask to RouteTask for dialog compatibility
+  /// The dialogs now work with RouteTask directly, so this just returns the task as-is
   RouteTask _convertTaskToBin(RouteTask task) {
-    // Parse address into components (best effort - dialogs can handle nulls/defaults)
-    final addressParts = (task.address ?? '').split(',');
-    final street = addressParts.isNotEmpty ? addressParts[0].trim() : task.address ?? 'Unknown';
-    final city = addressParts.length > 1 ? addressParts[1].trim() : '';
-    final zip = addressParts.length > 2 ? addressParts[2].trim() : '';
-
-    return RouteTask(
-      id: task.id,
-      shiftId: task.shiftId,
-      binId: task.binId ?? '',
-      sequenceOrder: task.sequenceOrder,
-      taskType: task.taskType,
-      moveRequestId: task.moveRequestId,
-      originalAddress: task.address, // Pickup location address
-      newAddress: task.destinationAddress, // Dropoff location address
-      moveType: task.moveType,
-      potentialLocationId: task.potentialLocationId,
-      newBinNumber: task.newBinNumber,
-      warehouseAction: task.warehouseAction,
-      binsToLoad: task.binsToLoad,
-      isCompleted: task.isCompleted,
-      completedAt: task.completedAt,
-      updatedFillPercentage: task.updatedFillPercentage,
-      createdAt: task.createdAt,
-      binNumber: task.binNumber ?? 0,
-      currentStreet: street,
-      city: city,
-      zip: zip,
-      fillPercentage: task.fillPercentage ?? 0,
-      latitude: task.latitude,
-      longitude: task.longitude,
-    );
+    return task;
   }
 
   /// Helper to convert RouteTask to RouteTask for skip task menu

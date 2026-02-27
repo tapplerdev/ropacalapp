@@ -31,7 +31,7 @@ class CheckInDialogV2 extends HookConsumerWidget {
     // Main flow state
     final currentStep = useState(1); // 1=photo, 2=fill/incident_type, 3=incident_details
     final capturedImage = useState<XFile?>(null);
-    final fillPercentage = useState(bin.fillPercentage);
+    final fillPercentage = useState(bin.safeFillPercentage);
     final isSubmitting = useState(false);
 
     // Incident state

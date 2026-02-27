@@ -27,6 +27,7 @@ class LocationTrackingService {
   final Ref _ref;
   final FusedLocationProvider _fusedLocation = FusedLocationProvider();
   StreamSubscription<fused.FusedLocation>? _locationSubscription;
+  Timer? _simulatorTimer; // For iOS simulator fake GPS stream
   String? _currentShiftId;
   bool _isTracking = false;
   fused.FusedLocation? _lastLocation; // Cache last received location
@@ -143,7 +144,59 @@ class LocationTrackingService {
         throw Exception('LOCATION_PERMISSION_DENIED');
       }
 
-      // Configure fused_location with 3-second interval
+      // ═══════════════════════════════════════════════════════════════════════
+      // 🧪 SIMULATOR TESTING WORKAROUND (COMMENTED OUT - USE REAL GPS)
+      // ═══════════════════════════════════════════════════════════════════════
+      // iOS Simulator GPS stream never produces updates (causes infinite loading).
+      // This section creates a fake periodic GPS stream for testing.
+      //
+      // ⚠️ COMMENTED OUT: Use real device GPS instead of hardcoded warehouse coordinates
+      // ═══════════════════════════════════════════════════════════════════════
+      // if (kDebugMode && Platform.isIOS) {
+      //   AppLogger.general('   🧪 SIMULATOR DETECTED: Starting fake GPS stream');
+      //   AppLogger.general('   📍 Using hardcoded warehouse location with 3-second interval');
+
+      //   // Hardcoded warehouse coordinates
+      //   const warehouseLat = 37.3826;
+      //   const warehouseLng = -121.9854;
+
+      //   // Create periodic timer that sends fake location every 3 seconds
+      //   _simulatorTimer = Timer.periodic(const Duration(seconds: 3), (timer) {
+      //     if (!_isTracking) {
+      //       timer.cancel();
+      //       return;
+      //     }
+
+      //     // Create fake location with warehouse coordinates
+      //     final fakeLocation = fused.FusedLocation(
+      //       position: fused.Position(
+      //         latitude: warehouseLat,
+      //         longitude: warehouseLng,
+      //         accuracy: 5.0,
+      //       ),
+      //       timestamp: DateTime.now(),
+      //       heading: fused.Heading(direction: 0.0, accuracy: 0.0),
+      //       speed: fused.Speed(magnitude: 0.0, accuracy: 0.0),
+      //       elevation: fused.Elevation(meanSeaLevel: 0.0, meanSeaLevelAccuracy: 0.0),
+      //       course: fused.Course(direction: 0.0, accuracy: 0.0),
+      //     );
+
+      //     // Cache the location
+      //     _lastLocation = fakeLocation;
+
+      //     // Notify callback (for UI integration)
+      //     _onLocationUpdate?.call(fakeLocation);
+
+      //     // Send location to backend
+      //     _sendLocation(fakeLocation);
+      //   });
+
+      //   AppLogger.general('✅ Fake GPS stream started for simulator (3s interval)');
+      //   return; // Skip real GPS setup
+      // }
+      // ═══════════════════════════════════════════════════════════════════════
+
+      // Configure fused_location with 3-second interval (REAL DEVICE)
       // This balances real-time updates with battery life and server load
       // Industry standard: Uber uses 4 seconds, we use 3 seconds
       // - Android: 3000ms interval with PRIORITY_HIGH_ACCURACY
@@ -229,44 +282,44 @@ class LocationTrackingService {
       fused.FusedLocation? location;
 
       // ═══════════════════════════════════════════════════════════════════════
-      // 🧪 SIMULATOR TESTING WORKAROUND (ACTIVE)
+      // 🧪 SIMULATOR TESTING WORKAROUND (COMMENTED OUT - USE REAL GPS)
       // ═══════════════════════════════════════════════════════════════════════
       // iOS Simulator GPS is extremely slow (30-60+ seconds for first fix).
       // This section uses hardcoded warehouse coordinates for testing.
       //
-      // ⚠️ REMEMBER TO COMMENT THIS OUT BEFORE COMMITTING!
+      // ⚠️ COMMENTED OUT: Use real device GPS instead of hardcoded warehouse coordinates
       // ═══════════════════════════════════════════════════════════════════════
-      if (kDebugMode && Platform.isIOS) {
-        AppLogger.general('   🧪 SIMULATOR DETECTED: Using hardcoded warehouse location');
+      // if (kDebugMode && Platform.isIOS) {
+      //   AppLogger.general('   🧪 SIMULATOR DETECTED: Using hardcoded warehouse location');
 
-        // Hardcoded warehouse coordinates
-        const warehouseLat = 37.3826;
-        const warehouseLng = -121.9854;
+      //   // Hardcoded warehouse coordinates
+      //   const warehouseLat = 37.3826;
+      //   const warehouseLng = -121.9854;
 
-        location = fused.FusedLocation(
-          position: fused.Position(
-            latitude: warehouseLat,
-            longitude: warehouseLng,
-            accuracy: 5.0,
-          ),
-          timestamp: DateTime.now(),
-          heading: fused.Heading(direction: 0.0, accuracy: 0.0),
-          speed: fused.Speed(magnitude: 0.0, accuracy: 0.0),
-          elevation: fused.Elevation(meanSeaLevel: 0.0, meanSeaLevelAccuracy: 0.0),
-          course: fused.Course(direction: 0.0, accuracy: 0.0),
-        );
+      //   location = fused.FusedLocation(
+      //     position: fused.Position(
+      //       latitude: warehouseLat,
+      //       longitude: warehouseLng,
+      //       accuracy: 5.0,
+      //     ),
+      //     timestamp: DateTime.now(),
+      //     heading: fused.Heading(direction: 0.0, accuracy: 0.0),
+      //     speed: fused.Speed(magnitude: 0.0, accuracy: 0.0),
+      //     elevation: fused.Elevation(meanSeaLevel: 0.0, meanSeaLevelAccuracy: 0.0),
+      //     course: fused.Course(direction: 0.0, accuracy: 0.0),
+      //   );
 
-        AppLogger.general('   ✅ Using hardcoded location: $warehouseLat, $warehouseLng');
+      //   AppLogger.general('   ✅ Using hardcoded location: $warehouseLat, $warehouseLng');
 
-        // Send the hardcoded location
-        _sendLocation(location);
-        await Future.delayed(const Duration(milliseconds: 500));
+      //   // Send the hardcoded location
+      //   _sendLocation(location);
+      //   await Future.delayed(const Duration(milliseconds: 500));
 
-        final endTime = DateTime.now();
-        final totalDuration = endTime.difference(startTime).inMilliseconds;
-        AppLogger.general('   ✅ sendCurrentLocation() completed in ${totalDuration}ms (hardcoded)');
-        return;
-      }
+      //   final endTime = DateTime.now();
+      //   final totalDuration = endTime.difference(startTime).inMilliseconds;
+      //   AppLogger.general('   ✅ sendCurrentLocation() completed in ${totalDuration}ms (hardcoded)');
+      //   return;
+      // }
       // ═══════════════════════════════════════════════════════════════════════
 
       // OPTION 1: Use cached location from already-running stream (INSTANT!)
@@ -340,6 +393,8 @@ class LocationTrackingService {
 
     _locationSubscription?.cancel();
     _locationSubscription = null;
+    _simulatorTimer?.cancel(); // Stop simulator timer if active
+    _simulatorTimer = null;
     _fusedLocation.stopLocationUpdates();
     _currentShiftId = null;
     _isTracking = false;

@@ -23,5 +23,16 @@ class Bin with _$Bin {
     double? longitude,
   }) = _Bin;
 
+  const Bin._();
+
   factory Bin.fromJson(Map<String, dynamic> json) => _$BinFromJson(json);
+
+  /// Computed address field for compatibility with RouteTask address pattern
+  String get address {
+    final parts = <String>[];
+    if (currentStreet.isNotEmpty) parts.add(currentStreet);
+    if (city.isNotEmpty) parts.add(city);
+    if (zip.isNotEmpty) parts.add(zip);
+    return parts.isEmpty ? 'No address' : parts.join(', ');
+  }
 }

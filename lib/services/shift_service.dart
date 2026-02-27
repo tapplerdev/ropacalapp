@@ -63,11 +63,23 @@ class ShiftService {
   }
 
   /// Start shift
-  Future<ShiftState> startShift() async {
+  /// [binsPreloaded] - whether bins are already loaded on the truck (optional)
+  /// If true, route optimization will skip warehouse as first stop
+  /// If false or null, route will include warehouse pickup
+  Future<ShiftState> startShift({bool? binsPreloaded}) async {
     try {
       print('📤 REQUEST: POST /api/driver/shift/start');
 
-      final response = await _apiService.post('/api/driver/shift/start', {});
+      final requestData = <String, dynamic>{};
+      if (binsPreloaded != null) {
+        requestData['bins_preloaded'] = binsPreloaded;
+        print('   🚚 Bins preloaded: $binsPreloaded');
+      }
+
+      final response = await _apiService.post(
+        '/api/driver/shift/start',
+        requestData,
+      );
 
       print('📥 RESPONSE: ${response.statusCode}');
       print('   Data: ${response.data}');
@@ -102,11 +114,17 @@ class ShiftService {
         final ready = data['ready'] as bool? ?? false;
         final message = data['message'] as String? ?? '';
         final retryAfter = data['retry_after'] as int? ?? 2;
+        final needsWarehouseBinsPrompt = data['needs_warehouse_bins_prompt'] as bool? ?? false;
+        final placementCount = data['placement_count'] as int? ?? 0;
+        final redeploymentCount = data['redeployment_count'] as int? ?? 0;
 
         print('   Ready: $ready');
         print('   Message: $message');
         if (!ready) {
           print('   Retry after: ${retryAfter}s');
+        }
+        if (needsWarehouseBinsPrompt) {
+          print('   🏭 Needs warehouse bins prompt: $placementCount placements + $redeploymentCount redeployments');
         }
 
         return data;

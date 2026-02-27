@@ -411,7 +411,11 @@ class ShiftNotifier extends _$ShiftNotifier {
   }
 
   /// Start the shift (slide to confirm)
-  Future<void> startShift() async {
+  /// [onNeedWarehouseBinsAnswer] - Optional callback to show UI dialog and get user answer
+  /// Returns Future<bool?> where true = bins loaded, false = bins NOT loaded, null = cancelled
+  Future<void> startShift({
+    Future<bool?> Function(int placementCount, int redeploymentCount)? onNeedWarehouseBinsAnswer,
+  }) async {
     if (state.status != ShiftStatus.ready) {
       AppLogger.general('⚠️ Cannot start shift - status: ${state.status}');
       return;
@@ -446,6 +450,10 @@ class ShiftNotifier extends _$ShiftNotifier {
       const maxAttempts = 3;
       String? preflightMessage;
 
+      bool? needsWarehouseBinsPrompt;
+      int? placementCount;
+      int? redeploymentCount;
+
       while (!preflightReady && attempt < maxAttempts) {
         attempt++;
         AppLogger.general('   Attempt $attempt/$maxAttempts...');
@@ -455,8 +463,16 @@ class ShiftNotifier extends _$ShiftNotifier {
           preflightReady = preflightResult['ready'] as bool? ?? false;
           preflightMessage = preflightResult['message'] as String?;
 
+          // Extract warehouse bins prompt data
+          needsWarehouseBinsPrompt = preflightResult['needs_warehouse_bins_prompt'] as bool? ?? false;
+          placementCount = preflightResult['placement_count'] as int? ?? 0;
+          redeploymentCount = preflightResult['redeployment_count'] as int? ?? 0;
+
           if (preflightReady) {
             AppLogger.general('   ✅ Preflight passed: $preflightMessage');
+            if (needsWarehouseBinsPrompt == true) {
+              AppLogger.general('   🏭 Shift requires warehouse bins: $placementCount placements + $redeploymentCount redeployments');
+            }
             break;
           } else {
             final retryAfter = preflightResult['retry_after'] as int? ?? 2;
@@ -487,11 +503,35 @@ class ShiftNotifier extends _$ShiftNotifier {
 
       AppLogger.general('✅ Preflight checks completed in ${preflightDuration}ms');
 
+      // STEP 2.5: Check if we need to show warehouse bins prompt
+      bool? binsPreloaded;
+      if (needsWarehouseBinsPrompt == true && onNeedWarehouseBinsAnswer != null) {
+        AppLogger.general('');
+        AppLogger.general('🏭 Warehouse bins prompt required...');
+        AppLogger.general('   Placements: $placementCount');
+        AppLogger.general('   Redeployments: $redeploymentCount');
+
+        binsPreloaded = await onNeedWarehouseBinsAnswer(
+          placementCount ?? 0,
+          redeploymentCount ?? 0,
+        );
+
+        if (binsPreloaded == null) {
+          // User cancelled the dialog
+          AppLogger.general('   ❌ User cancelled warehouse bins prompt');
+          throw Exception('Shift start cancelled');
+        }
+
+        AppLogger.general('   ✅ User answered: ${binsPreloaded ? "Bins ARE loaded" : "Bins NOT loaded"}');
+      }
+
       // STEP 3: Start shift (instant - already validated)
       AppLogger.general('');
       AppLogger.general('📡 STEP 3: Starting shift...');
       final apiStartTime = DateTime.now();
-      final updatedShift = await shiftService.startShift();
+      final updatedShift = await shiftService.startShift(
+        binsPreloaded: binsPreloaded,
+      );
       final apiEndTime = DateTime.now();
       final apiDuration = apiEndTime.difference(apiStartTime).inMilliseconds;
       AppLogger.general('✅ Shift started in ${apiDuration}ms');

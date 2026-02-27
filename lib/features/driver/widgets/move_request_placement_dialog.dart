@@ -231,7 +231,7 @@ class MoveRequestPlacementDialog extends HookConsumerWidget {
                             padding: const EdgeInsets.only(left: 24),
                             child: Text(
                               bin.newAddress ??
-                                  '${bin.address}, ${bin.city}',
+                                  '${bin.safeAddress}, ${bin.city}',
                               style: TextStyle(
                                 color: Colors.white,
                                 fontSize: 13,

@@ -15,7 +15,9 @@ import 'package:ropacalapp/core/enums/stop_type.dart';
 import 'package:ropacalapp/providers/navigation_page_provider.dart';
 import 'package:ropacalapp/providers/shift_provider.dart';
 import 'package:ropacalapp/models/route_task.dart';
+import 'package:ropacalapp/core/extensions/route_task_extensions.dart';
 import 'package:ropacalapp/models/route_task.dart';
+import 'package:ropacalapp/core/extensions/route_task_extensions.dart';
 import 'package:ropacalapp/models/shift_state.dart';
 
 /// Bottom panel showing current bin/task details during navigation
@@ -446,7 +448,7 @@ class NavigationBottomPanel extends HookConsumerWidget {
               ],
               Expanded(
                 child: Text(
-                  bin.address,
+                  bin.safeAddress,
                   style: const TextStyle(
                     fontSize: 15,
                     fontWeight: FontWeight.w600,
@@ -1410,7 +1412,7 @@ class NavigationBottomPanel extends HookConsumerWidget {
                               children: [
                                 // Address
                                 Text(
-                                  bin.address,
+                                  bin.safeAddress,
                                   style: const TextStyle(
                                     fontWeight: FontWeight.w600,
                                     fontSize: 15,
@@ -1434,7 +1436,7 @@ class NavigationBottomPanel extends HookConsumerWidget {
                                         decoration: BoxDecoration(
                                           color: GoogleNavigationMarkerService
                                               .getFillColor(
-                                            bin.fillPercentage,
+                                            bin.safeFillPercentage,
                                           ).withOpacity(0.2),
                                           borderRadius: BorderRadius.circular(4),
                                         ),
@@ -1444,7 +1446,7 @@ class NavigationBottomPanel extends HookConsumerWidget {
                                             fontSize: 12,
                                             color: GoogleNavigationMarkerService
                                                 .getFillColor(
-                                              bin.fillPercentage,
+                                              bin.safeFillPercentage,
                                             ),
                                             fontWeight: FontWeight.bold,
                                           ),
@@ -1598,7 +1600,7 @@ class NavigationBottomPanel extends HookConsumerWidget {
                               // Address
                               Expanded(
                                 child: Text(
-                                  upcomingBin.address,
+                                  upcomingBin.safeAddress,
                                   style: const TextStyle(
                                     fontSize: 15,
                                     fontWeight: FontWeight.w500,
@@ -1620,7 +1622,7 @@ class NavigationBottomPanel extends HookConsumerWidget {
                                   decoration: BoxDecoration(
                                     color: GoogleNavigationMarkerService
                                         .getFillColor(
-                                      upcomingBin.fillPercentage,
+                                      upcomingBin.safeFillPercentage,
                                     ).withOpacity(0.2),
                                     borderRadius: BorderRadius.circular(4),
                                 ),
@@ -1630,7 +1632,7 @@ class NavigationBottomPanel extends HookConsumerWidget {
                                     fontSize: 12,
                                     color:
                                         GoogleNavigationMarkerService.getFillColor(
-                                      upcomingBin.fillPercentage,
+                                      upcomingBin.safeFillPercentage,
                                     ),
                                     fontWeight: FontWeight.bold,
                                   ),
@@ -1759,7 +1761,7 @@ class NavigationBottomPanel extends HookConsumerWidget {
 
                                     // Address
                                     Text(
-                                      bin.address,
+                                      bin.safeAddress,
                                       textAlign: TextAlign.center,
                                       style: TextStyle(
                                         fontSize: 15,
@@ -1857,7 +1859,7 @@ class NavigationBottomPanel extends HookConsumerWidget {
                             taskType: StopType.placement,
                             latitude: bin.latitude ?? 0,
                             longitude: bin.longitude ?? 0,
-                            address: bin.address,
+                            address: bin.safeAddress,
                             isCompleted: 0,
                             createdAt: DateTime.now().millisecondsSinceEpoch ~/ 1000,
                           );
@@ -1978,7 +1980,7 @@ class NavigationBottomPanel extends HookConsumerWidget {
       shiftId: task.shiftId,
       binId: task.binId ?? '',
       sequenceOrder: task.sequenceOrder,
-      stopType: task.taskType,
+      taskType: task.taskType,
       moveRequestId: task.moveRequestId,
       originalAddress: task.address, // Pickup location address
       newAddress: task.destinationAddress, // Dropoff location address
@@ -2003,19 +2005,19 @@ class NavigationBottomPanel extends HookConsumerWidget {
 
   /// Helper to convert RouteTask to RouteTask for skip task menu
   RouteTask _convertBinToTask(RouteTask bin) {
-    final address = [bin.address, bin.city, bin.zip]
+    final address = [bin.safeAddress, // bin.city, bin.zip - RouteTask only has address field]
         .where((part) => part.isNotEmpty)
         .join(', ');
 
     return RouteTask(
       id: bin.id,
       shiftId: bin.shiftId,
-      binId: bin.binId.isEmpty ? null : bin.binId,
+      binId: bin.binId?.isEmpty ?? true ? null : bin.binId,
       sequenceOrder: bin.sequenceOrder,
       taskType: bin.taskType,
       moveRequestId: bin.moveRequestId,
-      address: address.isEmpty ? bin.originalAddress : address,
-      destinationAddress: bin.newAddress,
+      address: address.isEmpty ? bin.address : address,
+      destinationAddress: null // newAddress field not in RouteTask,
       moveType: bin.moveType,
       potentialLocationId: bin.potentialLocationId,
       newBinNumber: bin.newBinNumber,
@@ -2026,7 +2028,7 @@ class NavigationBottomPanel extends HookConsumerWidget {
       updatedFillPercentage: bin.updatedFillPercentage,
       createdAt: bin.createdAt,
       binNumber: bin.binNumber == 0 ? null : bin.binNumber,
-      fillPercentage: bin.fillPercentage == 0 ? null : bin.fillPercentage,
+      fillPercentage: bin.fillPercentage == 0 ? null : bin.safeFillPercentage,
       latitude: bin.latitude,
       longitude: bin.longitude,
     );

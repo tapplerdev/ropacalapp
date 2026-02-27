@@ -65,7 +65,7 @@ final driversNotifierProvider =
     );
 
 typedef _$DriversNotifier = AsyncNotifier<List<ActiveDriver>>;
-String _$driverShiftDetailHash() => r'4c20003b92530637b6fb7a19d2da1163b6e97af7';
+String _$driverShiftDetailHash() => r'98f6cf3f48ec49a1dbc9845a6c2b3db62d7a71b8';
 
 /// Copied from Dart SDK
 class _SystemHash {

@@ -283,7 +283,7 @@ class __$$BinImplCopyWithImpl<$Res> extends _$BinCopyWithImpl<$Res, _$BinImpl>
 
 /// @nodoc
 @JsonSerializable()
-class _$BinImpl implements _Bin {
+class _$BinImpl extends _Bin {
   const _$BinImpl({
     required this.id,
     @JsonKey(name: 'bin_number') required this.binNumber,
@@ -299,7 +299,7 @@ class _$BinImpl implements _Bin {
     @JsonKey(name: 'move_request_id') this.moveRequestId,
     this.latitude,
     this.longitude,
-  });
+  }) : super._();
 
   factory _$BinImpl.fromJson(Map<String, dynamic> json) =>
       _$$BinImplFromJson(json);
@@ -410,7 +410,7 @@ class _$BinImpl implements _Bin {
   }
 }
 
-abstract class _Bin implements Bin {
+abstract class _Bin extends Bin {
   const factory _Bin({
     required final String id,
     @JsonKey(name: 'bin_number') required final int binNumber,
@@ -427,6 +427,7 @@ abstract class _Bin implements Bin {
     final double? latitude,
     final double? longitude,
   }) = _$BinImpl;
+  const _Bin._() : super._();
 
   factory _Bin.fromJson(Map<String, dynamic> json) = _$BinImpl.fromJson;
 

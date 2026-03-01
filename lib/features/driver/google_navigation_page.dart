@@ -874,7 +874,7 @@ class GoogleNavigationPage extends HookConsumerWidget {
       AppLogger.general('🔍 WAYPOINTS BUILT FOR GOOGLE NAVIGATION (first 3):');
       for (int i = 0; i < waypoints.length && i < 3; i++) {
         final wp = waypoints[i];
-        AppLogger.general('   Waypoint #$i: ${wp.title} - lat=${wp.target.latitude}, lng=${wp.target.longitude}');
+        AppLogger.general('   Waypoint #$i: ${wp.title} - lat=${wp.target?.latitude}, lng=${wp.target?.longitude}');
       }
 
       // Create destinations

@@ -861,20 +861,20 @@ class GoogleNavigationPage extends HookConsumerWidget {
       AppLogger.general('📍 Found ${remainingTasks.length} remaining tasks');
 
       // Log first 3 tasks before waypoint conversion
-      AppLogger.general('🔍 TASKS BEFORE WAYPOINT CONVERSION (first 3):');
+      AppLogger.general('[DIAGNOSTIC] 🔍 TASKS BEFORE WAYPOINT CONVERSION (first 3):');
       for (int i = 0; i < remainingTasks.length && i < 3; i++) {
         final task = remainingTasks[i];
-        AppLogger.general('   Task #$i: ${task.taskType} - lat=${task.latitude} (${task.latitude.runtimeType}), lng=${task.longitude} (${task.longitude.runtimeType})');
+        AppLogger.general('[DIAGNOSTIC]    Task #$i: ${task.taskType} - lat=${task.latitude} (${task.latitude.runtimeType}), lng=${task.longitude} (${task.longitude.runtimeType})');
       }
 
       // Convert tasks to waypoints (deduplicate identical coordinates)
       final waypoints = _buildDeduplicatedWaypoints(remainingTasks);
 
       // Log first 3 waypoints after conversion
-      AppLogger.general('🔍 WAYPOINTS BUILT FOR GOOGLE NAVIGATION (first 3):');
+      AppLogger.general('[DIAGNOSTIC] 🔍 WAYPOINTS BUILT FOR GOOGLE NAVIGATION (first 3):');
       for (int i = 0; i < waypoints.length && i < 3; i++) {
         final wp = waypoints[i];
-        AppLogger.general('   Waypoint #$i: ${wp.title} - lat=${wp.target?.latitude}, lng=${wp.target?.longitude}');
+        AppLogger.general('[DIAGNOSTIC]    Waypoint #$i: ${wp.title} - lat=${wp.target?.latitude}, lng=${wp.target?.longitude}');
       }
 
       // Create destinations
@@ -889,12 +889,12 @@ class GoogleNavigationPage extends HookConsumerWidget {
         ),
       );
 
-      AppLogger.general('🚗 Setting ${waypoints.length} waypoints to Google Navigation SDK...');
+      AppLogger.general('[DIAGNOSTIC] 🚗 Setting ${waypoints.length} waypoints to Google Navigation SDK...');
 
       // Set destinations
       final result = await GoogleMapsNavigator.setDestinations(destinations);
 
-      AppLogger.general('📊 Route calculation result: $result');
+      AppLogger.general('[DIAGNOSTIC] 📊 Route calculation result: $result');
 
       // Handle route calculation result (Google's comprehensive error handling pattern)
       switch (result) {
@@ -1081,16 +1081,16 @@ class GoogleNavigationPage extends HookConsumerWidget {
   static List<NavigationWaypoint> _buildDeduplicatedWaypoints(
     List<RouteTask> tasks,
   ) {
-    AppLogger.general('🔧 Building waypoints from ${tasks.length} tasks...');
+    AppLogger.general('[DIAGNOSTIC] 🔧 Building waypoints from ${tasks.length} tasks...');
 
     // Check for any invalid coordinates upfront
     for (int i = 0; i < tasks.length; i++) {
       final task = tasks[i];
       if (task.latitude == 0 || task.longitude == 0) {
-        AppLogger.general('⚠️  WARNING: Task #$i has ZERO coordinates! lat=${task.latitude}, lng=${task.longitude}, type=${task.taskType}, address=${task.address}');
+        AppLogger.general('[DIAGNOSTIC] ⚠️  WARNING: Task #$i has ZERO coordinates! lat=${task.latitude}, lng=${task.longitude}, type=${task.taskType}, address=${task.address}');
       }
       if (task.latitude.isNaN || task.longitude.isNaN) {
-        AppLogger.general('❌ ERROR: Task #$i has NaN coordinates! lat=${task.latitude}, lng=${task.longitude}, type=${task.taskType}');
+        AppLogger.general('[DIAGNOSTIC] ❌ ERROR: Task #$i has NaN coordinates! lat=${task.latitude}, lng=${task.longitude}, type=${task.taskType}');
       }
     }
 

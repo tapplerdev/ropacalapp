@@ -43,8 +43,21 @@ mixin _$RouteTask {
   double get longitude => throw _privateConstructorUsedError;
 
   /// Task location address
-  String? get address =>
-      throw _privateConstructorUsedError; // ========== COLLECTION TASK FIELDS ==========
+  String? get address => throw _privateConstructorUsedError;
+
+  /// City (for display - parsed from address)
+  String? get city => throw _privateConstructorUsedError;
+
+  /// ZIP code (for display - parsed from address)
+  String? get zip => throw _privateConstructorUsedError;
+
+  /// Original address (for move requests - where bin was originally)
+  @JsonKey(name: 'original_address')
+  String? get originalAddress => throw _privateConstructorUsedError;
+
+  /// New address (alias for destinationAddress for backwards compatibility)
+  @JsonKey(name: 'new_address')
+  String? get newAddress => throw _privateConstructorUsedError; // ========== COLLECTION TASK FIELDS ==========
   /// Bin ID (for collection and move request tasks)
   @JsonKey(name: 'bin_id')
   String? get binId => throw _privateConstructorUsedError;
@@ -137,6 +150,10 @@ abstract class $RouteTaskCopyWith<$Res> {
     double latitude,
     double longitude,
     String? address,
+    String? city,
+    String? zip,
+    @JsonKey(name: 'original_address') String? originalAddress,
+    @JsonKey(name: 'new_address') String? newAddress,
     @JsonKey(name: 'bin_id') String? binId,
     @JsonKey(name: 'bin_number') int? binNumber,
     @JsonKey(name: 'fill_percentage') int? fillPercentage,
@@ -181,6 +198,10 @@ class _$RouteTaskCopyWithImpl<$Res, $Val extends RouteTask>
     Object? latitude = null,
     Object? longitude = null,
     Object? address = freezed,
+    Object? city = freezed,
+    Object? zip = freezed,
+    Object? originalAddress = freezed,
+    Object? newAddress = freezed,
     Object? binId = freezed,
     Object? binNumber = freezed,
     Object? fillPercentage = freezed,
@@ -230,6 +251,22 @@ class _$RouteTaskCopyWithImpl<$Res, $Val extends RouteTask>
             address: freezed == address
                 ? _value.address
                 : address // ignore: cast_nullable_to_non_nullable
+                      as String?,
+            city: freezed == city
+                ? _value.city
+                : city // ignore: cast_nullable_to_non_nullable
+                      as String?,
+            zip: freezed == zip
+                ? _value.zip
+                : zip // ignore: cast_nullable_to_non_nullable
+                      as String?,
+            originalAddress: freezed == originalAddress
+                ? _value.originalAddress
+                : originalAddress // ignore: cast_nullable_to_non_nullable
+                      as String?,
+            newAddress: freezed == newAddress
+                ? _value.newAddress
+                : newAddress // ignore: cast_nullable_to_non_nullable
                       as String?,
             binId: freezed == binId
                 ? _value.binId
@@ -330,6 +367,10 @@ abstract class _$$RouteTaskImplCopyWith<$Res>
     double latitude,
     double longitude,
     String? address,
+    String? city,
+    String? zip,
+    @JsonKey(name: 'original_address') String? originalAddress,
+    @JsonKey(name: 'new_address') String? newAddress,
     @JsonKey(name: 'bin_id') String? binId,
     @JsonKey(name: 'bin_number') int? binNumber,
     @JsonKey(name: 'fill_percentage') int? fillPercentage,
@@ -373,6 +414,10 @@ class __$$RouteTaskImplCopyWithImpl<$Res>
     Object? latitude = null,
     Object? longitude = null,
     Object? address = freezed,
+    Object? city = freezed,
+    Object? zip = freezed,
+    Object? originalAddress = freezed,
+    Object? newAddress = freezed,
     Object? binId = freezed,
     Object? binNumber = freezed,
     Object? fillPercentage = freezed,
@@ -422,6 +467,22 @@ class __$$RouteTaskImplCopyWithImpl<$Res>
         address: freezed == address
             ? _value.address
             : address // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        city: freezed == city
+            ? _value.city
+            : city // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        zip: freezed == zip
+            ? _value.zip
+            : zip // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        originalAddress: freezed == originalAddress
+            ? _value.originalAddress
+            : originalAddress // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        newAddress: freezed == newAddress
+            ? _value.newAddress
+            : newAddress // ignore: cast_nullable_to_non_nullable
                   as String?,
         binId: freezed == binId
             ? _value.binId
@@ -515,6 +576,10 @@ class _$RouteTaskImpl extends _RouteTask {
     required this.latitude,
     required this.longitude,
     this.address,
+    this.city,
+    this.zip,
+    @JsonKey(name: 'original_address') this.originalAddress,
+    @JsonKey(name: 'new_address') this.newAddress,
     @JsonKey(name: 'bin_id') this.binId,
     @JsonKey(name: 'bin_number') this.binNumber,
     @JsonKey(name: 'fill_percentage') this.fillPercentage,
@@ -570,6 +635,24 @@ class _$RouteTaskImpl extends _RouteTask {
   /// Task location address
   @override
   final String? address;
+
+  /// City (for display - parsed from address)
+  @override
+  final String? city;
+
+  /// ZIP code (for display - parsed from address)
+  @override
+  final String? zip;
+
+  /// Original address (for move requests - where bin was originally)
+  @override
+  @JsonKey(name: 'original_address')
+  final String? originalAddress;
+
+  /// New address (alias for destinationAddress for backwards compatibility)
+  @override
+  @JsonKey(name: 'new_address')
+  final String? newAddress;
   // ========== COLLECTION TASK FIELDS ==========
   /// Bin ID (for collection and move request tasks)
   @override
@@ -677,7 +760,7 @@ class _$RouteTaskImpl extends _RouteTask {
 
   @override
   String toString() {
-    return 'RouteTask(id: $id, shiftId: $shiftId, sequenceOrder: $sequenceOrder, taskType: $taskType, latitude: $latitude, longitude: $longitude, address: $address, binId: $binId, binNumber: $binNumber, fillPercentage: $fillPercentage, potentialLocationId: $potentialLocationId, newBinNumber: $newBinNumber, moveRequestId: $moveRequestId, destinationLatitude: $destinationLatitude, destinationLongitude: $destinationLongitude, destinationAddress: $destinationAddress, moveType: $moveType, warehouseAction: $warehouseAction, binsToLoad: $binsToLoad, routeId: $routeId, isCompleted: $isCompleted, completedAt: $completedAt, skipped: $skipped, updatedFillPercentage: $updatedFillPercentage, taskData: $taskData, createdAt: $createdAt)';
+    return 'RouteTask(id: $id, shiftId: $shiftId, sequenceOrder: $sequenceOrder, taskType: $taskType, latitude: $latitude, longitude: $longitude, address: $address, city: $city, zip: $zip, originalAddress: $originalAddress, newAddress: $newAddress, binId: $binId, binNumber: $binNumber, fillPercentage: $fillPercentage, potentialLocationId: $potentialLocationId, newBinNumber: $newBinNumber, moveRequestId: $moveRequestId, destinationLatitude: $destinationLatitude, destinationLongitude: $destinationLongitude, destinationAddress: $destinationAddress, moveType: $moveType, warehouseAction: $warehouseAction, binsToLoad: $binsToLoad, routeId: $routeId, isCompleted: $isCompleted, completedAt: $completedAt, skipped: $skipped, updatedFillPercentage: $updatedFillPercentage, taskData: $taskData, createdAt: $createdAt)';
   }
 
   @override
@@ -696,6 +779,12 @@ class _$RouteTaskImpl extends _RouteTask {
             (identical(other.longitude, longitude) ||
                 other.longitude == longitude) &&
             (identical(other.address, address) || other.address == address) &&
+            (identical(other.city, city) || other.city == city) &&
+            (identical(other.zip, zip) || other.zip == zip) &&
+            (identical(other.originalAddress, originalAddress) ||
+                other.originalAddress == originalAddress) &&
+            (identical(other.newAddress, newAddress) ||
+                other.newAddress == newAddress) &&
             (identical(other.binId, binId) || other.binId == binId) &&
             (identical(other.binNumber, binNumber) ||
                 other.binNumber == binNumber) &&
@@ -743,6 +832,10 @@ class _$RouteTaskImpl extends _RouteTask {
     latitude,
     longitude,
     address,
+    city,
+    zip,
+    originalAddress,
+    newAddress,
     binId,
     binNumber,
     fillPercentage,
@@ -787,6 +880,10 @@ abstract class _RouteTask extends RouteTask {
     required final double latitude,
     required final double longitude,
     final String? address,
+    final String? city,
+    final String? zip,
+    @JsonKey(name: 'original_address') final String? originalAddress,
+    @JsonKey(name: 'new_address') final String? newAddress,
     @JsonKey(name: 'bin_id') final String? binId,
     @JsonKey(name: 'bin_number') final int? binNumber,
     @JsonKey(name: 'fill_percentage') final int? fillPercentage,
@@ -841,7 +938,25 @@ abstract class _RouteTask extends RouteTask {
 
   /// Task location address
   @override
-  String? get address; // ========== COLLECTION TASK FIELDS ==========
+  String? get address;
+
+  /// City (for display - parsed from address)
+  @override
+  String? get city;
+
+  /// ZIP code (for display - parsed from address)
+  @override
+  String? get zip;
+
+  /// Original address (for move requests - where bin was originally)
+  @override
+  @JsonKey(name: 'original_address')
+  String? get originalAddress;
+
+  /// New address (alias for destinationAddress for backwards compatibility)
+  @override
+  @JsonKey(name: 'new_address')
+  String? get newAddress; // ========== COLLECTION TASK FIELDS ==========
   /// Bin ID (for collection and move request tasks)
   @override
   @JsonKey(name: 'bin_id')

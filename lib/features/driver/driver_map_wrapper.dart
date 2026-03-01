@@ -49,54 +49,54 @@ class DriverMapWrapper extends HookConsumerWidget {
       return null;
     }, [shiftState.status]);
 
-    // DIAGNOSTIC LOGGING - Track every rebuild
-    AppLogger.general(
-      '[DIAGNOSTIC] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
-    );
-    AppLogger.general(
-      '[DIAGNOSTIC] 🗺️ DriverMapWrapper.build() called',
-    );
-    AppLogger.general(
-      '[DIAGNOSTIC]    Status: ${shiftState.status}',
-    );
-    AppLogger.general(
-      '[DIAGNOSTIC]    RouteID: ${shiftState.assignedRouteId}',
-    );
-    AppLogger.general(
-      '[DIAGNOSTIC]    Tasks: ${shiftState.tasks.length}',
-    );
-    AppLogger.general(
-      '[DIAGNOSTIC]    ShiftID: ${shiftState.shiftId}',
-    );
+    // Commented out to reduce log spam - uncomment if debugging routing issues
+    // AppLogger.general(
+    //   '[DIAGNOSTIC] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
+    // );
+    // AppLogger.general(
+    //   '[DIAGNOSTIC] 🗺️ DriverMapWrapper.build() called',
+    // );
+    // AppLogger.general(
+    //   '[DIAGNOSTIC]    Status: ${shiftState.status}',
+    // );
+    // AppLogger.general(
+    //   '[DIAGNOSTIC]    RouteID: ${shiftState.assignedRouteId}',
+    // );
+    // AppLogger.general(
+    //   '[DIAGNOSTIC]    Tasks: ${shiftState.tasks.length}',
+    // );
+    // AppLogger.general(
+    //   '[DIAGNOSTIC]    ShiftID: ${shiftState.shiftId}',
+    // );
 
     // When shift is active, automatically switch to navigation page
     // The modal overlay in DriverMapPage will handle shift acceptance (status: ready)
     // When driver accepts, status changes to active, triggering this auto-switch
     if (shiftState.status == ShiftStatus.active) {
-      AppLogger.general(
-        '[DIAGNOSTIC] ✅ Condition met: status=active',
-      );
-      AppLogger.general(
-        '[DIAGNOSTIC] 🚀 SWITCHING TO: GoogleNavigationPage',
-      );
-      AppLogger.general(
-        '[DIAGNOSTIC]    Tasks: ${shiftState.tasks.length} (for reference)',
-      );
-      AppLogger.general(
-        '[DIAGNOSTIC] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
-      );
+      // AppLogger.general(
+      //   '[DIAGNOSTIC] ✅ Condition met: status=active',
+      // );
+      // AppLogger.general(
+      //   '[DIAGNOSTIC] 🚀 SWITCHING TO: GoogleNavigationPage',
+      // );
+      // AppLogger.general(
+      //   '[DIAGNOSTIC]    Tasks: ${shiftState.tasks.length} (for reference)',
+      // );
+      // AppLogger.general(
+      //   '[DIAGNOSTIC] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
+      // );
       return const GoogleNavigationPage();
     }
 
-    AppLogger.general(
-      '[DIAGNOSTIC] ℹ️  Condition NOT met for navigation (status=${shiftState.status})',
-    );
-    AppLogger.general(
-      '[DIAGNOSTIC] 📍 SHOWING: DriverMapPage (regular map)',
-    );
-    AppLogger.general(
-      '[DIAGNOSTIC] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
-    );
+    // AppLogger.general(
+    //   '[DIAGNOSTIC] ℹ️  Condition NOT met for navigation (status=${shiftState.status})',
+    // );
+    // AppLogger.general(
+    //   '[DIAGNOSTIC] 📍 SHOWING: DriverMapPage (regular map)',
+    // );
+    // AppLogger.general(
+    //   '[DIAGNOSTIC] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
+    // );
 
     // Default: Show regular map with overlays
     // When status is 'ready', DriverMapPage shows modal overlay for shift acceptance

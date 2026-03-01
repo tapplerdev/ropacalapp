@@ -387,7 +387,7 @@ class _BinCard extends StatelessWidget {
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    bin.address ?? 'No address',
+                    bin.safeAddress,
                     style: TextStyle(
                       fontSize: 14,
                       color: Colors.grey.shade700,

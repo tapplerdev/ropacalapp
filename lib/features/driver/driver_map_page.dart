@@ -78,8 +78,8 @@ class DriverMapPage extends HookConsumerWidget {
 
     // ✅ CRITICAL: Initialize Centrifugo connection by watching the provider
     // This ensures the CentrifugoManager build() method is called and connects
-    ref.watch(centrifugoManagerProvider);
-    // AppLogger.general('🔵 [DriverMapPage] Watching centrifugoManagerProvider'); // Commented out - too verbose
+    final centrifugoState = ref.watch(centrifugoManagerProvider);
+    AppLogger.general('🔵 [DriverMapPage] Centrifugo state: $centrifugoState');
 
     final binsState = ref.watch(binsListProvider); // Used for Bins tab, NOT for map markers
     // AppLogger.general('   📦 binsState: ${binsState.runtimeType}, hasValue: ${binsState.hasValue}, valueOrNull?.length: ${binsState.valueOrNull?.length}');
@@ -998,7 +998,61 @@ class _ShiftReadyOverlay extends ConsumerWidget {
 
               try {
                 AppLogger.general('📡 Calling startShift()...');
-                await ref.read(shiftNotifierProvider.notifier).startShift();
+                await ref.read(shiftNotifierProvider.notifier).startShift(
+                  onNeedWarehouseBinsAnswer: (placementCount, redeploymentCount) async {
+                    // Hide loading temporarily to show dialog
+                    await EasyLoading.dismiss();
+
+                    if (!context.mounted) return null;
+
+                    // Show warehouse bins dialog
+                    final result = await showDialog<bool>(
+                      context: context,
+                      barrierDismissible: false,
+                      builder: (context) => AlertDialog(
+                        title: const Text('Warehouse Bins'),
+                        content: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'This shift requires bins from the warehouse:',
+                              style: TextStyle(fontWeight: FontWeight.w600),
+                            ),
+                            const SizedBox(height: 12),
+                            if (placementCount > 0)
+                              Text('• $placementCount placement${placementCount > 1 ? 's' : ''}'),
+                            if (redeploymentCount > 0)
+                              Text('• $redeploymentCount redeployment${redeploymentCount > 1 ? 's' : ''}'),
+                            const SizedBox(height: 16),
+                            const Text(
+                              'Are the bins already loaded on your truck?',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                        ),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.of(context).pop(false),
+                            child: const Text('No - Need to Load'),
+                          ),
+                          FilledButton(
+                            onPressed: () => Navigator.of(context).pop(true),
+                            child: const Text('Yes - Already Loaded'),
+                          ),
+                        ],
+                      ),
+                    );
+
+                    // Show loading again after dialog
+                    EasyLoading.show(maskType: EasyLoadingMaskType.black);
+
+                    return result;
+                  },
+                );
                 AppLogger.general('✅ Shift started successfully');
 
                 // Hide loading
@@ -1130,6 +1184,20 @@ class _ShiftActiveOverlay extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final shiftState = ref.watch(shiftNotifierProvider);
+
+    // Commented out to reduce log spam - uncomment if debugging shift state issues
+    // AppLogger.general('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    // AppLogger.general('🔄 [_ShiftActiveOverlay] BUILD CALLED');
+    // AppLogger.general('   Timestamp: ${DateTime.now().toIso8601String()}');
+    // AppLogger.general('   Status: ${shiftState.status}');
+    // AppLogger.general('   Tasks.length: ${shiftState.tasks.length}');
+    // AppLogger.general('   TotalBins: ${shiftState.totalBins}');
+    // AppLogger.general('   CompletedBins: ${shiftState.completedBins}');
+    // AppLogger.general('   Passing to ActiveShiftBottomSheet:');
+    // AppLogger.general('     - tasks: List<RouteTask> with ${shiftState.tasks.length} items');
+    // AppLogger.general('     - totalBins: ${shiftState.totalBins}');
+    // AppLogger.general('     - completedBins: ${shiftState.completedBins}');
+    // AppLogger.general('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
 
     if (shiftState.status != ShiftStatus.active) {
       return const SizedBox.shrink();

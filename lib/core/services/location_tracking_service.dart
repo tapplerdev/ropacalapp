@@ -145,28 +145,28 @@ class LocationTrackingService {
       }
 
       // ═══════════════════════════════════════════════════════════════════════
-      // 🧪 SIMULATOR TESTING WORKAROUND (COMMENTED OUT - USE REAL GPS)
+      // 🧪 SIMULATOR TESTING WORKAROUND (DISABLED FOR REAL DEVICE TESTING)
       // ═══════════════════════════════════════════════════════════════════════
       // iOS Simulator GPS stream never produces updates (causes infinite loading).
       // This section creates a fake periodic GPS stream for testing.
       //
-      // ⚠️ COMMENTED OUT: Use real device GPS instead of hardcoded warehouse coordinates
+      // ⚠️ DISABLED: Using real GPS coordinates from device
       // ═══════════════════════════════════════════════════════════════════════
       // if (kDebugMode && Platform.isIOS) {
       //   AppLogger.general('   🧪 SIMULATOR DETECTED: Starting fake GPS stream');
       //   AppLogger.general('   📍 Using hardcoded warehouse location with 3-second interval');
-
-      //   // Hardcoded warehouse coordinates
-      //   const warehouseLat = 37.3826;
-      //   const warehouseLng = -121.9854;
-
+      //
+      //   // Hardcoded warehouse coordinates (2220 Bridgepointe Pkwy, San Mateo)
+      //   const warehouseLat = 37.558690;
+      //   const warehouseLng = -122.283370;
+      //
       //   // Create periodic timer that sends fake location every 3 seconds
       //   _simulatorTimer = Timer.periodic(const Duration(seconds: 3), (timer) {
       //     if (!_isTracking) {
       //       timer.cancel();
       //       return;
       //     }
-
+      //
       //     // Create fake location with warehouse coordinates
       //     final fakeLocation = fused.FusedLocation(
       //       position: fused.Position(
@@ -180,17 +180,17 @@ class LocationTrackingService {
       //       elevation: fused.Elevation(meanSeaLevel: 0.0, meanSeaLevelAccuracy: 0.0),
       //       course: fused.Course(direction: 0.0, accuracy: 0.0),
       //     );
-
+      //
       //     // Cache the location
       //     _lastLocation = fakeLocation;
-
+      //
       //     // Notify callback (for UI integration)
       //     _onLocationUpdate?.call(fakeLocation);
-
+      //
       //     // Send location to backend
       //     _sendLocation(fakeLocation);
       //   });
-
+      //
       //   AppLogger.general('✅ Fake GPS stream started for simulator (3s interval)');
       //   return; // Skip real GPS setup
       // }
@@ -282,20 +282,20 @@ class LocationTrackingService {
       fused.FusedLocation? location;
 
       // ═══════════════════════════════════════════════════════════════════════
-      // 🧪 SIMULATOR TESTING WORKAROUND (COMMENTED OUT - USE REAL GPS)
+      // 🧪 SIMULATOR TESTING WORKAROUND (DISABLED FOR REAL DEVICE TESTING)
       // ═══════════════════════════════════════════════════════════════════════
       // iOS Simulator GPS is extremely slow (30-60+ seconds for first fix).
       // This section uses hardcoded warehouse coordinates for testing.
       //
-      // ⚠️ COMMENTED OUT: Use real device GPS instead of hardcoded warehouse coordinates
+      // ⚠️ DISABLED: Using real GPS coordinates from device
       // ═══════════════════════════════════════════════════════════════════════
       // if (kDebugMode && Platform.isIOS) {
       //   AppLogger.general('   🧪 SIMULATOR DETECTED: Using hardcoded warehouse location');
-
-      //   // Hardcoded warehouse coordinates
-      //   const warehouseLat = 37.3826;
-      //   const warehouseLng = -121.9854;
-
+      //
+      //   // Hardcoded warehouse coordinates (2220 Bridgepointe Pkwy, San Mateo)
+      //   const warehouseLat = 37.558690;
+      //   const warehouseLng = -122.283370;
+      //
       //   location = fused.FusedLocation(
       //     position: fused.Position(
       //       latitude: warehouseLat,
@@ -308,13 +308,13 @@ class LocationTrackingService {
       //     elevation: fused.Elevation(meanSeaLevel: 0.0, meanSeaLevelAccuracy: 0.0),
       //     course: fused.Course(direction: 0.0, accuracy: 0.0),
       //   );
-
+      //
       //   AppLogger.general('   ✅ Using hardcoded location: $warehouseLat, $warehouseLng');
-
+      //
       //   // Send the hardcoded location
       //   _sendLocation(location);
       //   await Future.delayed(const Duration(milliseconds: 500));
-
+      //
       //   final endTime = DateTime.now();
       //   final totalDuration = endTime.difference(startTime).inMilliseconds;
       //   AppLogger.general('   ✅ sendCurrentLocation() completed in ${totalDuration}ms (hardcoded)');
@@ -463,6 +463,18 @@ class LocationTrackingService {
       // 1. Save original GPS to Redis (fast cache)
       // 2. Snap to roads via OSRM (if accuracy > 15m)
       // 3. Broadcast SNAPPED GPS to all managers watching this driver
+
+      // Check connection state before attempting publish
+      if (!centrifugoService.isConnected) {
+        AppLogger.general(
+          '⚠️  [LocationTracking] Centrifugo not connected - skipping publish',
+        );
+        AppLogger.general(
+          '   Location data cached locally (will retry when connected)',
+        );
+        return;
+      }
+
       await centrifugoService.publish(
         'driver:location:${user.id}',
         locationData,
@@ -472,10 +484,18 @@ class LocationTrackingService {
         '✅ [LocationTracking] Location published to Centrifugo successfully',
       );
     } catch (e) {
-      AppLogger.general(
-        '❌ [LocationTracking] Failed to publish location: $e',
-        level: AppLogger.error,
-      );
+      // Check if it's a connection state error (expected when disconnected)
+      if (e.toString().contains('not connected')) {
+        AppLogger.general(
+          '⚠️  [LocationTracking] Centrifugo disconnected during publish - will retry',
+        );
+      } else {
+        // Unexpected error - log as error
+        AppLogger.general(
+          '❌ [LocationTracking] Failed to publish location: $e',
+          level: AppLogger.error,
+        );
+      }
     }
   }
 

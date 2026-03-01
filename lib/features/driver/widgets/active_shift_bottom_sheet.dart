@@ -72,7 +72,7 @@ class ActiveShiftBottomSheet extends HookConsumerWidget {
   int _getNextBinIndex(RouteTask bin) {
     // Find how many incomplete bins are before this one
     final incompleteBins = tasks.where((b) => b.isCompleted == 0).toList();
-    final index = incompleteBins.indexWhere((b) => b.binId == bin.binId);
+    final index = incompleteBins.indexWhere((b) => b.id == bin.id);
 
     // AppLogger.routing('🔍 _getNextBinIndex:');
     // AppLogger.routing('   Looking for binId: ${bin.binId}');
@@ -174,6 +174,21 @@ class ActiveShiftBottomSheet extends HookConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    AppLogger.general('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    AppLogger.general('📱 [ActiveShiftBottomSheet] BUILD CALLED');
+    AppLogger.general('   Timestamp: ${DateTime.now().toIso8601String()}');
+    AppLogger.general('   Received parameters:');
+    AppLogger.general('     - tasks.length: ${tasks.length}');
+    AppLogger.general('     - totalBins: $totalBins');
+    AppLogger.general('     - completedBins: $completedBins');
+    AppLogger.general('   Computed values:');
+    AppLogger.general('     - usesTasks: $usesTasks');
+    if (tasks.isNotEmpty) {
+      AppLogger.general('     - First task: ${tasks[0].taskType.name} - Bin #${tasks[0].binNumber ?? "N/A"}');
+      AppLogger.general('     - Last task: ${tasks[tasks.length - 1].taskType.name} - Bin #${tasks[tasks.length - 1].binNumber ?? "N/A"}');
+    }
+    AppLogger.general('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+
     final isExpanded = useState(false); // Start collapsed for clean UI
     final locationState = ref.watch(currentLocationProvider);
     final currentLocation = locationState.value != null
@@ -224,7 +239,7 @@ class ActiveShiftBottomSheet extends HookConsumerWidget {
         progressPercentage,
         simulationState,
         binLabel: 'Bin #${next.binNumber}',
-        binSubtitle: next.address,
+        binSubtitle: next.safeAddress,
         distanceKm: distanceKm,
         currentLocation: currentLocation,
       );
@@ -1048,7 +1063,7 @@ class ActiveShiftBottomSheet extends HookConsumerWidget {
         .where((bin) => bin.isCompleted == 0)
         .toList();
     final currentIndex = incompleteBins.indexWhere(
-      (bin) => bin.binId == currentBin.binId,
+      (bin) => bin.id == currentBin.id,
     );
 
     if (currentIndex == -1 || currentIndex >= incompleteBins.length - 1) {

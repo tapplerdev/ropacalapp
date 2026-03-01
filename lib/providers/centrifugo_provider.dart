@@ -1,11 +1,11 @@
 import 'dart:async';
-import 'dart:developer';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:ropacalapp/core/services/centrifugo_service.dart';
 import 'package:ropacalapp/core/enums/user_role.dart';
 import 'package:ropacalapp/providers/auth_provider.dart';
 import 'package:ropacalapp/providers/potential_locations_list_provider.dart';
 import 'package:ropacalapp/providers/bins_provider.dart';
+import 'package:ropacalapp/core/utils/app_logger.dart';
 
 part 'centrifugo_provider.g.dart';
 
@@ -14,7 +14,10 @@ part 'centrifugo_provider.g.dart';
 /// Automatically connects when ANY user logs in (drivers AND managers)
 /// - Drivers: Publish location to driver:location:{id} channel
 /// - Managers: Subscribe to driver location channels for real-time tracking
-@riverpod
+///
+/// keepAlive: true prevents auto-disposal during tab switches while still
+/// cleaning up properly on logout (watches authNotifierProvider)
+@Riverpod(keepAlive: true)
 class CentrifugoManager extends _$CentrifugoManager {
   StreamSubscription? _locationSubscription;
   StreamSubscription? _companyEventsSubscription;
@@ -22,23 +25,23 @@ class CentrifugoManager extends _$CentrifugoManager {
 
   @override
   FutureOr<void> build() async {
-    log('🔵 [CentrifugoManager] build() called - Provider is being initialized!');
+    AppLogger.general('🔵 [CentrifugoManager] build() called - Provider is being initialized!');
 
     // Watch auth state changes
     final authState = ref.watch(authNotifierProvider);
 
-    log('🔵 [CentrifugoManager] Auth state check: hasValue=${authState.hasValue}, value=${authState.value?.id ?? "null"}');
+    AppLogger.general('🔵 [CentrifugoManager] Auth state check: hasValue=${authState.hasValue}, value=${authState.value?.id ?? "null"}');
 
     // Disconnect when user logs out
     ref.onDispose(() {
-      log('🔵 [CentrifugoManager] Provider disposed - cleaning up');
+      AppLogger.general('🔵 [CentrifugoManager] Provider disposed - cleaning up');
       _disconnect();
     });
 
     // Connect for ALL authenticated users (drivers publish, managers subscribe)
     if (authState.hasValue && authState.value != null) {
       final user = authState.value!;
-      log('🔌 [CentrifugoManager] User detected '
+      AppLogger.general('🔌 [CentrifugoManager] User detected '
           '(role=${user.role}, id=${user.id}) - connecting to Centrifugo');
       await _connect();
 
@@ -47,7 +50,7 @@ class CentrifugoManager extends _$CentrifugoManager {
         await _subscribeToCompanyEvents();
       }
     } else {
-      log('⚠️ [CentrifugoManager] No authenticated user - skipping connection');
+      AppLogger.general('⚠️ [CentrifugoManager] No authenticated user - skipping connection');
       _disconnect();
     }
   }
@@ -55,7 +58,7 @@ class CentrifugoManager extends _$CentrifugoManager {
   /// Connect to Centrifugo
   Future<void> _connect() async {
     if (_isConnected) {
-      log('🔌 [CentrifugoManager] Already connected');
+      AppLogger.general('🔌 [CentrifugoManager] Already connected');
       return;
     }
 
@@ -65,7 +68,7 @@ class CentrifugoManager extends _$CentrifugoManager {
       final apiService = ref.read(apiServiceProvider);
 
       if (!apiService.isAuthTokenReady) {
-        log('⏳ [CentrifugoManager] Auth token not ready yet, waiting...');
+        AppLogger.general('⏳ [CentrifugoManager] Auth token not ready yet, waiting...');
 
         // Wait with timeout to prevent infinite hang
         int attempts = 0;
@@ -74,29 +77,29 @@ class CentrifugoManager extends _$CentrifugoManager {
         while (!apiService.isAuthTokenReady && attempts < maxAttempts) {
           await Future.delayed(const Duration(milliseconds: 100));
           attempts++;
-          log('⏳ [CentrifugoManager] Waiting for auth token (attempt $attempts/$maxAttempts)');
+          AppLogger.general('⏳ [CentrifugoManager] Waiting for auth token (attempt $attempts/$maxAttempts)');
         }
 
         if (!apiService.isAuthTokenReady) {
-          log('❌ [CentrifugoManager] Auth token not ready after ${maxAttempts * 100}ms - aborting connection');
+          AppLogger.general('❌ [CentrifugoManager] Auth token not ready after ${maxAttempts * 100}ms - aborting connection');
           throw Exception(
             'Auth token not loaded within timeout. Cannot connect to Centrifugo without authentication.',
           );
         }
 
-        log('✅ [CentrifugoManager] Auth token ready after ${attempts * 100}ms');
+        AppLogger.general('✅ [CentrifugoManager] Auth token ready after ${attempts * 100}ms');
       } else {
-        log('✅ [CentrifugoManager] Auth token already ready');
+        AppLogger.general('✅ [CentrifugoManager] Auth token already ready');
       }
 
-      log('🔌 [CentrifugoManager] Connecting to Centrifugo...');
+      AppLogger.general('🔌 [CentrifugoManager] Connecting to Centrifugo...');
       final centrifugoService = ref.read(centrifugoServiceProvider);
       await centrifugoService.connect();
       _isConnected = true;
-      log('✅ [CentrifugoManager] Connected to Centrifugo successfully');
+      AppLogger.general('✅ [CentrifugoManager] Connected to Centrifugo successfully');
     } catch (e) {
-      log('❌ [CentrifugoManager] Failed to connect: $e');
-      log('💡 [CentrifugoManager] This is not critical - connection will retry automatically');
+      AppLogger.general('❌ [CentrifugoManager] Failed to connect: $e');
+      AppLogger.general('💡 [CentrifugoManager] This is not critical - connection will retry automatically');
       // Don't rethrow - allow app to continue working, Centrifugo will retry
     }
   }
@@ -107,39 +110,39 @@ class CentrifugoManager extends _$CentrifugoManager {
   ///          potential_location_deleted
   Future<void> _subscribeToCompanyEvents() async {
     if (_companyEventsSubscription != null) {
-      log('⚠️ [CentrifugoManager] Already subscribed to company:events');
+      AppLogger.general('⚠️ [CentrifugoManager] Already subscribed to company:events');
       return;
     }
 
     try {
-      log('🔄 [CentrifugoManager] Subscribing to company:events...');
+      AppLogger.general('🔄 [CentrifugoManager] Subscribing to company:events...');
       final centrifugoService = ref.read(centrifugoServiceProvider);
       _companyEventsSubscription =
           await centrifugoService.subscribeToCompanyEvents((event) {
         final type = event['type'] as String?;
-        log('📢 [CentrifugoManager] Company event: $type');
+        AppLogger.general('📢 [CentrifugoManager] Company event: $type');
 
         switch (type) {
           case 'potential_location_created':
-            log('📍 [CentrifugoManager] Potential location created - '
+            AppLogger.general('📍 [CentrifugoManager] Potential location created - '
                 'invalidating list');
             ref.invalidate(potentialLocationsListNotifierProvider);
           case 'potential_location_converted':
-            log('🔄 [CentrifugoManager] Potential location converted - '
+            AppLogger.general('🔄 [CentrifugoManager] Potential location converted - '
                 'invalidating list + bins');
             ref.invalidate(potentialLocationsListNotifierProvider);
             ref.invalidate(binsListProvider);
           case 'potential_location_deleted':
-            log('🗑️ [CentrifugoManager] Potential location deleted - '
+            AppLogger.general('🗑️ [CentrifugoManager] Potential location deleted - '
                 'invalidating list');
             ref.invalidate(potentialLocationsListNotifierProvider);
           default:
-            log('⚠️ [CentrifugoManager] Unknown company event type: $type');
+            AppLogger.general('⚠️ [CentrifugoManager] Unknown company event type: $type');
         }
       });
-      log('✅ [CentrifugoManager] Subscribed to company:events');
+      AppLogger.general('✅ [CentrifugoManager] Subscribed to company:events');
     } catch (e) {
-      log('❌ [CentrifugoManager] Failed to subscribe to company:events: $e');
+      AppLogger.general('❌ [CentrifugoManager] Failed to subscribe to company:events: $e');
       // Non-fatal — app continues without real-time potential location updates
     }
   }
@@ -148,7 +151,7 @@ class CentrifugoManager extends _$CentrifugoManager {
   void _disconnect() {
     if (!_isConnected) return;
 
-    log('🔌 [CentrifugoManager] Disconnecting from Centrifugo...');
+    AppLogger.general('🔌 [CentrifugoManager] Disconnecting from Centrifugo...');
     _locationSubscription?.cancel();
     _locationSubscription = null;
     _companyEventsSubscription?.cancel();
@@ -157,7 +160,7 @@ class CentrifugoManager extends _$CentrifugoManager {
     final centrifugoService = ref.read(centrifugoServiceProvider);
     centrifugoService.disconnect();
     _isConnected = false;
-    log('✅ [CentrifugoManager] Disconnected from Centrifugo');
+    AppLogger.general('✅ [CentrifugoManager] Disconnected from Centrifugo');
   }
 
   /// Subscribe to driver location updates (managers only)
@@ -170,29 +173,29 @@ class CentrifugoManager extends _$CentrifugoManager {
     }
 
     try {
-      log('🔄 [CentrifugoManager] Subscribing to driver location: $driverId');
+      AppLogger.general('🔄 [CentrifugoManager] Subscribing to driver location: $driverId');
       final centrifugoService = ref.read(centrifugoServiceProvider);
       _locationSubscription = await centrifugoService.subscribeToDriverLocation(
         driverId,
         onUpdate,
       );
-      log('✅ [CentrifugoManager] Subscribed to driver:location:$driverId');
+      AppLogger.general('✅ [CentrifugoManager] Subscribed to driver:location:$driverId');
     } catch (e) {
-      log('❌ [CentrifugoManager] Failed to subscribe: $e');
+      AppLogger.general('❌ [CentrifugoManager] Failed to subscribe: $e');
       rethrow;
     }
   }
 
   /// Unsubscribe from driver location
   void unsubscribeFromDriverLocation(String driverId) {
-    log('🔄 [CentrifugoManager] Unsubscribing from driver location: $driverId');
+    AppLogger.general('🔄 [CentrifugoManager] Unsubscribing from driver location: $driverId');
     _locationSubscription?.cancel();
     _locationSubscription = null;
 
     final centrifugoService = ref.read(centrifugoServiceProvider);
     final channel = 'driver:location:$driverId';
     centrifugoService.unsubscribe(channel);
-    log('✅ [CentrifugoManager] Unsubscribed from $channel');
+    AppLogger.general('✅ [CentrifugoManager] Unsubscribed from $channel');
   }
 
   /// Check if connected

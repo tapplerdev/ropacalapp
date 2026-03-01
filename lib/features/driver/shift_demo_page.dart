@@ -132,7 +132,55 @@ class ShiftDemoPage extends ConsumerWidget {
                 status: shiftState.status,
                 onSlideComplete: () async {
                   try {
-                    await shiftNotifier.startShift();
+                    await shiftNotifier.startShift(
+                      onNeedWarehouseBinsAnswer: (placementCount, redeploymentCount) async {
+                        if (!context.mounted) return null;
+
+                        // Show warehouse bins dialog
+                        final result = await showDialog<bool>(
+                          context: context,
+                          barrierDismissible: false,
+                          builder: (context) => AlertDialog(
+                            title: const Text('Warehouse Bins'),
+                            content: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text(
+                                  'This shift requires bins from the warehouse:',
+                                  style: TextStyle(fontWeight: FontWeight.w600),
+                                ),
+                                const SizedBox(height: 12),
+                                if (placementCount > 0)
+                                  Text('• $placementCount placement${placementCount > 1 ? 's' : ''}'),
+                                if (redeploymentCount > 0)
+                                  Text('• $redeploymentCount redeployment${redeploymentCount > 1 ? 's' : ''}'),
+                                const SizedBox(height: 16),
+                                const Text(
+                                  'Are the bins already loaded on your truck?',
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            actions: [
+                              TextButton(
+                                onPressed: () => Navigator.of(context).pop(false),
+                                child: const Text('No - Need to Load'),
+                              ),
+                              FilledButton(
+                                onPressed: () => Navigator.of(context).pop(true),
+                                child: const Text('Yes - Already Loaded'),
+                              ),
+                            ],
+                          ),
+                        );
+
+                        return result;
+                      },
+                    );
                     if (context.mounted) {
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(

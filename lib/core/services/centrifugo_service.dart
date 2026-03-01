@@ -1,10 +1,10 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:developer';
 import 'package:centrifuge/centrifuge.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:ropacalapp/core/services/api_service.dart';
 import 'package:ropacalapp/providers/api_provider.dart';
+import 'package:ropacalapp/core/utils/app_logger.dart';
 
 /// Centrifugo real-time messaging service for driver location streaming
 ///
@@ -28,22 +28,22 @@ class CentrifugoService {
 
   /// Initialize Centrifugo client and establish WebSocket connection
   Future<void> connect() async {
-    log('🔵 [Centrifugo] connect() called');
+    AppLogger.general('🔵 [Centrifugo] connect() called');
 
     if (_client != null) {
-      log('🔌 [Centrifugo] Already connected (client exists)');
+      AppLogger.general('🔌 [Centrifugo] Already connected (client exists)');
       return;
     }
 
     try {
-      log('🔌 [Centrifugo] Fetching connection token from backend...');
+      AppLogger.general('🔌 [Centrifugo] Fetching connection token from backend...');
 
       // Fetch JWT token from backend
       final tokenResponse = await _apiService.getCentrifugoToken();
       final token = tokenResponse['token'] as String;
       final expiresAt = tokenResponse['expires_at'] as int;
 
-      log('🔑 [Centrifugo] Token received (expires: ${DateTime.fromMillisecondsSinceEpoch(expiresAt * 1000)})');
+      AppLogger.general('🔑 [Centrifugo] Token received (expires: ${DateTime.fromMillisecondsSinceEpoch(expiresAt * 1000)})');
 
       // Create Centrifuge client with production configuration
       _client = createClient(
@@ -58,30 +58,30 @@ class CentrifugoService {
           maxServerPingDelay: const Duration(seconds: 10),
           // Token refresh callback - called when token is expiring
           getToken: (event) async {
-            log('🔑 [Centrifugo] Token expiring, fetching fresh token from backend...');
-            log('🔑 [Centrifugo] Refresh attempt triggered by SDK');
+            AppLogger.general('🔑 [Centrifugo] Token expiring, fetching fresh token from backend...');
+            AppLogger.general('🔑 [Centrifugo] Refresh attempt triggered by SDK');
 
             try {
               final response = await _apiService.getCentrifugoToken();
               final newToken = response['token'] as String;
               final expiresAt = response['expires_at'] as int;
 
-              log('✅ [Centrifugo] Token refreshed successfully');
-              log('🔑 [Centrifugo] New token expires: ${DateTime.fromMillisecondsSinceEpoch(expiresAt * 1000)}');
+              AppLogger.general('✅ [Centrifugo] Token refreshed successfully');
+              AppLogger.general('🔑 [Centrifugo] New token expires: ${DateTime.fromMillisecondsSinceEpoch(expiresAt * 1000)}');
 
               return newToken;
             } catch (e) {
-              log('❌ [Centrifugo] Token refresh FAILED: $e');
+              AppLogger.general('❌ [Centrifugo] Token refresh FAILED: $e');
 
               // Check if it's an authentication error (401)
               if (e.toString().contains('Authentication expired') ||
                   e.toString().contains('401')) {
-                log('🔴 [Centrifugo] JWT token is expired - user needs to re-login');
-                log('💡 [Centrifugo] WebSocket will disconnect and wait for user re-authentication');
+                AppLogger.general('🔴 [Centrifugo] JWT token is expired - user needs to re-login');
+                AppLogger.general('💡 [Centrifugo] WebSocket will disconnect and wait for user re-authentication');
               } else if (e.toString().contains('Auth token not ready')) {
-                log('⚠️  [Centrifugo] Auth token not loaded - possible race condition');
+                AppLogger.general('⚠️  [Centrifugo] Auth token not loaded - possible race condition');
               } else {
-                log('⚠️  [Centrifugo] Network or server error - will retry with backoff');
+                AppLogger.general('⚠️  [Centrifugo] Network or server error - will retry with backoff');
               }
 
               // Rethrow to let Centrifuge SDK handle reconnection with exponential backoff
@@ -93,27 +93,27 @@ class CentrifugoService {
 
       // Setup state change listeners
       _client!.connecting.listen((event) {
-        log('🟡 [Centrifugo] Connecting... (${event.code}: ${event.reason})');
+        AppLogger.general('🟡 [Centrifugo] Connecting... (${event.code}: ${event.reason})');
       });
 
       _client!.connected.listen((event) {
-        log('🟢 [Centrifugo] Connected! (client: ${event.client})');
+        AppLogger.general('🟢 [Centrifugo] Connected! (client: ${event.client})');
       });
 
       _client!.disconnected.listen((event) {
-        log('⚫ [Centrifugo] Disconnected (code: ${event.code}, reason: ${event.reason})');
+        AppLogger.general('⚫ [Centrifugo] Disconnected (code: ${event.code}, reason: ${event.reason})');
       });
 
       _client!.error.listen((event) {
-        log('❌ [Centrifugo] Error: ${event.error}');
+        AppLogger.general('❌ [Centrifugo] Error: ${event.error}');
       });
 
       // Connect to Centrifugo
       await _client!.connect();
 
-      log('✅ [Centrifugo] Connection initiated');
+      AppLogger.general('✅ [Centrifugo] Connection initiated');
     } catch (e) {
-      log('❌ [Centrifugo] Failed to connect: $e');
+      AppLogger.general('❌ [Centrifugo] Failed to connect: $e');
       rethrow;
     }
   }
@@ -137,34 +137,34 @@ class CentrifugoService {
 
     // Check if already subscribed
     if (_subscriptions.containsKey(channel)) {
-      log('⚠️ [Centrifugo] Already subscribed to $channel');
+      AppLogger.general('⚠️ [Centrifugo] Already subscribed to $channel');
       return _subscriptions[channel]!.publication.listen((event) {
         final data = jsonDecode(utf8.decode(event.data));
         onLocationUpdate(data as Map<String, dynamic>);
       });
     }
 
-    log('🔄 [Centrifugo] Subscribing to $channel...');
+    AppLogger.general('🔄 [Centrifugo] Subscribing to $channel...');
 
     // Create subscription
     final subscription = _client!.newSubscription(channel);
 
     // Setup state listeners
     subscription.subscribing.listen((event) {
-      log('🔄 [Centrifugo] Subscribing to $channel... (${event.code}: ${event.reason})');
+      AppLogger.general('🔄 [Centrifugo] Subscribing to $channel... (${event.code}: ${event.reason})');
     });
 
     subscription.subscribed.listen((event) {
-      log('✅ [Centrifugo] Subscribed to $channel');
+      AppLogger.general('✅ [Centrifugo] Subscribed to $channel');
     });
 
     subscription.unsubscribed.listen((event) {
-      log('❌ [Centrifugo] Unsubscribed from $channel (${event.code}: ${event.reason})');
+      AppLogger.general('❌ [Centrifugo] Unsubscribed from $channel (${event.code}: ${event.reason})');
       _subscriptions.remove(channel);
     });
 
     subscription.error.listen((event) {
-      log('❌ [Centrifugo] Subscription error on $channel: ${event.error}');
+      AppLogger.general('❌ [Centrifugo] Subscription error on $channel: ${event.error}');
     });
 
     // Store subscription
@@ -175,7 +175,7 @@ class CentrifugoService {
 
     // Return stream subscription for location updates
     return subscription.publication.listen((event) {
-      log('📍 [Centrifugo] Location update received on $channel');
+      AppLogger.general('📍 [Centrifugo] Location update received on $channel');
       final data = jsonDecode(utf8.decode(event.data));
       onLocationUpdate(data as Map<String, dynamic>);
     });
@@ -199,27 +199,27 @@ class CentrifugoService {
     }
 
     if (_subscriptions.containsKey(channel)) {
-      log('⚠️ [Centrifugo] Already subscribed to $channel');
+      AppLogger.general('⚠️ [Centrifugo] Already subscribed to $channel');
       return _subscriptions[channel]!.publication.listen((event) {
         final data = jsonDecode(utf8.decode(event.data));
         onUpdate(data as Map<String, dynamic>);
       });
     }
 
-    log('🔄 [Centrifugo] Subscribing to $channel...');
+    AppLogger.general('🔄 [Centrifugo] Subscribing to $channel...');
 
     final subscription = _client!.newSubscription(channel);
 
     subscription.subscribing.listen((event) {
-      log('🔄 [Centrifugo] Subscribing to $channel...');
+      AppLogger.general('🔄 [Centrifugo] Subscribing to $channel...');
     });
 
     subscription.subscribed.listen((event) {
-      log('✅ [Centrifugo] Subscribed to $channel');
+      AppLogger.general('✅ [Centrifugo] Subscribed to $channel');
     });
 
     subscription.unsubscribed.listen((event) {
-      log('❌ [Centrifugo] Unsubscribed from $channel');
+      AppLogger.general('❌ [Centrifugo] Unsubscribed from $channel');
       _subscriptions.remove(channel);
     });
 
@@ -227,7 +227,7 @@ class CentrifugoService {
     await subscription.subscribe();
 
     return subscription.publication.listen((event) {
-      log('🔔 [Centrifugo] Shift update received on $channel');
+      AppLogger.general('🔔 [Centrifugo] Shift update received on $channel');
       final data = jsonDecode(utf8.decode(event.data));
       onUpdate(data as Map<String, dynamic>);
     });
@@ -250,27 +250,27 @@ class CentrifugoService {
     }
 
     if (_subscriptions.containsKey(channel)) {
-      log('⚠️ [Centrifugo] Already subscribed to $channel');
+      AppLogger.general('⚠️ [Centrifugo] Already subscribed to $channel');
       return _subscriptions[channel]!.publication.listen((event) {
         final data = jsonDecode(utf8.decode(event.data));
         onNotification(data as Map<String, dynamic>);
       });
     }
 
-    log('🔄 [Centrifugo] Subscribing to $channel...');
+    AppLogger.general('🔄 [Centrifugo] Subscribing to $channel...');
 
     final subscription = _client!.newSubscription(channel);
 
     subscription.subscribing.listen((event) {
-      log('🔄 [Centrifugo] Subscribing to $channel...');
+      AppLogger.general('🔄 [Centrifugo] Subscribing to $channel...');
     });
 
     subscription.subscribed.listen((event) {
-      log('✅ [Centrifugo] Subscribed to $channel');
+      AppLogger.general('✅ [Centrifugo] Subscribed to $channel');
     });
 
     subscription.unsubscribed.listen((event) {
-      log('❌ [Centrifugo] Unsubscribed from $channel');
+      AppLogger.general('❌ [Centrifugo] Unsubscribed from $channel');
       _subscriptions.remove(channel);
     });
 
@@ -278,7 +278,7 @@ class CentrifugoService {
     await subscription.subscribe();
 
     return subscription.publication.listen((event) {
-      log('🔔 [Centrifugo] Manager notification received on $channel');
+      AppLogger.general('🔔 [Centrifugo] Manager notification received on $channel');
       final data = jsonDecode(utf8.decode(event.data));
       onNotification(data as Map<String, dynamic>);
     });
@@ -308,40 +308,40 @@ class CentrifugoService {
     }
 
     if (_subscriptions.containsKey(channel)) {
-      log('⚠️ [Centrifugo] Already subscribed to $channel');
+      AppLogger.general('⚠️ [Centrifugo] Already subscribed to $channel');
       return _subscriptions[channel]!.publication.listen((pub) {
         final data = jsonDecode(utf8.decode(pub.data));
         onEvent(data as Map<String, dynamic>);
       });
     }
 
-    log('🔄 [Centrifugo] Subscribing to $channel...');
+    AppLogger.general('🔄 [Centrifugo] Subscribing to $channel...');
 
     final subscription = _client!.newSubscription(channel);
 
     subscription.subscribing.listen((event) {
-      log('🔄 [Centrifugo] Subscribing to $channel...');
+      AppLogger.general('🔄 [Centrifugo] Subscribing to $channel...');
     });
 
     subscription.subscribed.listen((event) {
-      log('✅ [Centrifugo] Subscribed to $channel');
+      AppLogger.general('✅ [Centrifugo] Subscribed to $channel');
     });
 
     subscription.unsubscribed.listen((event) {
-      log('❌ [Centrifugo] Unsubscribed from $channel '
+      AppLogger.general('❌ [Centrifugo] Unsubscribed from $channel '
           '(${event.code}: ${event.reason})');
       _subscriptions.remove(channel);
     });
 
     subscription.error.listen((event) {
-      log('❌ [Centrifugo] Subscription error on $channel: ${event.error}');
+      AppLogger.general('❌ [Centrifugo] Subscription error on $channel: ${event.error}');
     });
 
     _subscriptions[channel] = subscription;
     await subscription.subscribe();
 
     return subscription.publication.listen((pub) {
-      log('📢 [Centrifugo] Company event received on $channel');
+      AppLogger.general('📢 [Centrifugo] Company event received on $channel');
       final data = jsonDecode(utf8.decode(pub.data));
       onEvent(data as Map<String, dynamic>);
     });
@@ -351,36 +351,36 @@ class CentrifugoService {
   void unsubscribe(String channel) {
     final subscription = _subscriptions[channel];
     if (subscription != null) {
-      log('🔄 [Centrifugo] Unsubscribing from $channel...');
+      AppLogger.general('🔄 [Centrifugo] Unsubscribing from $channel...');
       subscription.unsubscribe();
       _subscriptions.remove(channel);
     } else {
-      log('⚠️ [Centrifugo] No subscription found for $channel');
+      AppLogger.general('⚠️ [Centrifugo] No subscription found for $channel');
     }
   }
 
   /// Unsubscribe from all channels
   void unsubscribeAll() {
-    log('🔄 [Centrifugo] Unsubscribing from all channels...');
+    AppLogger.general('🔄 [Centrifugo] Unsubscribing from all channels...');
     for (final subscription in _subscriptions.values) {
       subscription.unsubscribe();
     }
     _subscriptions.clear();
-    log('✅ [Centrifugo] Unsubscribed from all channels');
+    AppLogger.general('✅ [Centrifugo] Unsubscribed from all channels');
   }
 
   /// Disconnect from Centrifugo
   void disconnect() {
     if (_client == null) {
-      log('⚠️ [Centrifugo] Not connected');
+      AppLogger.general('⚠️ [Centrifugo] Not connected');
       return;
     }
 
-    log('🔌 [Centrifugo] Disconnecting...');
+    AppLogger.general('🔌 [Centrifugo] Disconnecting...');
     unsubscribeAll();
     _client!.disconnect();
     _client = null;
-    log('✅ [Centrifugo] Disconnected');
+    AppLogger.general('✅ [Centrifugo] Disconnected');
   }
 
   /// Get connection state
@@ -397,19 +397,26 @@ class CentrifugoService {
   /// Backend flow: Centrifugo receives → calls publish proxy → saves to Redis → snaps to roads → broadcasts
   Future<void> publish(String channel, Map<String, dynamic> data) async {
     if (_client == null) {
-      log('❌ [Centrifugo] Cannot publish - client is null!');
+      AppLogger.general('❌ [Centrifugo] Cannot publish - client is null!');
       throw StateError('Centrifugo client not connected. Call connect() first.');
     }
 
-    log('🔌 [Centrifugo] Client state: ${_client!.state}');
+    // Check connection state before publishing
+    final currentState = _client!.state;
+    AppLogger.general('🔌 [Centrifugo] Client state: $currentState');
+
+    if (currentState != State.connected) {
+      AppLogger.general('❌ [Centrifugo] Cannot publish - not connected (state: $currentState)');
+      throw StateError('Centrifugo not connected (state: $currentState). Cannot publish.');
+    }
 
     try {
-      log('📤 [Centrifugo] Publishing to $channel...');
-      log('📦 [Centrifugo] Data: $data');
+      AppLogger.general('📤 [Centrifugo] Publishing to $channel...');
+      AppLogger.general('📦 [Centrifugo] Data: $data');
       await _client!.publish(channel, utf8.encode(jsonEncode(data)));
-      log('✅ [Centrifugo] Published to $channel successfully');
+      AppLogger.general('✅ [Centrifugo] Published to $channel successfully');
     } catch (e) {
-      log('❌ [Centrifugo] Failed to publish to $channel: $e');
+      AppLogger.general('❌ [Centrifugo] Failed to publish to $channel: $e');
       rethrow;
     }
   }
@@ -424,7 +431,7 @@ class CentrifugoService {
     String driverId,
     Map<String, dynamic> locationData,
   ) async {
-    log('⚠️ [Centrifugo] publishDriverLocation is deprecated. Use backend endpoint instead.');
+    AppLogger.general('⚠️ [Centrifugo] publishDriverLocation is deprecated. Use backend endpoint instead.');
     // No-op - backend handles this now
   }
 }

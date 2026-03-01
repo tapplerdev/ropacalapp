@@ -45,6 +45,53 @@ class NavigationPageNotifier extends _$NavigationPageNotifier {
     state = state.copyWith(currentBinIndex: state.currentBinIndex + 1);
   }
 
+  // ==================== Task ID Tracking ====================
+
+  /// Get the current task ID being tracked
+  String? getCurrentTaskId() {
+    return state.currentTaskId;
+  }
+
+  /// Set the current task ID from a task index
+  /// This should be called whenever currentBinIndex changes
+  void setCurrentTaskIdFromIndex(List<RouteTask> tasks, int index) {
+    if (index >= 0 && index < tasks.length) {
+      state = state.copyWith(currentTaskId: tasks[index].id);
+    } else {
+      state = state.copyWith(currentTaskId: null);
+    }
+  }
+
+  /// Recalculate currentBinIndex based on the tracked task ID
+  /// Call this after route reoptimization to sync the index with the new task order
+  void recalculateIndexFromTaskId(List<RouteTask> remainingTasks) {
+    final taskId = state.currentTaskId;
+    if (taskId == null) {
+      // No task ID tracked, reset to 0
+      setCurrentBinIndex(0);
+      if (remainingTasks.isNotEmpty) {
+        setCurrentTaskIdFromIndex(remainingTasks, 0);
+      }
+      return;
+    }
+
+    // Find the task's new position in the updated array
+    final newIndex = remainingTasks.indexWhere((task) => task.id == taskId);
+
+    if (newIndex != -1) {
+      // Task found at new position
+      setCurrentBinIndex(newIndex);
+    } else {
+      // Task not found (likely completed or removed), reset to first task
+      setCurrentBinIndex(0);
+      if (remainingTasks.isNotEmpty) {
+        setCurrentTaskIdFromIndex(remainingTasks, 0);
+      } else {
+        state = state.copyWith(currentTaskId: null);
+      }
+    }
+  }
+
   // ==================== Navigation Step ====================
 
   void updateCurrentStep(RouteStep? step) {

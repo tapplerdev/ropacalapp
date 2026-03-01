@@ -143,10 +143,10 @@ class ShiftDetailsModal extends StatelessWidget {
   // Metrics row showing key stats
   Widget _buildMetricsRow() {
     final highPriorityCount = shiftOverview.tasks
-        .where((bin) => bin.safeFillPercentage > 80)
+        .where((bin) => (bin.fillPercentage ?? 0) > 80)
         .length;
     final mediumPriorityCount = shiftOverview.tasks
-        .where((bin) => bin.safeFillPercentage > 50 && bin.safeFillPercentage <= 80)
+        .where((bin) => (bin.fillPercentage ?? 0) > 50 && (bin.fillPercentage ?? 0) <= 80)
         .length;
 
     return Row(
@@ -281,10 +281,11 @@ class ShiftDetailsModal extends StatelessWidget {
         // Determine priority color
         Color priorityColor;
         String? priorityIndicator;
-        if (bin.safeFillPercentage > 80) {
+        final fillPct = bin.fillPercentage ?? 0;
+        if (fillPct > 80) {
           priorityColor = Colors.red.shade600;
           priorityIndicator = '🔴';
-        } else if (bin.safeFillPercentage > 50) {
+        } else if (fillPct > 50) {
           priorityColor = Colors.orange.shade600;
           priorityIndicator = '🟠';
         } else {
@@ -381,7 +382,7 @@ class ShiftDetailsModal extends StatelessWidget {
                                 borderRadius: BorderRadius.circular(4),
                               ),
                               child: Text(
-                                '${bin.safeFillPercentage}% full',
+                                '${bin.fillPercentage ?? 0}% full',
                                 style: TextStyle(
                                   fontSize: 11,
                                   color: priorityColor,

@@ -26,6 +26,10 @@ mixin _$NavigationPageState {
   /// Current bin index in the route
   int get currentBinIndex => throw _privateConstructorUsedError;
 
+  /// Current task ID (for tracking across route reoptimizations)
+  /// When route changes, we use this ID to find the task's new index
+  String? get currentTaskId => throw _privateConstructorUsedError;
+
   /// Map of marker IDs to RouteTask objects for tap handling
   Map<String, RouteTask> get markerToTaskMap =>
       throw _privateConstructorUsedError;
@@ -79,6 +83,7 @@ abstract class $NavigationPageStateCopyWith<$Res> {
     bool isNavigationReady,
     bool isNavigating,
     int currentBinIndex,
+    String? currentTaskId,
     Map<String, RouteTask> markerToTaskMap,
     RouteStep? currentStep,
     double distanceToNextManeuver,
@@ -113,6 +118,7 @@ class _$NavigationPageStateCopyWithImpl<$Res, $Val extends NavigationPageState>
     Object? isNavigationReady = null,
     Object? isNavigating = null,
     Object? currentBinIndex = null,
+    Object? currentTaskId = freezed,
     Object? markerToTaskMap = null,
     Object? currentStep = freezed,
     Object? distanceToNextManeuver = null,
@@ -139,6 +145,10 @@ class _$NavigationPageStateCopyWithImpl<$Res, $Val extends NavigationPageState>
                 ? _value.currentBinIndex
                 : currentBinIndex // ignore: cast_nullable_to_non_nullable
                       as int,
+            currentTaskId: freezed == currentTaskId
+                ? _value.currentTaskId
+                : currentTaskId // ignore: cast_nullable_to_non_nullable
+                      as String?,
             markerToTaskMap: null == markerToTaskMap
                 ? _value.markerToTaskMap
                 : markerToTaskMap // ignore: cast_nullable_to_non_nullable
@@ -216,6 +226,7 @@ abstract class _$$NavigationPageStateImplCopyWith<$Res>
     bool isNavigationReady,
     bool isNavigating,
     int currentBinIndex,
+    String? currentTaskId,
     Map<String, RouteTask> markerToTaskMap,
     RouteStep? currentStep,
     double distanceToNextManeuver,
@@ -250,6 +261,7 @@ class __$$NavigationPageStateImplCopyWithImpl<$Res>
     Object? isNavigationReady = null,
     Object? isNavigating = null,
     Object? currentBinIndex = null,
+    Object? currentTaskId = freezed,
     Object? markerToTaskMap = null,
     Object? currentStep = freezed,
     Object? distanceToNextManeuver = null,
@@ -276,6 +288,10 @@ class __$$NavigationPageStateImplCopyWithImpl<$Res>
             ? _value.currentBinIndex
             : currentBinIndex // ignore: cast_nullable_to_non_nullable
                   as int,
+        currentTaskId: freezed == currentTaskId
+            ? _value.currentTaskId
+            : currentTaskId // ignore: cast_nullable_to_non_nullable
+                  as String?,
         markerToTaskMap: null == markerToTaskMap
             ? _value._markerToTaskMap
             : markerToTaskMap // ignore: cast_nullable_to_non_nullable
@@ -332,6 +348,7 @@ class _$NavigationPageStateImpl implements _NavigationPageState {
     this.isNavigationReady = false,
     this.isNavigating = false,
     this.currentBinIndex = 0,
+    this.currentTaskId,
     final Map<String, RouteTask> markerToTaskMap = const {},
     this.currentStep,
     this.distanceToNextManeuver = 0.0,
@@ -360,6 +377,11 @@ class _$NavigationPageStateImpl implements _NavigationPageState {
   @override
   @JsonKey()
   final int currentBinIndex;
+
+  /// Current task ID (for tracking across route reoptimizations)
+  /// When route changes, we use this ID to find the task's new index
+  @override
+  final String? currentTaskId;
 
   /// Map of marker IDs to RouteTask objects for tap handling
   final Map<String, RouteTask> _markerToTaskMap;
@@ -427,7 +449,7 @@ class _$NavigationPageStateImpl implements _NavigationPageState {
 
   @override
   String toString() {
-    return 'NavigationPageState(isNavigationReady: $isNavigationReady, isNavigating: $isNavigating, currentBinIndex: $currentBinIndex, markerToTaskMap: $markerToTaskMap, currentStep: $currentStep, distanceToNextManeuver: $distanceToNextManeuver, remainingTime: $remainingTime, totalDistanceRemaining: $totalDistanceRemaining, navigationLocation: $navigationLocation, geofenceCircles: $geofenceCircles, completedRoutePolyline: $completedRoutePolyline, hasReceivedFirstNavInfo: $hasReceivedFirstNavInfo, isAudioMuted: $isAudioMuted, isBottomPanelExpanded: $isBottomPanelExpanded)';
+    return 'NavigationPageState(isNavigationReady: $isNavigationReady, isNavigating: $isNavigating, currentBinIndex: $currentBinIndex, currentTaskId: $currentTaskId, markerToTaskMap: $markerToTaskMap, currentStep: $currentStep, distanceToNextManeuver: $distanceToNextManeuver, remainingTime: $remainingTime, totalDistanceRemaining: $totalDistanceRemaining, navigationLocation: $navigationLocation, geofenceCircles: $geofenceCircles, completedRoutePolyline: $completedRoutePolyline, hasReceivedFirstNavInfo: $hasReceivedFirstNavInfo, isAudioMuted: $isAudioMuted, isBottomPanelExpanded: $isBottomPanelExpanded)';
   }
 
   @override
@@ -441,6 +463,8 @@ class _$NavigationPageStateImpl implements _NavigationPageState {
                 other.isNavigating == isNavigating) &&
             (identical(other.currentBinIndex, currentBinIndex) ||
                 other.currentBinIndex == currentBinIndex) &&
+            (identical(other.currentTaskId, currentTaskId) ||
+                other.currentTaskId == currentTaskId) &&
             const DeepCollectionEquality().equals(
               other._markerToTaskMap,
               _markerToTaskMap,
@@ -478,6 +502,7 @@ class _$NavigationPageStateImpl implements _NavigationPageState {
     isNavigationReady,
     isNavigating,
     currentBinIndex,
+    currentTaskId,
     const DeepCollectionEquality().hash(_markerToTaskMap),
     currentStep,
     distanceToNextManeuver,
@@ -508,6 +533,7 @@ abstract class _NavigationPageState implements NavigationPageState {
     final bool isNavigationReady,
     final bool isNavigating,
     final int currentBinIndex,
+    final String? currentTaskId,
     final Map<String, RouteTask> markerToTaskMap,
     final RouteStep? currentStep,
     final double distanceToNextManeuver,
@@ -532,6 +558,11 @@ abstract class _NavigationPageState implements NavigationPageState {
   /// Current bin index in the route
   @override
   int get currentBinIndex;
+
+  /// Current task ID (for tracking across route reoptimizations)
+  /// When route changes, we use this ID to find the task's new index
+  @override
+  String? get currentTaskId;
 
   /// Map of marker IDs to RouteTask objects for tap handling
   @override

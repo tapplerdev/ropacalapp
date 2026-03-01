@@ -22,7 +22,14 @@ class AccountPage extends ConsumerWidget {
       body: authState.when(
         data: (user) {
           if (user == null) {
-            return const Center(child: Text('Not logged in'));
+            // User logged out - navigate to login
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (context.mounted) {
+                context.go('/login');
+              }
+            });
+            // Show loading indicator while navigation happens
+            return const Center(child: CircularProgressIndicator());
           }
 
           return Column(

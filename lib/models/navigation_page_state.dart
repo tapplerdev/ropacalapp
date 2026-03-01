@@ -19,6 +19,10 @@ class NavigationPageState with _$NavigationPageState {
     /// Current bin index in the route
     @Default(0) int currentBinIndex,
 
+    /// Current task ID (for tracking across route reoptimizations)
+    /// When route changes, we use this ID to find the task's new index
+    String? currentTaskId,
+
     /// Map of marker IDs to RouteTask objects for tap handling
     @Default({}) Map<String, RouteTask> markerToTaskMap,
 

@@ -237,8 +237,20 @@ class ShiftNotifier extends _$ShiftNotifier {
           AppLogger.general('[DIAGNOSTIC]    ⚠️  CRITICAL: Tasks array is EMPTY!');
         }
 
+        AppLogger.general('[DIAGNOSTIC] 🔄 ABOUT TO UPDATE STATE with new shift data...');
+        AppLogger.general('[DIAGNOSTIC]    BEFORE state assignment:');
+        AppLogger.general('[DIAGNOSTIC]      state.tasks.length = ${state.tasks.length}');
+        AppLogger.general('[DIAGNOSTIC]      state.totalBins = ${state.totalBins}');
+
         state = currentShift;
+
+        AppLogger.general('[DIAGNOSTIC] ✅ STATE ASSIGNMENT COMPLETE!');
+        AppLogger.general('[DIAGNOSTIC]    AFTER state assignment:');
+        AppLogger.general('[DIAGNOSTIC]      state.tasks.length = ${state.tasks.length}');
+        AppLogger.general('[DIAGNOSTIC]      state.totalBins = ${state.totalBins}');
+        AppLogger.general('[DIAGNOSTIC]      state.completedBins = ${state.completedBins}');
         AppLogger.general('[DIAGNOSTIC] 📥 Current shift loaded and state updated');
+        AppLogger.general('[DIAGNOSTIC] 🔔 Riverpod should now notify all watchers of shiftNotifierProvider');
 
         // Manage Centrifugo subscription based on shift status
         _manageShiftSubscription();
@@ -1006,9 +1018,30 @@ class ShiftNotifier extends _$ShiftNotifier {
     AppLogger.general('   ✅ fetchCurrentShift() completed');
     AppLogger.general('   📊 STATE AFTER REFRESH:');
     AppLogger.general('      New tasks.length: ${state.tasks.length}');
-    AppLogger.general('      New tasks.length: ${state.tasks.length}');
     AppLogger.general('      New remainingTasks.length: ${state.remainingTasks.length}');
     AppLogger.general('      New logicalTotalBins: ${state.logicalTotalBins}');
+    AppLogger.general('      New logicalCompletedBins: ${state.logicalCompletedBins}');
+
+    // DEBUG: Log first 5 tasks to verify new ones are included
+    if (state.tasks.isNotEmpty) {
+      AppLogger.general('   📋 [DEBUG] FIRST 5 TASKS AFTER UPDATE:');
+      for (var i = 0; i < state.tasks.length && i < 5; i++) {
+        final task = state.tasks[i];
+        final statusIcon = task.isCompleted == 1 ? '✅' : (task.isCompleted == 2 ? '⏭️' : '⏳');
+        AppLogger.general('      $statusIcon ${i + 1}. ${task.taskType.name} - Bin #${task.binNumber ?? "N/A"} - Seq:${task.sequenceOrder} - Completed:${task.isCompleted}');
+      }
+    }
+
+    // DEBUG: Log remaining tasks
+    if (state.remainingTasks.isNotEmpty) {
+      AppLogger.general('   📋 [DEBUG] REMAINING TASKS (${state.remainingTasks.length} total):');
+      for (var i = 0; i < state.remainingTasks.length && i < 5; i++) {
+        final task = state.remainingTasks[i];
+        AppLogger.general('      ${i + 1}. ${task.taskType.name} - Bin #${task.binNumber ?? "N/A"} - ${task.address ?? "No address"}');
+      }
+    } else {
+      AppLogger.general('   ⚠️  [DEBUG] NO REMAINING TASKS!');
+    }
 
     // Trigger navigation refresh event
     final eventData = {
@@ -1022,6 +1055,10 @@ class ShiftNotifier extends _$ShiftNotifier {
     AppLogger.general('      Event data: $eventData');
 
     ref.read(routeReoptimizationEventProvider.notifier).state = eventData;
+
+    AppLogger.general('   ✅ routeReoptimizationEventProvider SET');
+    AppLogger.general('      Timestamp: ${DateTime.now().millisecondsSinceEpoch}');
+    AppLogger.general('      This should trigger navigation page listener to rebuild waypoints');
 
     AppLogger.general('✅ [SHIFT EDITED EVENT] Processing complete!');
     AppLogger.general('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');

@@ -31,6 +31,18 @@ class RouteTask with _$RouteTask {
     /// Task location address
     String? address,
 
+    /// City (for display - parsed from address)
+    String? city,
+
+    /// ZIP code (for display - parsed from address)
+    String? zip,
+
+    /// Original address (for move requests - where bin was originally)
+    @JsonKey(name: 'original_address') String? originalAddress,
+
+    /// New address (alias for destinationAddress for backwards compatibility)
+    @JsonKey(name: 'new_address') String? newAddress,
+
     // ========== COLLECTION TASK FIELDS ==========
     /// Bin ID (for collection and move request tasks)
     @JsonKey(name: 'bin_id') String? binId,

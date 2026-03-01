@@ -1,9 +1,11 @@
 import 'dart:async';
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:flutter_easyloading/flutter_easyloading.dart';
+import 'package:geolocator/geolocator.dart' as geolocator;
 import 'package:google_navigation_flutter/google_navigation_flutter.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
@@ -389,6 +391,9 @@ class GoogleNavigationPage extends HookConsumerWidget {
 
     // PHASE 1 & 2 & 3: Initialize navigator following official SDK pattern
     // Step 1: Check permissions → Step 2: Wait for GPS → Step 3: Initialize session → Step 4: Show view
+    // Polling pattern to wait for GPS (handles simulator + real device cold starts)
+    final isInitializing = useRef(false); // Must be at component level, not inside useEffect
+
     useEffect(() {
       var isMounted = true;
 
@@ -414,14 +419,12 @@ class GoogleNavigationPage extends HookConsumerWidget {
           locationPermissionGranted.value = true;
           AppLogger.general('✅ [STEP 1/4] Location permissions granted');
 
-          // STEP 2: Wait for GPS location (Phase 2 - No fallbacks!)
-          AppLogger.general('📍 [STEP 2/4] Waiting for GPS location...');
+          // STEP 2: GPS location already validated by listener (see below)
+          // This function is only called when location is ready
           final currentLocation = ref.read(currentLocationProvider).valueOrNull;
 
           if (currentLocation == null) {
-            AppLogger.general('⏳ [STEP 2/4] GPS not ready yet, waiting...');
-            initializationError.value = 'Waiting for GPS location...';
-            // Don't proceed - user must have GPS ready
+            AppLogger.general('⚠️  [STEP 2/4] Location disappeared during init, aborting');
             return;
           }
 
@@ -456,12 +459,66 @@ class GoogleNavigationPage extends HookConsumerWidget {
           if (!isMounted) return;
           AppLogger.general('❌ [INIT] Navigation initialization failed: $e');
           initializationError.value = e.toString();
+        } finally {
+          isInitializing.value = false;
         }
       }
 
-      initializeNavigator();
+      // Poll for location updates until ready
+      // This handles both simulator (3s delay) and real device (variable delay) GPS acquisition
+      AppLogger.general('📍 [STEP 2/4] Waiting for GPS location...');
+
+      Timer? locationCheckTimer;
+
+      void checkLocationAndInitialize() {
+        // Guard: Already initialized or currently initializing
+        if (navigationSessionInitialized.value || isInitializing.value) {
+          locationCheckTimer?.cancel();
+          return;
+        }
+
+        final locationAsync = ref.read(currentLocationProvider);
+
+        // Guard: Must have location value
+        if (!locationAsync.hasValue || locationAsync.value == null) {
+          if (locationAsync is AsyncError) {
+            AppLogger.general('❌ [STEP 2/4] Location error: ${locationAsync.error}');
+            if (locationAsync.error.toString().contains('PERMISSION')) {
+              initializationError.value = 'Location permission denied';
+              locationCheckTimer?.cancel();
+            }
+          } else {
+            AppLogger.general('⏳ [STEP 2/4] GPS not ready yet, waiting...');
+            initializationError.value = 'Waiting for GPS location...';
+          }
+          return;
+        }
+
+        // Guard: Check if still mounted
+        if (!isMounted) {
+          locationCheckTimer?.cancel();
+          return;
+        }
+
+        // Stop polling - location is ready
+        locationCheckTimer?.cancel();
+
+        // Start initialization with race protection
+        AppLogger.general('✅ [STEP 2/4] GPS location received, proceeding with initialization');
+        isInitializing.value = true;
+        initializeNavigator();
+      }
+
+      // Check immediately, then poll every second until location is ready
+      checkLocationAndInitialize();
+      locationCheckTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+        checkLocationAndInitialize();
+      });
+
+      // Cleanup
       return () {
         isMounted = false;
+        locationCheckTimer?.cancel();
       };
     }, []);
 
@@ -834,8 +891,9 @@ class GoogleNavigationPage extends HookConsumerWidget {
           await GoogleMapsNavigator.startGuidance();
           AppLogger.general('🎯 Navigation guidance started');
 
-          // Reset current bin index
+          // Reset current bin index and track first task ID
           navNotifier.setCurrentBinIndex(0);
+          navNotifier.setCurrentTaskIdFromIndex(remainingTasks, 0);
           break;
 
         case NavigationRouteStatus.internalError:
@@ -1054,11 +1112,18 @@ class GoogleNavigationPage extends HookConsumerWidget {
     BuildContext context,
     GoogleNavigationViewController? controller,
     WidgetRef ref,
-    ShiftState shift,
+    ShiftState _unusedShiftParam,  // ⚠️ DEPRECATED: Don't use - can be stale!
     NavigationPageNotifier navNotifier,
   ) async {
     if (controller == null) {
       AppLogger.general('⚠️  Cannot advance: controller is null');
+      return;
+    }
+
+    // ✅ ALWAYS read fresh state from provider to avoid race conditions
+    final shift = ref.read(shiftNotifierProvider);
+    if (shift == null) {
+      AppLogger.general('⚠️  Cannot advance: shift is null');
       return;
     }
 
@@ -1108,6 +1173,8 @@ class GoogleNavigationPage extends HookConsumerWidget {
 
         if (result == NavigationRouteStatus.statusOk) {
           navNotifier.setCurrentBinIndex(0);
+          // Track the new current task ID after navigation update
+          navNotifier.setCurrentTaskIdFromIndex(shift.remainingTasks, 0);
           AppLogger.general('✅ Navigation updated to next task - guidance continues automatically');
 
           // Clear and recreate custom markers for remaining tasks
@@ -1173,6 +1240,15 @@ class GoogleNavigationPage extends HookConsumerWidget {
         }
       } else {
         // No remaining tasks - check if driver ACTUALLY completed all or just skipped
+
+        // ✅ SAFETY CHECK: Don't show modal if count is 0 (race condition/stale state)
+        if (actuallyCompletedCount == 0) {
+          AppLogger.general('⚠️  [MODAL SKIP] Not showing completion modal - 0 tasks counted (likely stale state from rapid updates)');
+          AppLogger.general('   Total tasks: ${shift.tasks.length}');
+          AppLogger.general('   Logical total: ${shift.logicalTotalBins}');
+          return;
+        }
+
         if (actuallyCompletedCount >= shift.logicalTotalBins) {
           // Driver genuinely finished all tasks - auto-end with confirmation
           AppLogger.general('🎉 All bins completed! Navigation finished.');
@@ -1385,13 +1461,41 @@ class GoogleNavigationPage extends HookConsumerWidget {
       AppLogger.general('   Message: "$message"');
       AppLogger.general('   Changes: $changes');
 
+      AppLogger.general('   🔍 [DEBUG] READING SHIFT STATE FROM PROVIDER...');
+      AppLogger.general('      Provider hashCode: ${ref.hashCode}');
+
       final updatedShift = ref.read(shiftNotifierProvider);
 
-      AppLogger.general('   📊 UPDATED SHIFT DATA:');
+      AppLogger.general('   📊 [DEBUG] SHIFT STATE READ RESULT:');
+      AppLogger.general('      ShiftID: ${updatedShift.shiftId}');
+      AppLogger.general('      Status: ${updatedShift.status}');
       AppLogger.general('      Total tasks: ${updatedShift.tasks.length}');
       AppLogger.general('      Remaining tasks: ${updatedShift.remainingTasks.length}');
       AppLogger.general('      Logical total: ${updatedShift.logicalTotalBins}');
       AppLogger.general('      Logical completed: ${updatedShift.logicalCompletedBins}');
+
+      // DEBUG: Log ALL tasks to see if new ones are present
+      if (updatedShift.tasks.isNotEmpty) {
+        AppLogger.general('   📋 [DEBUG] ALL TASKS IN STATE (${updatedShift.tasks.length} total):');
+        for (var i = 0; i < updatedShift.tasks.length; i++) {
+          final task = updatedShift.tasks[i];
+          final statusIcon = task.isCompleted == 1 ? '✅' : (task.isCompleted == 2 ? '⏭️' : '⏳');
+          AppLogger.general('      $statusIcon ${i + 1}. ${task.taskType.name} - Bin #${task.binNumber ?? "N/A"} - Seq:${task.sequenceOrder} - Completed:${task.isCompleted}');
+        }
+      } else {
+        AppLogger.general('   ⚠️  [DEBUG] NO TASKS IN STATE!');
+      }
+
+      // DEBUG: Log REMAINING tasks specifically
+      if (updatedShift.remainingTasks.isNotEmpty) {
+        AppLogger.general('   📋 [DEBUG] REMAINING TASKS (${updatedShift.remainingTasks.length} total):');
+        for (var i = 0; i < updatedShift.remainingTasks.length; i++) {
+          final task = updatedShift.remainingTasks[i];
+          AppLogger.general('      ${i + 1}. ${task.taskType.name} - Bin #${task.binNumber ?? "N/A"} - ${task.address ?? "No address"}');
+        }
+      } else {
+        AppLogger.general('   ⚠️  [DEBUG] NO REMAINING TASKS - WILL RETURN EARLY!');
+      }
 
       if (updatedShift.remainingTasks.isEmpty) {
         AppLogger.general('   ⚠️  No tasks remaining after update - returning early');
@@ -1400,11 +1504,6 @@ class GoogleNavigationPage extends HookConsumerWidget {
       }
 
       AppLogger.general('   ✅ Has remaining tasks - proceeding with navigation update');
-      AppLogger.general('   📋 REMAINING TASKS:');
-      for (var i = 0; i < updatedShift.remainingTasks.length && i < 5; i++) {
-        final task = updatedShift.remainingTasks[i];
-        AppLogger.general('      ${i + 1}. ${task.taskType.name} - Bin #${task.binNumber ?? "N/A"} - ${task.address ?? "No address"}');
-      }
 
       // Show auto-dismissing modal with OK button
       if (context.mounted) {
@@ -1452,7 +1551,17 @@ class GoogleNavigationPage extends HookConsumerWidget {
             AppLogger.general('✅ [Reopt] Cleared old destinations');
 
             // Build new waypoints from updated shift
+            AppLogger.general('🗺️  [DEBUG] Building waypoints from remaining tasks...');
+            AppLogger.general('   Input: ${updatedShift.remainingTasks.length} remaining tasks');
+
             final waypoints = _buildDeduplicatedWaypoints(updatedShift.remainingTasks);
+
+            AppLogger.general('   Output: ${waypoints.length} waypoints built');
+            for (var i = 0; i < waypoints.length && i < 5; i++) {
+              final wp = waypoints[i];
+              AppLogger.general('      Waypoint ${i + 1}: lat=${wp.target?.latitude.toStringAsFixed(6)}, lng=${wp.target?.longitude.toStringAsFixed(6)}');
+            }
+
             final destinations = Destinations(
               waypoints: waypoints,
               displayOptions: NavigationDisplayOptions(
@@ -1464,7 +1573,9 @@ class GoogleNavigationPage extends HookConsumerWidget {
               ),
             );
 
+            AppLogger.general('📡 [DEBUG] Calling GoogleMapsNavigator.setDestinations with ${waypoints.length} waypoints...');
             final result = await GoogleMapsNavigator.setDestinations(destinations);
+            AppLogger.general('📡 [DEBUG] setDestinations result: $result');
 
             if (result == NavigationRouteStatus.statusOk) {
               AppLogger.general('✅ [Reopt] Navigation updated successfully');
@@ -1483,6 +1594,24 @@ class GoogleNavigationPage extends HookConsumerWidget {
                 await controller.addMarkers(markers);
                 AppLogger.general('📍 [Reopt] Updated ${markers.length} markers');
               }
+
+              // Recalculate current task index after route reoptimization
+              final navNotifier = ref.read(navigationPageNotifierProvider.notifier);
+              final oldIndex = ref.read(navigationPageNotifierProvider).currentBinIndex;
+              final oldTaskId = navNotifier.getCurrentTaskId();
+
+              AppLogger.general('🔄 [Reopt] Recalculating current task index...');
+              AppLogger.general('   Old index: $oldIndex');
+              AppLogger.general('   Old task ID: $oldTaskId');
+
+              navNotifier.recalculateIndexFromTaskId(updatedShift.remainingTasks);
+
+              final newIndex = ref.read(navigationPageNotifierProvider).currentBinIndex;
+              final newTaskId = navNotifier.getCurrentTaskId();
+
+              AppLogger.general('   New index: $newIndex');
+              AppLogger.general('   New task ID: $newTaskId');
+              AppLogger.general('   Index changed: ${oldIndex != newIndex}');
 
               // Show success feedback
               if (context.mounted) {
@@ -1623,16 +1752,25 @@ class GoogleNavigationPage extends HookConsumerWidget {
       AppLogger.general('✅ [STEP 3/7] Listeners configured');
 
       // PHASE 4: Wait for first location - DON'T proceed without it (SDK requirement)
-      AppLogger.general('📍 [STEP 4/7] Waiting for first road-snapped location...');
-      try {
-        await locationReceived.future.timeout(
-          const Duration(seconds: 30), // Longer timeout for GPS acquisition
-        );
-        AppLogger.general('✅ [STEP 4/7] Road-snapped location acquired');
-      } catch (e) {
-        // SDK documentation: "Route calculation is only available after location acquired"
-        AppLogger.general('❌ [STEP 4/7] Location timeout - cannot start navigation without GPS');
-        throw Exception('Unable to acquire GPS location for navigation. Please ensure location services are enabled.');
+      // SIMULATOR FIX: Skip SDK road-snapped location wait on iOS simulator
+      // The fake GPS system already provides valid location via currentLocationProvider (validated in Step 2)
+      if (kDebugMode && Platform.isIOS) {
+        AppLogger.general('📍 [STEP 4/7] iOS Simulator detected - skipping road-snapped location wait');
+        AppLogger.general('   Fake GPS system provides location via currentLocationProvider');
+        AppLogger.general('   SDK will handle location snapping internally during navigation');
+      } else {
+        // Real device - wait for actual road-snapped location from iOS CLLocationManager
+        AppLogger.general('📍 [STEP 4/7] Waiting for first road-snapped location...');
+        try {
+          await locationReceived.future.timeout(
+            const Duration(seconds: 30), // Longer timeout for GPS acquisition
+          );
+          AppLogger.general('✅ [STEP 4/7] Road-snapped location acquired');
+        } catch (e) {
+          // SDK documentation: "Route calculation is only available after location acquired"
+          AppLogger.general('❌ [STEP 4/7] Location timeout - cannot start navigation without GPS');
+          throw Exception('Unable to acquire GPS location for navigation. Please ensure location services are enabled.');
+        }
       }
 
       AppLogger.general('🗺️  [STEP 4/7] Calculating route to destinations...');
@@ -1752,13 +1890,13 @@ class GoogleNavigationPage extends HookConsumerWidget {
       navNotifier.updateDistanceToNextManeuver(navInfo.distanceToCurrentStepMeters?.toDouble() ?? 0);
 
       // DEBUG: Comprehensive NavInfo logging
-      AppLogger.general('🔍 NavInfo Debug - COMPLETE DUMP:');
-      AppLogger.general('   ⏱️  Time to Next Destination: ${navInfo.timeToNextDestinationSeconds} seconds');
-      AppLogger.general('   ⏱️  Time to Final Destination: ${navInfo.timeToFinalDestinationSeconds} seconds');
-      AppLogger.general('   📏 Distance to Next Destination: ${navInfo.distanceToNextDestinationMeters} meters');
-      AppLogger.general('   📏 Distance to Final Destination: ${navInfo.distanceToFinalDestinationMeters} meters');
-      AppLogger.general('   📏 Distance to Current Step: ${navInfo.distanceToCurrentStepMeters} meters');
-      AppLogger.general('   ⏱️  Time to Current Step: ${navInfo.timeToCurrentStepSeconds} seconds');
+      // AppLogger.general('🔍 NavInfo Debug - COMPLETE DUMP:');
+      // AppLogger.general('   ⏱️  Time to Next Destination: ${navInfo.timeToNextDestinationSeconds} seconds');
+      // AppLogger.general('   ⏱️  Time to Final Destination: ${navInfo.timeToFinalDestinationSeconds} seconds');
+      // AppLogger.general('   📏 Distance to Next Destination: ${navInfo.distanceToNextDestinationMeters} meters');
+      // AppLogger.general('   📏 Distance to Final Destination: ${navInfo.distanceToFinalDestinationMeters} meters');
+      // AppLogger.general('   📏 Distance to Current Step: ${navInfo.distanceToCurrentStepMeters} meters');
+      // AppLogger.general('   ⏱️  Time to Current Step: ${navInfo.timeToCurrentStepSeconds} seconds');
 
       // Convert to readable format
       final distanceToNext = navInfo.distanceToNextDestinationMeters?.toDouble();
@@ -1766,9 +1904,9 @@ class GoogleNavigationPage extends HookConsumerWidget {
       final timeToNext = navInfo.timeToNextDestinationSeconds;
       final timeToFinal = navInfo.timeToFinalDestinationSeconds;
 
-      AppLogger.general('   📊 Readable Format:');
-      AppLogger.general('      Next: ${distanceToNext != null ? "${(distanceToNext / 1609.0).toStringAsFixed(1)} mi" : "null"} / ${timeToNext != null ? "${timeToNext ~/ 60}m ${timeToNext % 60}s" : "null"}');
-      AppLogger.general('      Final: ${distanceToFinal != null ? "${(distanceToFinal / 1609.0).toStringAsFixed(1)} mi" : "null"} / ${timeToFinal != null ? "${timeToFinal ~/ 60}m ${timeToFinal % 60}s" : "null"}');
+      // AppLogger.general('   📊 Readable Format:');
+      // AppLogger.general('      Next: ${distanceToNext != null ? "${(distanceToNext / 1609.0).toStringAsFixed(1)} mi" : "null"} / ${timeToNext != null ? "${timeToNext ~/ 60}m ${timeToNext % 60}s" : "null"}');
+      // AppLogger.general('      Final: ${distanceToFinal != null ? "${(distanceToFinal / 1609.0).toStringAsFixed(1)} mi" : "null"} / ${timeToFinal != null ? "${timeToFinal ~/ 60}m ${timeToFinal % 60}s" : "null"}');
 
       // Update remaining time and distance
       // iOS SDK bug: timeToNextDestinationSeconds and distanceToNextDestinationMeters are often null
@@ -1783,10 +1921,10 @@ class GoogleNavigationPage extends HookConsumerWidget {
       navNotifier.updateTotalDistanceRemaining(distanceMeters?.toDouble());
 
       // Log what we're actually setting in state
-      AppLogger.general('   ✅ State Updated:');
-      AppLogger.general('      remainingTime: ${navNotifier.state.remainingTime}');
-      AppLogger.general('      totalDistanceRemaining: ${navNotifier.state.totalDistanceRemaining}');
-      AppLogger.general('      (Using ${navInfo.timeToNextDestinationSeconds != null ? "Next" : "Final"} Destination values)');
+      // AppLogger.general('   ✅ State Updated:');
+      // AppLogger.general('      remainingTime: ${navNotifier.state.remainingTime}');
+      // AppLogger.general('      totalDistanceRemaining: ${navNotifier.state.totalDistanceRemaining}');
+      // AppLogger.general('      (Using ${navInfo.timeToNextDestinationSeconds != null ? "Next" : "Final"} Destination values)');
     });
 
     // Listen to location updates (SDK best practice: wait for first location before route calculation)

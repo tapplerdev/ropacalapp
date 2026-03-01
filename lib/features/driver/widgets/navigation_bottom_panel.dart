@@ -34,18 +34,18 @@ class NavigationBottomPanel extends HookConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    AppLogger.general('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-    AppLogger.general('🔄 [BOTTOM PANEL] build() called - Widget is rebuilding');
-    AppLogger.general('   Timestamp: ${DateTime.now().toIso8601String()}');
-    AppLogger.general('   📊 SHIFT DATA:');
-    AppLogger.general('      Shift ID: ${shift.shiftId}');
-    AppLogger.general('      Status: ${shift.status}');
-    AppLogger.general('      Total tasks: ${shift.tasks.length}');
-    AppLogger.general('      Remaining tasks: ${shift.remainingTasks.length}');
-    AppLogger.general('      Uses tasks: ${shift.usesTasks}');
-    AppLogger.general('      Logical total: ${shift.logicalTotalBins}');
-    AppLogger.general('      Logical completed: ${shift.logicalCompletedBins}');
-    AppLogger.general('      Current index: $currentIndex');
+    // AppLogger.general('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    // AppLogger.general('🔄 [BOTTOM PANEL] build() called - Widget is rebuilding');
+    // AppLogger.general('   Timestamp: ${DateTime.now().toIso8601String()}');
+    // AppLogger.general('   📊 SHIFT DATA:');
+    // AppLogger.general('      Shift ID: ${shift.shiftId}');
+    // AppLogger.general('      Status: ${shift.status}');
+    // AppLogger.general('      Total tasks: ${shift.tasks.length}');
+    // AppLogger.general('      Remaining tasks: ${shift.remainingTasks.length}');
+    // AppLogger.general('      Uses tasks: ${shift.usesTasks}');
+    // AppLogger.general('      Logical total: ${shift.logicalTotalBins}');
+    // AppLogger.general('      Logical completed: ${shift.logicalCompletedBins}');
+    // AppLogger.general('      Current index: $currentIndex');
 
     final navState = ref.watch(navigationPageNotifierProvider);
     final navNotifier = ref.read(navigationPageNotifierProvider.notifier);
@@ -53,8 +53,8 @@ class NavigationBottomPanel extends HookConsumerWidget {
     // Support both task-based and bin-based systems
     final usesTasks = shift.usesTasks;
 
-    AppLogger.general('   🔍 SYSTEM CHECK:');
-    AppLogger.general('      Using task-based system: $usesTasks');
+    // AppLogger.general('   🔍 SYSTEM CHECK:');
+    // AppLogger.general('      Using task-based system: $usesTasks');
 
     if (usesTasks) {
       // New task-based system - FULL expandable panel
@@ -63,19 +63,19 @@ class NavigationBottomPanel extends HookConsumerWidget {
           ? shift.remainingTasks[currentIndex]
           : null;
 
-      AppLogger.general('   📍 CURRENT TASK:');
-      if (currentTask != null) {
-        AppLogger.general('      Task type: ${currentTask.taskType.name}');
-        AppLogger.general('      Bin #: ${currentTask.binNumber ?? "N/A"}');
-        AppLogger.general('      Address: ${currentTask.address ?? "No address"}');
-        AppLogger.general('      Completed: ${currentTask.isCompleted}');
-        AppLogger.general('      Skipped: ${currentTask.skipped}');
-      } else {
-        AppLogger.general('      ⚠️  NO CURRENT TASK (null)');
-        AppLogger.general('      Remaining tasks empty: ${shift.remainingTasks.isEmpty}');
-        AppLogger.general('      Current index out of bounds: ${currentIndex >= shift.remainingTasks.length}');
-      }
-      AppLogger.general('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      // AppLogger.general('   📍 CURRENT TASK:');
+      // if (currentTask != null) {
+      //   AppLogger.general('      Task type: ${currentTask.taskType.name}');
+      //   AppLogger.general('      Bin #: ${currentTask.binNumber ?? "N/A"}');
+      //   AppLogger.general('      Address: ${currentTask.address ?? "No address"}');
+      //   AppLogger.general('      Completed: ${currentTask.isCompleted}');
+      //   AppLogger.general('      Skipped: ${currentTask.skipped}');
+      // } else {
+      //   AppLogger.general('      ⚠️  NO CURRENT TASK (null)');
+      //   AppLogger.general('      Remaining tasks empty: ${shift.remainingTasks.isEmpty}');
+      //   AppLogger.general('      Current index out of bounds: ${currentIndex >= shift.remainingTasks.length}');
+      // }
+      // AppLogger.general('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
 
       if (currentTask == null) {
         return const SizedBox.shrink();
@@ -513,16 +513,33 @@ class NavigationBottomPanel extends HookConsumerWidget {
         : 0.0;
 
     // Get upcoming tasks and filter out dropoffs if current task is the pickup
-    final upcomingTasks = shift.remainingTasks.skip(1).where((upcomingTask) {
+    AppLogger.general('🔍 [UP NEXT] Calculating upcoming tasks...');
+    AppLogger.general('   Total remaining tasks: ${shift.remainingTasks.length}');
+    AppLogger.general('   Current index: $currentIndex');
+    AppLogger.general('   Current task: Bin #${task.binNumber} (${task.taskType.name})');
+
+    for (var i = 0; i < shift.remainingTasks.length; i++) {
+      final t = shift.remainingTasks[i];
+      AppLogger.general('   [$i] Bin #${t.binNumber ?? "N/A"} - ${t.taskType.name} - ${t.address}');
+    }
+
+    final upcomingTasks = shift.remainingTasks.skip(currentIndex + 1).where((upcomingTask) {
       // Filter out dropoff if current task is its corresponding pickup
       if (task.taskType == StopType.pickup &&
           upcomingTask.taskType == StopType.dropoff &&
           task.moveRequestId != null &&
           task.moveRequestId == upcomingTask.moveRequestId) {
+        AppLogger.general('   🚫 Filtering out dropoff for pickup: ${upcomingTask.binNumber}');
         return false; // Skip dropoff from "UP NEXT" (it's part of current action)
       }
       return true;
     }).take(3).toList();
+
+    AppLogger.general('   📋 UP NEXT tasks count: ${upcomingTasks.length}');
+    for (var i = 0; i < upcomingTasks.length; i++) {
+      final t = upcomingTasks[i];
+      AppLogger.general('   UP NEXT [$i]: Bin #${t.binNumber ?? "N/A"} - ${t.taskType.name} - ${t.address}');
+    }
 
     // Calculate distance to task for geofence check
     final double? distanceToTask = driverLocation != null
@@ -1074,13 +1091,11 @@ class NavigationBottomPanel extends HookConsumerWidget {
                           break;
 
                         case StopType.pickup:
-                          // Convert task to bin format for legacy dialog
-                          final binForPickup = _convertTaskToBin(task);
                           showDialog(
                             context: context,
                             barrierDismissible: false,
                             builder: (context) => MoveRequestPickupDialog(
-                              bin: binForPickup,
+                              bin: task,
                               onPickupComplete: () {
                                 AppLogger.general(
                                   '✅ Pickup task completed for Bin #${task.binNumber}',
@@ -1091,13 +1106,11 @@ class NavigationBottomPanel extends HookConsumerWidget {
                           break;
 
                         case StopType.dropoff:
-                          // Convert task to bin format for legacy dialog
-                          final binForDropoff = _convertTaskToBin(task);
                           showDialog(
                             context: context,
                             barrierDismissible: false,
                             builder: (context) => MoveRequestPlacementDialog(
-                              bin: binForDropoff,
+                              bin: task,
                               onPlacementComplete: () {
                                 AppLogger.general(
                                   '✅ Dropoff task completed for Bin #${task.binNumber}',
@@ -1108,13 +1121,11 @@ class NavigationBottomPanel extends HookConsumerWidget {
                           break;
 
                         case StopType.collection:
-                          // Convert task to bin format for legacy dialog
-                          final binForCollection = _convertTaskToBin(task);
                           showDialog(
                             context: context,
                             barrierDismissible: false,
                             builder: (context) => CheckInDialogV2(
-                              bin: binForCollection,
+                              bin: task,
                               onCheckedIn: () {
                                 AppLogger.general(
                                   '✅ Collection task completed for Bin #${task.binNumber}',
@@ -1180,7 +1191,7 @@ class NavigationBottomPanel extends HookConsumerWidget {
         : 0.0;
 
     // Get upcoming bins and filter out dropoffs if current bin is the pickup
-    final upcomingBins = shift.remainingTasks.skip(1).where((upcomingBin) {
+    final upcomingBins = shift.remainingTasks.skip(currentIndex + 1).where((upcomingBin) {
       // Filter out dropoff if current bin is its corresponding pickup
       if (bin.taskType == StopType.pickup &&
           upcomingBin.taskType == StopType.dropoff &&
@@ -1312,7 +1323,7 @@ class NavigationBottomPanel extends HookConsumerWidget {
                         ),
                         padding: EdgeInsets.zero,
                         constraints: const BoxConstraints(),
-                        onPressed: () => _showTaskMenu(context, ref, _convertBinToTask(bin)),
+                        onPressed: () => _showTaskMenu(context, ref, bin),
                       ),
                       const SizedBox(width: 4),
                       // Down arrow
@@ -1441,7 +1452,7 @@ class NavigationBottomPanel extends HookConsumerWidget {
                                           borderRadius: BorderRadius.circular(4),
                                         ),
                                         child: Text(
-                                          '${bin.fillPercentage}% full',
+                                          '${bin.safeFillPercentage}% full',
                                           style: TextStyle(
                                             fontSize: 12,
                                             color: GoogleNavigationMarkerService
@@ -1627,7 +1638,7 @@ class NavigationBottomPanel extends HookConsumerWidget {
                                     borderRadius: BorderRadius.circular(4),
                                 ),
                                 child: Text(
-                                  '${upcomingBin.fillPercentage}% full',
+                                  '${upcomingBin.safeFillPercentage}% full',
                                   style: TextStyle(
                                     fontSize: 12,
                                     color:
@@ -1963,42 +1974,6 @@ class NavigationBottomPanel extends HookConsumerWidget {
       case StopType.collection:
         return 'Complete Bin';
     }
-  }
-
-  /// Helper to convert RouteTask to RouteTask for dialog compatibility
-  /// The dialogs now work with RouteTask directly, so this just returns the task as-is
-  RouteTask _convertTaskToBin(RouteTask task) {
-    return task;
-  }
-
-  /// Helper to convert RouteTask to RouteTask for skip task menu
-  RouteTask _convertBinToTask(RouteTask bin) {
-    // RouteTask already has complete address in address field
-    // No need to build it from parts like old RouteBin did
-
-    return RouteTask(
-      id: bin.id,
-      shiftId: bin.shiftId,
-      binId: bin.binId?.isEmpty ?? true ? null : bin.binId,
-      sequenceOrder: bin.sequenceOrder,
-      taskType: bin.taskType,
-      moveRequestId: bin.moveRequestId,
-      address: bin.address, // Already the complete address
-      destinationAddress: bin.destinationAddress, // For move requests
-      moveType: bin.moveType,
-      potentialLocationId: bin.potentialLocationId,
-      newBinNumber: bin.newBinNumber,
-      warehouseAction: bin.warehouseAction,
-      binsToLoad: bin.binsToLoad,
-      isCompleted: bin.isCompleted,
-      completedAt: bin.completedAt,
-      updatedFillPercentage: bin.updatedFillPercentage,
-      createdAt: bin.createdAt,
-      binNumber: bin.binNumber,
-      fillPercentage: bin.fillPercentage,
-      latitude: bin.latitude,
-      longitude: bin.longitude,
-    );
   }
 
   /// Format distance for geofence warnings

@@ -44,10 +44,10 @@ class ShiftService {
         // Log first 3 tasks to see raw coordinate data types from backend
         final tasks = shiftData['tasks'] as List?;
         if (tasks != null && tasks.isNotEmpty) {
-          print('[DIAGNOSTIC] 🔍 RAW TASK DATA FROM BACKEND (first 3 tasks):');
+          AppLogger.general('[DIAGNOSTIC] 🔍 RAW TASK DATA FROM BACKEND (first 3 tasks):');
           for (int i = 0; i < tasks.length && i < 3; i++) {
             final task = tasks[i];
-            print('[DIAGNOSTIC]    Task #$i: task_type=${task['task_type']}, lat=${task['latitude']} (${task['latitude'].runtimeType}), lng=${task['longitude']} (${task['longitude'].runtimeType}), addr=${task['address']}');
+            AppLogger.general('[DIAGNOSTIC]    Task #$i: task_type=${task['task_type']}, lat=${task['latitude']} (${task['latitude'].runtimeType}), lng=${task['longitude']} (${task['longitude'].runtimeType}), addr=${task['address']}');
           }
         }
 
@@ -58,10 +58,10 @@ class ShiftService {
 
         // Log parsed coordinates after Flutter JSON parsing
         if (shiftState.tasks.isNotEmpty) {
-          print('[DIAGNOSTIC] 🔍 PARSED TASK DATA AFTER FLUTTER (first 3 tasks):');
+          AppLogger.general('[DIAGNOSTIC] 🔍 PARSED TASK DATA AFTER FLUTTER (first 3 tasks):');
           for (int i = 0; i < shiftState.tasks.length && i < 3; i++) {
             final task = shiftState.tasks[i];
-            print('[DIAGNOSTIC]    Task #$i: taskType=${task.taskType}, lat=${task.latitude} (${task.latitude.runtimeType}), lng=${task.longitude} (${task.longitude.runtimeType}), addr=${task.address}');
+            AppLogger.general('[DIAGNOSTIC]    Task #$i: taskType=${task.taskType}, lat=${task.latitude} (${task.latitude.runtimeType}), lng=${task.longitude} (${task.longitude.runtimeType}), addr=${task.address}');
           }
         }
 

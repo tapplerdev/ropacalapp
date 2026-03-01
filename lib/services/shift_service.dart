@@ -41,10 +41,37 @@ class ShiftService {
         print('   Status: ${shiftData['status']}');
         print('   Route ID: ${shiftData['route_id']}');
 
+        // Log first 3 tasks to see raw coordinate data types from backend
+        final tasks = shiftData['tasks'] as List?;
+        if (tasks != null && tasks.isNotEmpty) {
+          print('   🔍 RAW TASK DATA FROM BACKEND (first 3 tasks):');
+          for (int i = 0; i < tasks.length && i < 3; i++) {
+            final task = tasks[i];
+            print('      Task #$i:');
+            print('         task_type: ${task['task_type']}');
+            print('         latitude: ${task['latitude']} (type: ${task['latitude'].runtimeType})');
+            print('         longitude: ${task['longitude']} (type: ${task['longitude'].runtimeType})');
+            print('         address: ${task['address']}');
+          }
+        }
+
         // Freezed handles parsing bins automatically
         final shiftState = ShiftState.fromJson(
           shiftData as Map<String, dynamic>,
         );
+
+        // Log parsed coordinates after Flutter JSON parsing
+        if (shiftState.tasks.isNotEmpty) {
+          print('   🔍 PARSED TASK DATA AFTER FLUTTER (first 3 tasks):');
+          for (int i = 0; i < shiftState.tasks.length && i < 3; i++) {
+            final task = shiftState.tasks[i];
+            print('      Task #$i:');
+            print('         taskType: ${task.taskType}');
+            print('         latitude: ${task.latitude} (type: ${task.latitude.runtimeType})');
+            print('         longitude: ${task.longitude} (type: ${task.longitude.runtimeType})');
+            print('         address: ${task.address}');
+          }
+        }
 
         print('   ✅ Current shift: ${shiftData['status']}');
         print('   Route: ${shiftData['route_id']}');

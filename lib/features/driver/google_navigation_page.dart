@@ -860,8 +860,22 @@ class GoogleNavigationPage extends HookConsumerWidget {
 
       AppLogger.general('📍 Found ${remainingTasks.length} remaining tasks');
 
+      // Log first 3 tasks before waypoint conversion
+      AppLogger.general('🔍 TASKS BEFORE WAYPOINT CONVERSION (first 3):');
+      for (int i = 0; i < remainingTasks.length && i < 3; i++) {
+        final task = remainingTasks[i];
+        AppLogger.general('   Task #$i: ${task.taskType} - lat=${task.latitude} (${task.latitude.runtimeType}), lng=${task.longitude} (${task.longitude.runtimeType})');
+      }
+
       // Convert tasks to waypoints (deduplicate identical coordinates)
       final waypoints = _buildDeduplicatedWaypoints(remainingTasks);
+
+      // Log first 3 waypoints after conversion
+      AppLogger.general('🔍 WAYPOINTS BUILT FOR GOOGLE NAVIGATION (first 3):');
+      for (int i = 0; i < waypoints.length && i < 3; i++) {
+        final wp = waypoints[i];
+        AppLogger.general('   Waypoint #$i: ${wp.title} - lat=${wp.target.latitude}, lng=${wp.target.longitude}');
+      }
 
       // Create destinations
       final destinations = Destinations(
@@ -875,7 +889,7 @@ class GoogleNavigationPage extends HookConsumerWidget {
         ),
       );
 
-      AppLogger.general('🚗 Setting ${waypoints.length} waypoints...');
+      AppLogger.general('🚗 Setting ${waypoints.length} waypoints to Google Navigation SDK...');
 
       // Set destinations
       final result = await GoogleMapsNavigator.setDestinations(destinations);
@@ -1067,6 +1081,19 @@ class GoogleNavigationPage extends HookConsumerWidget {
   static List<NavigationWaypoint> _buildDeduplicatedWaypoints(
     List<RouteTask> tasks,
   ) {
+    AppLogger.general('🔧 Building waypoints from ${tasks.length} tasks...');
+
+    // Check for any invalid coordinates upfront
+    for (int i = 0; i < tasks.length; i++) {
+      final task = tasks[i];
+      if (task.latitude == 0 || task.longitude == 0) {
+        AppLogger.general('⚠️  WARNING: Task #$i has ZERO coordinates! lat=${task.latitude}, lng=${task.longitude}, type=${task.taskType}, address=${task.address}');
+      }
+      if (task.latitude.isNaN || task.longitude.isNaN) {
+        AppLogger.general('❌ ERROR: Task #$i has NaN coordinates! lat=${task.latitude}, lng=${task.longitude}, type=${task.taskType}');
+      }
+    }
+
     // Count how many times each rounded coordinate key appears.
     String coordKey(RouteTask t) =>
         '${t.latitude.toStringAsFixed(5)},'
@@ -1082,7 +1109,7 @@ class GoogleNavigationPage extends HookConsumerWidget {
     // a cumulative offset for the 2nd, 3rd, … occurrence.
     final coordSeen = <String, int>{};
 
-    return tasks.map((task) {
+    final waypoints = tasks.map((task) {
       final key = coordKey(task);
       final occurrences = coordCount[key] ?? 1;
 
@@ -1104,6 +1131,9 @@ class GoogleNavigationPage extends HookConsumerWidget {
         target: LatLng(latitude: lat, longitude: lng),
       );
     }).toList();
+
+    AppLogger.general('✅ Built ${waypoints.length} waypoints successfully');
+    return waypoints;
   }
 
   /// Advance navigation to next bin after completing current bin

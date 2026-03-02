@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:math' as math;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -2424,20 +2425,20 @@ class GoogleNavigationPage extends HookConsumerWidget {
     final dLat = _degreesToRadians(lat2 - lat1);
     final dLon = _degreesToRadians(lon2 - lon1);
 
-    final a = (dLat / 2).sin() * (dLat / 2).sin() +
-        _degreesToRadians(lat1).cos() *
-        _degreesToRadians(lat2).cos() *
-        (dLon / 2).sin() *
-        (dLon / 2).sin();
+    final a = math.sin(dLat / 2) * math.sin(dLat / 2) +
+        math.cos(_degreesToRadians(lat1)) *
+        math.cos(_degreesToRadians(lat2)) *
+        math.sin(dLon / 2) *
+        math.sin(dLon / 2);
 
-    final c = 2 * (a.sqrt()).asin();
+    final c = 2 * math.asin(math.sqrt(a));
 
     return earthRadius * c;
   }
 
   /// Convert degrees to radians
   static double _degreesToRadians(double degrees) {
-    return degrees * (3.14159265359 / 180.0);
+    return degrees * (math.pi / 180.0);
   }
 
   /// Validate task coordinates before sending to Google Navigation SDK

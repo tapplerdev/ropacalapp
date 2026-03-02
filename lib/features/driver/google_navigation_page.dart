@@ -71,10 +71,10 @@ class GoogleNavigationPage extends HookConsumerWidget {
 
     // Guard: Wait for tasks to be populated via WebSocket
     // Show loading screen while waiting
-    if (shift.status == ShiftStatus.active && shift.tasks.isEmpty) {
+    if (shift.status == ShiftStatus.active && shift.bins.isEmpty) {
       AppLogger.general('⏳ Navigation page: Waiting for tasks...');
       AppLogger.general('   Status: ${shift.status}');
-      AppLogger.general('   Tasks length: ${shift.tasks.length}');
+      AppLogger.general('   Tasks length: ${shift.bins.length}');
       AppLogger.general('   Total bins: ${shift.totalBins}');
       AppLogger.general('   Route ID: ${shift.assignedRouteId}');
 
@@ -729,10 +729,10 @@ class GoogleNavigationPage extends HookConsumerWidget {
               child: CircularProgressIndicator(),
             ),
 
-          // Turn-by-turn navigation card
+          // Turn-by-turn navigation card - positioned higher and thinner
           if (navState.isNavigating && navState.currentStep != null)
             Positioned(
-              top: Responsive.spacing(context, mobile: 120),
+              top: Responsive.spacing(context, mobile: 20),
               left: Responsive.spacing(context, mobile: 16),
               right: Responsive.spacing(context, mobile: 16),
               child: TurnByTurnNavigationCard(
@@ -743,29 +743,38 @@ class GoogleNavigationPage extends HookConsumerWidget {
               ),
             ),
 
-          // Notification button - positioned top-left
+          // Notification button - positioned bottom-right above potential location button
           Positioned(
-            top: Responsive.spacing(context, mobile: 16),
-            left: Responsive.spacing(context, mobile: 16),
-            child: SafeArea(
-              child: CircularMapButton(
-                icon: Icons.notifications_outlined,
-                iconColor: AppColors.primaryGreen,
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => const NotificationsPage(),
-                    ),
-                  );
-                },
-              ),
+            bottom: Responsive.spacing(context, mobile: 300),
+            right: Responsive.spacing(context, mobile: 16),
+            child: CircularMapButton(
+              icon: Icons.notifications_outlined,
+              iconColor: AppColors.primaryGreen,
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const NotificationsPage(),
+                  ),
+                );
+              },
             ),
           ),
 
-          // Audio button - positioned above recenter button
+          // Potential Location button - bottom right, topmost button
           Positioned(
-            bottom: Responsive.spacing(context, mobile: 360),
+            bottom: Responsive.spacing(context, mobile: 240),
+            right: Responsive.spacing(context, mobile: 16),
+            child: CircularMapButton(
+              icon: Icons.add_location_alt_outlined,
+              iconColor: AppColors.primaryGreen,
+              onTap: () => _showPotentialLocationMenu(context, ref),
+            ),
+          ),
+
+          // Audio button - bottom right, middle button
+          Positioned(
+            bottom: Responsive.spacing(context, mobile: 180),
             right: Responsive.spacing(context, mobile: 16),
             child: CircularMapButton(
               icon: navState.isAudioMuted ? Icons.volume_off : Icons.volume_up,
@@ -773,17 +782,6 @@ class GoogleNavigationPage extends HookConsumerWidget {
                 navState.isAudioMuted,
                 navNotifier.setAudioMuted,
               ),
-            ),
-          ),
-
-          // Potential Location button - positioned above audio button
-          Positioned(
-            bottom: Responsive.spacing(context, mobile: 420),
-            right: Responsive.spacing(context, mobile: 16),
-            child: CircularMapButton(
-              icon: Icons.add_location_alt_outlined,
-              iconColor: AppColors.primaryGreen,
-              onTap: () => _showPotentialLocationMenu(context, ref),
             ),
           ),
 
@@ -858,23 +856,23 @@ class GoogleNavigationPage extends HookConsumerWidget {
         return;
       }
 
-      AppLogger.general('📍 Found ${remainingTasks.length} remaining tasks');
+      print('📍 Found ${remainingTasks.length} remaining tasks');
 
       // Log first 3 tasks before waypoint conversion
-      AppLogger.general('[DIAGNOSTIC] 🔍 TASKS BEFORE WAYPOINT CONVERSION (first 3):');
+      print('[DIAGNOSTIC] 🔍 TASKS BEFORE WAYPOINT CONVERSION (first 3):');
       for (int i = 0; i < remainingTasks.length && i < 3; i++) {
         final task = remainingTasks[i];
-        AppLogger.general('[DIAGNOSTIC]    Task #$i: ${task.taskType} - lat=${task.latitude} (${task.latitude.runtimeType}), lng=${task.longitude} (${task.longitude.runtimeType})');
+        print('[DIAGNOSTIC]    Task #$i: ${task.taskType} - lat=${task.latitude} (${task.latitude.runtimeType}), lng=${task.longitude} (${task.longitude.runtimeType})');
       }
 
       // Convert tasks to waypoints (deduplicate identical coordinates)
       final waypoints = _buildDeduplicatedWaypoints(remainingTasks);
 
       // Log first 3 waypoints after conversion
-      AppLogger.general('[DIAGNOSTIC] 🔍 WAYPOINTS BUILT FOR GOOGLE NAVIGATION (first 3):');
+      print('[DIAGNOSTIC] 🔍 WAYPOINTS BUILT FOR GOOGLE NAVIGATION (first 3):');
       for (int i = 0; i < waypoints.length && i < 3; i++) {
         final wp = waypoints[i];
-        AppLogger.general('[DIAGNOSTIC]    Waypoint #$i: ${wp.title} - lat=${wp.target?.latitude}, lng=${wp.target?.longitude}');
+        print('[DIAGNOSTIC]    Waypoint #$i: ${wp.title} - lat=${wp.target?.latitude}, lng=${wp.target?.longitude}');
       }
 
       // Create destinations
@@ -889,12 +887,25 @@ class GoogleNavigationPage extends HookConsumerWidget {
         ),
       );
 
-      AppLogger.general('[DIAGNOSTIC] 🚗 Setting ${waypoints.length} waypoints to Google Navigation SDK...');
+      print('[DIAGNOSTIC] 🚗 Setting ${waypoints.length} waypoints to Google Navigation SDK...');
+
+      // Waypoint limit validation logging
+      print('[DIAGNOSTIC] 🔍 WAYPOINT LIMIT CHECK:');
+      print('[DIAGNOSTIC]    Total waypoints: ${waypoints.length}');
+      print('[DIAGNOSTIC]    Google SDK limit: 25');
+      if (waypoints.length > 25) {
+        print('[DIAGNOSTIC]    Status: ❌ EXCEEDS LIMIT BY ${waypoints.length - 25} WAYPOINTS');
+        print('[DIAGNOSTIC]    ⚠️ WARNING: This will likely cause NavigationRouteStatus.waypointError');
+      } else if (waypoints.length == 25) {
+        print('[DIAGNOSTIC]    Status: ⚠️ AT LIMIT (exactly 25 waypoints)');
+      } else {
+        print('[DIAGNOSTIC]    Status: ✅ OK (${waypoints.length}/25 waypoints)');
+      }
 
       // Set destinations
       final result = await GoogleMapsNavigator.setDestinations(destinations);
 
-      AppLogger.general('[DIAGNOSTIC] 📊 Route calculation result: $result');
+      print('[DIAGNOSTIC] 📊 Route calculation result: $result');
 
       // Handle route calculation result (Google's comprehensive error handling pattern)
       switch (result) {
@@ -996,11 +1007,24 @@ class GoogleNavigationPage extends HookConsumerWidget {
 
         case NavigationRouteStatus.waypointError:
           AppLogger.general('❌ Invalid waypoints');
+          AppLogger.general('❌ WAYPOINT ERROR ANALYSIS:');
+          AppLogger.general('   Sent waypoints: ${waypoints.length}');
+          AppLogger.general('   SDK limit: 25');
+          if (waypoints.length > 25) {
+            AppLogger.general('   ROOT CAUSE: Exceeded limit by ${waypoints.length - 25} waypoints');
+            AppLogger.general('   SOLUTION: Need to split route or limit tasks to 25');
+          } else {
+            AppLogger.general('   Note: Waypoint count is within limit - check for other issues');
+            AppLogger.general('   Possible causes: duplicate coords, invalid coords, or stale Place IDs');
+          }
           if (context.mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Invalid destination waypoints provided.'),
+              SnackBar(
+                content: Text(waypoints.length > 25
+                  ? 'Too many stops (${waypoints.length}/25) - contact dispatcher'
+                  : 'Invalid destination waypoints provided.'),
                 backgroundColor: Colors.red,
+                duration: const Duration(seconds: 5),
               ),
             );
           }
@@ -1081,16 +1105,16 @@ class GoogleNavigationPage extends HookConsumerWidget {
   static List<NavigationWaypoint> _buildDeduplicatedWaypoints(
     List<RouteTask> tasks,
   ) {
-    AppLogger.general('[DIAGNOSTIC] 🔧 Building waypoints from ${tasks.length} tasks...');
+    print('[DIAGNOSTIC] 🔧 Building waypoints from ${tasks.length} tasks...');
 
     // Check for any invalid coordinates upfront
     for (int i = 0; i < tasks.length; i++) {
       final task = tasks[i];
       if (task.latitude == 0 || task.longitude == 0) {
-        AppLogger.general('[DIAGNOSTIC] ⚠️  WARNING: Task #$i has ZERO coordinates! lat=${task.latitude}, lng=${task.longitude}, type=${task.taskType}, address=${task.address}');
+        print('[DIAGNOSTIC] ⚠️  WARNING: Task #$i has ZERO coordinates! lat=${task.latitude}, lng=${task.longitude}, type=${task.taskType}, address=${task.address}');
       }
       if (task.latitude.isNaN || task.longitude.isNaN) {
-        AppLogger.general('[DIAGNOSTIC] ❌ ERROR: Task #$i has NaN coordinates! lat=${task.latitude}, lng=${task.longitude}, type=${task.taskType}');
+        print('[DIAGNOSTIC] ❌ ERROR: Task #$i has NaN coordinates! lat=${task.latitude}, lng=${task.longitude}, type=${task.taskType}');
       }
     }
 
@@ -1133,6 +1157,18 @@ class GoogleNavigationPage extends HookConsumerWidget {
     }).toList();
 
     AppLogger.general('✅ Built ${waypoints.length} waypoints successfully');
+
+    // Waypoint limit check
+    if (waypoints.length > 25) {
+      AppLogger.general('⚠️ LIMIT CHECK FAILED: ${waypoints.length} waypoints exceeds Google SDK limit of 25');
+      AppLogger.general('   This request will fail with NavigationRouteStatus.waypointError');
+      AppLogger.general('   Exceeded by: ${waypoints.length - 25} waypoints');
+    } else if (waypoints.length == 25) {
+      AppLogger.general('⚠️ LIMIT CHECK: At maximum limit (25/25 waypoints)');
+    } else {
+      AppLogger.general('✅ LIMIT CHECK PASSED: ${waypoints.length}/25 waypoints');
+    }
+
     return waypoints;
   }
 
@@ -1165,15 +1201,15 @@ class GoogleNavigationPage extends HookConsumerWidget {
       // Check if tasks are ACTUALLY completed (not just skipped)
       // Note: Backend sets isCompleted=1 for both completed AND skipped tasks
       // So we must also check skipped=false to get truly completed tasks
-      final actuallyCompletedCount = shift.tasks
+      final actuallyCompletedCount = shift.bins
           .where((task) => task.isCompleted == 1 && !task.skipped)  // Only truly completed, not skipped
           .length;
-      final skippedCount = shift.tasks
+      final skippedCount = shift.bins
           .where((task) => task.skipped)  // Skipped tasks (isCompleted=1 + skipped=true)
           .length;
 
       AppLogger.general('📊 Task Status:');
-      AppLogger.general('   Total tasks: ${shift.tasks.length}');
+      AppLogger.general('   Total tasks: ${shift.bins.length}');
       AppLogger.general('   Actually completed: $actuallyCompletedCount');
       AppLogger.general('   Skipped: $skippedCount');
       AppLogger.general('   Remaining: ${shift.remainingTasks.length}');
@@ -1223,7 +1259,7 @@ class GoogleNavigationPage extends HookConsumerWidget {
           AppLogger.general('⭕ Added ${circles.length} geofence circles');
 
           // Update completed route polyline (only truly completed, not skipped)
-          final completedTasksList = shift.tasks.where((task) => task.isCompleted == 1 && !task.skipped).toList();
+          final completedTasksList = shift.bins.where((task) => task.isCompleted == 1 && !task.skipped).toList();
           final polyline = await GoogleNavigationMarkerService.createCompletedRoutePolyline(completedTasksList);
           await controller.clearPolylines();
           if (polyline != null) {
@@ -1274,7 +1310,7 @@ class GoogleNavigationPage extends HookConsumerWidget {
         // ✅ SAFETY CHECK: Don't show modal if count is 0 (race condition/stale state)
         if (actuallyCompletedCount == 0) {
           AppLogger.general('⚠️  [MODAL SKIP] Not showing completion modal - 0 tasks counted (likely stale state from rapid updates)');
-          AppLogger.general('   Total tasks: ${shift.tasks.length}');
+          AppLogger.general('   Total tasks: ${shift.bins.length}');
           AppLogger.general('   Logical total: ${shift.logicalTotalBins}');
           return;
         }
@@ -1499,16 +1535,16 @@ class GoogleNavigationPage extends HookConsumerWidget {
       AppLogger.general('   📊 [DEBUG] SHIFT STATE READ RESULT:');
       AppLogger.general('      ShiftID: ${updatedShift.shiftId}');
       AppLogger.general('      Status: ${updatedShift.status}');
-      AppLogger.general('      Total tasks: ${updatedShift.tasks.length}');
+      AppLogger.general('      Total tasks: ${updatedShift.bins.length}');
       AppLogger.general('      Remaining tasks: ${updatedShift.remainingTasks.length}');
       AppLogger.general('      Logical total: ${updatedShift.logicalTotalBins}');
       AppLogger.general('      Logical completed: ${updatedShift.logicalCompletedBins}');
 
       // DEBUG: Log ALL tasks to see if new ones are present
-      if (updatedShift.tasks.isNotEmpty) {
-        AppLogger.general('   📋 [DEBUG] ALL TASKS IN STATE (${updatedShift.tasks.length} total):');
-        for (var i = 0; i < updatedShift.tasks.length; i++) {
-          final task = updatedShift.tasks[i];
+      if (updatedShift.bins.isNotEmpty) {
+        AppLogger.general('   📋 [DEBUG] ALL TASKS IN STATE (${updatedShift.bins.length} total):');
+        for (var i = 0; i < updatedShift.bins.length; i++) {
+          final task = updatedShift.bins[i];
           final statusIcon = task.isCompleted == 1 ? '✅' : (task.isCompleted == 2 ? '⏭️' : '⏳');
           AppLogger.general('      $statusIcon ${i + 1}. ${task.taskType.name} - Bin #${task.binNumber ?? "N/A"} - Seq:${task.sequenceOrder} - Completed:${task.isCompleted}');
         }
@@ -1824,7 +1860,7 @@ class GoogleNavigationPage extends HookConsumerWidget {
 
       // Add completed route polyline if there are completed tasks (only truly completed, not skipped)
       if (shift.completedBins > 0) {
-        final completedTasksList = shift.tasks.where((task) => task.isCompleted == 1 && !task.skipped).toList();
+        final completedTasksList = shift.bins.where((task) => task.isCompleted == 1 && !task.skipped).toList();
         final polyline = await GoogleNavigationMarkerService.createCompletedRoutePolyline(completedTasksList);
         if (polyline != null) {
           await controller.addPolylines([polyline]);

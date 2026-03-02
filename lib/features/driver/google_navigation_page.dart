@@ -858,22 +858,112 @@ class GoogleNavigationPage extends HookConsumerWidget {
 
       print('📍 Found ${remainingTasks.length} remaining tasks');
 
-      // Log first 3 tasks before waypoint conversion
-      print('[DIAGNOSTIC] 🔍 TASKS BEFORE WAYPOINT CONVERSION (first 3):');
-      for (int i = 0; i < remainingTasks.length && i < 3; i++) {
-        final task = remainingTasks[i];
-        print('[DIAGNOSTIC]    Task #$i: ${task.taskType} - lat=${task.latitude} (${task.latitude.runtimeType}), lng=${task.longitude} (${task.longitude.runtimeType})');
+      // STEP 1: VALIDATE TASK COORDINATES BEFORE PROCESSING
+      AppLogger.general('');
+      AppLogger.general('═══════════════════════════════════════════');
+      AppLogger.general('🛡️  TASK VALIDATION - PRE-FLIGHT CHECKS');
+      AppLogger.general('═══════════════════════════════════════════');
+      final validation = _validateTasks(remainingTasks);
+
+      // Block execution if validation fails
+      if (validation.hasErrors) {
+        AppLogger.general('');
+        AppLogger.general('❌ VALIDATION FAILED - Cannot proceed with navigation');
+        AppLogger.general('   Total errors: ${validation.errors.length}');
+        AppLogger.general('   Total warnings: ${validation.warnings.length}');
+
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: const Text('Invalid task coordinates detected. Contact dispatcher immediately.'),
+              backgroundColor: Colors.red,
+              duration: const Duration(seconds: 10),
+              action: SnackBarAction(
+                label: 'Details',
+                textColor: Colors.white,
+                onPressed: () => _showValidationErrorDialog(context, validation),
+              ),
+            ),
+          );
+        }
+
+        // Show error dialog automatically
+        if (context.mounted) {
+          _showValidationErrorDialog(context, validation);
+        }
+
+        return; // STOP execution - don't send invalid coordinates to SDK
       }
 
-      // Convert tasks to waypoints (deduplicate identical coordinates)
+      // Log warnings but continue execution
+      if (validation.hasWarnings) {
+        AppLogger.general('');
+        AppLogger.general('⚠️  VALIDATION WARNINGS (non-blocking):');
+        for (final warning in validation.warnings) {
+          AppLogger.general('   • $warning');
+        }
+      }
+
+      AppLogger.general('═══════════════════════════════════════════');
+      AppLogger.general('');
+
+      // STEP 2: LOG COMPLETE TASK DUMP FOR DIAGNOSTICS
+      print('[DIAGNOSTIC] 📋 COMPLETE TASK DUMP (all ${remainingTasks.length} tasks):');
+      for (int i = 0; i < remainingTasks.length; i++) {
+        final task = remainingTasks[i];
+        print('[DIAGNOSTIC]    [$i] ${task.displayTitle}');
+        print('[DIAGNOSTIC]        Task ID: ${task.id}');
+        print('[DIAGNOSTIC]        Type: ${task.taskType.name}');
+        print('[DIAGNOSTIC]        Coords: ${task.latitude}, ${task.longitude} (${task.latitude.runtimeType})');
+        print('[DIAGNOSTIC]        Address: ${task.address ?? "N/A"}');
+        print('[DIAGNOSTIC]        Sequence: ${task.sequenceOrder}');
+
+        // Calculate distance from previous task
+        if (i > 0) {
+          final prev = remainingTasks[i - 1];
+          final dist = _calculateDistance(
+            prev.latitude,
+            prev.longitude,
+            task.latitude,
+            task.longitude,
+          );
+          print('[DIAGNOSTIC]        Distance from prev: ${dist.toStringAsFixed(1)}m');
+        }
+      }
+      print('[DIAGNOSTIC] ═══════════════════════════════════════════');
+
+      // STEP 3: Convert tasks to waypoints (deduplicate identical coordinates)
       final waypoints = _buildDeduplicatedWaypoints(remainingTasks);
 
-      // Log first 3 waypoints after conversion
-      print('[DIAGNOSTIC] 🔍 WAYPOINTS BUILT FOR GOOGLE NAVIGATION (first 3):');
-      for (int i = 0; i < waypoints.length && i < 3; i++) {
+      // STEP 4: LOG COMPLETE WAYPOINT DUMP FOR SDK
+      print('[DIAGNOSTIC] 🗺️  COMPLETE WAYPOINT DUMP (all ${waypoints.length} waypoints):');
+      for (int i = 0; i < waypoints.length; i++) {
         final wp = waypoints[i];
-        print('[DIAGNOSTIC]    Waypoint #$i: ${wp.title} - lat=${wp.target?.latitude}, lng=${wp.target?.longitude}');
+        final task = remainingTasks[i];
+        print('[DIAGNOSTIC]    [$i] ${wp.title}');
+        print('[DIAGNOSTIC]        SDK Coords: ${wp.target?.latitude}, ${wp.target?.longitude}');
+        print('[DIAGNOSTIC]        Original Coords: ${task.latitude}, ${task.longitude}');
+
+        // Check if coordinates were offset for deduplication
+        final latDiff = (wp.target?.latitude ?? 0) - task.latitude;
+        final lngDiff = (wp.target?.longitude ?? 0) - task.longitude;
+        if (latDiff.abs() > 0.000001 || lngDiff.abs() > 0.000001) {
+          print('[DIAGNOSTIC]        ⚠️  OFFSET APPLIED: lat+${latDiff.toStringAsFixed(8)}, lng+${lngDiff.toStringAsFixed(8)}');
+        }
+
+        // Show distance from previous waypoint
+        if (i > 0) {
+          final prevWp = waypoints[i - 1];
+          final dist = _calculateDistance(
+            prevWp.target?.latitude ?? 0,
+            prevWp.target?.longitude ?? 0,
+            wp.target?.latitude ?? 0,
+            wp.target?.longitude ?? 0,
+          );
+          print('[DIAGNOSTIC]        Distance from prev waypoint: ${dist.toStringAsFixed(1)}m');
+        }
       }
+      print('[DIAGNOSTIC] ═══════════════════════════════════════════');
 
       // Create destinations
       final destinations = Destinations(
@@ -1006,27 +1096,74 @@ class GoogleNavigationPage extends HookConsumerWidget {
           break;
 
         case NavigationRouteStatus.waypointError:
-          AppLogger.general('❌ Invalid waypoints');
-          AppLogger.general('❌ WAYPOINT ERROR ANALYSIS:');
+          AppLogger.general('❌ Invalid waypoints - Running diagnostics...');
+          AppLogger.general('');
+          AppLogger.general('═══════════════════════════════════════════');
+          AppLogger.general('🔍 WAYPOINT ERROR ANALYSIS');
+          AppLogger.general('═══════════════════════════════════════════');
           AppLogger.general('   Sent waypoints: ${waypoints.length}');
-          AppLogger.general('   SDK limit: 25');
-          if (waypoints.length > 25) {
-            AppLogger.general('   ROOT CAUSE: Exceeded limit by ${waypoints.length - 25} waypoints');
-            AppLogger.general('   SOLUTION: Need to split route or limit tasks to 25');
+          AppLogger.general('   SDK documented limit: 25 (may not apply to Android)');
+
+          // Re-run validation to get detailed error info
+          final postValidation = _validateTasks(remainingTasks);
+
+          if (postValidation.hasErrors) {
+            AppLogger.general('');
+            AppLogger.general('❌ ROOT CAUSE: Invalid coordinates detected:');
+            for (final error in postValidation.errors) {
+              AppLogger.general('   • $error');
+            }
+          } else if (waypoints.length > 25) {
+            AppLogger.general('   Possible cause: Exceeded SDK limit by ${waypoints.length - 25} waypoints');
+            AppLogger.general('   Note: 25 limit may be iOS-only, but check coordinates anyway');
           } else {
-            AppLogger.general('   Note: Waypoint count is within limit - check for other issues');
-            AppLogger.general('   Possible causes: duplicate coords, invalid coords, or stale Place IDs');
+            AppLogger.general('   Waypoint count: ✅ OK (${waypoints.length}/25)');
+            AppLogger.general('   Coordinate validation: ✅ PASSED');
+            AppLogger.general('   Possible causes:');
+            AppLogger.general('   • Consecutive duplicate coordinates (too close together)');
+            AppLogger.general('   • Coordinates too close to roads SDK cannot route between');
+            AppLogger.general('   • Transient SDK initialization issue');
           }
+
+          if (postValidation.hasWarnings) {
+            AppLogger.general('');
+            AppLogger.general('⚠️  WARNINGS (may be related):');
+            for (final warning in postValidation.warnings) {
+              AppLogger.general('   • $warning');
+            }
+          }
+
+          AppLogger.general('═══════════════════════════════════════════');
+
           if (context.mounted) {
+            String errorMessage;
+            if (postValidation.hasErrors) {
+              errorMessage = 'Invalid coordinates detected. Check diagnostic logs or contact dispatcher.';
+            } else if (waypoints.length > 25) {
+              errorMessage = 'Too many stops (${waypoints.length}) - contact dispatcher';
+            } else {
+              errorMessage = 'Navigation error. Check diagnostic logs or contact support.';
+            }
+
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
-                content: Text(waypoints.length > 25
-                  ? 'Too many stops (${waypoints.length}/25) - contact dispatcher'
-                  : 'Invalid destination waypoints provided.'),
+                content: Text(errorMessage),
                 backgroundColor: Colors.red,
-                duration: const Duration(seconds: 5),
+                duration: const Duration(seconds: 10),
+                action: postValidation.hasErrors
+                  ? SnackBarAction(
+                      label: 'Details',
+                      textColor: Colors.white,
+                      onPressed: () => _showValidationErrorDialog(context, postValidation),
+                    )
+                  : null,
               ),
             );
+
+            // Show validation dialog if there are errors
+            if (postValidation.hasErrors) {
+              _showValidationErrorDialog(context, postValidation);
+            }
           }
           break;
 
@@ -1102,21 +1239,13 @@ class GoogleNavigationPage extends HookConsumerWidget {
   /// to avoid a [NavigationRouteStatus.duplicateWaypointsError] from the SDK.
   /// Only tasks that are actual duplicates are touched; unique coords are used
   /// as-is.
+  ///
+  /// NOTE: Coordinate validation is performed by _validateTasks() before this
+  /// function is called, so this only handles deduplication logic.
   static List<NavigationWaypoint> _buildDeduplicatedWaypoints(
     List<RouteTask> tasks,
   ) {
-    print('[DIAGNOSTIC] 🔧 Building waypoints from ${tasks.length} tasks...');
-
-    // Check for any invalid coordinates upfront
-    for (int i = 0; i < tasks.length; i++) {
-      final task = tasks[i];
-      if (task.latitude == 0 || task.longitude == 0) {
-        print('[DIAGNOSTIC] ⚠️  WARNING: Task #$i has ZERO coordinates! lat=${task.latitude}, lng=${task.longitude}, type=${task.taskType}, address=${task.address}');
-      }
-      if (task.latitude.isNaN || task.longitude.isNaN) {
-        print('[DIAGNOSTIC] ❌ ERROR: Task #$i has NaN coordinates! lat=${task.latitude}, lng=${task.longitude}, type=${task.taskType}');
-      }
-    }
+    AppLogger.general('🔧 Building ${tasks.length} waypoints with deduplication...');
 
     // Count how many times each rounded coordinate key appears.
     String coordKey(RouteTask t) =>
@@ -2282,4 +2411,182 @@ class GoogleNavigationPage extends HookConsumerWidget {
       builder: (context) => const PotentialLocationFormDialog(),
     );
   }
+
+  /// Calculate distance between two coordinates in meters (Haversine formula)
+  static double _calculateDistance(
+    double lat1,
+    double lon1,
+    double lat2,
+    double lon2,
+  ) {
+    const earthRadius = 6371000.0; // Earth's radius in meters
+
+    final dLat = _degreesToRadians(lat2 - lat1);
+    final dLon = _degreesToRadians(lon2 - lon1);
+
+    final a = (dLat / 2).sin() * (dLat / 2).sin() +
+        _degreesToRadians(lat1).cos() *
+        _degreesToRadians(lat2).cos() *
+        (dLon / 2).sin() *
+        (dLon / 2).sin();
+
+    final c = 2 * (a.sqrt()).asin();
+
+    return earthRadius * c;
+  }
+
+  /// Convert degrees to radians
+  static double _degreesToRadians(double degrees) {
+    return degrees * (3.14159265359 / 180.0);
+  }
+
+  /// Validate task coordinates before sending to Google Navigation SDK
+  static TaskValidationResult _validateTasks(List<RouteTask> tasks) {
+    final errors = <String>[];
+    final warnings = <String>[];
+
+    AppLogger.general('🔍 [VALIDATION] Validating ${tasks.length} tasks...');
+
+    for (int i = 0; i < tasks.length; i++) {
+      final task = tasks[i];
+
+      // 1. Check for NaN
+      if (task.latitude.isNaN || task.longitude.isNaN) {
+        errors.add('Task #$i (${task.taskType.name}, ${task.displayTitle}) has NaN coordinates');
+        AppLogger.general('   ❌ ERROR: Task #$i has NaN coordinates');
+        continue;
+      }
+
+      // 2. Check for zero coordinates (likely uninitialized)
+      if (task.latitude == 0 && task.longitude == 0) {
+        errors.add('Task #$i (${task.taskType.name}, ${task.displayTitle}) has ZERO coordinates (0, 0)');
+        AppLogger.general('   ❌ ERROR: Task #$i has ZERO coordinates');
+        continue;
+      }
+
+      // 3. Check for valid latitude range
+      if (task.latitude < -90 || task.latitude > 90) {
+        errors.add('Task #$i (${task.taskType.name}, ${task.displayTitle}) latitude out of range: ${task.latitude}');
+        AppLogger.general('   ❌ ERROR: Task #$i latitude out of range: ${task.latitude}');
+      }
+
+      // 4. Check for valid longitude range
+      if (task.longitude < -180 || task.longitude > 180) {
+        errors.add('Task #$i (${task.taskType.name}, ${task.displayTitle}) longitude out of range: ${task.longitude}');
+        AppLogger.general('   ❌ ERROR: Task #$i longitude out of range: ${task.longitude}');
+      }
+
+      // 5. Check for suspicious near-zero coordinates (might be uninitialized default)
+      if (task.latitude.abs() < 0.0001 && task.longitude.abs() < 0.0001) {
+        warnings.add('Task #$i (${task.taskType.name}, ${task.displayTitle}) has near-zero coordinates');
+        AppLogger.general('   ⚠️  WARNING: Task #$i has near-zero coordinates');
+      }
+    }
+
+    // 6. Check for minimum separation between consecutive waypoints
+    for (int i = 0; i < tasks.length - 1; i++) {
+      final current = tasks[i];
+      final next = tasks[i + 1];
+
+      // Skip if either task has invalid coordinates (already logged as error)
+      if (current.latitude.isNaN || current.longitude.isNaN ||
+          next.latitude.isNaN || next.longitude.isNaN ||
+          (current.latitude == 0 && current.longitude == 0) ||
+          (next.latitude == 0 && next.longitude == 0)) {
+        continue;
+      }
+
+      final distance = _calculateDistance(
+        current.latitude,
+        current.longitude,
+        next.latitude,
+        next.longitude,
+      );
+
+      // Warn if waypoints are very close (< 5 meters)
+      if (distance < 5) {
+        warnings.add(
+          'Tasks #$i (${current.displayTitle}) and #${i + 1} (${next.displayTitle}) '
+          'are very close (${distance.toStringAsFixed(1)}m apart)'
+        );
+        AppLogger.general('   ⚠️  WARNING: Tasks #$i and #${i+1} are ${distance.toStringAsFixed(1)}m apart');
+      }
+    }
+
+    // Summary
+    if (errors.isEmpty && warnings.isEmpty) {
+      AppLogger.general('✅ [VALIDATION] All tasks passed validation');
+    } else {
+      AppLogger.general('📊 [VALIDATION] Summary:');
+      AppLogger.general('   Errors: ${errors.length}');
+      AppLogger.general('   Warnings: ${warnings.length}');
+    }
+
+    return TaskValidationResult(errors: errors, warnings: warnings);
+  }
+
+  /// Show detailed validation error dialog
+  static void _showValidationErrorDialog(
+    BuildContext context,
+    TaskValidationResult validation,
+  ) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Task Validation Failed'),
+        content: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (validation.errors.isNotEmpty) ...[
+                const Text(
+                  'Errors:',
+                  style: TextStyle(fontWeight: FontWeight.bold, color: Colors.red),
+                ),
+                const SizedBox(height: 8),
+                ...validation.errors.map((error) => Padding(
+                  padding: const EdgeInsets.only(left: 8, bottom: 4),
+                  child: Text('• $error', style: const TextStyle(fontSize: 12)),
+                )),
+                const SizedBox(height: 16),
+              ],
+              if (validation.warnings.isNotEmpty) ...[
+                const Text(
+                  'Warnings:',
+                  style: TextStyle(fontWeight: FontWeight.bold, color: Colors.orange),
+                ),
+                const SizedBox(height: 8),
+                ...validation.warnings.map((warning) => Padding(
+                  padding: const EdgeInsets.only(left: 8, bottom: 4),
+                  child: Text('• $warning', style: const TextStyle(fontSize: 12)),
+                )),
+              ],
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Close'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Result of task coordinate validation
+class TaskValidationResult {
+  final List<String> errors;
+  final List<String> warnings;
+
+  TaskValidationResult({
+    required this.errors,
+    required this.warnings,
+  });
+
+  bool get hasErrors => errors.isNotEmpty;
+  bool get hasWarnings => warnings.isNotEmpty;
+  bool get isValid => errors.isEmpty;
 }

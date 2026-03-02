@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:google_navigation_flutter/google_navigation_flutter.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:ropacalapp/core/services/google_navigation_marker_service.dart';
@@ -40,7 +41,7 @@ class NavigationBottomPanel extends HookConsumerWidget {
     // AppLogger.general('   📊 SHIFT DATA:');
     // AppLogger.general('      Shift ID: ${shift.shiftId}');
     // AppLogger.general('      Status: ${shift.status}');
-    // AppLogger.general('      Total tasks: ${shift.tasks.length}');
+    // AppLogger.general('      Total tasks: ${shift.bins.length}');
     // AppLogger.general('      Remaining tasks: ${shift.remainingTasks.length}');
     // AppLogger.general('      Uses tasks: ${shift.usesTasks}');
     // AppLogger.general('      Logical total: ${shift.logicalTotalBins}');
@@ -513,15 +514,15 @@ class NavigationBottomPanel extends HookConsumerWidget {
         : 0.0;
 
     // Get upcoming tasks and filter out dropoffs if current task is the pickup
-    AppLogger.general('🔍 [UP NEXT] Calculating upcoming tasks...');
-    AppLogger.general('   Total remaining tasks: ${shift.remainingTasks.length}');
-    AppLogger.general('   Current index: $currentIndex');
-    AppLogger.general('   Current task: Bin #${task.binNumber} (${task.taskType.name})');
+    // AppLogger.general('🔍 [UP NEXT] Calculating upcoming tasks...');
+    // AppLogger.general('   Total remaining tasks: ${shift.remainingTasks.length}');
+    // AppLogger.general('   Current index: $currentIndex');
+    // AppLogger.general('   Current task: Bin #${task.binNumber} (${task.taskType.name})');
 
-    for (var i = 0; i < shift.remainingTasks.length; i++) {
-      final t = shift.remainingTasks[i];
-      AppLogger.general('   [$i] Bin #${t.binNumber ?? "N/A"} - ${t.taskType.name} - ${t.address}');
-    }
+    // for (var i = 0; i < shift.remainingTasks.length; i++) {
+    //   final t = shift.remainingTasks[i];
+    //   AppLogger.general('   [$i] Bin #${t.binNumber ?? "N/A"} - ${t.taskType.name} - ${t.address}');
+    // }
 
     final upcomingTasks = shift.remainingTasks.skip(currentIndex + 1).where((upcomingTask) {
       // Filter out dropoff if current task is its corresponding pickup
@@ -529,17 +530,17 @@ class NavigationBottomPanel extends HookConsumerWidget {
           upcomingTask.taskType == StopType.dropoff &&
           task.moveRequestId != null &&
           task.moveRequestId == upcomingTask.moveRequestId) {
-        AppLogger.general('   🚫 Filtering out dropoff for pickup: ${upcomingTask.binNumber}');
+        // AppLogger.general('   🚫 Filtering out dropoff for pickup: ${upcomingTask.binNumber}');
         return false; // Skip dropoff from "UP NEXT" (it's part of current action)
       }
       return true;
     }).take(3).toList();
 
-    AppLogger.general('   📋 UP NEXT tasks count: ${upcomingTasks.length}');
-    for (var i = 0; i < upcomingTasks.length; i++) {
-      final t = upcomingTasks[i];
-      AppLogger.general('   UP NEXT [$i]: Bin #${t.binNumber ?? "N/A"} - ${t.taskType.name} - ${t.address}');
-    }
+    // AppLogger.general('   📋 UP NEXT tasks count: ${upcomingTasks.length}');
+    // for (var i = 0; i < upcomingTasks.length; i++) {
+    //   final t = upcomingTasks[i];
+    //   AppLogger.general('   UP NEXT [$i]: Bin #${t.binNumber ?? "N/A"} - ${t.taskType.name} - ${t.address}');
+    // }
 
     // Calculate distance to task for geofence check
     final double? distanceToTask = driverLocation != null
@@ -653,18 +654,6 @@ class NavigationBottomPanel extends HookConsumerWidget {
                             ],
                           ),
                         ),
-                      // Three-dot menu icon
-                      IconButton(
-                        icon: Icon(
-                          Icons.more_vert,
-                          color: Colors.grey.shade600,
-                          size: 22,
-                        ),
-                        padding: EdgeInsets.zero,
-                        constraints: const BoxConstraints(),
-                        onPressed: () => _showTaskMenu(context, ref, task),
-                      ),
-                      const SizedBox(width: 4),
                       // Down arrow
                       Icon(
                         Icons.keyboard_arrow_down,
@@ -1052,125 +1041,154 @@ class NavigationBottomPanel extends HookConsumerWidget {
             ),
           ),
 
-        // Complete Task button (conditionally enabled based on geofence)
+        // Skip and Complete buttons (conditionally enabled based on geofence)
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-          child: SizedBox(
-            width: double.infinity,
-            child: ElevatedButton(
-              onPressed: isWithinGeofence
-                  ? () {
-                      AppLogger.general(
-                        'Complete Task button pressed for task ${task.id} (type: ${task.taskType})',
-                      );
-
-                      // Show different dialog based on task type
-                      // TODO: Task-based shifts need proper dialog implementations
-                      // Current dialogs expect RouteTask which has more fields than RouteTask
-                      switch (task.taskType) {
-                        case StopType.warehouseStop:
-                          showDialog(
-                            context: context,
-                            barrierDismissible: false,
-                            builder: (context) => WarehouseCheckinDialog(
-                              task: task,
-                              shiftBinId: task.id,
-                            ),
-                          );
-                          break;
-
-                        case StopType.placement:
-                          showDialog(
-                            context: context,
-                            barrierDismissible: false,
-                            builder: (context) => PlacementCheckinDialog(
-                              task: task,
-                              shiftBinId: task.id,
-                            ),
-                          );
-                          break;
-
-                        case StopType.pickup:
-                          showDialog(
-                            context: context,
-                            barrierDismissible: false,
-                            builder: (context) => MoveRequestPickupDialog(
-                              bin: task,
-                              onPickupComplete: () {
-                                AppLogger.general(
-                                  '✅ Pickup task completed for Bin #${task.binNumber}',
-                                );
-                              },
-                            ),
-                          );
-                          break;
-
-                        case StopType.dropoff:
-                          showDialog(
-                            context: context,
-                            barrierDismissible: false,
-                            builder: (context) => MoveRequestPlacementDialog(
-                              bin: task,
-                              onPlacementComplete: () {
-                                AppLogger.general(
-                                  '✅ Dropoff task completed for Bin #${task.binNumber}',
-                                );
-                              },
-                            ),
-                          );
-                          break;
-
-                        case StopType.collection:
-                          showDialog(
-                            context: context,
-                            barrierDismissible: false,
-                            builder: (context) => CheckInDialogV2(
-                              bin: task,
-                              onCheckedIn: () {
-                                AppLogger.general(
-                                  '✅ Collection task completed for Bin #${task.binNumber}',
-                                );
-                              },
-                            ),
-                          );
-                          break;
-
-                        default:
-                          // Fallback for any unknown task types
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text(
-                                'Task completion dialog not yet implemented for ${task.taskType}',
-                              ),
-                              backgroundColor: Colors.orange,
-                            ),
-                          );
-                          break;
-                      }
-                    }
-                  : null, // Disabled when not within geofence
-              style: ElevatedButton.styleFrom(
-                backgroundColor: isWithinGeofence
-                    ? AppColors.primaryGreen
-                    : Colors.grey.shade400,
-                disabledBackgroundColor: Colors.grey.shade400,
-                disabledForegroundColor: Colors.grey.shade100,
-                padding: const EdgeInsets.symmetric(vertical: 18),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                elevation: 0,
-                minimumSize: const Size(double.infinity, 54),
-              ),
-              child: Text(
-                isWithinGeofence ? _getButtonText(task.taskType) : 'Too Far Away',
-                style: const TextStyle(
-                  fontSize: 17,
-                  fontWeight: FontWeight.w600,
-                  letterSpacing: 0.2,
+          child: Row(
+            children: [
+              // Skip button (orange, 50% width)
+              Expanded(
+                child: ElevatedButton(
+                  onPressed: () {
+                    HapticFeedback.lightImpact();
+                    _showSkipDialog(context, ref, task);
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.orange.shade600,
+                    padding: const EdgeInsets.symmetric(vertical: 18),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    elevation: 0,
+                  ),
+                  child: const Text(
+                    'Skip',
+                    style: TextStyle(
+                      fontSize: 17,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: 0.2,
+                    ),
+                  ),
                 ),
               ),
-            ),
+              const SizedBox(width: 12),
+              // Complete button (green, 50% width)
+              Expanded(
+                child: ElevatedButton(
+                  onPressed: isWithinGeofence
+                      ? () {
+                          AppLogger.general(
+                            'Complete Task button pressed for task ${task.id} (type: ${task.taskType})',
+                          );
+
+                          // Show different dialog based on task type
+                          // TODO: Task-based shifts need proper dialog implementations
+                          // Current dialogs expect RouteTask which has more fields than RouteTask
+                          switch (task.taskType) {
+                            case StopType.warehouseStop:
+                              showDialog(
+                                context: context,
+                                barrierDismissible: false,
+                                builder: (context) => WarehouseCheckinDialog(
+                                  task: task,
+                                  shiftBinId: task.id,
+                                ),
+                              );
+                              break;
+
+                            case StopType.placement:
+                              showDialog(
+                                context: context,
+                                barrierDismissible: false,
+                                builder: (context) => PlacementCheckinDialog(
+                                  task: task,
+                                  shiftBinId: task.id,
+                                ),
+                              );
+                              break;
+
+                            case StopType.pickup:
+                              showDialog(
+                                context: context,
+                                barrierDismissible: false,
+                                builder: (context) => MoveRequestPickupDialog(
+                                  bin: task,
+                                  onPickupComplete: () {
+                                    AppLogger.general(
+                                      '✅ Pickup task completed for Bin #${task.binNumber}',
+                                    );
+                                  },
+                                ),
+                              );
+                              break;
+
+                            case StopType.dropoff:
+                              showDialog(
+                                context: context,
+                                barrierDismissible: false,
+                                builder: (context) => MoveRequestPlacementDialog(
+                                  bin: task,
+                                  onPlacementComplete: () {
+                                    AppLogger.general(
+                                      '✅ Dropoff task completed for Bin #${task.binNumber}',
+                                    );
+                                  },
+                                ),
+                              );
+                              break;
+
+                            case StopType.collection:
+                              showDialog(
+                                context: context,
+                                barrierDismissible: false,
+                                builder: (context) => CheckInDialogV2(
+                                  bin: task,
+                                  onCheckedIn: () {
+                                    AppLogger.general(
+                                      '✅ Collection task completed for Bin #${task.binNumber}',
+                                    );
+                                  },
+                                ),
+                              );
+                              break;
+
+                            default:
+                              // Fallback for any unknown task types
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(
+                                    'Task completion dialog not yet implemented for ${task.taskType}',
+                                  ),
+                                  backgroundColor: Colors.orange,
+                                ),
+                              );
+                              break;
+                          }
+                        }
+                      : null, // Disabled when not within geofence
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: isWithinGeofence
+                        ? AppColors.primaryGreen
+                        : Colors.grey.shade400,
+                    disabledBackgroundColor: Colors.grey.shade400,
+                    disabledForegroundColor: Colors.grey.shade100,
+                    padding: const EdgeInsets.symmetric(vertical: 18),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    elevation: 0,
+                  ),
+                  child: Text(
+                    isWithinGeofence ? _getButtonText(task.taskType) : 'Too Far Away',
+                    style: const TextStyle(
+                      fontSize: 17,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: 0.2,
+                    ),
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
       ],
@@ -1314,18 +1332,6 @@ class NavigationBottomPanel extends HookConsumerWidget {
                             ],
                           ),
                         ),
-                      // Three-dot menu icon
-                      IconButton(
-                        icon: Icon(
-                          Icons.more_vert,
-                          color: Colors.grey.shade600,
-                          size: 22,
-                        ),
-                        padding: EdgeInsets.zero,
-                        constraints: const BoxConstraints(),
-                        onPressed: () => _showTaskMenu(context, ref, bin),
-                      ),
-                      const SizedBox(width: 4),
                       // Down arrow
                       Icon(
                         Icons.keyboard_arrow_down,
@@ -1700,13 +1706,42 @@ class NavigationBottomPanel extends HookConsumerWidget {
             ),
           ),
 
-        // Complete Bin button (conditionally enabled based on geofence)
+        // Skip and Complete buttons (conditionally enabled based on geofence)
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-          child: SizedBox(
-            width: double.infinity,
-            child: ElevatedButton(
-              onPressed: isWithinGeofence
+          child: Row(
+            children: [
+              // Skip button (orange, 50% width)
+              Expanded(
+                child: ElevatedButton(
+                  onPressed: () {
+                    HapticFeedback.lightImpact();
+                    _showSkipDialog(context, ref, bin);
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.orange.shade600,
+                    padding: const EdgeInsets.symmetric(vertical: 18),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    elevation: 0,
+                    minimumSize: const Size(double.infinity, 54),
+                  ),
+                  child: const Text(
+                    'Skip',
+                    style: TextStyle(
+                      fontSize: 17,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: 0.2,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              // Complete button (green, 50% width)
+              Expanded(
+                child: ElevatedButton(
+                  onPressed: isWithinGeofence
                   ? () {
                       AppLogger.general(
                         'Complete Bin button pressed for Bin #${bin.binNumber} (stopType: ${bin.taskType})',
@@ -1945,15 +1980,17 @@ class NavigationBottomPanel extends HookConsumerWidget {
                 elevation: 0,
                 minimumSize: const Size(double.infinity, 54),
               ),
-              child: Text(
-                isWithinGeofence ? _getButtonText(bin.taskType) : 'Too Far Away',
-                style: const TextStyle(
-                  fontSize: 17,
-                  fontWeight: FontWeight.w600,
-                  letterSpacing: 0.2,
+                  child: Text(
+                    isWithinGeofence ? _getButtonText(bin.taskType) : 'Too Far Away',
+                    style: const TextStyle(
+                      fontSize: 17,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: 0.2,
+                    ),
+                  ),
                 ),
               ),
-            ),
+            ],
           ),
         ),
       ],

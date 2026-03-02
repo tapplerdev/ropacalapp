@@ -104,10 +104,10 @@ class WebSocketService {
   /// Handle incoming WebSocket message
   void _handleMessage(dynamic message) {
     try {
-      AppLogger.general('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-      AppLogger.general('🔵 RAW WEBSOCKET MESSAGE RECEIVED');
-      AppLogger.general('   Raw message type: ${message.runtimeType}');
-      AppLogger.general('   Raw message preview: ${message.toString().substring(0, message.toString().length > 100 ? 100 : message.toString().length)}...');
+      // AppLogger.general('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      // AppLogger.general('🔵 RAW WEBSOCKET MESSAGE RECEIVED');
+      // AppLogger.general('   Raw message type: ${message.runtimeType}');
+      // AppLogger.general('   Raw message preview: ${message.toString().substring(0, message.toString().length > 100 ? 100 : message.toString().length)}...');
 
       final rawData = jsonDecode(message as String) as Map<String, dynamic>;
 
@@ -119,13 +119,13 @@ class WebSocketService {
 
       final type = data['type'] as String?;
 
-      AppLogger.general('   Parsed message type: $type');
-      AppLogger.general('   Full data keys: ${data.keys.toList()}');
+      // AppLogger.general('   Parsed message type: $type');
+      // AppLogger.general('   Full data keys: ${data.keys.toList()}');
 
       switch (type) {
         case 'pong':
           // Heartbeat response - do nothing
-          AppLogger.general('   ✅ Pong received (heartbeat)');
+          // AppLogger.general('   ✅ Pong received (heartbeat)');
           break;
         case 'route_assigned':
           AppLogger.general('   📨 Route assigned callback: ${onRouteAssigned != null ? "SET" : "NULL"}');
@@ -207,7 +207,7 @@ class WebSocketService {
             level: AppLogger.warning,
           );
       }
-      AppLogger.general('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      // AppLogger.general('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
     } catch (e, stack) {
       AppLogger.general(
         '❌ Error parsing WebSocket message: $e',

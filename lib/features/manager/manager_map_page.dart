@@ -1184,65 +1184,69 @@ class ManagerMapPage extends HookConsumerWidget {
                 ),
               ),
 
-              // Live status indicator - small pulsing pill in top-left (below potential locations button)
+              // Live status indicator - centered at top below status bar
               Positioned(
-                top: MediaQuery.of(context).padding.top + 128,
-                left: 16,
-                child: Container(
-                  height: 28,
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: centrifugoConnected.value
-                        ? Colors.green.withValues(alpha: 0.95)
-                        : Colors.grey.withValues(alpha: 0.7),
-                    borderRadius: BorderRadius.circular(14),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.15),
-                        blurRadius: 8,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      // Pulsing dot
-                      _LiveStatusDot(isConnected: centrifugoConnected.value),
-                      const SizedBox(width: 6),
-                      Text(
-                        'Live',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                          letterSpacing: 0.3,
+                top: MediaQuery.of(context).padding.top + 16,
+                left: 0,
+                right: 0,
+                child: Center(
+                  child: Container(
+                    height: 32,
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: centrifugoConnected.value
+                          ? Colors.green.withValues(alpha: 0.95)
+                          : Colors.grey.withValues(alpha: 0.7),
+                      borderRadius: BorderRadius.circular(16),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.15),
+                          blurRadius: 8,
+                          offset: const Offset(0, 2),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        // Pulsing dot
+                        _LiveStatusDot(isConnected: centrifugoConnected.value),
+                        const SizedBox(width: 6),
+                        Text(
+                          'Live',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            letterSpacing: 0.3,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ),
 
               // Driver count FAB - circular button in bottom-right (above recenter)
               // Hidden when following mode is active
+              // Same size as other map buttons (42x42)
               if (!isFollowing)
                 Positioned(
-                  bottom: 164, // Above recenter button (which is at 100)
+                  bottom: 156, // Above recenter button (which is at 100)
                   right: 16,
                   child: GestureDetector(
                     onTap: () {
                       context.push('/manager/active-drivers');
                     },
                     child: Container(
-                      width: 56,
-                      height: 56,
+                      width: 42,
+                      height: 42,
                       decoration: BoxDecoration(
-                        color: AppColors.primaryGreen,
+                        color: Colors.red,
                         shape: BoxShape.circle,
                         boxShadow: [
                           BoxShadow(
-                            color: AppColors.primaryGreen.withValues(alpha: 0.4),
+                            color: Colors.red.withValues(alpha: 0.4),
                             blurRadius: 12,
                             offset: const Offset(0, 4),
                             spreadRadius: 0,
@@ -1254,51 +1258,16 @@ class ManagerMapPage extends HookConsumerWidget {
                           ),
                         ],
                       ),
-                      child: Stack(
-                        children: [
-                          // Driver icon
-                          Center(
-                            child: Icon(
-                              Icons.local_shipping_outlined,
-                              color: Colors.white,
-                              size: 24,
-                            ),
+                      child: Center(
+                        child: Text(
+                          '${activeDrivers.length}',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w700,
+                            height: 1.0,
                           ),
-                          // Count badge in top-right
-                          Positioned(
-                            top: 2,
-                            right: 2,
-                            child: Container(
-                              constraints: const BoxConstraints(
-                                minWidth: 20,
-                                minHeight: 20,
-                              ),
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 5,
-                                vertical: 2,
-                              ),
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                shape: BoxShape.circle,
-                                border: Border.all(
-                                  color: AppColors.primaryGreen,
-                                  width: 2,
-                                ),
-                              ),
-                              child: Center(
-                                child: Text(
-                                  '${activeDrivers.length}',
-                                  style: TextStyle(
-                                    color: AppColors.primaryGreen,
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w700,
-                                    height: 1.0,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
-                        ],
+                        ),
                       ),
                     ),
                   ),

@@ -44,6 +44,10 @@ import 'package:latlong2/latlong.dart' as latlong;
 class GoogleNavigationPage extends HookConsumerWidget {
   const GoogleNavigationPage({super.key});
 
+  /// Maximum waypoints per chunk to avoid Google SDK 25-waypoint limit
+  /// Routes with >25 stops are automatically chunked into batches
+  static const int MAX_WAYPOINTS_PER_CHUNK = 25;
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     // ✅ CRITICAL: Keep Centrifugo connected during active navigation
@@ -934,14 +938,36 @@ class GoogleNavigationPage extends HookConsumerWidget {
       }
       print('[DIAGNOSTIC] ═══════════════════════════════════════════');
 
-      // STEP 3: Convert tasks to waypoints (deduplicate identical coordinates)
-      final waypoints = _buildDeduplicatedWaypoints(remainingTasks);
+      // STEP 3: CHUNK TASKS IF NECESSARY (>25 waypoint limit)
+      final tasksToSend = remainingTasks.length <= MAX_WAYPOINTS_PER_CHUNK
+          ? remainingTasks
+          : remainingTasks.take(MAX_WAYPOINTS_PER_CHUNK).toList();
 
-      // STEP 4: LOG COMPLETE WAYPOINT DUMP FOR SDK
+      // Log chunking information
+      if (remainingTasks.length > MAX_WAYPOINTS_PER_CHUNK) {
+        AppLogger.general('');
+        AppLogger.general('═══════════════════════════════════════════');
+        AppLogger.general('📦 ROUTE CHUNKING ENABLED');
+        AppLogger.general('═══════════════════════════════════════════');
+        AppLogger.general('   Total tasks in shift: ${remainingTasks.length}');
+        AppLogger.general('   Chunk size limit: $MAX_WAYPOINTS_PER_CHUNK');
+        AppLogger.general('   Sending chunk 1: Tasks 1-${tasksToSend.length}');
+        AppLogger.general('   Remaining after chunk 1: ${remainingTasks.length - tasksToSend.length}');
+        AppLogger.general('   Estimated chunks needed: ${(remainingTasks.length / MAX_WAYPOINTS_PER_CHUNK).ceil()}');
+        AppLogger.general('═══════════════════════════════════════════');
+        AppLogger.general('');
+      } else {
+        AppLogger.general('✅ No chunking needed (${remainingTasks.length} tasks ≤ $MAX_WAYPOINTS_PER_CHUNK limit)');
+      }
+
+      // STEP 4: Convert tasks to waypoints (deduplicate identical coordinates)
+      final waypoints = _buildDeduplicatedWaypoints(tasksToSend);
+
+      // STEP 5: LOG COMPLETE WAYPOINT DUMP FOR SDK
       print('[DIAGNOSTIC] 🗺️  COMPLETE WAYPOINT DUMP (all ${waypoints.length} waypoints):');
       for (int i = 0; i < waypoints.length; i++) {
         final wp = waypoints[i];
-        final task = remainingTasks[i];
+        final task = tasksToSend[i];
         print('[DIAGNOSTIC]    [$i] ${wp.title}');
         print('[DIAGNOSTIC]        SDK Coords: ${wp.target?.latitude}, ${wp.target?.longitude}');
         print('[DIAGNOSTIC]        Original Coords: ${task.latitude}, ${task.longitude}');
@@ -1104,16 +1130,18 @@ class GoogleNavigationPage extends HookConsumerWidget {
           AppLogger.general('🔍 WAYPOINT ERROR ANALYSIS');
           AppLogger.general('═══════════════════════════════════════════');
           AppLogger.general('   Sent waypoints: ${waypoints.length}');
-          AppLogger.general('   SDK documented limit: 25 (may not apply to Android)');
+          AppLogger.general('   Total remaining tasks: ${remainingTasks.length}');
+          AppLogger.general('   Chunking active: ${remainingTasks.length > MAX_WAYPOINTS_PER_CHUNK}');
+          AppLogger.general('   SDK documented limit: 25');
 
           // Re-run validation to get detailed error info
-          final postValidation = _validateTasks(remainingTasks);
+          final postValidation = _validateTasks(tasksToSend);
 
           // Log error to backend for diagnostics
           final currentLocation = ref.read(currentLocationProvider).valueOrNull;
           AppErrorLoggingService.logCriticalNavigationError(
             errorType: 'invalid_waypoints',
-            errorMessage: 'Navigation SDK returned waypointError status. Waypoint count: ${waypoints.length}, Validation errors: ${postValidation.errors.length}, Warnings: ${postValidation.warnings.length}',
+            errorMessage: 'Navigation SDK returned waypointError status. Total tasks: ${remainingTasks.length}, Sent in chunk: ${waypoints.length}, Validation errors: ${postValidation.errors.length}, Warnings: ${postValidation.warnings.length}',
             driverId: null, // Driver ID not available in this context
             shiftId: shift.shiftId,
             taskId: remainingTasks.isNotEmpty ? remainingTasks.first.id : null,
@@ -1136,15 +1164,17 @@ class GoogleNavigationPage extends HookConsumerWidget {
             for (final error in postValidation.errors) {
               AppLogger.general('   • $error');
             }
-          } else if (waypoints.length > 25) {
-            AppLogger.general('   Possible cause: Exceeded SDK limit by ${waypoints.length - 25} waypoints');
-            AppLogger.general('   Note: 25 limit may be iOS-only, but check coordinates anyway');
+          } else if (waypoints.length > MAX_WAYPOINTS_PER_CHUNK) {
+            AppLogger.general('   ⚠️ CRITICAL: Chunking failed - sent ${waypoints.length} waypoints (limit: $MAX_WAYPOINTS_PER_CHUNK)');
+            AppLogger.general('   This should never happen - chunking logic may be broken');
           } else {
-            AppLogger.general('   Waypoint count: ✅ OK (${waypoints.length}/25)');
+            AppLogger.general('   Waypoint count: ✅ OK (${waypoints.length}/$MAX_WAYPOINTS_PER_CHUNK)');
             AppLogger.general('   Coordinate validation: ✅ PASSED');
+            AppLogger.general('   Chunking status: ${remainingTasks.length > MAX_WAYPOINTS_PER_CHUNK ? 'ACTIVE' : 'INACTIVE'}');
             AppLogger.general('   Possible causes:');
             AppLogger.general('   • Consecutive duplicate coordinates (too close together)');
             AppLogger.general('   • Coordinates too close to roads SDK cannot route between');
+            AppLogger.general('   • Unreachable locations or invalid road network');
             AppLogger.general('   • Transient SDK initialization issue');
           }
 
@@ -1162,10 +1192,10 @@ class GoogleNavigationPage extends HookConsumerWidget {
             String errorMessage;
             if (postValidation.hasErrors) {
               errorMessage = 'Invalid coordinates detected. Check diagnostic logs or contact dispatcher.';
-            } else if (waypoints.length > 25) {
-              errorMessage = 'Too many stops (${waypoints.length}) - contact dispatcher';
+            } else if (waypoints.length > MAX_WAYPOINTS_PER_CHUNK) {
+              errorMessage = 'System error: Route chunking failed (${waypoints.length} waypoints sent). Contact dispatcher immediately.';
             } else {
-              errorMessage = 'Navigation error. Check diagnostic logs or contact support.';
+              errorMessage = 'Navigation error with ${waypoints.length} stops. Check diagnostic logs or contact support.';
             }
 
             ScaffoldMessenger.of(context).showSnackBar(
@@ -1368,9 +1398,24 @@ class GoogleNavigationPage extends HookConsumerWidget {
 
       // If there are remaining tasks, update destinations
       if (shift.remainingTasks.isNotEmpty) {
+        // CHUNK TASKS IF NECESSARY (>25 waypoint limit)
+        final tasksToSend = shift.remainingTasks.length <= MAX_WAYPOINTS_PER_CHUNK
+            ? shift.remainingTasks
+            : shift.remainingTasks.take(MAX_WAYPOINTS_PER_CHUNK).toList();
+
+        // Log chunking information
+        if (shift.remainingTasks.length > MAX_WAYPOINTS_PER_CHUNK) {
+          final currentTaskIndex = shift.bins.length - shift.remainingTasks.length;
+          final chunkNumber = (currentTaskIndex / MAX_WAYPOINTS_PER_CHUNK).floor() + 1;
+          AppLogger.general('');
+          AppLogger.general('📦 Loading next chunk: ${tasksToSend.length} of ${shift.remainingTasks.length} remaining');
+          AppLogger.general('   Chunk #$chunkNumber: Tasks ${currentTaskIndex + 1}-${currentTaskIndex + tasksToSend.length}');
+          AppLogger.general('   Remaining after this chunk: ${shift.remainingTasks.length - tasksToSend.length}');
+          AppLogger.general('');
+        }
+
         // Build waypoints with duplicate coordinate offset
-        final waypoints =
-            _buildDeduplicatedWaypoints(shift.remainingTasks);
+        final waypoints = _buildDeduplicatedWaypoints(tasksToSend);
 
         final destinations = Destinations(
           waypoints: waypoints,
@@ -1395,15 +1440,16 @@ class GoogleNavigationPage extends HookConsumerWidget {
           navNotifier.setCurrentTaskIdFromIndex(shift.remainingTasks, 0);
           AppLogger.general('✅ Navigation updated to next task - guidance continues automatically');
 
-          // Clear and recreate custom markers for remaining tasks
+          // Clear and recreate custom markers - only for current chunk to avoid clutter
           await controller.clearMarkers();
           final tempMarkerMap = <String, RouteTask>{};
-          final markers = await GoogleNavigationMarkerService.createCustomBinMarkers(shift.remainingTasks, tempMarkerMap);
+          final markers = await GoogleNavigationMarkerService.createCustomBinMarkers(tasksToSend, tempMarkerMap);
           await controller.addMarkers(markers);
           navNotifier.updateMarkerToTaskMap(tempMarkerMap);
-          AppLogger.general('📍 Updated ${markers.length} custom markers');
+          AppLogger.general('📍 Updated ${markers.length} custom markers (current chunk)');
 
-          // Add geofence circles
+          // Add geofence circles for ALL remaining tasks (not just chunk)
+          // This ensures proximity detection works for upcoming tasks
           final circles = await GoogleNavigationMarkerService.createGeofenceCircles(shift.remainingTasks);
           await controller.clearCircles();
           await controller.addCircles(circles);

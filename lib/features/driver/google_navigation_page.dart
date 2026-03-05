@@ -1110,12 +1110,12 @@ class GoogleNavigationPage extends HookConsumerWidget {
           final postValidation = _validateTasks(remainingTasks);
 
           // Log error to backend for diagnostics
-          final currentLocation = ref.read(locationProvider);
+          final currentLocation = ref.read(currentLocationProvider).valueOrNull;
           AppErrorLoggingService.logCriticalNavigationError(
             errorType: 'invalid_waypoints',
             errorMessage: 'Navigation SDK returned waypointError status. Waypoint count: ${waypoints.length}, Validation errors: ${postValidation.errors.length}, Warnings: ${postValidation.warnings.length}',
-            driverId: shiftState.driverId,
-            shiftId: shiftState.id,
+            driverId: null, // Driver ID not available in this context
+            shiftId: shift.shiftId,
             taskId: remainingTasks.isNotEmpty ? remainingTasks.first.id : null,
             lastGPSLatitude: currentLocation?.latitude,
             lastGPSLongitude: currentLocation?.longitude,

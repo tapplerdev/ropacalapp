@@ -1184,22 +1184,22 @@ class ManagerMapPage extends HookConsumerWidget {
                 ),
               ),
 
-              // Centrifugo connection status indicator
-              // Small green dot when connected, gray when disconnected
+              // Live status indicator - small pulsing pill in top-left (below potential locations button)
               Positioned(
-                top: MediaQuery.of(context).padding.top + 16,
-                right: 200, // Position to the left of driver count
+                top: MediaQuery.of(context).padding.top + 128,
+                left: 16,
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                  height: 28,
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                   decoration: BoxDecoration(
                     color: centrifugoConnected.value
-                        ? Colors.green.withValues(alpha: 0.9)
-                        : Colors.grey.withValues(alpha: 0.6),
-                    borderRadius: BorderRadius.circular(12),
+                        ? Colors.green.withValues(alpha: 0.95)
+                        : Colors.grey.withValues(alpha: 0.7),
+                    borderRadius: BorderRadius.circular(14),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.1),
-                        blurRadius: 6,
+                        color: Colors.black.withValues(alpha: 0.15),
+                        blurRadius: 8,
                         offset: const Offset(0, 2),
                       ),
                     ],
@@ -1207,21 +1207,16 @@ class ManagerMapPage extends HookConsumerWidget {
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Container(
-                        width: 6,
-                        height: 6,
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          shape: BoxShape.circle,
-                        ),
-                      ),
-                      const SizedBox(width: 4),
+                      // Pulsing dot
+                      _LiveStatusDot(isConnected: centrifugoConnected.value),
+                      const SizedBox(width: 6),
                       Text(
-                        centrifugoConnected.value ? 'Live' : 'Offline',
+                        'Live',
                         style: const TextStyle(
                           color: Colors.white,
-                          fontSize: 10,
+                          fontSize: 11,
                           fontWeight: FontWeight.w600,
+                          letterSpacing: 0.3,
                         ),
                       ),
                     ],
@@ -1229,45 +1224,78 @@ class ManagerMapPage extends HookConsumerWidget {
                 ),
               ),
 
-              // Driver count indicator - tap to view active drivers list
+              // Driver count FAB - circular button in bottom-right (above recenter)
               // Hidden when following mode is active
-              // Positioned top-right with pulsing green dot - aligned with notification bell
               if (!isFollowing)
                 Positioned(
-                  top: MediaQuery.of(context).padding.top + 16,
+                  bottom: 164, // Above recenter button (which is at 100)
                   right: 16,
                   child: GestureDetector(
                     onTap: () {
                       context.push('/manager/active-drivers');
                     },
                     child: Container(
-                      height: 40, // Smaller height for more compact look
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 8,
-                      ),
+                      width: 56,
+                      height: 56,
                       decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(20),
+                        color: AppColors.primaryGreen,
+                        shape: BoxShape.circle,
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.1),
-                            blurRadius: 10,
+                            color: AppColors.primaryGreen.withValues(alpha: 0.4),
+                            blurRadius: 12,
+                            offset: const Offset(0, 4),
+                            spreadRadius: 0,
+                          ),
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.15),
+                            blurRadius: 8,
                             offset: const Offset(0, 2),
                           ),
                         ],
                       ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
+                      child: Stack(
                         children: [
-                          // Pulsing green dot with animation
-                          _PulsingDot(),
-                          const SizedBox(width: 7),
-                          Text(
-                            '${activeDrivers.length} Drivers',
-                            style: const TextStyle(
-                              fontWeight: FontWeight.w600,
-                              fontSize: 12,
+                          // Driver icon
+                          Center(
+                            child: Icon(
+                              Icons.local_shipping_outlined,
+                              color: Colors.white,
+                              size: 24,
+                            ),
+                          ),
+                          // Count badge in top-right
+                          Positioned(
+                            top: 2,
+                            right: 2,
+                            child: Container(
+                              constraints: const BoxConstraints(
+                                minWidth: 20,
+                                minHeight: 20,
+                              ),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 5,
+                                vertical: 2,
+                              ),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                shape: BoxShape.circle,
+                                border: Border.all(
+                                  color: AppColors.primaryGreen,
+                                  width: 2,
+                                ),
+                              ),
+                              child: Center(
+                                child: Text(
+                                  '${activeDrivers.length}',
+                                  style: TextStyle(
+                                    color: AppColors.primaryGreen,
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w700,
+                                    height: 1.0,
+                                  ),
+                                ),
+                              ),
                             ),
                           ),
                         ],
@@ -1423,6 +1451,60 @@ class _PulsingDot extends HookWidget {
                 spreadRadius: animation.value * 2, // Pulse spread between 0 and 2
               ),
             ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+/// Pulsing dot widget for Live status indicator
+class _LiveStatusDot extends HookWidget {
+  final bool isConnected;
+
+  const _LiveStatusDot({required this.isConnected});
+
+  @override
+  Widget build(BuildContext context) {
+    final animationController = useAnimationController(
+      duration: const Duration(milliseconds: 2000),
+    );
+
+    // Only pulse when connected
+    useEffect(() {
+      if (isConnected) {
+        animationController.repeat(reverse: true);
+      } else {
+        animationController.stop();
+      }
+      return null;
+    }, [isConnected]);
+
+    final animation = CurvedAnimation(
+      parent: animationController,
+      curve: Curves.easeInOut,
+    );
+
+    return AnimatedBuilder(
+      animation: animation,
+      builder: (context, child) {
+        return Container(
+          width: 8,
+          height: 8,
+          decoration: BoxDecoration(
+            color: Colors.white,
+            shape: BoxShape.circle,
+            boxShadow: isConnected
+                ? [
+                    BoxShadow(
+                      color: Colors.white.withValues(
+                        alpha: 0.4 + (animation.value * 0.4),
+                      ),
+                      blurRadius: 3 + (animation.value * 3),
+                      spreadRadius: animation.value * 1.5,
+                    ),
+                  ]
+                : [],
           ),
         );
       },

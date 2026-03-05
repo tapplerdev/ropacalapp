@@ -36,6 +36,7 @@ _$RouteTaskImpl _$$RouteTaskImplFromJson(Map<String, dynamic> json) =>
       completedAt: (json['completed_at'] as num?)?.toInt(),
       skipped: json['skipped'] as bool? ?? false,
       updatedFillPercentage: (json['updated_fill_percentage'] as num?)?.toInt(),
+      photoUrl: json['photo_url'] as String?,
       taskData: json['task_data'] as Map<String, dynamic>?,
       createdAt: (json['created_at'] as num).toInt(),
     );
@@ -70,6 +71,7 @@ Map<String, dynamic> _$$RouteTaskImplToJson(_$RouteTaskImpl instance) =>
       'completed_at': instance.completedAt,
       'skipped': instance.skipped,
       'updated_fill_percentage': instance.updatedFillPercentage,
+      'photo_url': instance.photoUrl,
       'task_data': instance.taskData,
       'created_at': instance.createdAt,
     };

@@ -14,6 +14,7 @@ import 'package:ropacalapp/core/utils/app_logger.dart';
 import 'package:ropacalapp/providers/shift_provider.dart';
 import 'package:ropacalapp/providers/auth_provider.dart';
 import 'package:ropacalapp/core/enums/user_role.dart';
+import 'package:ropacalapp/core/services/google_navigation_marker_service.dart';
 
 void main() async {
   // Note: Navigation session is now initialized lazily when first needed
@@ -40,6 +41,9 @@ void main() async {
 
   // Initialize FCM (Firebase Cloud Messaging)
   await FCMService.initialize();
+
+  // Pre-cache common marker icons for better performance
+  await GoogleNavigationMarkerService.preCacheCommonMarkers();
 
   runApp(const ProviderScope(child: RopacalApp()));
 

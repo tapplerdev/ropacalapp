@@ -17,6 +17,7 @@ import 'package:ropacalapp/core/utils/google_navigation_helpers.dart';
 import 'package:ropacalapp/core/utils/responsive.dart';
 import 'package:ropacalapp/core/services/google_navigation_marker_service.dart';
 import 'package:ropacalapp/core/services/google_navigation_service.dart';
+import 'package:ropacalapp/core/services/app_error_logging_service.dart';
 import 'package:ropacalapp/providers/shift_provider.dart';
 import 'package:ropacalapp/providers/location_provider.dart';
 import 'package:ropacalapp/providers/navigation_page_provider.dart';
@@ -1107,6 +1108,27 @@ class GoogleNavigationPage extends HookConsumerWidget {
 
           // Re-run validation to get detailed error info
           final postValidation = _validateTasks(remainingTasks);
+
+          // Log error to backend for diagnostics
+          final currentLocation = ref.read(locationProvider);
+          AppErrorLoggingService.logCriticalNavigationError(
+            errorType: 'invalid_waypoints',
+            errorMessage: 'Navigation SDK returned waypointError status. Waypoint count: ${waypoints.length}, Validation errors: ${postValidation.errors.length}, Warnings: ${postValidation.warnings.length}',
+            driverId: shiftState.driverId,
+            shiftId: shiftState.id,
+            taskId: remainingTasks.isNotEmpty ? remainingTasks.first.id : null,
+            lastGPSLatitude: currentLocation?.latitude,
+            lastGPSLongitude: currentLocation?.longitude,
+            waypoints: waypoints.map((wp) => {
+              'title': wp.title,
+              'latitude': wp.target?.latitude,
+              'longitude': wp.target?.longitude,
+            }).toList(),
+            routeStatus: 'waypointError',
+            stackTrace: postValidation.errors.isNotEmpty
+              ? 'Validation errors:\n${postValidation.errors.join('\n')}\n\nWarnings:\n${postValidation.warnings.join('\n')}'
+              : 'No validation errors detected',
+          );
 
           if (postValidation.hasErrors) {
             AppLogger.general('');

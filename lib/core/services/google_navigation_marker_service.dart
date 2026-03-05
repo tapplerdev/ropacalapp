@@ -10,6 +10,33 @@ import 'package:ropacalapp/core/enums/stop_type.dart';
 class GoogleNavigationMarkerService {
   GoogleNavigationMarkerService._(); // Private constructor - utility class
 
+  // Cache for pre-generated marker icons (key: "binNumber_fillPercentage")
+  static final Map<String, ImageDescriptor> _markerCache = {};
+  static ImageDescriptor? _warehouseMarkerCache;
+  static ImageDescriptor? _placementMarkerCache;
+
+  /// Pre-cache common marker icons to improve performance
+  /// Call this during app initialization
+  static Future<void> preCacheCommonMarkers() async {
+    AppLogger.navigation('🎨 Pre-caching common marker icons...');
+
+    // Pre-cache warehouse marker (used frequently)
+    _warehouseMarkerCache = await createWarehouseMarkerIcon();
+
+    // Pre-cache placement marker
+    _placementMarkerCache = await createPotentialLocationMarkerIcon(isPending: true);
+
+    AppLogger.navigation('✅ Pre-cached common markers');
+  }
+
+  /// Clear marker cache (call when memory needs to be freed)
+  static void clearCache() {
+    _markerCache.clear();
+    _warehouseMarkerCache = null;
+    _placementMarkerCache = null;
+    AppLogger.navigation('🗑️  Cleared marker cache');
+  }
+
   /// Create custom task markers with numbered pins
   /// Returns list of MarkerOptions and populates the markerToTaskMap for tap handling
   static Future<List<MarkerOptions>> createCustomBinMarkers(
@@ -27,16 +54,27 @@ class GoogleNavigationMarkerService {
       final ImageDescriptor icon;
       switch (task.taskType) {
         case StopType.warehouseStop:
-          icon = await createWarehouseMarkerIcon();
+          // Use cached warehouse marker if available
+          icon = _warehouseMarkerCache ?? await createWarehouseMarkerIcon();
           AppLogger.navigation('   🏭 Creating warehouse marker');
           break;
         case StopType.placement:
-          icon = await createPotentialLocationMarkerIcon(isPending: true);
+          // Use cached placement marker if available
+          icon = _placementMarkerCache ?? await createPotentialLocationMarkerIcon(isPending: true);
           AppLogger.navigation('   📍 Creating placement marker (potential location style)');
           break;
         default:
           // Regular pickup bin (collection, pickup, dropoff, etc.)
-          icon = await createBinMarkerIcon(task.binNumber ?? 0, task.fillPercentage ?? 0);
+          final cacheKey = '${task.binNumber ?? 0}_${task.fillPercentage ?? 0}';
+
+          // Check cache first
+          if (_markerCache.containsKey(cacheKey)) {
+            icon = _markerCache[cacheKey]!;
+          } else {
+            // Create new marker and cache it
+            icon = await createBinMarkerIcon(task.binNumber ?? 0, task.fillPercentage ?? 0);
+            _markerCache[cacheKey] = icon;
+          }
           break;
       }
 
@@ -56,6 +94,11 @@ class GoogleNavigationMarkerService {
 
       markers.add(markerOptions);
       AppLogger.navigation('   ✅ Marker $taskNumber: Bin #${task.binNumber ?? "N/A"} at (${task.latitude}, ${task.longitude})');
+
+      // Add small delay every 5 markers to prevent frame drops
+      if ((i + 1) % 5 == 0 && i < tasks.length - 1) {
+        await Future.delayed(const Duration(milliseconds: 16)); // ~1 frame at 60fps
+      }
     }
 
     AppLogger.navigation('📍 Created ${markers.length} custom markers total');

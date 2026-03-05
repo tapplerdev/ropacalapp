@@ -54,9 +54,9 @@ mixin _$ShiftState {
   @JsonKey(name: 'completed_bins')
   int get completedBins => throw _privateConstructorUsedError;
 
-  /// List of tasks in the route
+  /// List of bins/tasks in the route
   @JsonKey(name: 'tasks')
-  List<RouteTask> get tasks => throw _privateConstructorUsedError;
+  List<RouteTask> get bins => throw _privateConstructorUsedError;
 
   /// Serializes this ShiftState to a JSON map.
   Map<String, dynamic> toJson() => throw _privateConstructorUsedError;
@@ -86,7 +86,7 @@ abstract class $ShiftStateCopyWith<$Res> {
     @JsonKey(name: 'route_id') String? assignedRouteId,
     @JsonKey(name: 'total_bins') int totalBins,
     @JsonKey(name: 'completed_bins') int completedBins,
-    @JsonKey(name: 'tasks') List<RouteTask> tasks,
+    @JsonKey(name: 'tasks') List<RouteTask> bins,
   });
 }
 
@@ -113,7 +113,7 @@ class _$ShiftStateCopyWithImpl<$Res, $Val extends ShiftState>
     Object? assignedRouteId = freezed,
     Object? totalBins = null,
     Object? completedBins = null,
-    Object? tasks = null,
+    Object? bins = null,
   }) {
     return _then(
       _value.copyWith(
@@ -149,9 +149,9 @@ class _$ShiftStateCopyWithImpl<$Res, $Val extends ShiftState>
                 ? _value.completedBins
                 : completedBins // ignore: cast_nullable_to_non_nullable
                       as int,
-            tasks: null == tasks
-                ? _value.tasks
-                : tasks // ignore: cast_nullable_to_non_nullable
+            bins: null == bins
+                ? _value.bins
+                : bins // ignore: cast_nullable_to_non_nullable
                       as List<RouteTask>,
           )
           as $Val,
@@ -179,7 +179,7 @@ abstract class _$$ShiftStateImplCopyWith<$Res>
     @JsonKey(name: 'route_id') String? assignedRouteId,
     @JsonKey(name: 'total_bins') int totalBins,
     @JsonKey(name: 'completed_bins') int completedBins,
-    @JsonKey(name: 'tasks') List<RouteTask> tasks,
+    @JsonKey(name: 'tasks') List<RouteTask> bins,
   });
 }
 
@@ -205,7 +205,7 @@ class __$$ShiftStateImplCopyWithImpl<$Res>
     Object? assignedRouteId = freezed,
     Object? totalBins = null,
     Object? completedBins = null,
-    Object? tasks = null,
+    Object? bins = null,
   }) {
     return _then(
       _$ShiftStateImpl(
@@ -241,9 +241,9 @@ class __$$ShiftStateImplCopyWithImpl<$Res>
             ? _value.completedBins
             : completedBins // ignore: cast_nullable_to_non_nullable
                   as int,
-        tasks: null == tasks
-            ? _value._tasks
-            : tasks // ignore: cast_nullable_to_non_nullable
+        bins: null == bins
+            ? _value._bins
+            : bins // ignore: cast_nullable_to_non_nullable
                   as List<RouteTask>,
       ),
     );
@@ -264,8 +264,8 @@ class _$ShiftStateImpl extends _ShiftState {
     @JsonKey(name: 'route_id') this.assignedRouteId,
     @JsonKey(name: 'total_bins') this.totalBins = 0,
     @JsonKey(name: 'completed_bins') this.completedBins = 0,
-    @JsonKey(name: 'tasks') final List<RouteTask> tasks = const [],
-  }) : _tasks = tasks,
+    @JsonKey(name: 'tasks') final List<RouteTask> bins = const [],
+  }) : _bins = bins,
        super._();
 
   factory _$ShiftStateImpl.fromJson(Map<String, dynamic> json) =>
@@ -312,21 +312,21 @@ class _$ShiftStateImpl extends _ShiftState {
   @JsonKey(name: 'completed_bins')
   final int completedBins;
 
-  /// List of tasks in the route
-  final List<RouteTask> _tasks;
+  /// List of bins/tasks in the route
+  final List<RouteTask> _bins;
 
-  /// List of tasks in the route
+  /// List of bins/tasks in the route
   @override
   @JsonKey(name: 'tasks')
-  List<RouteTask> get tasks {
-    if (_tasks is EqualUnmodifiableListView) return _tasks;
+  List<RouteTask> get bins {
+    if (_bins is EqualUnmodifiableListView) return _bins;
     // ignore: implicit_dynamic_type
-    return EqualUnmodifiableListView(_tasks);
+    return EqualUnmodifiableListView(_bins);
   }
 
   @override
   String toString() {
-    return 'ShiftState(status: $status, shiftId: $shiftId, startTime: $startTime, totalPauseSeconds: $totalPauseSeconds, pauseStartTime: $pauseStartTime, assignedRouteId: $assignedRouteId, totalBins: $totalBins, completedBins: $completedBins, tasks: $tasks)';
+    return 'ShiftState(status: $status, shiftId: $shiftId, startTime: $startTime, totalPauseSeconds: $totalPauseSeconds, pauseStartTime: $pauseStartTime, assignedRouteId: $assignedRouteId, totalBins: $totalBins, completedBins: $completedBins, bins: $bins)';
   }
 
   @override
@@ -348,7 +348,7 @@ class _$ShiftStateImpl extends _ShiftState {
                 other.totalBins == totalBins) &&
             (identical(other.completedBins, completedBins) ||
                 other.completedBins == completedBins) &&
-            const DeepCollectionEquality().equals(other._tasks, _tasks));
+            const DeepCollectionEquality().equals(other._bins, _bins));
   }
 
   @JsonKey(includeFromJson: false, includeToJson: false)
@@ -363,7 +363,7 @@ class _$ShiftStateImpl extends _ShiftState {
     assignedRouteId,
     totalBins,
     completedBins,
-    const DeepCollectionEquality().hash(_tasks),
+    const DeepCollectionEquality().hash(_bins),
   );
 
   /// Create a copy of ShiftState
@@ -394,7 +394,7 @@ abstract class _ShiftState extends ShiftState {
     @JsonKey(name: 'route_id') final String? assignedRouteId,
     @JsonKey(name: 'total_bins') final int totalBins,
     @JsonKey(name: 'completed_bins') final int completedBins,
-    @JsonKey(name: 'tasks') final List<RouteTask> tasks,
+    @JsonKey(name: 'tasks') final List<RouteTask> bins,
   }) = _$ShiftStateImpl;
   const _ShiftState._() : super._();
 
@@ -442,10 +442,10 @@ abstract class _ShiftState extends ShiftState {
   @JsonKey(name: 'completed_bins')
   int get completedBins;
 
-  /// List of tasks in the route
+  /// List of bins/tasks in the route
   @override
   @JsonKey(name: 'tasks')
-  List<RouteTask> get tasks;
+  List<RouteTask> get bins;
 
   /// Create a copy of ShiftState
   /// with the given fields replaced by the non-null parameter values.

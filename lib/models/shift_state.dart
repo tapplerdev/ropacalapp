@@ -36,8 +36,8 @@ class ShiftState with _$ShiftState {
     /// Completed bins count
     @JsonKey(name: 'completed_bins') @Default(0) int completedBins,
 
-    /// List of tasks in the route
-    @JsonKey(name: 'tasks') @Default([]) List<RouteTask> tasks,
+    /// List of bins/tasks in the route
+    @JsonKey(name: 'tasks') @Default([]) List<RouteTask> bins,
   }) = _ShiftState;
 
   const ShiftState._();
@@ -46,11 +46,11 @@ class ShiftState with _$ShiftState {
       _$ShiftStateFromJson(json);
 
   /// Check if this shift uses the task-based system
-  bool get usesTasks => tasks.isNotEmpty;
+  bool get usesTasks => bins.isNotEmpty;
 
   /// Get only incomplete tasks for active navigation
   List<RouteTask> get remainingTasks {
-    return tasks.where((task) => task.isCompleted == 0).toList();
+    return bins.where((task) => task.isCompleted == 0).toList();
   }
 
   /// Get logical bin count (count pickup+dropoff pairs as 1)
@@ -59,7 +59,7 @@ class ShiftState with _$ShiftState {
     final moveRequestIds = <String>{};
     int count = 0;
 
-    for (final task in tasks) {
+    for (final task in bins) {
       if (task.taskType == StopType.pickup && task.moveRequestId != null) {
         // Only count pickup once per move request
         if (!moveRequestIds.contains(task.moveRequestId)) {
@@ -86,10 +86,10 @@ class ShiftState with _$ShiftState {
     final completedMoveRequests = <String>{};
     int count = 0;
 
-    for (final task in tasks) {
+    for (final task in bins) {
       if (task.taskType == StopType.pickup && task.moveRequestId != null) {
         // Check if corresponding dropoff is also completed
-        final dropoff = tasks.firstWhere(
+        final dropoff = bins.firstWhere(
           (t) =>
               t.taskType == StopType.dropoff &&
               t.moveRequestId == task.moveRequestId,

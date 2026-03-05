@@ -118,7 +118,11 @@ mixin _$RouteTask {
 
   /// Updated fill percentage after collection (0-100)
   @JsonKey(name: 'updated_fill_percentage')
-  int? get updatedFillPercentage => throw _privateConstructorUsedError; // ========== METADATA ==========
+  int? get updatedFillPercentage => throw _privateConstructorUsedError;
+
+  /// Photo URL taken during task completion
+  @JsonKey(name: 'photo_url')
+  String? get photoUrl => throw _privateConstructorUsedError; // ========== METADATA ==========
   /// Flexible JSON data for task-specific information
   @JsonKey(name: 'task_data')
   Map<String, dynamic>? get taskData => throw _privateConstructorUsedError;
@@ -171,6 +175,7 @@ abstract class $RouteTaskCopyWith<$Res> {
     @JsonKey(name: 'completed_at') int? completedAt,
     bool skipped,
     @JsonKey(name: 'updated_fill_percentage') int? updatedFillPercentage,
+    @JsonKey(name: 'photo_url') String? photoUrl,
     @JsonKey(name: 'task_data') Map<String, dynamic>? taskData,
     @JsonKey(name: 'created_at') int createdAt,
   });
@@ -219,6 +224,7 @@ class _$RouteTaskCopyWithImpl<$Res, $Val extends RouteTask>
     Object? completedAt = freezed,
     Object? skipped = null,
     Object? updatedFillPercentage = freezed,
+    Object? photoUrl = freezed,
     Object? taskData = freezed,
     Object? createdAt = null,
   }) {
@@ -336,6 +342,10 @@ class _$RouteTaskCopyWithImpl<$Res, $Val extends RouteTask>
                 ? _value.updatedFillPercentage
                 : updatedFillPercentage // ignore: cast_nullable_to_non_nullable
                       as int?,
+            photoUrl: freezed == photoUrl
+                ? _value.photoUrl
+                : photoUrl // ignore: cast_nullable_to_non_nullable
+                      as String?,
             taskData: freezed == taskData
                 ? _value.taskData
                 : taskData // ignore: cast_nullable_to_non_nullable
@@ -388,6 +398,7 @@ abstract class _$$RouteTaskImplCopyWith<$Res>
     @JsonKey(name: 'completed_at') int? completedAt,
     bool skipped,
     @JsonKey(name: 'updated_fill_percentage') int? updatedFillPercentage,
+    @JsonKey(name: 'photo_url') String? photoUrl,
     @JsonKey(name: 'task_data') Map<String, dynamic>? taskData,
     @JsonKey(name: 'created_at') int createdAt,
   });
@@ -435,6 +446,7 @@ class __$$RouteTaskImplCopyWithImpl<$Res>
     Object? completedAt = freezed,
     Object? skipped = null,
     Object? updatedFillPercentage = freezed,
+    Object? photoUrl = freezed,
     Object? taskData = freezed,
     Object? createdAt = null,
   }) {
@@ -552,6 +564,10 @@ class __$$RouteTaskImplCopyWithImpl<$Res>
             ? _value.updatedFillPercentage
             : updatedFillPercentage // ignore: cast_nullable_to_non_nullable
                   as int?,
+        photoUrl: freezed == photoUrl
+            ? _value.photoUrl
+            : photoUrl // ignore: cast_nullable_to_non_nullable
+                  as String?,
         taskData: freezed == taskData
             ? _value._taskData
             : taskData // ignore: cast_nullable_to_non_nullable
@@ -597,6 +613,7 @@ class _$RouteTaskImpl extends _RouteTask {
     @JsonKey(name: 'completed_at') this.completedAt,
     this.skipped = false,
     @JsonKey(name: 'updated_fill_percentage') this.updatedFillPercentage,
+    @JsonKey(name: 'photo_url') this.photoUrl,
     @JsonKey(name: 'task_data') final Map<String, dynamic>? taskData,
     @JsonKey(name: 'created_at') required this.createdAt,
   }) : _taskData = taskData,
@@ -738,6 +755,11 @@ class _$RouteTaskImpl extends _RouteTask {
   @override
   @JsonKey(name: 'updated_fill_percentage')
   final int? updatedFillPercentage;
+
+  /// Photo URL taken during task completion
+  @override
+  @JsonKey(name: 'photo_url')
+  final String? photoUrl;
   // ========== METADATA ==========
   /// Flexible JSON data for task-specific information
   final Map<String, dynamic>? _taskData;
@@ -760,7 +782,7 @@ class _$RouteTaskImpl extends _RouteTask {
 
   @override
   String toString() {
-    return 'RouteTask(id: $id, shiftId: $shiftId, sequenceOrder: $sequenceOrder, taskType: $taskType, latitude: $latitude, longitude: $longitude, address: $address, city: $city, zip: $zip, originalAddress: $originalAddress, newAddress: $newAddress, binId: $binId, binNumber: $binNumber, fillPercentage: $fillPercentage, potentialLocationId: $potentialLocationId, newBinNumber: $newBinNumber, moveRequestId: $moveRequestId, destinationLatitude: $destinationLatitude, destinationLongitude: $destinationLongitude, destinationAddress: $destinationAddress, moveType: $moveType, warehouseAction: $warehouseAction, binsToLoad: $binsToLoad, routeId: $routeId, isCompleted: $isCompleted, completedAt: $completedAt, skipped: $skipped, updatedFillPercentage: $updatedFillPercentage, taskData: $taskData, createdAt: $createdAt)';
+    return 'RouteTask(id: $id, shiftId: $shiftId, sequenceOrder: $sequenceOrder, taskType: $taskType, latitude: $latitude, longitude: $longitude, address: $address, city: $city, zip: $zip, originalAddress: $originalAddress, newAddress: $newAddress, binId: $binId, binNumber: $binNumber, fillPercentage: $fillPercentage, potentialLocationId: $potentialLocationId, newBinNumber: $newBinNumber, moveRequestId: $moveRequestId, destinationLatitude: $destinationLatitude, destinationLongitude: $destinationLongitude, destinationAddress: $destinationAddress, moveType: $moveType, warehouseAction: $warehouseAction, binsToLoad: $binsToLoad, routeId: $routeId, isCompleted: $isCompleted, completedAt: $completedAt, skipped: $skipped, updatedFillPercentage: $updatedFillPercentage, photoUrl: $photoUrl, taskData: $taskData, createdAt: $createdAt)';
   }
 
   @override
@@ -816,6 +838,8 @@ class _$RouteTaskImpl extends _RouteTask {
             (identical(other.skipped, skipped) || other.skipped == skipped) &&
             (identical(other.updatedFillPercentage, updatedFillPercentage) ||
                 other.updatedFillPercentage == updatedFillPercentage) &&
+            (identical(other.photoUrl, photoUrl) ||
+                other.photoUrl == photoUrl) &&
             const DeepCollectionEquality().equals(other._taskData, _taskData) &&
             (identical(other.createdAt, createdAt) ||
                 other.createdAt == createdAt));
@@ -853,6 +877,7 @@ class _$RouteTaskImpl extends _RouteTask {
     completedAt,
     skipped,
     updatedFillPercentage,
+    photoUrl,
     const DeepCollectionEquality().hash(_taskData),
     createdAt,
   ]);
@@ -901,6 +926,7 @@ abstract class _RouteTask extends RouteTask {
     @JsonKey(name: 'completed_at') final int? completedAt,
     final bool skipped,
     @JsonKey(name: 'updated_fill_percentage') final int? updatedFillPercentage,
+    @JsonKey(name: 'photo_url') final String? photoUrl,
     @JsonKey(name: 'task_data') final Map<String, dynamic>? taskData,
     @JsonKey(name: 'created_at') required final int createdAt,
   }) = _$RouteTaskImpl;
@@ -1034,7 +1060,12 @@ abstract class _RouteTask extends RouteTask {
   /// Updated fill percentage after collection (0-100)
   @override
   @JsonKey(name: 'updated_fill_percentage')
-  int? get updatedFillPercentage; // ========== METADATA ==========
+  int? get updatedFillPercentage;
+
+  /// Photo URL taken during task completion
+  @override
+  @JsonKey(name: 'photo_url')
+  String? get photoUrl; // ========== METADATA ==========
   /// Flexible JSON data for task-specific information
   @override
   @JsonKey(name: 'task_data')

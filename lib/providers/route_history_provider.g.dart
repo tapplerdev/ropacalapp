@@ -24,7 +24,7 @@ final routeHistoryProvider =
     );
 
 typedef _$RouteHistory = AutoDisposeAsyncNotifier<List<ShiftHistory>>;
-String _$shiftDetailHash() => r'6f5c7e0157fe245b9d05ff82574b763a7ee19196';
+String _$shiftDetailHash() => r'e345eca28f38dd9702f8d322c2ed628e45784e22';
 
 /// Copied from Dart SDK
 class _SystemHash {

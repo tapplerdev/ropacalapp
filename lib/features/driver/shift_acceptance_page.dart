@@ -42,7 +42,7 @@ class ShiftAcceptancePage extends ConsumerWidget {
                 estimatedEndTime: null,
                 totalBins: shiftState.totalBins,
                 totalDistanceKm: null,
-                tasks: shiftState.tasks,
+                tasks: shiftState.bins,
                 routeName: 'Route ${shiftState.assignedRouteId ?? ''}',
                 isOptimized: false,
               ),

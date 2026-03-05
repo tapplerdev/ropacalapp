@@ -206,7 +206,7 @@ class ShiftNotifier extends _$ShiftNotifier {
       AppLogger.general('[DIAGNOSTIC]    Current state BEFORE fetch:');
       AppLogger.general('[DIAGNOSTIC]      Status: ${state.status}');
       AppLogger.general('[DIAGNOSTIC]      RouteID: ${state.assignedRouteId}');
-      AppLogger.general('[DIAGNOSTIC]      RouteTasks: ${state.tasks.length}');
+      AppLogger.general('[DIAGNOSTIC]      RouteTasks: ${state.bins.length}');
       AppLogger.general('[DIAGNOSTIC]      ShiftID: ${state.shiftId}');
 
       final shiftService = ref.read(shiftServiceProvider);
@@ -220,15 +220,15 @@ class ShiftNotifier extends _$ShiftNotifier {
         AppLogger.general('[DIAGNOSTIC]    Status: ${currentShift.status}');
         AppLogger.general('[DIAGNOSTIC]    RouteID: ${currentShift.assignedRouteId}');
         AppLogger.general('[DIAGNOSTIC]    ShiftID: ${currentShift.shiftId}');
-        AppLogger.general('[DIAGNOSTIC]    Tasks.length: ${currentShift.tasks.length}');
+        AppLogger.general('[DIAGNOSTIC]    Tasks.length: ${currentShift.bins.length}');
         AppLogger.general('[DIAGNOSTIC]    RemainingTasks.length: ${currentShift.remainingTasks.length}');
         AppLogger.general('[DIAGNOSTIC]    LogicalTotalBins: ${currentShift.logicalTotalBins}');
         AppLogger.general('[DIAGNOSTIC]    LogicalCompletedBins: ${currentShift.logicalCompletedBins}');
 
-        if (currentShift.tasks.isNotEmpty) {
-          AppLogger.general('[DIAGNOSTIC]    📋 ALL TASKS (${currentShift.tasks.length} total):');
-          for (var i = 0; i < currentShift.tasks.length; i++) {
-            final task = currentShift.tasks[i];
+        if (currentShift.bins.isNotEmpty) {
+          AppLogger.general('[DIAGNOSTIC]    📋 ALL TASKS (${currentShift.bins.length} total):');
+          for (var i = 0; i < currentShift.bins.length; i++) {
+            final task = currentShift.bins[i];
             final statusIcon = task.isCompleted == 1 ? '✅' : '⏳';
             final skippedFlag = task.skipped ? ' ⏭️SKIPPED' : '';
             AppLogger.general('[DIAGNOSTIC]      $statusIcon ${i + 1}. ${task.taskType.name} - Bin #${task.binNumber ?? "N/A"} - ${task.address ?? "No address"}$skippedFlag');
@@ -239,14 +239,14 @@ class ShiftNotifier extends _$ShiftNotifier {
 
         AppLogger.general('[DIAGNOSTIC] 🔄 ABOUT TO UPDATE STATE with new shift data...');
         AppLogger.general('[DIAGNOSTIC]    BEFORE state assignment:');
-        AppLogger.general('[DIAGNOSTIC]      state.tasks.length = ${state.tasks.length}');
+        AppLogger.general('[DIAGNOSTIC]      state.bins.length = ${state.bins.length}');
         AppLogger.general('[DIAGNOSTIC]      state.totalBins = ${state.totalBins}');
 
         state = currentShift;
 
         AppLogger.general('[DIAGNOSTIC] ✅ STATE ASSIGNMENT COMPLETE!');
         AppLogger.general('[DIAGNOSTIC]    AFTER state assignment:');
-        AppLogger.general('[DIAGNOSTIC]      state.tasks.length = ${state.tasks.length}');
+        AppLogger.general('[DIAGNOSTIC]      state.bins.length = ${state.bins.length}');
         AppLogger.general('[DIAGNOSTIC]      state.totalBins = ${state.totalBins}');
         AppLogger.general('[DIAGNOSTIC]      state.completedBins = ${state.completedBins}');
         AppLogger.general('[DIAGNOSTIC] 📥 Current shift loaded and state updated');
@@ -357,13 +357,13 @@ class ShiftNotifier extends _$ShiftNotifier {
       await fetchCurrentShift();
 
       // Check if we have bins
-      if (state.tasks.isEmpty) {
+      if (state.bins.isEmpty) {
         AppLogger.general('ℹ️  preloadRoute: No route bins');
         return false;
       }
 
       AppLogger.general(
-        '✅ preloadRoute: Shift loaded with ${state.tasks.length} bins',
+        '✅ preloadRoute: Shift loaded with ${state.bins.length} bins',
       );
 
       // Step 2: Wait for location (with timeout)
@@ -548,11 +548,11 @@ class ShiftNotifier extends _$ShiftNotifier {
       final apiDuration = apiEndTime.difference(apiStartTime).inMilliseconds;
       AppLogger.general('✅ Shift started in ${apiDuration}ms');
 
-      // IMPORTANT: Preserve tasks from current state
+      // IMPORTANT: Preserve bins from current state
       // The API response doesn't include bins array, but we already have it from route assignment
-      // This prevents the navigation page from being blocked due to empty tasks
+      // This prevents the navigation page from being blocked due to empty bins
       state = updatedShift.copyWith(
-        tasks: state.tasks.isNotEmpty ? state.tasks : updatedShift.tasks,
+        bins: state.bins.isNotEmpty ? state.bins : updatedShift.bins,
       );
 
       AppLogger.general('');
@@ -579,7 +579,7 @@ class ShiftNotifier extends _$ShiftNotifier {
       AppLogger.general('   - Step 3 (Start): ${apiDuration}ms');
       AppLogger.general('   Shift Status: ${state.status}');
       AppLogger.general('   Shift started at: ${state.startTime}');
-      AppLogger.general('   Route bins: ${state.tasks.length}');
+      AppLogger.general('   Route bins: ${state.bins.length}');
       AppLogger.general('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
     } catch (e) {
       AppLogger.general('');
@@ -713,7 +713,7 @@ class ShiftNotifier extends _$ShiftNotifier {
       AppLogger.general('⚡ Optimistic update: Marking task complete instantly');
 
       // Find and mark the bin as completed
-      final updatedRouteTasks = state.tasks.map((bin) {
+      final updatedRouteTasks = state.bins.map((bin) {
         if (bin.id == taskId) {
           return bin.copyWith(
             isCompleted: 1,
@@ -725,7 +725,7 @@ class ShiftNotifier extends _$ShiftNotifier {
 
       // Update state immediately (navigation will recalculate now!)
       state = state.copyWith(
-        tasks: updatedRouteTasks,
+        bins: updatedRouteTasks,
         completedBins: state.completedBins + 1,
       );
 
@@ -786,16 +786,16 @@ class ShiftNotifier extends _$ShiftNotifier {
       AppLogger.general('⚡ Optimistic update: Skipping task instantly');
 
       // Find the bin being skipped and check if it's a pickup (for paired dropoff)
-      final binToSkip = state.tasks.firstWhere(
+      final binToSkip = state.bins.firstWhere(
         (bin) => bin.id == taskId,
-        orElse: () => state.tasks.first, // Fallback
+        orElse: () => state.bins.first, // Fallback
       );
 
       final isPickup = binToSkip.taskType == StopType.pickup;
       final moveRequestId = binToSkip.moveRequestId;
 
       // Mark the bin as skipped (isCompleted = 2 means skipped)
-      final updatedRouteTasks = state.tasks.map((bin) {
+      final updatedRouteTasks = state.bins.map((bin) {
         // Skip the target bin
         if (bin.id == taskId) {
           return bin.copyWith(isCompleted: 2); // 2 = skipped
@@ -815,14 +815,14 @@ class ShiftNotifier extends _$ShiftNotifier {
 
       // Count how many bins were skipped (1 or 2)
       final skippedCount = updatedRouteTasks.where((bin) => bin.isCompleted == 2).length -
-          previousState.tasks.where((bin) => bin.isCompleted == 2).length;
+          previousState.bins.where((bin) => bin.isCompleted == 2).length;
 
       // Update state immediately (navigation will recalculate now!)
       // NOTE: Do NOT increment completedBins for skipped tasks!
       // Skipped tasks (isCompleted=2) should not count toward completion percentage.
       // Only tasks with isCompleted=1 should count as completed.
       state = state.copyWith(
-        tasks: updatedRouteTasks,
+        bins: updatedRouteTasks,
         // completedBins is NOT incremented - skipped tasks don't count as completed
       );
 
@@ -869,7 +869,7 @@ class ShiftNotifier extends _$ShiftNotifier {
         '✅ WebSocket: Shift updated - ${updatedShift.completedBins}/${updatedShift.totalBins} (${updatedShift.remainingTasks.length} remaining)',
       );
       AppLogger.general('   Status: ${updatedShift.status}');
-      AppLogger.general('   Bins array length: ${updatedShift.tasks.length}');
+      AppLogger.general('   Bins array length: ${updatedShift.bins.length}');
       AppLogger.general('   Route ID: ${updatedShift.assignedRouteId}');
 
       // DEBUG: Log logical counting
@@ -972,8 +972,8 @@ class ShiftNotifier extends _$ShiftNotifier {
 
     // Log current state BEFORE refresh
     AppLogger.general('   📊 STATE BEFORE REFRESH:');
-    AppLogger.general('      Current tasks.length: ${state.tasks.length}');
-    AppLogger.general('      Current tasks.length: ${state.tasks.length}');
+    AppLogger.general('      Current tasks.length: ${state.bins.length}');
+    AppLogger.general('      Current tasks.length: ${state.bins.length}');
     AppLogger.general('      Current remainingTasks.length: ${state.remainingTasks.length}');
     AppLogger.general('      Current logicalTotalBins: ${state.logicalTotalBins}');
 
@@ -1017,16 +1017,16 @@ class ShiftNotifier extends _$ShiftNotifier {
 
     AppLogger.general('   ✅ fetchCurrentShift() completed');
     AppLogger.general('   📊 STATE AFTER REFRESH:');
-    AppLogger.general('      New tasks.length: ${state.tasks.length}');
+    AppLogger.general('      New tasks.length: ${state.bins.length}');
     AppLogger.general('      New remainingTasks.length: ${state.remainingTasks.length}');
     AppLogger.general('      New logicalTotalBins: ${state.logicalTotalBins}');
     AppLogger.general('      New logicalCompletedBins: ${state.logicalCompletedBins}');
 
     // DEBUG: Log first 5 tasks to verify new ones are included
-    if (state.tasks.isNotEmpty) {
+    if (state.bins.isNotEmpty) {
       AppLogger.general('   📋 [DEBUG] FIRST 5 TASKS AFTER UPDATE:');
-      for (var i = 0; i < state.tasks.length && i < 5; i++) {
-        final task = state.tasks[i];
+      for (var i = 0; i < state.bins.length && i < 5; i++) {
+        final task = state.bins[i];
         final statusIcon = task.isCompleted == 1 ? '✅' : (task.isCompleted == 2 ? '⏭️' : '⏳');
         AppLogger.general('      $statusIcon ${i + 1}. ${task.taskType.name} - Bin #${task.binNumber ?? "N/A"} - Seq:${task.sequenceOrder} - Completed:${task.isCompleted}');
       }

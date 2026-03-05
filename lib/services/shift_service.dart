@@ -57,10 +57,10 @@ class ShiftService {
         );
 
         // Log parsed coordinates after Flutter JSON parsing
-        if (shiftState.tasks.isNotEmpty) {
+        if (shiftState.bins.isNotEmpty) {
           print('[DIAGNOSTIC] 🔍 PARSED TASK DATA AFTER FLUTTER (first 3 tasks):');
-          for (int i = 0; i < shiftState.tasks.length && i < 3; i++) {
-            final task = shiftState.tasks[i];
+          for (int i = 0; i < shiftState.bins.length && i < 3; i++) {
+            final task = shiftState.bins[i];
             print('[DIAGNOSTIC]    Task #$i: taskType=${task.taskType}, lat=${task.latitude} (${task.latitude.runtimeType}), lng=${task.longitude} (${task.longitude.runtimeType}), addr=${task.address}');
           }
         }
@@ -68,7 +68,7 @@ class ShiftService {
         print('   ✅ Current shift: ${shiftData['status']}');
         print('   Route: ${shiftData['route_id']}');
         print(
-          '   Bins: ${shiftData['completed_bins']}/${shiftData['total_bins']} (${shiftState.tasks.length} in route)',
+          '   Bins: ${shiftData['completed_bins']}/${shiftData['total_bins']} (${shiftState.bins.length} in route)',
         );
 
         return shiftState;

@@ -79,7 +79,7 @@ class DriverMapPage extends HookConsumerWidget {
     // ✅ CRITICAL: Initialize Centrifugo connection by watching the provider
     // This ensures the CentrifugoManager build() method is called and connects
     final centrifugoState = ref.watch(centrifugoManagerProvider);
-    AppLogger.general('🔵 [DriverMapPage] Centrifugo state: $centrifugoState');
+    // AppLogger.general('🔵 [DriverMapPage] Centrifugo state: $centrifugoState'); // Too spammy - logs every rebuild
 
     final binsState = ref.watch(binsListProvider); // Used for Bins tab, NOT for map markers
     // AppLogger.general('   📦 binsState: ${binsState.runtimeType}, hasValue: ${binsState.hasValue}, valueOrNull?.length: ${binsState.valueOrNull?.length}');
@@ -96,7 +96,7 @@ class DriverMapPage extends HookConsumerWidget {
     // DON'T watch shiftState - we don't want to rebuild the entire page when shift changes
     // Individual shift-aware widgets will watch it internally
     // final shiftState = ref.watch(shiftNotifierProvider);
-    // AppLogger.general('   🚚 shiftState: status=${shiftState.status}, tasks=${shiftState.tasks.length}');
+    // AppLogger.general('   🚚 shiftState: status=${shiftState.status}, tasks=${shiftState.bins.length}');
 
     // SIMULATION DISABLED - Not used in production
     // final simulationState = ref.watch(simulationNotifierProvider);
@@ -234,10 +234,10 @@ class DriverMapPage extends HookConsumerWidget {
 
         // ✅ ONLY show markers for bins in the assigned shift
         // When no shift → tasks is empty → clean map with just blue dot
-        if (currentShift.tasks.isNotEmpty && bins != null) {
+        if (currentShift.bins.isNotEmpty && bins != null) {
 
-          for (var i = 0; i < currentShift.tasks.length; i++) {
-            final routeBin = currentShift.tasks[i];
+          for (var i = 0; i < currentShift.bins.length; i++) {
+            final routeBin = currentShift.bins[i];
 
             if (routeBin.latitude != null && routeBin.longitude != null) {
               // Find the corresponding Bin object for the bottom sheet
@@ -271,7 +271,7 @@ class DriverMapPage extends HookConsumerWidget {
 
         // ✅ ONLY show polylines if there's a shift with bins
         // When no shift → clean map (no route lines)
-        if (currentShift.tasks.isNotEmpty && tasks != null && tasks.isNotEmpty) {
+        if (currentShift.bins.isNotEmpty && tasks != null && tasks.isNotEmpty) {
           // Draw simple straight lines from current location through bins
           AppLogger.map('   → Drawing route polyline');
           if (location != null) {
@@ -332,7 +332,7 @@ class DriverMapPage extends HookConsumerWidget {
 
       // Force marker update by invalidating the bins list provider
       // This will trigger the useEffect above to re-run
-      if (previous?.status != next.status || previous?.tasks.length != next.tasks.length) {
+      if (previous?.status != next.status || previous?.bins.length != next.bins.length) {
         AppLogger.general('   → Triggering marker update');
         ref.invalidate(binsListProvider);
       }
@@ -1190,11 +1190,11 @@ class _ShiftActiveOverlay extends ConsumerWidget {
     // AppLogger.general('🔄 [_ShiftActiveOverlay] BUILD CALLED');
     // AppLogger.general('   Timestamp: ${DateTime.now().toIso8601String()}');
     // AppLogger.general('   Status: ${shiftState.status}');
-    // AppLogger.general('   Tasks.length: ${shiftState.tasks.length}');
+    // AppLogger.general('   Tasks.length: ${shiftState.bins.length}');
     // AppLogger.general('   TotalBins: ${shiftState.totalBins}');
     // AppLogger.general('   CompletedBins: ${shiftState.completedBins}');
     // AppLogger.general('   Passing to ActiveShiftBottomSheet:');
-    // AppLogger.general('     - tasks: List<RouteTask> with ${shiftState.tasks.length} items');
+    // AppLogger.general('     - tasks: List<RouteTask> with ${shiftState.bins.length} items');
     // AppLogger.general('     - totalBins: ${shiftState.totalBins}');
     // AppLogger.general('     - completedBins: ${shiftState.completedBins}');
     // AppLogger.general('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
@@ -1208,14 +1208,14 @@ class _ShiftActiveOverlay extends ConsumerWidget {
       left: 0,
       right: 0,
       child: ActiveShiftBottomSheet(
-        tasks: shiftState.tasks, // New task-based system
+        tasks: shiftState.bins, // New task-based system
         completedBins: shiftState.completedBins,
         totalBins: shiftState.totalBins,
         onNavigateToNextBin: () {
           // Find next incomplete bin
-          final nextBin = shiftState.tasks.firstWhere(
+          final nextBin = shiftState.bins.firstWhere(
             (bin) => bin.isCompleted == 0,
-            orElse: () => shiftState.tasks.first,
+            orElse: () => shiftState.bins.first,
           );
 
           // Animate camera to next bin

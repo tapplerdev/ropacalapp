@@ -100,6 +100,9 @@ class RouteTask with _$RouteTask {
     /// Updated fill percentage after collection (0-100)
     @JsonKey(name: 'updated_fill_percentage') int? updatedFillPercentage,
 
+    /// Photo URL taken during task completion
+    @JsonKey(name: 'photo_url') String? photoUrl,
+
     // ========== METADATA ==========
     /// Flexible JSON data for task-specific information
     @JsonKey(name: 'task_data') Map<String, dynamic>? taskData,

@@ -71,12 +71,12 @@ class ShiftDetail extends _$ShiftDetail {
       // Parse shift history from the response
       final shiftHistory = ShiftHistory.fromJson(data);
 
-      // Parse bins array
-      final bins = (data['bins'] as List)
+      // Parse tasks array (new task-based system)
+      final bins = (data['tasks'] as List)
           .map((json) => RouteTask.fromJson(json as Map<String, dynamic>))
           .toList();
 
-      AppLogger.general('✅ Loaded shift with ${bins.length} bins');
+      AppLogger.general('✅ Loaded shift with ${bins.length} tasks');
 
       return ShiftDetailData(shift: shiftHistory, bins: bins);
     } catch (e, stack) {

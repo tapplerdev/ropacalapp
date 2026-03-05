@@ -4,7 +4,7 @@ class ApiConstants {
   // Local iOS simulator: 'http://localhost:8080'
   // Local Android emulator: 'http://10.0.2.2:8080'
   // Local physical device: 'http://YOUR_MAC_IP:8080' (same WiFi)
-  static const String baseUrl = 'https://ropacal-backend-production.up.railway.app';
+  static const String baseUrl = 'https://ropacal-backend-production.up.railway.app'; // PRODUCTION: Railway backend
 
   // WebSocket URL (auto-derived from baseUrl)
   // Converts http/https to ws/wss automatically

@@ -58,6 +58,7 @@ dependencies:
 
   # Networking
   dio: ^5.4.0  # HTTP client (used for Cloudinary uploads)
+  http: ^1.2.0  # HTTP client (for error logging service)
   flutter_secure_storage: ^9.0.0
   flutter_dotenv: ^5.2.1  # Environment variables
 
@@ -89,6 +90,10 @@ dependencies:
   url_launcher: ^6.3.2
   wakelock_plus: ^1.2.8  # Keep screen awake during navigation
   audioplayers: ^6.1.0  # Audio player for notification sounds
+
+  # Device Info
+  device_info_plus: ^10.1.2  # Device information for error logging
+  package_info_plus: ^8.1.1  # App version info for error logging
 
 dev_dependencies:
   flutter_test:

@@ -142,6 +142,7 @@ class AppLogger {
     ).catchError((e) {
       // Silently fail - don't break app
       debugPrint('[AppLogger] Failed to send diagnostic to Railway: $e');
+      return http.Response('', 500); // Return a dummy response to satisfy type
     });
   }
 

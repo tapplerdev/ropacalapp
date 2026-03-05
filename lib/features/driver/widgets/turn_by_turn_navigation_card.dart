@@ -26,10 +26,10 @@ class TurnByTurnNavigationCard extends StatelessWidget {
     }
 
     return Container(
-      margin: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+      margin: const EdgeInsets.fromLTRB(12, 8, 12, 0),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.15),
@@ -43,27 +43,27 @@ class TurnByTurnNavigationCard extends StatelessWidget {
         children: [
           // Main navigation instruction
           Padding(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(12),
             child: Row(
               children: [
                 // Maneuver icon
                 Container(
-                  width: 52,
-                  height: 52,
+                  width: 44,
+                  height: 44,
                   decoration: BoxDecoration(
                     color: AppColors.primaryGreen.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(10),
+                    borderRadius: BorderRadius.circular(8),
                   ),
                   child: Icon(
                     _getManeuverIcon(
                       currentStep!.maneuverType,
                       currentStep!.modifier,
                     ),
-                    size: 30,
+                    size: 26,
                     color: AppColors.primaryGreen,
                   ),
                 ),
-                const SizedBox(width: 14),
+                const SizedBox(width: 10),
 
                 // Instruction text
                 Expanded(
@@ -74,18 +74,18 @@ class TurnByTurnNavigationCard extends StatelessWidget {
                       Text(
                         _formatDistance(distanceToNextManeuver),
                         style: const TextStyle(
-                          fontSize: 24,
+                          fontSize: 22,
                           fontWeight: FontWeight.bold,
                           color: Colors.black87,
                         ),
                       ),
-                      const SizedBox(height: 2),
+                      const SizedBox(height: 1),
 
                       // Instruction
                       Text(
                         currentStep!.instruction,
                         style: const TextStyle(
-                          fontSize: 14,
+                          fontSize: 13,
                           color: Colors.black54,
                         ),
                         maxLines: 2,
@@ -101,12 +101,12 @@ class TurnByTurnNavigationCard extends StatelessWidget {
           // ETA and distance footer
           if (estimatedTimeRemaining != null || totalDistanceRemaining != null)
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               decoration: BoxDecoration(
                 color: Colors.grey.shade50,
                 borderRadius: const BorderRadius.only(
-                  bottomLeft: Radius.circular(16),
-                  bottomRight: Radius.circular(16),
+                  bottomLeft: Radius.circular(12),
+                  bottomRight: Radius.circular(12),
                 ),
               ),
               child: Row(
@@ -118,14 +118,14 @@ class TurnByTurnNavigationCard extends StatelessWidget {
                       children: [
                         const Icon(
                           Icons.access_time,
-                          size: 18,
+                          size: 16,
                           color: Colors.black54,
                         ),
-                        const SizedBox(width: 6),
+                        const SizedBox(width: 4),
                         Text(
                           _formatDuration(estimatedTimeRemaining!),
                           style: const TextStyle(
-                            fontSize: 14,
+                            fontSize: 13,
                             fontWeight: FontWeight.w600,
                             color: Colors.black87,
                           ),
@@ -139,14 +139,14 @@ class TurnByTurnNavigationCard extends StatelessWidget {
                       children: [
                         const Icon(
                           Icons.straighten,
-                          size: 18,
+                          size: 16,
                           color: Colors.black54,
                         ),
-                        const SizedBox(width: 6),
+                        const SizedBox(width: 4),
                         Text(
                           _formatDistance(totalDistanceRemaining!),
                           style: const TextStyle(
-                            fontSize: 14,
+                            fontSize: 13,
                             fontWeight: FontWeight.w600,
                             color: Colors.black87,
                           ),

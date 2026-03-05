@@ -231,8 +231,8 @@ class DriverShiftDetail extends _$DriverShiftDetail {
       // Parse driver and shift info
       final driver = ActiveDriver.fromJson(data);
 
-      // Parse bins array
-      final bins = (data['bins'] as List)
+      // Parse tasks array (new task-based system)
+      final bins = (data['tasks'] as List)
           .map((json) => RouteTask.fromJson(json as Map<String, dynamic>))
           .toList();
 

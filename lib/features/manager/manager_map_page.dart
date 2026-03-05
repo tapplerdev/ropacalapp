@@ -1242,11 +1242,11 @@ class ManagerMapPage extends HookConsumerWidget {
                       width: 42,
                       height: 42,
                       decoration: BoxDecoration(
-                        color: Colors.red,
+                        color: AppColors.primaryGreen,
                         shape: BoxShape.circle,
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.red.withValues(alpha: 0.4),
+                            color: AppColors.primaryGreen.withValues(alpha: 0.4),
                             blurRadius: 12,
                             offset: const Offset(0, 4),
                             spreadRadius: 0,
@@ -1258,16 +1258,48 @@ class ManagerMapPage extends HookConsumerWidget {
                           ),
                         ],
                       ),
-                      child: Center(
-                        child: Text(
-                          '${activeDrivers.length}',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 16,
-                            fontWeight: FontWeight.w700,
-                            height: 1.0,
+                      child: Stack(
+                        children: [
+                          // Truck icon centered
+                          Center(
+                            child: Icon(
+                              Icons.local_shipping_outlined,
+                              color: Colors.white,
+                              size: 20,
+                            ),
                           ),
-                        ),
+                          // Count badge in top-right corner
+                          Positioned(
+                            top: 0,
+                            right: 0,
+                            child: Container(
+                              constraints: const BoxConstraints(
+                                minWidth: 16,
+                                minHeight: 16,
+                              ),
+                              padding: const EdgeInsets.all(2),
+                              decoration: BoxDecoration(
+                                color: Colors.red,
+                                shape: BoxShape.circle,
+                                border: Border.all(
+                                  color: Colors.white,
+                                  width: 1.5,
+                                ),
+                              ),
+                              child: Center(
+                                child: Text(
+                                  '${activeDrivers.length}',
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w900,
+                                    height: 1.0,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ),

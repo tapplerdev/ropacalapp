@@ -1265,7 +1265,7 @@ class ManagerMapPage extends HookConsumerWidget {
                           // Truck icon centered
                           Center(
                             child: Icon(
-                              Icons.local_shipping_outlined,
+                              Icons.local_shipping,
                               color: Colors.white,
                               size: 20,
                             ),
@@ -1313,7 +1313,8 @@ class ManagerMapPage extends HookConsumerWidget {
                 right: 16,
                 child: CircularMapButton(
                   icon: Icons.my_location,
-                  iconColor: Colors.grey.shade700,
+                  backgroundColor: AppColors.primaryGreen,
+                  iconColor: Colors.white,
                   onTap: () async {
                     final location = locationState.valueOrNull;
                     if (location != null && mapController.value != null) {

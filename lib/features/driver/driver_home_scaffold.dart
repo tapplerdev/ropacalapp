@@ -7,7 +7,8 @@ import 'package:ropacalapp/features/driver/bins_list_page.dart';
 import 'package:ropacalapp/features/driver/shifts_page.dart';
 import 'package:ropacalapp/features/driver/account_page.dart';
 import 'package:ropacalapp/features/manager/manager_map_page.dart';
-import 'package:ropacalapp/features/manager/drivers_page.dart';
+import 'package:ropacalapp/features/manager/manager_shifts_tab.dart';
+import 'package:ropacalapp/features/manager/manager_alerts_tab.dart';
 import 'package:ropacalapp/core/theme/app_colors.dart';
 import 'package:ropacalapp/providers/auth_provider.dart';
 import 'package:ropacalapp/providers/focused_driver_provider.dart';
@@ -37,13 +38,13 @@ class DriverHomeScaffold extends HookConsumerWidget {
 
         // Build pages based on role
         // Driver: DriverMapWrapper auto-switches between DriverMapPage and GoogleNavigationPage
-        // Manager: Always shows ManagerMapPage
+        // Manager: Map-first design with Shifts, Alerts, Account
         final pages = isManager
             ? [
-                const ManagerMapPage(), // Manager sees fleet map
-                const DriversPage(), // Manager sees all drivers
-                const BinsListPage(), // Manager sees all bins
-                const AccountPage(),
+                const ManagerMapPage(), // Manager: Live ops center with map
+                const ManagerShiftsTab(), // Manager: Today's shifts and operations
+                const ManagerAlertsTab(), // Manager: Priority notifications
+                const AccountPage(), // Manager: Profile and settings
               ]
             : [
                 const DriverMapWrapper(), // Driver: auto-switches to navigation when shift active
@@ -98,30 +99,14 @@ class DriverHomeScaffold extends HookConsumerWidget {
                   label: 'Map',
                 ),
                 const NavigationDestination(
-                  icon: Icon(Icons.people_outline),
-                  selectedIcon: Icon(Icons.people),
-                  label: 'Drivers',
+                  icon: Icon(Icons.event_note_outlined),
+                  selectedIcon: Icon(Icons.event_note),
+                  label: 'Shifts',
                 ),
-                NavigationDestination(
-                  icon: SvgPicture.asset(
-                    'assets/icons/bin-trash.svg',
-                    width: 24,
-                    height: 24,
-                    colorFilter: ColorFilter.mode(
-                      Colors.grey.shade600,
-                      BlendMode.srcIn,
-                    ),
-                  ),
-                  selectedIcon: SvgPicture.asset(
-                    'assets/icons/bin-trash.svg',
-                    width: 24,
-                    height: 24,
-                    colorFilter: ColorFilter.mode(
-                      Theme.of(context).colorScheme.onSurface,
-                      BlendMode.srcIn,
-                    ),
-                  ),
-                  label: 'Bins',
+                const NavigationDestination(
+                  icon: Icon(Icons.notifications_outlined),
+                  selectedIcon: Icon(Icons.notifications),
+                  label: 'Alerts',
                 ),
                 const NavigationDestination(
                   icon: Icon(Icons.person_outline),

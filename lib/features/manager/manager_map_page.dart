@@ -1158,8 +1158,9 @@ class ManagerMapPage extends HookConsumerWidget {
                 top: MediaQuery.of(context).padding.top + 16,
                 left: 16,
                 child: CircularMapButton(
-                  icon: Icons.notifications_outlined,
-                  iconColor: AppColors.primaryGreen,
+                  icon: Icons.notifications,
+                  backgroundColor: AppColors.primaryGreen,
+                  iconColor: Colors.white,
                   onTap: () {
                     Navigator.push(
                       context,
@@ -1176,8 +1177,9 @@ class ManagerMapPage extends HookConsumerWidget {
                 top: MediaQuery.of(context).padding.top + 72,
                 left: 16,
                 child: CircularMapButton(
-                  icon: Icons.add_location_alt_outlined,
-                  iconColor: AppColors.primaryGreen,
+                  icon: Icons.add_location_alt,
+                  backgroundColor: AppColors.primaryGreen,
+                  iconColor: Colors.white,
                   onTap: () {
                     context.push('/manager/potential-locations');
                   },

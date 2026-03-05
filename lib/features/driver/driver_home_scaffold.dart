@@ -7,8 +7,8 @@ import 'package:ropacalapp/features/driver/bins_list_page.dart';
 import 'package:ropacalapp/features/driver/shifts_page.dart';
 import 'package:ropacalapp/features/driver/account_page.dart';
 import 'package:ropacalapp/features/manager/manager_map_page.dart';
+import 'package:ropacalapp/features/manager/manager_operations_tab.dart';
 import 'package:ropacalapp/features/manager/manager_shifts_tab.dart';
-import 'package:ropacalapp/features/manager/manager_alerts_tab.dart';
 import 'package:ropacalapp/core/theme/app_colors.dart';
 import 'package:ropacalapp/providers/auth_provider.dart';
 import 'package:ropacalapp/providers/focused_driver_provider.dart';
@@ -38,12 +38,12 @@ class DriverHomeScaffold extends HookConsumerWidget {
 
         // Build pages based on role
         // Driver: DriverMapWrapper auto-switches between DriverMapPage and GoogleNavigationPage
-        // Manager: Map-first design with Shifts, Alerts, Account
+        // Manager: Map-first design with Operations, Shifts, Account
         final pages = isManager
             ? [
                 const ManagerMapPage(), // Manager: Live ops center with map
+                const ManagerOperationsTab(), // Manager: Drivers, bins, locations, requests
                 const ManagerShiftsTab(), // Manager: Today's shifts and operations
-                const ManagerAlertsTab(), // Manager: Priority notifications
                 const AccountPage(), // Manager: Profile and settings
               ]
             : [
@@ -99,14 +99,14 @@ class DriverHomeScaffold extends HookConsumerWidget {
                   label: 'Map',
                 ),
                 const NavigationDestination(
+                  icon: Icon(Icons.dashboard_outlined),
+                  selectedIcon: Icon(Icons.dashboard),
+                  label: 'Operations',
+                ),
+                const NavigationDestination(
                   icon: Icon(Icons.event_note_outlined),
                   selectedIcon: Icon(Icons.event_note),
                   label: 'Shifts',
-                ),
-                const NavigationDestination(
-                  icon: Icon(Icons.notifications_outlined),
-                  selectedIcon: Icon(Icons.notifications),
-                  label: 'Alerts',
                 ),
                 const NavigationDestination(
                   icon: Icon(Icons.person_outline),

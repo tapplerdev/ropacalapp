@@ -106,12 +106,12 @@ class ManagerService {
     }
   }
 
-  /// Schedule a bin move (relocation or pickup)
+  /// Schedule a bin move (store, relocation, or redeployment)
   /// Returns the created move request data
   Future<Map<String, dynamic>> scheduleBinMove({
     required String binId,
-    required String moveType, // 'relocation' or 'pickup_only'
-    String? disposalAction, // 'retire' or 'store' (required for pickup_only)
+    required String moveType, // 'store', 'relocation', or 'redeployment'
+    int? scheduledDate, // Unix timestamp in seconds; defaults to now if null
     String? newStreet,
     String? newCity,
     String? newZip,
@@ -119,6 +119,9 @@ class ManagerService {
     double? newLongitude,
     String? reason,
     String? notes,
+    String? reasonCategory,
+    bool? createNoGoZone,
+    String? sourcePotentialLocationId,
     String? shiftId, // Optional: Assign to specific shift immediately
   }) async {
     try {
@@ -126,19 +129,16 @@ class ManagerService {
       print('   Move Type: $moveType');
       print('   Bin ID: $binId');
 
-      final now = DateTime.now();
-      final scheduledDate = now.millisecondsSinceEpoch ~/ 1000;
+      final effectiveDate = scheduledDate ??
+          (DateTime.now().millisecondsSinceEpoch ~/ 1000);
 
       final requestBody = <String, dynamic>{
         'bin_id': binId,
-        'scheduled_date': scheduledDate,
+        'scheduled_date': effectiveDate,
         'move_type': moveType,
       };
 
       // Add optional fields
-      if (disposalAction != null) {
-        requestBody['disposal_action'] = disposalAction;
-      }
       if (newStreet != null) requestBody['new_street'] = newStreet;
       if (newCity != null) requestBody['new_city'] = newCity;
       if (newZip != null) requestBody['new_zip'] = newZip;
@@ -146,6 +146,11 @@ class ManagerService {
       if (newLongitude != null) requestBody['new_longitude'] = newLongitude;
       if (reason != null) requestBody['reason'] = reason;
       if (notes != null) requestBody['notes'] = notes;
+      if (reasonCategory != null) requestBody['reason_category'] = reasonCategory;
+      if (createNoGoZone != null) requestBody['create_no_go_zone'] = createNoGoZone;
+      if (sourcePotentialLocationId != null) {
+        requestBody['source_potential_location_id'] = sourcePotentialLocationId;
+      }
       if (shiftId != null) requestBody['shift_id'] = shiftId;
 
       print('   Request Body: $requestBody');
@@ -345,6 +350,116 @@ class ManagerService {
       print('   ✅ Move request cancelled successfully');
     } catch (e) {
       print('   ❌ ERROR: $e');
+      rethrow;
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════════
+  // Routes & Shift Creation
+  // ═══════════════════════════════════════════════════════════════
+
+  /// Fetch all route templates
+  Future<List<Map<String, dynamic>>> getRoutes() async {
+    try {
+      print('📤 REQUEST: GET /api/routes');
+      final response = await _apiService.get('/api/routes');
+
+      // Endpoint returns array directly (no success wrapper)
+      final routes = List<Map<String, dynamic>>.from(response.data as List);
+      print('   ✅ Found ${routes.length} route(s)');
+      return routes;
+    } catch (e) {
+      print('   ❌ ERROR fetching routes: $e');
+      rethrow;
+    }
+  }
+
+  /// Fetch a single route with its bins
+  Future<Map<String, dynamic>> getRouteWithBins(String routeId) async {
+    try {
+      print('📤 REQUEST: GET /api/routes/$routeId');
+      final response = await _apiService.get('/api/routes/$routeId');
+
+      // Endpoint returns RouteWithBins directly (no success wrapper)
+      final route = response.data as Map<String, dynamic>;
+      print('   ✅ Route "${route['name']}" with ${(route['bins'] as List?)?.length ?? 0} bins');
+      return route;
+    } catch (e) {
+      print('   ❌ ERROR fetching route: $e');
+      rethrow;
+    }
+  }
+
+  /// Get road-following directions (polyline) between two points via OSRM
+  /// Returns list of {latitude, longitude} points following actual roads
+  Future<List<Map<String, dynamic>>> getDirections({
+    required double originLat,
+    required double originLng,
+    required double destLat,
+    required double destLng,
+  }) async {
+    try {
+      final response = await _apiService.get(
+        '/api/directions?origin_lat=$originLat&origin_lng=$originLng&dest_lat=$destLat&dest_lng=$destLng',
+      );
+
+      final data = response.data as Map<String, dynamic>;
+      if (data['success'] == true) {
+        return List<Map<String, dynamic>>.from(data['coordinates'] as List);
+      }
+
+      // Fallback: straight line
+      return [
+        {'latitude': originLat, 'longitude': originLng},
+        {'latitude': destLat, 'longitude': destLng},
+      ];
+    } catch (e) {
+      print('   ⚠️  Directions API failed: $e (using straight line)');
+      return [
+        {'latitude': originLat, 'longitude': originLng},
+        {'latitude': destLat, 'longitude': destLng},
+      ];
+    }
+  }
+
+  /// Create a new shift with tasks
+  Future<Map<String, dynamic>> createShiftWithTasks({
+    required String driverId,
+    required int truckBinCapacity,
+    required double warehouseLatitude,
+    required double warehouseLongitude,
+    required String warehouseAddress,
+    required bool lockRouteOrder,
+    required List<Map<String, dynamic>> tasks,
+  }) async {
+    try {
+      print('📤 REQUEST: POST /api/manager/shifts/create-with-tasks');
+      print('   Driver: $driverId');
+      print('   Tasks: ${tasks.length}');
+      print('   Truck capacity: $truckBinCapacity');
+
+      final response = await _apiService.post(
+        '/api/manager/shifts/create-with-tasks',
+        {
+          'driver_id': driverId,
+          'truck_bin_capacity': truckBinCapacity,
+          'warehouse_latitude': warehouseLatitude,
+          'warehouse_longitude': warehouseLongitude,
+          'warehouse_address': warehouseAddress,
+          'lock_route_order': lockRouteOrder,
+          'tasks': tasks,
+        },
+      );
+
+      if (response.data['success'] == true) {
+        final data = response.data['data'] as Map<String, dynamic>;
+        print('   ✅ Shift created: ${data['shift_id']}');
+        return data;
+      }
+
+      throw Exception(response.data['error'] ?? 'Failed to create shift');
+    } catch (e) {
+      print('   ❌ ERROR creating shift: $e');
       rethrow;
     }
   }

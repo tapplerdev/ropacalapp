@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:ropacalapp/core/theme/app_colors.dart';
+import 'package:ropacalapp/core/widgets/route_map_preview.dart';
 import 'package:ropacalapp/models/potential_location.dart';
 import 'package:ropacalapp/providers/potential_locations_list_provider.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
@@ -25,14 +26,18 @@ class PotentialLocationBottomSheet extends HookConsumerWidget {
         color: Colors.white,
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
+      constraints: BoxConstraints(
+        maxHeight: MediaQuery.of(context).size.height * 0.85,
+      ),
       child: SafeArea(
         top: false,
         child: Padding(
           padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
               // Drag handle
               Center(
                 child: Container(
@@ -178,6 +183,18 @@ class PotentialLocationBottomSheet extends HookConsumerWidget {
                   ],
                 ),
               ),
+
+              // Map preview (if coordinates available)
+              if (location.latitude != null && location.longitude != null) ...[
+                const SizedBox(height: 12),
+                RouteMapPreview(
+                  originLat: location.latitude!,
+                  originLng: location.longitude!,
+                  height: 180,
+                  showLegend: false,
+                  singlePinType: 'potential_location',
+                ),
+              ],
 
               const SizedBox(height: 12),
 
@@ -397,6 +414,7 @@ class PotentialLocationBottomSheet extends HookConsumerWidget {
                 ),
               ],
             ],
+          ),
           ),
         ),
       ),

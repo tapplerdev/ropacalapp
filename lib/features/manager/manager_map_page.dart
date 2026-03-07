@@ -23,7 +23,11 @@ import 'package:ropacalapp/core/services/google_navigation_marker_service.dart';
 import 'package:ropacalapp/core/services/marker_animation_service.dart';
 import 'package:ropacalapp/core/theme/app_colors.dart';
 import 'package:ropacalapp/core/services/centrifugo_service.dart';
+import 'package:ropacalapp/providers/centrifugo_provider.dart';
 import 'package:ropacalapp/models/driver_location.dart';
+import 'package:ropacalapp/features/manager/widgets/map_search_bar.dart';
+import 'package:ropacalapp/features/manager/widgets/map_layers_control.dart';
+import 'package:ropacalapp/providers/warehouse_provider.dart';
 
 /// Manager dashboard map showing all active drivers
 ///
@@ -43,30 +47,14 @@ class ManagerMapPage extends HookConsumerWidget {
     final focusedPotentialLocationState = ref.watch(focusedPotentialLocationProvider);
     final focusedPotentialLocationId = focusedPotentialLocationState.locationId;
 
-    // 🔍 DIAGNOSTIC: Log every build
-    AppLogger.general('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-    AppLogger.general('🏗️ ManagerMapPage.build() CALLED');
-    AppLogger.general('   Timestamp: ${DateTime.now().millisecondsSinceEpoch}');
-
     final driversAsync = ref.watch(driversNotifierProvider);
-    AppLogger.general('   🚗 driversAsync: ${driversAsync.runtimeType}, hasValue: ${driversAsync.hasValue}, valueOrNull?.length: ${driversAsync.valueOrNull?.length}');
-
     final binsAsync = ref.watch(binsListProvider);
-    AppLogger.general('   📦 binsAsync: ${binsAsync.runtimeType}, hasValue: ${binsAsync.hasValue}, valueOrNull?.length: ${binsAsync.valueOrNull?.length}');
-
     final potentialLocationsAsync = ref.watch(potentialLocationsListNotifierProvider);
-    AppLogger.general('   📍 potentialLocationsAsync: ${potentialLocationsAsync.runtimeType}, hasValue: ${potentialLocationsAsync.hasValue}, valueOrNull?.length: ${potentialLocationsAsync.valueOrNull?.length}');
-
     final locationState = ref.watch(currentLocationProvider);
-    AppLogger.general('   📍 locationState: ${locationState.runtimeType}, hasValue: ${locationState.hasValue}');
-
-    AppLogger.general('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    final warehouseAsync = ref.watch(warehouseLocationNotifierProvider);
 
     // WAIT for initial data before rendering map (prevents timing issues)
     if (!binsAsync.hasValue || !driversAsync.hasValue) {
-      AppLogger.general('⏳ Waiting for initial data...');
-      AppLogger.general('   Bins loaded: ${binsAsync.hasValue}');
-      AppLogger.general('   Drivers loaded: ${driversAsync.hasValue}');
 
       return Scaffold(
         appBar: AppBar(
@@ -113,7 +101,7 @@ class ManagerMapPage extends HookConsumerWidget {
       );
     }
 
-    AppLogger.general('✅ Initial data loaded - proceeding with map render');
+    // Initial data loaded - proceed with map render
 
     final mapController = useState<GoogleMapViewController?>(null);
 
@@ -125,17 +113,21 @@ class ManagerMapPage extends HookConsumerWidget {
     final locationMarkers = useState<List<Marker>>([]);
     final locationMarkersMap = useState<Map<String, PotentialLocation>>({}); // markerId → Location
 
+    // Warehouse marker (single marker, added once)
+    final warehouseMarker = useState<Marker?>(null);
+
     // Driver markers (updated at 60fps during animation)
     final driverMarkers = useState<Map<String, Marker>>({}); // driverId → Marker
 
-    // Cache driver marker icons to avoid recreating them
-    final cachedDriverIcons = useState<Map<String, ImageDescriptor>>({});
+    // Layer visibility
+    final layerVisibility = useState(const MapLayerVisibility());
 
-    // Track current driver positions for animation
+    // Track current driver positions and headings for animation
     final currentDriverPositions = useState<Map<String, LatLng>>({});
+    final currentDriverHeadings = useState<Map<String, double>>({});
 
-    // Track the last programmatic camera target (for detecting manual pan/zoom)
-    final lastProgrammaticTarget = useState<LatLng?>(null);
+    // Guard to suppress gesture-exit during programmatic camera moves
+    final isProgrammaticMove = useState<bool>(false);
 
     // Create animation service
     final animationService = useMemoized(
@@ -152,106 +144,77 @@ class ManagerMapPage extends HookConsumerWidget {
     return Scaffold(
       body: driversAsync.when(
         data: (drivers) {
-          // CRITICAL: Use useMemoized to prevent list recreation on every build
-          // This was causing Effect 3 to retrigger constantly!
+          // Use useMemoized to prevent list recreation on every build
           final activeDrivers = useMemoized(
             () {
-              AppLogger.map('🔄 RECALCULATING activeDrivers list');
-              AppLogger.map('📊 Manager received ${drivers.length} total drivers');
-
-              for (final driver in drivers) {
-                AppLogger.map(
-                  '   Driver: ${driver.driverName}, Status: ${driver.status}, HasLocation: ${driver.currentLocation != null}',
-                );
-                if (driver.currentLocation != null) {
-                  AppLogger.map(
-                    '      Location: (${driver.currentLocation!.latitude}, ${driver.currentLocation!.longitude})',
-                  );
-                }
-              }
-
-              // TEMPORARY: Show all drivers with location regardless of status (for testing)
+              // Show all drivers with location regardless of status (for testing)
               // TODO: Revert to: d.status == ShiftStatus.active && d.currentLocation != null
-              final filtered = drivers
-                  .where(
-                    (d) => d.currentLocation != null,
-                  )
+              return drivers
+                  .where((d) => d.currentLocation != null)
                   .toList();
-
-              AppLogger.map('✅ Filtered to ${filtered.length} active drivers with location');
-              return filtered;
             },
             [drivers],
           );
 
-          // Centrifugo connection status
-          final centrifugoConnected = useState<bool>(false);
+          // Centrifugo connection status (from global CentrifugoManager)
+          // Watch the provider to rebuild when connection state changes,
+          // then read .isConnected from the notifier for the actual flag.
+          ref.watch(centrifugoManagerProvider);
+          final isCentrifugoConnected = ref.read(centrifugoManagerProvider.notifier).isConnected;
 
-          // Effect -1: Initialize Centrifugo connection (MUST run before subscriptions)
-          useEffect(
-            () {
-              AppLogger.map('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-              AppLogger.map('🔌 CENTRIFUGO: Initializing connection for manager...');
+          // Search bar expanded state
+          final isSearchExpanded = useState<bool>(false);
 
-              Future<void> initCentrifugo() async {
-                try {
-                  final centrifugo = ref.read(centrifugoServiceProvider);
-                  await centrifugo.connect();
-                  centrifugoConnected.value = true;
-                  AppLogger.map('✅ CENTRIFUGO: Connection established');
-                  AppLogger.map('   Manager can now receive real-time driver updates');
-                } catch (e) {
-                  centrifugoConnected.value = false;
-                  AppLogger.map('❌ CENTRIFUGO: Connection failed: $e');
-                  AppLogger.map('   Real-time tracking disabled - will use polling fallback');
-                }
-                AppLogger.map('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+          // Seed currentDriverPositions from API data on first mount
+          // This ensures follow mode has a starting position before Centrifugo updates arrive.
+          // Without this, currentDriverPositions is empty and follow mode falls back to
+          // the provider's currentLocation which never updates after the flashing fix.
+          useEffect(() {
+            final initialPositions = <String, LatLng>{};
+            for (final driver in activeDrivers) {
+              if (driver.currentLocation != null) {
+                initialPositions[driver.driverId] = LatLng(
+                  latitude: driver.currentLocation!.latitude,
+                  longitude: driver.currentLocation!.longitude,
+                );
               }
+            }
+            if (initialPositions.isNotEmpty) {
+              currentDriverPositions.value = initialPositions;
+              AppLogger.map('🌱 SEED: Pre-populated ${initialPositions.length} driver positions from API data');
+              for (final entry in initialPositions.entries) {
+                AppLogger.map('   📍 ${entry.key}: (${entry.value.latitude}, ${entry.value.longitude})');
+              }
+            }
+            return null;
+          }, []); // Only on first mount
 
-              initCentrifugo();
-
-              // Cleanup: disconnect on unmount
-              return () {
-                AppLogger.map('🔌 CENTRIFUGO: Disconnecting...');
-                try {
-                  ref.read(centrifugoServiceProvider).disconnect();
-                  centrifugoConnected.value = false;
-                  AppLogger.map('✅ CENTRIFUGO: Disconnected');
-                } catch (e) {
-                  AppLogger.map('⚠️ CENTRIFUGO: Disconnect error: $e');
-                }
-              };
-            },
-            [], // Run once on mount
-          );
+          // Effect -1 REMOVED: Connection is now managed exclusively by
+          // CentrifugoManager (centrifugo_provider.dart) which watches auth state.
+          // This eliminates the dual-connection race condition.
 
           // Effect 0: Subscribe to driver locations via Centrifugo
-          // This replaces OLD WebSocket for real-time location updates
+          // Handles location updates directly: updates provider (first fix only),
+          // starts marker animations, and tracks current positions.
+          // Depends on CentrifugoManager.isConnected (via centrifugoManagerProvider).
           useEffect(
             () {
-              AppLogger.map('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-              AppLogger.map('📡 CENTRIFUGO: Setting up driver location subscriptions');
-              AppLogger.map('   Total drivers: ${drivers.length}');
+              // Wait for CentrifugoManager to establish connection
+              if (!isCentrifugoConnected) {
+                AppLogger.map('📡 CENTRIFUGO: Waiting for CentrifugoManager connection...');
+                return null;
+              }
+
+              AppLogger.map('📡 CENTRIFUGO: Setting up subscriptions for ${drivers.length} drivers');
 
               final centrifugo = ref.read(centrifugoServiceProvider);
               final subscriptions = <StreamSubscription>[];
 
-              // Subscribe to ALL drivers' locations (no status filter - matches dashboard behavior)
               for (final driver in drivers) {
-                AppLogger.map('   📍 Subscribing to driver: ${driver.driverName} (${driver.driverId}) - Status: ${driver.status}');
-
                 centrifugo.subscribeToDriverLocation(
                     driver.driverId,
                     (locationData) {
-                      AppLogger.map('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-                      AppLogger.map('📍 CENTRIFUGO: Location update received');
-                      AppLogger.map('   Driver ID: ${locationData['driver_id'] ?? 'unknown'}');
-                      AppLogger.map('   Latitude: ${locationData['latitude']}');
-                      AppLogger.map('   Longitude: ${locationData['longitude']}');
-                      AppLogger.map('   Shift ID: ${locationData['shift_id']}');
-
                       try {
-                        // Parse location data
                         final location = DriverLocation(
                           driverId: locationData['driver_id'] ?? driver.driverId,
                           latitude: (locationData['latitude'] as num).toDouble(),
@@ -263,47 +226,72 @@ class ManagerMapPage extends HookConsumerWidget {
                           timestamp: locationData['timestamp'] as int?,
                         );
 
-                        // Update driver location in provider
+                        // Update provider (only triggers state change on first location)
                         ref.read(driversNotifierProvider.notifier)
                             .updateDriverLocation(location);
 
-                        AppLogger.map('   ✅ Location updated in provider');
+                        // Start marker animation directly (bypass provider rebuild chain)
+                        final newPos = LatLng(
+                          latitude: location.latitude,
+                          longitude: location.longitude,
+                        );
+                        final driverId = location.driverId ?? driver.driverId;
+                        final currentPos = currentDriverPositions.value[driverId];
+
+                        if (currentPos == null ||
+                            currentPos.latitude != newPos.latitude ||
+                            currentPos.longitude != newPos.longitude) {
+                          AppLogger.map('📡 LIVE UPDATE: ${driverId} → (${newPos.latitude}, ${newPos.longitude}) [prev: ${currentPos != null ? "(${currentPos.latitude}, ${currentPos.longitude})" : "NONE"}]');
+                          animationService.animateMarker(
+                            driverId: driverId,
+                            newPosition: newPos,
+                            currentPosition: currentPos,
+                            heading: location.heading,
+                            accuracy: location.accuracy,
+                          );
+
+                          currentDriverPositions.value = {
+                            ...currentDriverPositions.value,
+                            driverId: newPos,
+                          };
+                        }
+
+                        // Always track heading for truck marker rotation
+                        if (location.heading != null) {
+                          currentDriverHeadings.value = {
+                            ...currentDriverHeadings.value,
+                            driverId: location.heading!,
+                          };
+                        }
                       } catch (e) {
-                        AppLogger.map('   ❌ Error parsing location: $e');
+                        AppLogger.map('❌ Error parsing location: $e');
                       }
-                      AppLogger.map('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
                     },
                 ).then((subscription) {
                   subscriptions.add(subscription);
                 }).catchError((error) {
-                  AppLogger.map('   ❌ Failed to subscribe to ${driver.driverName}: $error');
+                  AppLogger.map('❌ Failed to subscribe to ${driver.driverName}: $error');
                 });
               }
 
               AppLogger.map('✅ CENTRIFUGO: Subscription setup complete');
-              AppLogger.map('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
 
-              // Cleanup function
               return () {
-                AppLogger.map('🧹 CENTRIFUGO: Cleaning up driver location subscriptions');
                 for (final subscription in subscriptions) {
                   subscription.cancel();
                 }
-
-                // Unsubscribe from all driver channels
                 for (final driver in drivers) {
                   centrifugo.unsubscribe('driver:location:${driver.driverId}');
                 }
-                AppLogger.map('✅ CENTRIFUGO: Cleanup complete');
               };
             },
-            [drivers.map((d) => '${d.driverId}:${d.status}').join('|')],
+            [isCentrifugoConnected, drivers.map((d) => '${d.driverId}:${d.status}').join('|')],
           );
 
           // Effect 1a: Add/remove bin markers (add new bins, remove deleted bins)
           useEffect(
             () {
-              if (binsAsync.hasValue && mapController.value != null) {
+              if (binsAsync.hasValue && mapController.value != null && layerVisibility.value.bins) {
                 AppLogger.map('🎨 Syncing bin markers with current bin list...');
 
                 () async {
@@ -427,7 +415,7 @@ class ManagerMapPage extends HookConsumerWidget {
               }
               return null;
             },
-            [binsAsync.hasValue, mapController.value != null, binsAsync],
+            [binsAsync.hasValue, mapController.value != null, binsAsync, layerVisibility.value.bins],
           );
 
           // Effect 1b: Add/update potential location markers when provider data changes
@@ -443,7 +431,7 @@ class ManagerMapPage extends HookConsumerWidget {
 
           useEffect(
             () {
-              if (potentialLocationsAsync.hasValue && mapController.value != null) {
+              if (potentialLocationsAsync.hasValue && mapController.value != null && layerVisibility.value.potentialLocations) {
                 AppLogger.map('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
                 AppLogger.map('🔄 POTENTIAL LOCATION MARKERS EFFECT TRIGGERED');
                 AppLogger.map('   Provider has value: ${potentialLocationsAsync.hasValue}');
@@ -529,67 +517,99 @@ class ManagerMapPage extends HookConsumerWidget {
               }
               return null;
             },
-            [potentialLocationsCount, mapController.value != null], // Depend on count change!
+            [potentialLocationsCount, mapController.value != null, layerVisibility.value.potentialLocations],
           );
 
-          // Effect 2: Start animations when driver positions change
-          // Create position key to trigger effect when ANY position changes
-          final positionKey = activeDrivers.map((d) =>
-            '${d.driverId}:${d.currentLocation?.latitude},${d.currentLocation?.longitude}'
-          ).join('|');
-
+          // Effect 1c: Add warehouse marker when map and warehouse location are ready
           useEffect(
             () {
-              if (activeDrivers.isEmpty) return null;
+              if (mapController.value == null || !warehouseAsync.hasValue) return null;
+              final warehouse = warehouseAsync.value;
+              if (warehouse == null) return null;
 
-              AppLogger.map('🔄 Effect 2: Checking ${activeDrivers.length} drivers for position changes...');
-
-              // Start animations for any changed positions
-              for (final driver in activeDrivers) {
-                final location = driver.currentLocation!;
-                final newPosition = LatLng(
-                  latitude: location.latitude,
-                  longitude: location.longitude,
-                );
-
-                final currentPosition = currentDriverPositions.value[driver.driverId];
-
-                // Start animation if position changed
-                if (currentPosition == null ||
-                    currentPosition.latitude != newPosition.latitude ||
-                    currentPosition.longitude != newPosition.longitude) {
-
-                  AppLogger.map('🎯 Position change detected for ${driver.driverName}!');
-                  if (currentPosition != null) {
-                    AppLogger.map('   Old: (${currentPosition.latitude}, ${currentPosition.longitude})');
-                  } else {
-                    AppLogger.map('   Old: (none - first position)');
+              () async {
+                try {
+                  // Remove old warehouse marker if it exists
+                  if (warehouseMarker.value != null) {
+                    await mapController.value!.removeMarkers([warehouseMarker.value!]);
                   }
-                  AppLogger.map('   New: (${newPosition.latitude}, ${newPosition.longitude})');
 
-                  // Pass heading and accuracy for snap-to-roads (hybrid approach)
-                  animationService.animateMarker(
-                    driverId: driver.driverId,
-                    newPosition: newPosition,
-                    currentPosition: currentPosition,
-                    heading: location.heading,
-                    accuracy: location.accuracy,
-                  );
+                  final icon = await GoogleNavigationMarkerService.createWarehouseMarkerIcon();
 
-                  // Update stored position
-                  currentDriverPositions.value = {
-                    ...currentDriverPositions.value,
-                    driver.driverId: newPosition,
-                  };
-                } else {
-                  AppLogger.map('   ${driver.driverName}: No position change');
+                  final markers = await mapController.value!.addMarkers([
+                    MarkerOptions(
+                      position: LatLng(
+                        latitude: warehouse.latitude,
+                        longitude: warehouse.longitude,
+                      ),
+                      icon: icon,
+                      anchor: const MarkerAnchor(u: 0.5, v: 0.5),
+                      zIndex: 9997.0,
+                      consumeTapEvents: false,
+                      infoWindow: InfoWindow(
+                        title: 'Warehouse',
+                        snippet: warehouse.address,
+                      ),
+                    ),
+                  ]);
+
+                  if (markers.isNotEmpty && markers.first != null) {
+                    warehouseMarker.value = markers.first;
+                    AppLogger.map('🏭 Warehouse marker added at (${warehouse.latitude}, ${warehouse.longitude})');
+                  }
+                } catch (e) {
+                  AppLogger.map('❌ Failed to add warehouse marker: $e');
+                }
+              }();
+              return null;
+            },
+            [mapController.value != null, warehouseAsync.hasValue],
+          );
+
+          // Effect: Toggle marker visibility based on layer controls
+          useEffect(
+            () {
+              final controller = mapController.value;
+              if (controller == null) return null;
+
+              Future<void> toggleLayers() async {
+                try {
+                  // Bins — toggle off: remove from map AND clear state
+                  if (!layerVisibility.value.bins && binMarkers.value.isNotEmpty) {
+                    await controller.removeMarkers(binMarkers.value);
+                    binMarkers.value = [];
+                    binMarkersMap.value = {};
+                  }
+
+                  // Potential locations — toggle off: remove from map AND clear state
+                  if (!layerVisibility.value.potentialLocations && locationMarkers.value.isNotEmpty) {
+                    await controller.removeMarkers(locationMarkers.value);
+                    locationMarkers.value = [];
+                    locationMarkersMap.value = {};
+                  }
+
+                  // Drivers — toggle off: remove from map AND clear state
+                  if (!layerVisibility.value.drivers && driverMarkers.value.isNotEmpty) {
+                    await controller.removeMarkers(driverMarkers.value.values.toList());
+                    driverMarkers.value = {};
+                  }
+                } catch (e) {
+                  AppLogger.map('Layer toggle error: $e');
                 }
               }
 
+              toggleLayers();
               return null;
             },
-            [positionKey], // Depend on position key, not driver list
+            [
+              layerVisibility.value.bins,
+              layerVisibility.value.drivers,
+              layerVisibility.value.potentialLocations,
+            ],
           );
+
+          // Effect 2 REMOVED: Animation is now triggered directly in the
+          // Centrifugo callback (Effect 0) to avoid provider rebuild cascades.
 
           // Effect 3: Auto-center camera on focused driver
           // - For focusOnce mode: center once then clear
@@ -600,135 +620,71 @@ class ManagerMapPage extends HookConsumerWidget {
                 return null;
               }
 
-              AppLogger.map('🎯 ${isFollowing ? "Following" : "Focusing on"} driver: $focusedDriverId');
+              // Use live position from currentDriverPositions (updated by Centrifugo)
+              // Fall back to provider's initial location for first focus
+              final livePos = currentDriverPositions.value[focusedDriverId];
+              final initialDriver = activeDrivers
+                  .where((d) => d.driverId == focusedDriverId)
+                  .firstOrNull;
 
-              // Find the focused driver's location
-              ActiveDriver? focusedDriver;
-              try {
-                focusedDriver = activeDrivers.firstWhere(
-                  (d) => d.driverId == focusedDriverId,
-                );
-              } catch (e) {
-                // Driver not found in active drivers list
-                focusedDriver = null;
-              }
+              final targetPosition = livePos ??
+                  (initialDriver?.currentLocation != null
+                      ? LatLng(
+                          latitude: initialDriver!.currentLocation!.latitude,
+                          longitude: initialDriver.currentLocation!.longitude,
+                        )
+                      : null);
 
-              if (focusedDriver != null && focusedDriver.currentLocation != null) {
-                final location = focusedDriver.currentLocation!;
-                final targetPosition = LatLng(
-                  latitude: location.latitude,
-                  longitude: location.longitude,
-                );
+              // Diagnostic logging for follow mode debugging
+              AppLogger.map('🎯 FOLLOW: Effect 3 triggered for driver $focusedDriverId');
+              AppLogger.map('   livePos (currentDriverPositions): ${livePos != null ? "(${livePos.latitude}, ${livePos.longitude})" : "NULL"}');
+              AppLogger.map('   providerPos (API/Redis): ${initialDriver?.currentLocation != null ? "(${initialDriver!.currentLocation!.latitude}, ${initialDriver!.currentLocation!.longitude})" : "NULL"}');
+              AppLogger.map('   targetPosition: ${targetPosition != null ? "(${targetPosition.latitude}, ${targetPosition.longitude})" : "NULL"}');
+              AppLogger.map('   source: ${livePos != null ? "LIVE (Centrifugo)" : "FALLBACK (provider)"}');
 
-                AppLogger.map(
-                  '📍 Auto-centering camera to (${location.latitude}, ${location.longitude})',
-                );
+              if (targetPosition == null) return null;
 
-                // Store this as a programmatic camera movement
-                lastProgrammaticTarget.value = targetPosition;
+              // Mark as programmatic move to suppress gesture-exit
+              isProgrammaticMove.value = true;
 
-                // Delay to ensure map is fully initialized
-                Future.delayed(const Duration(milliseconds: 500), () async {
-                  try {
-                    await mapController.value?.animateCamera(
-                      CameraUpdate.newCameraPosition(
-                        CameraPosition(
-                          target: targetPosition,
-                          zoom: 16.0, // Slightly closer for following mode
-                        ),
+              Future.delayed(const Duration(milliseconds: 500), () async {
+                try {
+                  await mapController.value?.animateCamera(
+                    CameraUpdate.newCameraPosition(
+                      CameraPosition(
+                        target: targetPosition,
+                        zoom: 16.0,
                       ),
-                    );
-                    AppLogger.map('✅ Camera centered on ${isFollowing ? "followed" : "focused"} driver');
+                    ),
+                  );
 
-                    // If focusOnce mode, clear focus after centering
-                    // If following mode, keep following (don't clear)
-                    if (!isFollowing) {
-                      ref.read(focusedDriverProvider.notifier).clearFocus();
-                    }
-                  } catch (e) {
-                    AppLogger.map('⚠️ Failed to center camera: $e');
+                  // If focusOnce mode, clear focus after centering
+                  if (!isFollowing) {
+                    ref.read(focusedDriverProvider.notifier).clearFocus();
                   }
-                });
-              } else {
-                AppLogger.map('⚠️ Focused driver has no location');
-              }
+                } catch (e) {
+                  AppLogger.map('⚠️ Failed to center camera: $e');
+                } finally {
+                  // Allow gesture-exit again after animation settles
+                  Future.delayed(const Duration(milliseconds: 300), () {
+                    isProgrammaticMove.value = false;
+                  });
+                }
+              });
 
               return null;
             },
-            // Re-trigger whenever driver location changes (for following mode)
+            // Use live position for following mode (updated by Centrifugo callback)
             [
               mapController.value,
               focusedDriverId,
               if (isFollowing)
-                activeDrivers.where((d) => d.driverId == focusedDriverId).firstOrNull?.currentLocation,
+                currentDriverPositions.value[focusedDriverId],
             ],
           );
 
-          // Effect 3b: Detect manual camera movement and exit following mode
-          // Poll camera position every 500ms and compare to programmatic target
-          useEffect(
-            () {
-              if (!isFollowing || mapController.value == null) {
-                // Clear target when not following
-                if (!isFollowing) {
-                  lastProgrammaticTarget.value = null;
-                }
-                return null;
-              }
-
-              AppLogger.map('📷 Starting pan/zoom detection polling...');
-
-              // Delay polling start by 1 second to allow initial camera animation to complete
-              // This prevents false positives when first entering following mode
-              Timer? pollTimer;
-              final startDelay = Timer(const Duration(milliseconds: 1000), () {
-                // Poll every 500ms to check if camera position changed
-                pollTimer = Timer.periodic(const Duration(milliseconds: 500), (_) async {
-                try {
-                  final currentPosition = await mapController.value?.getCameraPosition();
-
-                  if (currentPosition == null || lastProgrammaticTarget.value == null) {
-                    return;
-                  }
-
-                  final target = currentPosition.target;
-                  final programmaticTarget = lastProgrammaticTarget.value!;
-
-                  // Calculate distance between current position and programmatic target
-                  // Using simple lat/lng difference (approximate, good enough for detection)
-                  final latDiff = (target.latitude - programmaticTarget.latitude).abs();
-                  final lngDiff = (target.longitude - programmaticTarget.longitude).abs();
-
-                  // Thresholds:
-                  // - Position: 0.001 degrees (~111 meters at equator, ~76m at Dallas latitude)
-                  // - This is sensitive enough to detect panning but won't trigger on minor GPS drift
-                  const positionThreshold = 0.001;
-
-                  if (latDiff > positionThreshold || lngDiff > positionThreshold) {
-                    AppLogger.map('🚨 Manual pan detected!');
-                    AppLogger.map('   Expected: (${programmaticTarget.latitude}, ${programmaticTarget.longitude})');
-                    AppLogger.map('   Current: (${target.latitude}, ${target.longitude})');
-                    AppLogger.map('   Diff: ($latDiff, $lngDiff)');
-                    AppLogger.map('   Exiting following mode...');
-
-                    // User manually panned - exit following mode
-                    ref.read(focusedDriverProvider.notifier).stopFollowing();
-                  }
-                  } catch (e) {
-                    // Ignore errors (controller might be disposed)
-                    AppLogger.map('⚠️ Pan detection error (expected if map disposed): $e');
-                  }
-                });
-              });
-
-              return () {
-                AppLogger.map('📷 Stopping pan/zoom detection polling');
-                startDelay.cancel();
-                pollTimer?.cancel();
-              };
-            },
-            [isFollowing, mapController.value],
-          );
+          // Effect 3b REMOVED: Pan detection now handled by onCameraMoveStarted
+          // callback on GoogleMapsMapView (instant gesture detection, no polling).
 
           // Effect 3c: Auto-center camera on focused potential location
           useEffect(
@@ -805,7 +761,7 @@ class ManagerMapPage extends HookConsumerWidget {
           // Effect 3a: Manage driver marker lifecycle (add/remove when driver list changes)
           useEffect(
             () {
-              if (mapController.value == null) {
+              if (mapController.value == null || !layerVisibility.value.drivers) {
                 return null;
               }
 
@@ -850,18 +806,13 @@ class ManagerMapPage extends HookConsumerWidget {
                       final driver = activeDrivers.firstWhere((d) => d.driverId == driverId);
                       final location = driver.currentLocation!;
 
-                      // Create driver icon
-                      final icon = await GoogleNavigationMarkerService.createDriverMarkerIcon(
-                        driver.driverName,
+                      // Create truck icon with heading rotation
+                      final heading = currentDriverHeadings.value[driverId] ??
+                          location.heading ?? 0.0;
+                      final icon = await GoogleNavigationMarkerService.createDriverTruckMarkerIcon(
+                        heading: heading,
                         isFocused: false,
-                        isPulsing: false,
                       );
-
-                      // Cache the icon
-                      cachedDriverIcons.value = {
-                        ...cachedDriverIcons.value,
-                        driverId: icon,
-                      };
 
                       newMarkerOptions.add(
                         MarkerOptions(
@@ -904,7 +855,7 @@ class ManagerMapPage extends HookConsumerWidget {
 
               return null;
             },
-            [activeDrivers.map((d) => d.driverId).join(','), mapController.value],
+            [activeDrivers.map((d) => d.driverId).join(','), mapController.value, layerVisibility.value.drivers],
           );
 
           // Effect 4: Update driver marker positions at 60fps (using updateMarkers)
@@ -919,6 +870,9 @@ class ManagerMapPage extends HookConsumerWidget {
 
               // Function to update driver marker positions
               Future<void> updateDriverPositions() async {
+                // Skip if drivers layer is hidden
+                if (!layerVisibility.value.drivers) return;
+
                 // Prevent concurrent updates
                 if (isUpdatingMarkers.value) {
                   return;
@@ -937,37 +891,28 @@ class ManagerMapPage extends HookConsumerWidget {
                     final existingMarker = driverMarkers.value[driver.driverId];
                     if (existingMarker == null) continue; // Skip if marker not yet added
 
-                    final location = driver.currentLocation!;
                     final isFocused = driver.driverId == focusedDriverId;
 
-                    // Use interpolated position if animating, otherwise use real position
+                    // Use interpolated position if animating, then live position,
+                    // then fall back to provider's initial location
+                    final livePos = currentDriverPositions.value[driver.driverId];
                     final position = interpolatedPositions[driver.driverId] ??
-                        LatLng(
-                          latitude: location.latitude,
-                          longitude: location.longitude,
-                        );
+                        livePos ??
+                        (driver.currentLocation != null
+                            ? LatLng(
+                                latitude: driver.currentLocation!.latitude,
+                                longitude: driver.currentLocation!.longitude,
+                              )
+                            : null);
+                    if (position == null) continue;
 
-                    // Get or create cached driver icon
-                    final isFollowingThisDriver = driver.driverId == focusedDriverId && isFollowing;
-                    final cacheKey = isFollowingThisDriver
-                        ? '${driver.driverId}_following'
-                        : isFocused
-                            ? '${driver.driverId}_focused'
-                            : driver.driverId;
-
-                    ImageDescriptor? driverIcon = cachedDriverIcons.value[cacheKey];
-                    if (driverIcon == null) {
-                      AppLogger.map('🎨 Creating ${isFollowingThisDriver ? "FOLLOWING " : isFocused ? "FOCUSED " : ""}icon for driver: ${driver.driverName}');
-                      driverIcon = await GoogleNavigationMarkerService.createDriverMarkerIcon(
-                        driver.driverName,
-                        isFocused: isFocused,
-                        isPulsing: isFollowingThisDriver,
-                      );
-                      cachedDriverIcons.value = {
-                        ...cachedDriverIcons.value,
-                        cacheKey: driverIcon,
-                      };
-                    }
+                    // Create truck icon with current heading (cached by angle internally)
+                    final heading = currentDriverHeadings.value[driver.driverId] ??
+                        driver.currentLocation?.heading ?? 0.0;
+                    final driverIcon = await GoogleNavigationMarkerService.createDriverTruckMarkerIcon(
+                      heading: heading,
+                      isFocused: isFocused,
+                    );
 
                     // Create updated marker with new position/icon
                     final updatedMarker = existingMarker.copyWith(
@@ -1025,6 +970,8 @@ class ManagerMapPage extends HookConsumerWidget {
               mapController.value,
               hasActiveAnimations,
               driverMarkers.value.isNotEmpty,
+              focusedDriverId,
+              isFollowing,
             ],
           );
 
@@ -1052,6 +999,13 @@ class ManagerMapPage extends HookConsumerWidget {
                   // Disable Google's native My Location button (use our custom one instead)
                   await controller.settings.setMyLocationButtonEnabled(false);
                   AppLogger.map('✅ Default My Location button disabled (using custom button)');
+                },
+                onCameraMoveStarted: (position, gesture) {
+                  // gesture=true means user physically panned/pinched/rotated
+                  if (gesture && isFollowing && !isProgrammaticMove.value) {
+                    AppLogger.map('🚨 User gesture detected — exiting follow mode');
+                    ref.read(focusedDriverProvider.notifier).stopFollowing();
+                  }
                 },
                 onMarkerClicked: (markerId) {
                   AppLogger.map('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
@@ -1153,35 +1107,77 @@ class ManagerMapPage extends HookConsumerWidget {
                   ),
                 ),
 
-              // Notification button - positioned top-left
+              // Notification button with badge - positioned top-left
               Positioned(
                 top: MediaQuery.of(context).padding.top + 16,
                 left: 16,
-                child: CircularMapButton(
-                  icon: Icons.notifications,
-                  backgroundColor: AppColors.primaryGreen,
-                  iconColor: Colors.white,
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const NotificationsPage(),
-                      ),
-                    );
-                  },
+                child: AnimatedOpacity(
+                  opacity: isSearchExpanded.value ? 0.0 : 1.0,
+                  duration: const Duration(milliseconds: 250),
+                  child: IgnorePointer(
+                    ignoring: isSearchExpanded.value,
+                    child: Stack(
+                      clipBehavior: Clip.none,
+                      children: [
+                        CircularMapButton(
+                          icon: Icons.notifications,
+                          backgroundColor: AppColors.primaryGreen,
+                          iconColor: Colors.white,
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => const NotificationsPage(),
+                              ),
+                            );
+                          },
+                        ),
+                        // Badge indicator
+                        if (binsAsync.valueOrNull != null)
+                          Builder(builder: (context) {
+                            final count = binsAsync.valueOrNull!
+                                .where((b) => (b.fillPercentage ?? 0) > 80)
+                                .length;
+                            if (count == 0) return const SizedBox.shrink();
+                            return Positioned(
+                              right: -2,
+                              top: -2,
+                              child: Container(
+                                padding: const EdgeInsets.all(4),
+                                decoration: const BoxDecoration(
+                                  color: AppColors.alertRed,
+                                  shape: BoxShape.circle,
+                                ),
+                                constraints: const BoxConstraints(
+                                  minWidth: 18,
+                                  minHeight: 18,
+                                ),
+                                child: Text(
+                                  count > 9 ? '9+' : '$count',
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                  textAlign: TextAlign.center,
+                                ),
+                              ),
+                            );
+                          }),
+                      ],
+                    ),
+                  ),
                 ),
               ),
 
-              // Potential Locations button - positioned below notification button
+              // Layers control - positioned bottom-right above recenter button
               Positioned(
-                top: MediaQuery.of(context).padding.top + 72,
-                left: 16,
-                child: CircularMapButton(
-                  icon: Icons.add_location_alt,
-                  backgroundColor: AppColors.primaryGreen,
-                  iconColor: Colors.white,
-                  onTap: () {
-                    context.push('/manager/potential-locations');
+                bottom: 156,
+                right: 16,
+                child: MapLayersControl(
+                  visibility: layerVisibility.value,
+                  onChanged: (newVisibility) {
+                    layerVisibility.value = newVisibility;
                   },
                 ),
               ),
@@ -1191,116 +1187,99 @@ class ManagerMapPage extends HookConsumerWidget {
                 top: MediaQuery.of(context).padding.top + 16,
                 left: 0,
                 right: 0,
-                child: Center(
-                  child: Container(
-                    height: 32,
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: centrifugoConnected.value
-                          ? Colors.green.withValues(alpha: 0.95)
-                          : Colors.grey.withValues(alpha: 0.7),
-                      borderRadius: BorderRadius.circular(16),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.15),
-                          blurRadius: 8,
-                          offset: const Offset(0, 2),
+                child: AnimatedOpacity(
+                  opacity: isSearchExpanded.value ? 0.0 : 1.0,
+                  duration: const Duration(milliseconds: 250),
+                  child: IgnorePointer(
+                    ignoring: isSearchExpanded.value,
+                    child: Center(
+                      child: Container(
+                        height: 32,
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: isCentrifugoConnected
+                              ? Colors.green.withValues(alpha: 0.95)
+                              : Colors.grey.withValues(alpha: 0.7),
+                          borderRadius: BorderRadius.circular(16),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.15),
+                              blurRadius: 8,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
                         ),
-                      ],
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        // Pulsing dot
-                        _LiveStatusDot(isConnected: centrifugoConnected.value),
-                        const SizedBox(width: 6),
-                        Text(
-                          'Live',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                            letterSpacing: 0.3,
-                          ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            // Pulsing dot
+                            _LiveStatusDot(isConnected: isCentrifugoConnected),
+                            const SizedBox(width: 6),
+                            Text(
+                              'Live',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                                letterSpacing: 0.3,
+                              ),
+                            ),
+                          ],
                         ),
-                      ],
+                      ),
                     ),
                   ),
                 ),
               ),
 
-              // Driver count FAB - circular button in bottom-right (above recenter)
+              // Driver count button - positioned top-left below notification bell
               // Hidden when following mode is active
-              // Same size as other map buttons (42x42)
               if (!isFollowing)
                 Positioned(
-                  bottom: 156, // Above recenter button (which is at 100)
-                  right: 16,
-                  child: GestureDetector(
-                    onTap: () {
-                      context.push('/manager/active-drivers');
-                    },
-                    child: Container(
-                      width: 42,
-                      height: 42,
-                      decoration: BoxDecoration(
-                        color: AppColors.primaryGreen,
-                        shape: BoxShape.circle,
-                        boxShadow: [
-                          BoxShadow(
-                            color: AppColors.primaryGreen.withValues(alpha: 0.4),
-                            blurRadius: 12,
-                            offset: const Offset(0, 4),
-                            spreadRadius: 0,
-                          ),
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.15),
-                            blurRadius: 8,
-                            offset: const Offset(0, 2),
-                          ),
-                        ],
-                      ),
+                  top: MediaQuery.of(context).padding.top + 72,
+                  left: 16,
+                  child: AnimatedOpacity(
+                    opacity: isSearchExpanded.value ? 0.0 : 1.0,
+                    duration: const Duration(milliseconds: 250),
+                    child: IgnorePointer(
+                      ignoring: isSearchExpanded.value,
                       child: Stack(
+                        clipBehavior: Clip.none,
                         children: [
-                          // Truck icon centered
-                          Center(
-                            child: Icon(
-                              Icons.local_shipping,
-                              color: Colors.white,
-                              size: 20,
-                            ),
+                          CircularMapButton(
+                            icon: Icons.local_shipping,
+                            backgroundColor: AppColors.primaryGreen,
+                            iconColor: Colors.white,
+                            onTap: () {
+                              context.push('/manager/active-drivers');
+                            },
                           ),
-                          // Count badge in top-right corner
-                          Positioned(
-                            top: 0,
-                            right: 0,
-                            child: Container(
-                              constraints: const BoxConstraints(
-                                minWidth: 16,
-                                minHeight: 16,
-                              ),
-                              padding: const EdgeInsets.all(2),
-                              decoration: BoxDecoration(
-                                color: Colors.red,
-                                shape: BoxShape.circle,
-                                border: Border.all(
-                                  color: Colors.white,
-                                  width: 1.5,
+                          // Count badge - only show when > 0
+                          if (activeDrivers.isNotEmpty)
+                            Positioned(
+                              right: -2,
+                              top: -2,
+                              child: Container(
+                                padding: const EdgeInsets.all(4),
+                                decoration: const BoxDecoration(
+                                  color: AppColors.alertRed,
+                                  shape: BoxShape.circle,
                                 ),
-                              ),
-                              child: Center(
+                                constraints: const BoxConstraints(
+                                  minWidth: 18,
+                                  minHeight: 18,
+                                ),
                                 child: Text(
-                                  '${activeDrivers.length}',
+                                  activeDrivers.length > 9 ? '9+' : '${activeDrivers.length}',
                                   style: const TextStyle(
                                     color: Colors.white,
                                     fontSize: 10,
-                                    fontWeight: FontWeight.w900,
-                                    height: 1.0,
+                                    fontWeight: FontWeight.bold,
                                   ),
+                                  textAlign: TextAlign.center,
                                 ),
                               ),
                             ),
-                          ),
                         ],
                       ),
                     ),
@@ -1335,6 +1314,44 @@ class ManagerMapPage extends HookConsumerWidget {
                         AppLogger.map(
                           'Recenter skipped - controller disposed',
                         );
+                      }
+                    }
+                  },
+                ),
+              ),
+
+              // Search bar - positioned top-right
+              Positioned(
+                top: MediaQuery.of(context).padding.top + 16,
+                right: 16,
+                child: MapSearchBar(
+                  drivers: activeDrivers,
+                  bins: binsAsync.valueOrNull ?? [],
+                  locations: potentialLocationsAsync.valueOrNull ?? [],
+                  onExpandChanged: (expanded) {
+                    isSearchExpanded.value = expanded;
+                  },
+                  onResultSelected: (result) async {
+                    if (result.latitude != null &&
+                        result.longitude != null &&
+                        mapController.value != null) {
+                      try {
+                        await mapController.value!.animateCamera(
+                          CameraUpdate.newCameraPosition(
+                            CameraPosition(
+                              target: LatLng(
+                                latitude: result.latitude!,
+                                longitude: result.longitude!,
+                              ),
+                              zoom: 17.0,
+                            ),
+                          ),
+                        );
+                        AppLogger.map(
+                          '🔍 Search: centered on ${result.title}',
+                        );
+                      } catch (e) {
+                        AppLogger.map('Search center failed: $e');
                       }
                     }
                   },

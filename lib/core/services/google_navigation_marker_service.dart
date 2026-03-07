@@ -1,5 +1,8 @@
+import 'dart:math' as math;
+import 'dart:typed_data';
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show rootBundle;
 import 'package:google_navigation_flutter/google_navigation_flutter.dart';
 import 'package:ropacalapp/core/utils/app_logger.dart';
 import 'package:ropacalapp/features/driver/widgets/pin_marker_painter.dart';
@@ -14,6 +17,7 @@ class GoogleNavigationMarkerService {
   static final Map<String, ImageDescriptor> _markerCache = {};
   static ImageDescriptor? _warehouseMarkerCache;
   static ImageDescriptor? _placementMarkerCache;
+  static ImageDescriptor? _destinationMarkerCache;
 
   /// Pre-cache common marker icons to improve performance
   /// Call this during app initialization
@@ -26,14 +30,19 @@ class GoogleNavigationMarkerService {
     // Pre-cache placement marker
     _placementMarkerCache = await createPotentialLocationMarkerIcon(isPending: true);
 
+    // Pre-cache destination marker (red pin for manual addresses)
+    _destinationMarkerCache = await createDestinationMarkerIcon();
+
     AppLogger.navigation('✅ Pre-cached common markers');
   }
 
   /// Clear marker cache (call when memory needs to be freed)
   static void clearCache() {
     _markerCache.clear();
+    _truckMarkerCache.clear();
     _warehouseMarkerCache = null;
     _placementMarkerCache = null;
+    _destinationMarkerCache = null;
     AppLogger.navigation('🗑️  Cleared marker cache');
   }
 
@@ -306,6 +315,118 @@ class GoogleNavigationMarkerService {
     }
   }
 
+  // Cache for truck marker icons (key: roundedHeading)
+  static final Map<int, ImageDescriptor> _truckMarkerCache = {};
+  // Cached decoded truck image (loaded once from assets)
+  static ui.Image? _truckBaseImage;
+
+  /// Load and decode the truck image from assets (called once, then cached)
+  static Future<ui.Image> _loadTruckImage() async {
+    if (_truckBaseImage != null) return _truckBaseImage!;
+
+    final data = await rootBundle.load('assets/images/truck_top_view.jpg');
+    final codec = await ui.instantiateImageCodec(data.buffer.asUint8List());
+    final frame = await codec.getNextFrame();
+    _truckBaseImage = frame.image;
+    return _truckBaseImage!;
+  }
+
+  /// Create truck marker icon from the Vecteezy top-down truck image
+  /// Loads the JPG, removes white background, rotates by heading, and scales
+  static Future<ImageDescriptor> createDriverTruckMarkerIcon({
+    required double heading,
+    bool isFocused = false,
+  }) async {
+    // Round heading to nearest 10 degrees for caching (36 possible values)
+    final roundedHeading = ((heading % 360) / 10).round() * 10 % 360;
+    final cacheKey = roundedHeading + (isFocused ? 3600 : 0);
+
+    if (_truckMarkerCache.containsKey(cacheKey)) {
+      return _truckMarkerCache[cacheKey]!;
+    }
+
+    // Load the source image
+    final sourceImage = await _loadTruckImage();
+
+    // Target output size (slightly larger than other markers)
+    const outputSize = 72.0; // logical pixels
+    const renderScale = 3.0;
+    final canvasSize = outputSize * renderScale; // 216px
+
+    // Step 1: Remove white background from source image
+    final sourceBytes = await sourceImage.toByteData(format: ui.ImageByteFormat.rawRgba);
+    if (sourceBytes == null) throw Exception('Failed to read truck image bytes');
+
+    final pixels = Uint8List.fromList(sourceBytes.buffer.asUint8List());
+    // Set white-ish pixels to transparent
+    for (int i = 0; i < pixels.length; i += 4) {
+      final r = pixels[i];
+      final g = pixels[i + 1];
+      final b = pixels[i + 2];
+      // If pixel is near-white, make transparent
+      if (r > 235 && g > 235 && b > 235) {
+        pixels[i + 3] = 0; // Set alpha to 0
+      }
+    }
+
+    // Create new image from modified pixels
+    final codec = await ui.ImageDescriptor.raw(
+      await ui.ImmutableBuffer.fromUint8List(pixels),
+      width: sourceImage.width,
+      height: sourceImage.height,
+      pixelFormat: ui.PixelFormat.rgba8888,
+    ).instantiateCodec();
+    final transparentFrame = await codec.getNextFrame();
+    final transparentImage = transparentFrame.image;
+
+    // Step 2: Draw on canvas with rotation
+    final recorder = ui.PictureRecorder();
+    final canvas = Canvas(recorder);
+    final center = Offset(canvasSize / 2, canvasSize / 2);
+
+    // The source image has cab at bottom pointing down.
+    // For heading 0 (north/up), we need cab at top, so rotate 180 degrees base.
+    final totalRotation = (roundedHeading + 180) * math.pi / 180;
+
+    canvas.save();
+    canvas.translate(center.dx, center.dy);
+    canvas.rotate(totalRotation);
+    canvas.translate(-center.dx, -center.dy);
+
+    // Scale the truck image to fit within the canvas with some padding
+    final truckSize = canvasSize * 0.75; // Use 75% of canvas for the truck
+    final srcRect = Rect.fromLTWH(
+      0, 0,
+      sourceImage.width.toDouble(),
+      sourceImage.height.toDouble(),
+    );
+    final dstRect = Rect.fromCenter(
+      center: center,
+      width: truckSize,
+      height: truckSize,
+    );
+
+    canvas.drawImageRect(transparentImage, srcRect, dstRect, Paint());
+    canvas.restore();
+
+    // Step 3: Convert to ImageDescriptor
+    final picture = recorder.endRecording();
+    final outputImage = await picture.toImage(canvasSize.toInt(), canvasSize.toInt());
+    final outputBytes = await outputImage.toByteData(format: ui.ImageByteFormat.png);
+
+    if (outputBytes == null) {
+      throw Exception('Failed to create truck marker icon');
+    }
+
+    final registeredImage = await registerBitmapImage(
+      bitmap: outputBytes,
+      imagePixelRatio: renderScale,
+    );
+
+    _truckMarkerCache[cacheKey] = registeredImage;
+    return registeredImage;
+  }
+
   /// Create custom potential location marker icon
   static Future<ImageDescriptor> createPotentialLocationMarkerIcon({
     bool isPending = true,
@@ -491,6 +612,77 @@ class GoogleNavigationMarkerService {
       bitmap: bytes,
       imagePixelRatio: 3.0,
     );
+  }
+
+  /// Create custom destination marker icon (red teardrop pin for manual addresses)
+  /// Same shape as potential location pin but red instead of orange
+  static Future<ImageDescriptor> createDestinationMarkerIcon() async {
+    if (_destinationMarkerCache != null) return _destinationMarkerCache!;
+
+    final recorder = ui.PictureRecorder();
+    final canvas = Canvas(recorder);
+    const canvasSize = 60.0;
+    const renderScale = 3.0;
+
+    final pinHeight = 50.0 * renderScale;
+    final circleRadius = 18.0 * renderScale;
+
+    final center = Offset(
+      canvasSize * renderScale / 2,
+      circleRadius + 5.0 * renderScale,
+    );
+
+    const pinColor = Color(0xFFE53935); // Red 600
+
+    // Draw pin shape (circle + teardrop)
+    final pinPaint = Paint()
+      ..color = pinColor
+      ..style = PaintingStyle.fill;
+
+    canvas.drawCircle(center, circleRadius, pinPaint);
+
+    // Teardrop point
+    final path = Path();
+    path.moveTo(center.dx, center.dy + circleRadius);
+    path.lineTo(center.dx - circleRadius * 0.5, center.dy + circleRadius);
+    path.lineTo(center.dx, center.dy + pinHeight - circleRadius);
+    path.lineTo(center.dx + circleRadius * 0.5, center.dy + circleRadius);
+    path.close();
+    canvas.drawPath(path, pinPaint);
+
+    // White border
+    final borderPaint = Paint()
+      ..color = Colors.white
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 3.0 * renderScale;
+    canvas.drawCircle(center, circleRadius - 1.5 * renderScale, borderPaint);
+
+    // Draw location pin icon inside
+    final iconPaint = Paint()
+      ..color = Colors.white
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2.0 * renderScale
+      ..strokeCap = StrokeCap.round;
+
+    // Draw a small circle (location dot)
+    canvas.drawCircle(center, 4.0 * renderScale, iconPaint);
+
+    final picture = recorder.endRecording();
+    final image = await picture.toImage(
+      (canvasSize * renderScale).toInt(),
+      (canvasSize * renderScale).toInt(),
+    );
+    final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
+
+    if (bytes == null) {
+      throw Exception('Failed to create destination marker icon');
+    }
+
+    _destinationMarkerCache = await registerBitmapImage(
+      bitmap: bytes,
+      imagePixelRatio: 3.0,
+    );
+    return _destinationMarkerCache!;
   }
 
   /// Create custom placement marker icon with bin number

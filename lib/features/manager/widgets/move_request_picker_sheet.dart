@@ -1,12 +1,8 @@
-import 'dart:math';
-import 'package:flutter/foundation.dart';
-import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
-import 'package:google_navigation_flutter/google_navigation_flutter.dart';
 import 'package:ropacalapp/core/theme/app_colors.dart';
-import 'package:ropacalapp/core/services/google_navigation_marker_service.dart';
+import 'package:ropacalapp/core/widgets/route_map_preview.dart';
 import 'package:ropacalapp/providers/drivers_provider.dart';
 import 'package:ropacalapp/services/manager_service.dart';
 
@@ -18,6 +14,7 @@ class MoveRequestPickerSheet extends HookConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final searchQuery = useState('');
+    final selectedType = useState('all');
     final selectedSort = useState('newest');
     final selectedIds = useState<Set<String>>({});
     final previewRequest = useState<Map<String, dynamic>?>(null);
@@ -45,7 +42,7 @@ class MoveRequestPickerSheet extends HookConsumerWidget {
               return FadeTransition(opacity: animation, child: child);
             },
             child: previewRequest.value != null
-                ? _MoveRequestMapPreview(
+                ? _buildMapPreview(
                     key: const ValueKey('map'),
                     request: previewRequest.value!,
                     managerService: ref.read(managerServiceProvider),
@@ -54,6 +51,7 @@ class MoveRequestPickerSheet extends HookConsumerWidget {
                 : _MoveRequestList(
                     key: const ValueKey('list'),
                     searchQuery: searchQuery,
+                    selectedType: selectedType,
                     selectedSort: selectedSort,
                     selectedIds: selectedIds,
                     snapshot: snapshot,
@@ -70,6 +68,7 @@ class MoveRequestPickerSheet extends HookConsumerWidget {
 /// List view with search, sorting chips, and multi-select
 class _MoveRequestList extends StatelessWidget {
   final ValueNotifier<String> searchQuery;
+  final ValueNotifier<String> selectedType;
   final ValueNotifier<String> selectedSort;
   final ValueNotifier<Set<String>> selectedIds;
   final AsyncSnapshot<List<Map<String, dynamic>>> snapshot;
@@ -79,6 +78,7 @@ class _MoveRequestList extends StatelessWidget {
   const _MoveRequestList({
     super.key,
     required this.searchQuery,
+    required this.selectedType,
     required this.selectedSort,
     required this.selectedIds,
     required this.snapshot,
@@ -127,7 +127,39 @@ class _MoveRequestList extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 12),
-        // Sorting chips
+        // Type filter chips
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Row(
+            children: [
+              _SortChip(
+                label: 'All',
+                isSelected: selectedType.value == 'all',
+                onTap: () => selectedType.value = 'all',
+              ),
+              const SizedBox(width: 8),
+              _SortChip(
+                label: 'Store',
+                isSelected: selectedType.value == 'store',
+                onTap: () => selectedType.value = 'store',
+              ),
+              const SizedBox(width: 8),
+              _SortChip(
+                label: 'Relocate',
+                isSelected: selectedType.value == 'relocation',
+                onTap: () => selectedType.value = 'relocation',
+              ),
+              const SizedBox(width: 8),
+              _SortChip(
+                label: 'Redeploy',
+                isSelected: selectedType.value == 'redeployment',
+                onTap: () => selectedType.value = 'redeployment',
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 8),
+        // Sort chips
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16),
           child: Row(
@@ -231,7 +263,14 @@ class _MoveRequestList extends StatelessWidget {
 
     final requests = snapshot.data ?? [];
     final query = searchQuery.value.toLowerCase();
+    final typeFilter = selectedType.value;
     var filtered = requests.where((r) {
+      // Type filter
+      if (typeFilter != 'all') {
+        final moveType = (r['move_type'] as String?) ?? '';
+        if (moveType != typeFilter) return false;
+      }
+      // Search filter
       if (query.isEmpty) return true;
       final binNumber = (r['bin_number'] ?? '').toString();
       final address =
@@ -298,326 +337,91 @@ class _MoveRequestList extends StatelessWidget {
   }
 }
 
-/// Map preview showing pickup marker + destination marker + animated polyline
-class _MoveRequestMapPreview extends StatefulWidget {
-  final Map<String, dynamic> request;
-  final ManagerService managerService;
-  final VoidCallback onBack;
+/// Build a full-screen map preview with header + RouteMapPreview
+Widget _buildMapPreview({
+  Key? key,
+  required Map<String, dynamic> request,
+  required ManagerService managerService,
+  required VoidCallback onBack,
+}) {
+  final binNumber = request['bin_number'] as int?;
+  final moveType = (request['move_type'] as String?) ?? 'relocation';
+  final origLat = (request['original_latitude'] as num?)?.toDouble() ?? 0;
+  final origLng = (request['original_longitude'] as num?)?.toDouble() ?? 0;
+  final newLat = (request['new_latitude'] as num?)?.toDouble() ?? 0;
+  final newLng = (request['new_longitude'] as num?)?.toDouble() ?? 0;
+  final sourcePotentialLocationId =
+      request['source_potential_location_id'] as String?;
 
-  const _MoveRequestMapPreview({
-    super.key,
-    required this.request,
-    required this.managerService,
-    required this.onBack,
-  });
+  final currentStreet = request['current_street'] as String? ?? '';
+  final city = request['city'] as String? ?? '';
+  final newStreet = request['new_street'] as String? ?? '';
+  final newCity = request['new_city'] as String? ?? '';
+  final destinationLabel = moveType == 'store'
+      ? 'Warehouse Storage'
+      : newStreet.isNotEmpty
+          ? '$newStreet, $newCity'
+          : 'Destination';
 
-  @override
-  State<_MoveRequestMapPreview> createState() =>
-      _MoveRequestMapPreviewState();
-}
-
-class _MoveRequestMapPreviewState extends State<_MoveRequestMapPreview>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _drawController;
-  GoogleMapViewController? _mapController;
-
-  // Road-following coordinates from OSRM
-  List<LatLng> _routePoints = [];
-
-  // Polyline drawing animation
-  static const _polylineColor = Color(0xFF1E88E5); // Blue 600
-
-  @override
-  void initState() {
-    super.initState();
-    _drawController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 1500),
-    );
-    _drawController.addListener(_onDrawTick);
-    _fetchDirections();
-  }
-
-  @override
-  void dispose() {
-    _drawController.removeListener(_onDrawTick);
-    _drawController.dispose();
-    super.dispose();
-  }
-
-  /// Fetch road-following directions from backend (OSRM)
-  Future<void> _fetchDirections() async {
-    final origLat =
-        (widget.request['original_latitude'] as num?)?.toDouble() ?? 0;
-    final origLng =
-        (widget.request['original_longitude'] as num?)?.toDouble() ?? 0;
-    final newLat =
-        (widget.request['new_latitude'] as num?)?.toDouble() ?? 0;
-    final newLng =
-        (widget.request['new_longitude'] as num?)?.toDouble() ?? 0;
-
-    final coords = await widget.managerService.getDirections(
-      originLat: origLat,
-      originLng: origLng,
-      destLat: newLat,
-      destLng: newLng,
-    );
-
-    if (!mounted) return;
-
-    _routePoints = coords
-        .map((c) => LatLng(
-              latitude: (c['latitude'] as num).toDouble(),
-              longitude: (c['longitude'] as num).toDouble(),
-            ))
-        .toList();
-
-    // If map is already ready, start drawing
-    if (_mapController != null) {
-      _drawController.forward();
-    }
-  }
-
-  void _onDrawTick() {
-    final controller = _mapController;
-    if (controller == null || _routePoints.isEmpty) return;
-
-    final t = _drawController.value;
-    // Reveal route points progressively
-    final pointCount = (t * _routePoints.length).ceil().clamp(1, _routePoints.length);
-    final visiblePoints = _routePoints.sublist(0, pointCount);
-
-    controller.clearPolylines();
-    controller.addPolylines([
-      PolylineOptions(
-        points: visiblePoints,
-        strokeColor: _polylineColor,
-        strokeWidth: 4,
-        visible: true,
-        zIndex: 100,
-      ),
-    ]);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final request = widget.request;
-    final binNumber = request['bin_number'];
-    final moveType = (request['move_type'] as String?) ?? 'relocation';
-    final origLat = (request['original_latitude'] as num?)?.toDouble() ?? 0;
-    final origLng = (request['original_longitude'] as num?)?.toDouble() ?? 0;
-    final newLat = (request['new_latitude'] as num?)?.toDouble() ?? 0;
-    final newLng = (request['new_longitude'] as num?)?.toDouble() ?? 0;
-
-    final centerLat = (origLat + newLat) / 2;
-    final centerLng = (origLng + newLng) / 2;
-    final zoom = _calculateZoom(origLat, origLng, newLat, newLng);
-
-    final currentStreet = request['current_street'] as String? ?? '';
-    final city = request['city'] as String? ?? '';
-    final newStreet = request['new_street'] as String? ?? '';
-    final newCity = request['new_city'] as String? ?? '';
-    final destinationLabel = moveType == 'store'
-        ? 'Warehouse Storage'
-        : newStreet.isNotEmpty
-            ? '$newStreet, $newCity'
-            : 'Destination';
-
-    return Column(
-      children: [
-        // Header with back button
-        Padding(
-          padding: const EdgeInsets.fromLTRB(4, 12, 16, 8),
-          child: Row(
-            children: [
-              IconButton(
-                icon: const Icon(Icons.arrow_back),
-                onPressed: widget.onBack,
-              ),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      binNumber != null
-                          ? 'Bin #$binNumber Move'
-                          : 'Move Request',
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    Text(
-                      currentStreet.isNotEmpty
-                          ? '$currentStreet, $city → $destinationLabel'
-                          : 'View on map',
-                      style: TextStyle(
-                        fontSize: 11,
-                        color: Colors.grey.shade500,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-        // Map
-        Expanded(
-          child: GoogleMapsMapView(
-            initialCameraPosition: CameraPosition(
-              target: LatLng(latitude: centerLat, longitude: centerLng),
-              zoom: zoom,
+  return Column(
+    key: key,
+    children: [
+      // Header with back button
+      Padding(
+        padding: const EdgeInsets.fromLTRB(4, 12, 16, 8),
+        child: Row(
+          children: [
+            IconButton(
+              icon: const Icon(Icons.arrow_back),
+              onPressed: onBack,
             ),
-            initialMapType: MapType.normal,
-            initialZoomControlsEnabled: false,
-            gestureRecognizers: <Factory<OneSequenceGestureRecognizer>>{
-              Factory<EagerGestureRecognizer>(() => EagerGestureRecognizer()),
-            },
-            onViewCreated: (controller) async {
-              _mapController = controller;
-              await _addMarkers(controller, origLat, origLng, newLat, newLng,
-                  binNumber, moveType);
-              // Start polyline drawing if route is already fetched
-              if (_routePoints.isNotEmpty) {
-                _drawController.forward();
-              }
-            },
-          ),
-        ),
-        // Legend
-        Container(
-          padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            border: Border(top: BorderSide(color: Colors.grey.shade200)),
-          ),
-          child: SafeArea(
-            top: false,
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Container(
-                  width: 10,
-                  height: 10,
-                  decoration: BoxDecoration(
-                    color: AppColors.primaryGreen,
-                    borderRadius: BorderRadius.circular(5),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    binNumber != null
+                        ? 'Bin #$binNumber Move'
+                        : 'Move Request',
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
-                ),
-                const SizedBox(width: 6),
-                Text(
-                  'Pickup',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Colors.grey.shade600,
+                  Text(
+                    currentStreet.isNotEmpty
+                        ? '$currentStreet, $city → $destinationLabel'
+                        : 'View on map',
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: Colors.grey.shade500,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
-                ),
-                const SizedBox(width: 16),
-                Container(
-                  width: 10,
-                  height: 3,
-                  color: _polylineColor,
-                ),
-                const SizedBox(width: 6),
-                Text(
-                  'Route',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Colors.grey.shade600,
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Icon(
-                  Icons.location_on,
-                  size: 14,
-                  color: Colors.orange.shade600,
-                ),
-                const SizedBox(width: 4),
-                Text(
-                  'Dropoff',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Colors.grey.shade600,
-                  ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Future<void> _addMarkers(
-    GoogleMapViewController controller,
-    double origLat,
-    double origLng,
-    double newLat,
-    double newLng,
-    int? binNumber,
-    String moveType,
-  ) async {
-    final markerOptions = <MarkerOptions>[];
-
-    // 1. Pickup marker (bin at current location)
-    final pickupIcon =
-        await GoogleNavigationMarkerService.createBinMarkerIcon(
-      binNumber ?? 0,
-      0,
-    );
-    markerOptions.add(
-      MarkerOptions(
-        position: LatLng(latitude: origLat, longitude: origLng),
-        icon: pickupIcon,
-        anchor: const MarkerAnchor(u: 0.5, v: 0.5),
-        zIndex: 9999.0,
-        infoWindow: InfoWindow(
-          title: 'Pickup: Bin #${binNumber ?? "?"}',
-          snippet: 'Current location',
+          ],
         ),
       ),
-    );
-
-    // 2. Destination marker (orange pin)
-    final destIcon =
-        await GoogleNavigationMarkerService.createPotentialLocationMarkerIcon(
-      isPending: true,
-      withPulse: false,
-    );
-    markerOptions.add(
-      MarkerOptions(
-        position: LatLng(latitude: newLat, longitude: newLng),
-        icon: destIcon,
-        anchor: const MarkerAnchor(u: 0.5, v: 1.0),
-        zIndex: 9998.0,
-        infoWindow: InfoWindow(
-          title: 'Dropoff',
-          snippet: moveType == 'store' ? 'Warehouse Storage' : 'New location',
+      // Map (fills remaining space)
+      Expanded(
+        child: RouteMapPreview(
+          originLat: origLat,
+          originLng: origLng,
+          destLat: newLat,
+          destLng: newLng,
+          binNumber: binNumber,
+          moveType: moveType,
+          sourcePotentialLocationId: sourcePotentialLocationId,
+          managerService: managerService,
+          isExpanded: true,
+          showLegend: true,
         ),
       ),
-    );
-
-    await controller.addMarkers(markerOptions);
-  }
-
-  double _calculateZoom(
-      double lat1, double lng1, double lat2, double lng2) {
-    final latDiff = (lat1 - lat2).abs();
-    final lngDiff = (lng1 - lng2).abs();
-    final maxDiff = max(latDiff, lngDiff);
-
-    if (maxDiff < 0.005) return 16;
-    if (maxDiff < 0.01) return 15;
-    if (maxDiff < 0.03) return 14;
-    if (maxDiff < 0.06) return 13;
-    if (maxDiff < 0.12) return 12;
-    if (maxDiff < 0.25) return 11;
-    if (maxDiff < 0.5) return 10;
-    return 9;
-  }
+    ],
+  );
 }
 
 /// Move request card with checkbox, enriched details, and map button

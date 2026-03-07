@@ -191,6 +191,23 @@ class MoveRequestBottomSheet extends HookConsumerWidget {
                   managerService: ref.read(managerServiceProvider),
                   height: 180,
                   showLegend: true,
+                  onViewFullScreen: () {
+                    _showFullScreenMap(
+                      context,
+                      ref,
+                      origLat: origLat,
+                      origLng: origLng,
+                      newLat: newLat,
+                      newLng: newLng,
+                      binNumber: binNumber,
+                      moveType: moveType,
+                      sourcePotentialLocationId: sourcePotentialLocationId,
+                      currentStreet: currentStreet,
+                      city: city,
+                      newStreet: newStreet ?? '',
+                      newCity: newCity ?? '',
+                    );
+                  },
                 ),
                 const SizedBox(height: 12),
               ],
@@ -872,6 +889,106 @@ class MoveRequestBottomSheet extends HookConsumerWidget {
         );
       }
     }
+  }
+
+  // ─── Full Screen Map ─────────────────────────────────────────────────
+
+  void _showFullScreenMap(
+    BuildContext context,
+    WidgetRef ref, {
+    required double origLat,
+    required double origLng,
+    required double? newLat,
+    required double? newLng,
+    required int binNumber,
+    required String moveType,
+    required String? sourcePotentialLocationId,
+    required String currentStreet,
+    required String city,
+    required String newStreet,
+    required String newCity,
+  }) {
+    final destinationLabel = moveType == 'store'
+        ? 'Warehouse Storage'
+        : newStreet.isNotEmpty
+            ? '$newStreet, $newCity'
+            : 'Destination';
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (sheetContext) => DraggableScrollableSheet(
+        initialChildSize: 0.95,
+        minChildSize: 0.4,
+        maxChildSize: 0.95,
+        expand: false,
+        builder: (context, scrollController) => Container(
+          clipBehavior: Clip.antiAlias,
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius:
+                BorderRadius.vertical(top: Radius.circular(20)),
+          ),
+          child: Column(
+            children: [
+              // Header with back button
+              Padding(
+                padding: const EdgeInsets.fromLTRB(4, 12, 16, 8),
+                child: Row(
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.arrow_back),
+                      onPressed: () => Navigator.pop(context),
+                    ),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Bin #$binNumber Move',
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          Text(
+                            currentStreet.isNotEmpty
+                                ? '$currentStreet, $city → $destinationLabel'
+                                : 'View on map',
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: Colors.grey.shade500,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              // Full-screen map
+              Expanded(
+                child: RouteMapPreview(
+                  originLat: origLat,
+                  originLng: origLng,
+                  destLat: newLat,
+                  destLng: newLng,
+                  binNumber: binNumber,
+                  moveType: moveType,
+                  sourcePotentialLocationId: sourcePotentialLocationId,
+                  managerService: ref.read(managerServiceProvider),
+                  isExpanded: true,
+                  showLegend: true,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   // ─── Helpers ────────────────────────────────────────────────────────

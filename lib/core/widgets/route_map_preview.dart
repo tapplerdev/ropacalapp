@@ -43,6 +43,9 @@ class RouteMapPreview extends StatefulWidget {
   /// Marker type in single-pin mode: 'potential_location' or 'bin'
   final String singlePinType;
 
+  /// Callback when "View Full Screen" is tapped (compact mode only)
+  final VoidCallback? onViewFullScreen;
+
   const RouteMapPreview({
     super.key,
     required this.originLat,
@@ -57,6 +60,7 @@ class RouteMapPreview extends StatefulWidget {
     this.showLegend = true,
     this.isExpanded = false,
     this.singlePinType = 'potential_location',
+    this.onViewFullScreen,
   });
 
   @override
@@ -181,12 +185,62 @@ class _RouteMapPreviewState extends State<RouteMapPreview>
     );
 
     // Wrap map in either Expanded (for full-screen) or fixed-height SizedBox
-    final mapContainer = widget.isExpanded
-        ? Expanded(child: mapView)
-        : ClipRRect(
-            borderRadius: BorderRadius.circular(12),
-            child: SizedBox(height: widget.height, child: mapView),
-          );
+    Widget mapContainer;
+    if (widget.isExpanded) {
+      mapContainer = Expanded(child: mapView);
+    } else {
+      mapContainer = ClipRRect(
+        borderRadius: BorderRadius.circular(12),
+        child: SizedBox(
+          height: widget.height,
+          child: Stack(
+            children: [
+              mapView,
+              // "View on Map" button overlay
+              if (widget.onViewFullScreen != null)
+                Positioned(
+                  bottom: 8,
+                  right: 8,
+                  child: GestureDetector(
+                    onTap: widget.onViewFullScreen,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 10, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(8),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.15),
+                            blurRadius: 4,
+                            offset: const Offset(0, 1),
+                          ),
+                        ],
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.fullscreen,
+                              size: 16, color: Colors.grey.shade700),
+                          const SizedBox(width: 4),
+                          Text(
+                            'View on Map',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.grey.shade700,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      );
+    }
 
     return Column(
       mainAxisSize: widget.isExpanded ? MainAxisSize.max : MainAxisSize.min,
@@ -369,13 +423,16 @@ class _RouteMapPreviewState extends State<RouteMapPreview>
     final lngDiff = (lng1 - lng2).abs();
     final maxDiff = max(latDiff, lngDiff);
 
-    if (maxDiff < 0.005) return 16;
-    if (maxDiff < 0.01) return 15;
-    if (maxDiff < 0.03) return 14;
-    if (maxDiff < 0.06) return 13;
-    if (maxDiff < 0.12) return 12;
-    if (maxDiff < 0.25) return 11;
-    if (maxDiff < 0.5) return 10;
-    return 9;
+    // Zoom out 1 level more for compact previews so both markers are visible
+    final offset = widget.isExpanded ? 0.0 : 1.0;
+
+    if (maxDiff < 0.005) return 16 - offset;
+    if (maxDiff < 0.01) return 15 - offset;
+    if (maxDiff < 0.03) return 14 - offset;
+    if (maxDiff < 0.06) return 13 - offset;
+    if (maxDiff < 0.12) return 12 - offset;
+    if (maxDiff < 0.25) return 11 - offset;
+    if (maxDiff < 0.5) return 10 - offset;
+    return 9 - offset;
   }
 }

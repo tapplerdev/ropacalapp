@@ -2,11 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:intl/intl.dart';
 import 'package:ropacalapp/core/theme/app_colors.dart';
 import 'package:ropacalapp/models/active_driver.dart';
+import 'package:ropacalapp/models/route_task.dart';
 import 'package:ropacalapp/models/shift_state.dart';
 import 'package:ropacalapp/providers/drivers_provider.dart';
+import 'package:ropacalapp/providers/focused_driver_provider.dart';
 
 /// Active Drivers List Page - Shows all drivers with active shifts
 /// WebSocket-enabled for real-time updates
@@ -21,19 +22,9 @@ class ActiveDriversListPage extends ConsumerWidget {
       backgroundColor: Colors.grey.shade50,
       appBar: AppBar(
         title: const Text('Active Drivers'),
-        backgroundColor: Colors.grey.shade50, // Match body background
+        backgroundColor: Colors.grey.shade50,
         surfaceTintColor: Colors.transparent,
         scrolledUnderElevation: 0,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: () {
-              // Refresh the underlying driversNotifierProvider
-              ref.read(driversNotifierProvider.notifier).refresh();
-            },
-            tooltip: 'Refresh',
-          ),
-        ],
       ),
       body: activeDriversAsync.when(
         data: (drivers) {
@@ -120,8 +111,7 @@ class ActiveDriversListPage extends ConsumerWidget {
                 },
                 icon: const Icon(Icons.refresh),
                 label: const Text('Retry'),
-                style: ElevatedButton.styleFrom(
-                ),
+                style: ElevatedButton.styleFrom(),
               ),
             ],
           ),
@@ -132,13 +122,34 @@ class ActiveDriversListPage extends ConsumerWidget {
 }
 
 /// Individual driver card in the list
-class _DriverCard extends StatelessWidget {
+class _DriverCard extends ConsumerWidget {
   final ActiveDriver driver;
 
   const _DriverCard({required this.driver});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    // Fetch shift details for current task info
+    final shiftDetailAsync = ref.watch(
+      driverShiftDetailProvider(driver.driverId),
+    );
+    final shiftDetail = shiftDetailAsync.valueOrNull;
+
+    // Find current task (first incomplete, non-skipped)
+    final currentTask = shiftDetail?.bins
+        .where((t) => t.isCompleted == 0 && !t.skipped)
+        .firstOrNull;
+
+    // Calculate current task number (completed + 1)
+    final completedTasks =
+        shiftDetail?.bins.where((t) => t.isCompleted == 1).length ??
+            driver.completedBins;
+    final totalTasks = shiftDetail?.bins.length ?? driver.totalBins;
+    final currentTaskNumber = completedTasks + 1;
+
+    // Calculate ETA based on pace
+    final etaString = _calculateETA(driver, completedTasks, totalTasks);
+
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
@@ -198,7 +209,6 @@ class _DriverCard extends StatelessWidget {
               // Route name with efficiency indicator
               Row(
                 children: [
-                  // Efficiency dot
                   Container(
                     width: 8,
                     height: 8,
@@ -222,7 +232,43 @@ class _DriverCard extends StatelessWidget {
               ),
               const SizedBox(height: 8),
 
-              // Progress and time elapsed
+              // Current task info
+              if (currentTask != null) ...[
+                Row(
+                  children: [
+                    Icon(
+                      _getTaskIcon(currentTask),
+                      size: 16,
+                      color: AppColors.primaryGreen,
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      'Task $currentTaskNumber of $totalTasks',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.primaryGreen,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        currentTask.city ??
+                            currentTask.address ??
+                            currentTask.displayTitle,
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: Colors.grey.shade600,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+              ],
+
+              // Progress stats row
               Row(
                 children: [
                   Icon(
@@ -253,6 +299,23 @@ class _DriverCard extends StatelessWidget {
                       color: Colors.grey.shade700,
                     ),
                   ),
+                  if (etaString != null) ...[
+                    const SizedBox(width: 16),
+                    Icon(
+                      Icons.timer_outlined,
+                      size: 16,
+                      color: Colors.blue.shade600,
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      etaString,
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: Colors.blue.shade700,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
                 ],
               ),
 
@@ -271,11 +334,80 @@ class _DriverCard extends StatelessWidget {
                   ),
                 ),
               ],
+
+              // Locate on Map button
+              const SizedBox(height: 12),
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: () {
+                    ref
+                        .read(focusedDriverProvider.notifier)
+                        .setFocusedDriver(driver.driverId);
+                    context.pop();
+                  },
+                  icon: Icon(
+                    Icons.my_location,
+                    size: 16,
+                    color: AppColors.primaryGreen,
+                  ),
+                  label: Text(
+                    'Locate on Map',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.primaryGreen,
+                    ),
+                  ),
+                  style: OutlinedButton.styleFrom(
+                    side: BorderSide(
+                      color: AppColors.primaryGreen.withValues(alpha: 0.4),
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                  ),
+                ),
+              ),
             ],
           ),
         ),
       ),
     );
+  }
+
+  /// Calculate ETA string based on current pace.
+  /// Returns null if not enough data to estimate.
+  String? _calculateETA(
+      ActiveDriver driver, int completedTasks, int totalTasks) {
+    if (completedTasks == 0 || totalTasks == 0) return null;
+
+    final remaining = totalTasks - completedTasks;
+    if (remaining <= 0) return 'Done';
+
+    final elapsed = driver.activeDuration;
+    if (elapsed.inMinutes < 1) return null;
+
+    // Pace: minutes per task
+    final minutesPerTask = elapsed.inMinutes / completedTasks;
+    final etaMinutes = (minutesPerTask * remaining).round();
+
+    if (etaMinutes < 60) {
+      return '~${etaMinutes}m left';
+    }
+    final hours = etaMinutes ~/ 60;
+    final mins = etaMinutes % 60;
+    return '~${hours}h ${mins}m left';
+  }
+
+  IconData _getTaskIcon(RouteTask task) {
+    if (task.isCollection) return Icons.delete_outline;
+    if (task.isPickup) return Icons.upload_outlined;
+    if (task.isDropoff) return Icons.download_outlined;
+    if (task.isPlacement) return Icons.add_location_alt_outlined;
+    if (task.isWarehouseStop) return Icons.warehouse_outlined;
+    return Icons.task_alt;
   }
 
   String _formatDuration(Duration duration) {
@@ -289,17 +421,16 @@ class _DriverCard extends StatelessWidget {
   }
 
   Color _getEfficiencyColor(ActiveDriver driver) {
-    // Calculate efficiency based on completion percentage
     if (driver.totalBins == 0) return Colors.grey;
 
     final completionRate = driver.completionPercentage;
 
     if (completionRate >= 0.8) {
-      return AppColors.successGreen; // On track or ahead
+      return AppColors.successGreen;
     } else if (completionRate >= 0.5) {
-      return Colors.orange; // Slightly behind
+      return Colors.orange;
     } else {
-      return Colors.red; // Behind schedule
+      return Colors.red;
     }
   }
 }

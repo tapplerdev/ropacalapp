@@ -16,6 +16,8 @@ import 'package:ropacalapp/providers/move_request_notification_provider.dart';
 import 'package:ropacalapp/core/services/location_tracking_service.dart';
 import 'package:ropacalapp/core/utils/app_logger.dart';
 import 'package:ropacalapp/core/services/session_manager.dart';
+import 'package:ropacalapp/providers/focused_driver_provider.dart';
+import 'package:ropacalapp/providers/route_polyline_provider.dart';
 
 part 'auth_provider.g.dart';
 
@@ -416,6 +418,11 @@ class AuthNotifier extends _$AuthNotifier {
     // Reset simulation state
     ref.read(simulationNotifierProvider.notifier).reset();
     AppLogger.general('🗑️  Reset simulation state on logout');
+
+    // Clear map focus + polyline state
+    ref.read(focusedDriverProvider.notifier).clearFocus();
+    ref.read(routePolylineProvider.notifier).clear();
+    AppLogger.general('🗑️  Cleared map focus + polyline state on logout');
 
     // Reset shift state
     ref.read(shiftNotifierProvider.notifier).reset();

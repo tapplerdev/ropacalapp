@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_easyloading/flutter_easyloading.dart';
 import 'package:geolocator/geolocator.dart' as geolocator;
 import 'package:google_navigation_flutter/google_navigation_flutter.dart';
@@ -32,10 +33,11 @@ import 'package:ropacalapp/features/driver/widgets/move_request_notification_dia
 import 'package:ropacalapp/providers/move_request_notification_provider.dart';
 import 'package:ropacalapp/features/driver/widgets/route_update_notification_dialog.dart';
 import 'package:ropacalapp/providers/route_update_notification_provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:ropacalapp/features/driver/notifications_page.dart';
 import 'package:ropacalapp/models/route_task.dart';
-import 'package:ropacalapp/models/route_task.dart';
 import 'package:ropacalapp/models/route_step.dart';
+import 'package:ropacalapp/core/enums/stop_type.dart';
 import 'package:ropacalapp/models/shift_state.dart';
 import 'package:ropacalapp/features/driver/widgets/potential_location_form_dialog.dart';
 import 'package:latlong2/latlong.dart' as latlong;
@@ -795,6 +797,26 @@ class GoogleNavigationPage extends HookConsumerWidget {
             ),
           ),
 
+          // Waze button - opens Waze for navigation to current task destination
+          if (shift.remainingTasks.isNotEmpty)
+            Positioned(
+              bottom: Responsive.spacing(context, mobile: 120),
+              right: Responsive.spacing(context, mobile: 16),
+              child: CircularMapButton(
+                child: SvgPicture.asset(
+                  'assets/icons/waze-logo.svg',
+                  width: 22,
+                  height: 22,
+                  colorFilter: const ColorFilter.mode(
+                    Colors.white,
+                    BlendMode.srcIn,
+                  ),
+                ),
+                backgroundColor: AppColors.primaryGreen,
+                onTap: () => _launchWaze(shift.remainingTasks.first),
+              ),
+            ),
+
           // Custom recenter button - COMMENTED OUT (using native Google Maps button instead)
           // Positioned(
           //   bottom: Responsive.spacing(context, mobile: 340),
@@ -823,6 +845,31 @@ class GoogleNavigationPage extends HookConsumerWidget {
         ],
       ),
     );
+  }
+
+  /// Launch Waze navigation to the current task destination.
+  /// Falls back to App Store / Play Store if Waze is not installed.
+  static Future<void> _launchWaze(RouteTask task) async {
+    // Use destination coordinates for dropoff tasks, primary coordinates otherwise
+    final lat = (task.taskType == StopType.dropoff && task.destinationLatitude != null)
+        ? task.destinationLatitude!
+        : task.latitude;
+    final lng = (task.taskType == StopType.dropoff && task.destinationLongitude != null)
+        ? task.destinationLongitude!
+        : task.longitude;
+
+    // Try opening Waze via waze:// scheme first (launches app directly)
+    final wazeAppUrl = Uri.parse('waze://?ll=$lat,$lng&navigate=yes');
+    if (await canLaunchUrl(wazeAppUrl)) {
+      await launchUrl(wazeAppUrl);
+      return;
+    }
+
+    // Waze not installed — open App Store / Play Store
+    final storeUrl = Platform.isIOS
+        ? Uri.parse('https://apps.apple.com/app/waze-navigation-live-traffic/id323229106')
+        : Uri.parse('https://play.google.com/store/apps/details?id=com.waze');
+    await launchUrl(storeUrl, mode: LaunchMode.externalApplication);
   }
 
   /// Initialize navigation session and show T&C dialog if needed

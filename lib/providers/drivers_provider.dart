@@ -55,53 +55,31 @@ class DriversNotifier extends _$DriversNotifier {
     }
   }
 
-  /// Update a driver's location (called from WebSocket)
+  /// Update a driver's location (called from WebSocket).
+  /// Only triggers a state change when the driver's currentLocation was
+  /// previously null (first location arrival). Subsequent GPS updates
+  /// flow through driverLivePositionsProvider and don't need to rebuild
+  /// widgets that watch this provider (e.g. Active Drivers list).
   void updateDriverLocation(DriverLocation location) {
-    AppLogger.general('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-    AppLogger.general('🔵 DRIVERS_PROVIDER: updateDriverLocation called');
-    AppLogger.general('   Driver ID: ${location.driverId}');
-    AppLogger.general('   Location: (${location.latitude}, ${location.longitude}');
-    AppLogger.general('   Current state type: ${state.runtimeType}');
+    state.whenData((drivers) {
+      final idx = drivers.indexWhere(
+        (d) => d.driverId == location.driverId,
+      );
+      if (idx == -1) return;
 
-    state.when(
-      data: (drivers) {
-        AppLogger.general('   ✅ State is AsyncData');
-        AppLogger.general('   Current drivers count: ${drivers.length}');
-        for (final driver in drivers) {
-          AppLogger.general('      - ${driver.driverName} (${driver.driverId})');
-        }
+      // Only update state on first location (null → value).
+      // Subsequent GPS updates are handled by driverLivePositionsProvider.
+      if (drivers[idx].currentLocation != null) return;
 
-        var foundMatch = false;
-        final updatedDrivers = drivers.map((driver) {
-          if (driver.driverId == location.driverId) {
-            foundMatch = true;
-            AppLogger.general('   🎯 MATCH FOUND: ${driver.driverName}');
-            AppLogger.general('      Old location: ${driver.currentLocation?.latitude}, ${driver.currentLocation?.longitude}');
-            AppLogger.general('      New location: ${location.latitude}, ${location.longitude}');
-            return driver.copyWith(currentLocation: location);
-          }
-          return driver;
-        }).toList();
+      AppLogger.general(
+        '📍 First location for ${drivers[idx].driverName}: '
+        '(${location.latitude}, ${location.longitude})',
+      );
 
-        if (!foundMatch) {
-          AppLogger.general('   ⚠️  NO MATCH: Driver ${location.driverId} not found in list!');
-        }
-
-        AppLogger.general('   📝 Setting new state...');
-        state = AsyncData(updatedDrivers);
-        AppLogger.general('   ✅ State updated successfully');
-        AppLogger.general('   New state contains ${updatedDrivers.length} drivers');
-      },
-      loading: () {
-        AppLogger.general('   ⚠️  State is AsyncLoading - cannot update!');
-      },
-      error: (error, stack) {
-        AppLogger.general('   ❌ State is AsyncError - cannot update!');
-        AppLogger.general('      Error: $error');
-      },
-    );
-
-    AppLogger.general('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      final updatedDrivers = [...drivers];
+      updatedDrivers[idx] = drivers[idx].copyWith(currentLocation: location);
+      state = AsyncData(updatedDrivers);
+    });
   }
 
   /// Update a driver's shift status (called from WebSocket driver_shift_change)

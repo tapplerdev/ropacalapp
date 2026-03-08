@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_navigation_flutter/google_navigation_flutter.dart';
@@ -135,6 +136,14 @@ class ManagerMapPage extends HookConsumerWidget {
     // Route polyline visibility (user toggles via "Route" button on card)
     final isRouteVisible = useState<bool>(false);
 
+    // Flag: zoom camera to fit driver + destination when polyline data arrives
+    final pendingZoomToFit = useRef(false);
+
+    // Destination marker shown only during route view
+    final destinationMarker = useState<Marker?>(null);
+    // Generation counter to guard against stale async destination marker callbacks
+    final destMarkerGeneration = useRef(0);
+
     // Create animation service
     final animationService = useMemoized(
       () => MarkerAnimationService(),
@@ -162,11 +171,10 @@ class ManagerMapPage extends HookConsumerWidget {
             [drivers],
           );
 
-          // Centrifugo connection status (from global CentrifugoManager)
-          // Watch the provider to rebuild when connection state changes,
-          // then read .isConnected from the notifier for the actual flag.
-          ref.watch(centrifugoManagerProvider);
-          final isCentrifugoConnected = ref.read(centrifugoManagerProvider.notifier).isConnected;
+          // Centrifugo connection status (reactive via provider state)
+          // Provider returns AsyncData(true) when connected, AsyncData(false) when not.
+          // Watching ensures Effect 0 re-runs when connection recovers after retry.
+          final isCentrifugoConnected = ref.watch(centrifugoManagerProvider).valueOrNull == true;
 
           // Search bar expanded state
           final isSearchExpanded = useState<bool>(false);
@@ -894,6 +902,7 @@ class ManagerMapPage extends HookConsumerWidget {
 
                   // Create updated markers for each driver
                   final updatedMarkers = <Marker>[];
+                  final updatedMap = Map<String, Marker>.from(driverMarkers.value);
 
                   for (final driver in activeDrivers) {
                     final existingMarker = driverMarkers.value[driver.driverId];
@@ -937,11 +946,19 @@ class ManagerMapPage extends HookConsumerWidget {
                       ),
                     );
                     updatedMarkers.add(updatedMarker);
+                    updatedMap[driver.driverId] = updatedMarker;
                   }
 
-                  // Update only driver markers (bins/locations untouched!)
+                  // Update markers on the native map
                   if (updatedMarkers.isNotEmpty) {
                     await mapController.value!.updateMarkers(updatedMarkers);
+                    // Sync state only in the one-shot path (no active animations).
+                    // During 60fps animation, skip to avoid 60 rebuilds/second.
+                    // When animations end, hasActiveAnimations flips false,
+                    // Effect 4 re-runs one-shot, and syncs state here.
+                    if (!hasActiveAnimations) {
+                      driverMarkers.value = updatedMap;
+                    }
                   }
                 } catch (e) {
                   AppLogger.map('Failed to update driver positions: $e');
@@ -983,22 +1000,26 @@ class ManagerMapPage extends HookConsumerWidget {
             ],
           );
 
-          // Reset route visibility when switching drivers
+          // Safety net: reset route visibility whenever we leave focused mode
+          // (driver change, follow mode, clear focus, driver disappears, etc.)
+          // This single effect covers ALL edge cases that could leave isRouteVisible stuck.
           useEffect(
             () {
-              isRouteVisible.value = false;
+              if (focusedDriverState.mode != FollowMode.focused) {
+                isRouteVisible.value = false;
+              }
               return null;
             },
-            [focusedDriverId],
+            [focusedDriverState.mode, focusedDriverId],
           );
 
-          // Effect 5: Polyline lifecycle — fetch OSRM route, trim, detect task changes
-          // Only activates when route is visible (user toggled) or in follow mode
+          // Effect 5: Preload OSRM route whenever a driver is focused.
+          // Fetches the route immediately so it's cached and ready when
+          // the user taps "Route". Timers keep trimming/checking for task changes.
           useEffect(
             () {
-              if (focusedDriverId == null || !isFocusedOrFollowing || mapController.value == null ||
-                  (!isRouteVisible.value && !isFollowing)) {
-                // Not focused or route hidden — clear polyline (deferred to avoid build-phase mutation)
+              if (focusedDriverId == null || !isFocusedOrFollowing || mapController.value == null) {
+                // Completely unfocused — clear everything
                 Future.microtask(() {
                   ref.read(routePolylineProvider.notifier).clear();
                   mapController.value?.clearPolylines();
@@ -1006,12 +1027,12 @@ class ManagerMapPage extends HookConsumerWidget {
                 return null;
               }
 
-              AppLogger.map('🛤️ Effect 5: Starting polyline for $focusedDriverId');
+              AppLogger.map('🛤️ Effect 5: Preloading polyline for $focusedDriverId');
 
               bool cancelled = false;
               final driverId = focusedDriverId;
 
-              // Initialize polyline for the focused driver (deferred to avoid build-phase mutation)
+              // Fetch OSRM route eagerly (deferred to avoid build-phase mutation)
               Future.microtask(() {
                 if (!cancelled) {
                   ref.read(routePolylineProvider.notifier)
@@ -1019,15 +1040,35 @@ class ManagerMapPage extends HookConsumerWidget {
                 }
               });
 
-              // 3s timer: trim polyline based on driver's live position
+              // 2s timer: local trim (no API calls, just slices the cached route)
               final trimTimer = Timer.periodic(
-                const Duration(seconds: 3),
+                const Duration(seconds: 2),
                 (_) {
                   if (cancelled) return;
                   final livePositions = ref.read(driverLivePositionsProvider);
                   final driverLoc = livePositions[driverId];
                   if (driverLoc != null) {
                     ref.read(routePolylineProvider.notifier).updateDriverPosition(
+                      LatLng(
+                        latitude: driverLoc.latitude,
+                        longitude: driverLoc.longitude,
+                      ),
+                    );
+                  }
+                },
+              );
+
+              // 10s timer: OSRM refresh — re-fetches full route from driver's
+              // current position so the polyline is always road-snapped.
+              // Prevents straight lines through buildings when driver deviates.
+              final refreshTimer = Timer.periodic(
+                const Duration(seconds: 10),
+                (_) {
+                  if (cancelled) return;
+                  final livePositions = ref.read(driverLivePositionsProvider);
+                  final driverLoc = livePositions[driverId];
+                  if (driverLoc != null) {
+                    ref.read(routePolylineProvider.notifier).refreshRoute(
                       LatLng(
                         latitude: driverLoc.latitude,
                         longitude: driverLoc.longitude,
@@ -1051,32 +1092,54 @@ class ManagerMapPage extends HookConsumerWidget {
                 AppLogger.map('🛤️ Effect 5: Cleaning up polyline');
                 cancelled = true;
                 trimTimer.cancel();
+                refreshTimer.cancel();
                 taskCheckTimer.cancel();
-                // Deferred to avoid build-phase mutation
                 Future.microtask(() {
                   ref.read(routePolylineProvider.notifier).clear();
                   mapController.value?.clearPolylines();
                 });
               };
             },
-            [focusedDriverId, isFocusedOrFollowing, isRouteVisible.value, mapController.value],
+            [focusedDriverId, isFocusedOrFollowing, mapController.value],
           );
 
-          // Effect 6: Draw polyline on map when visibleRoute changes
-          // Uses ref.listenManual to avoid full widget rebuilds
+          // Effect 6: Draw/clear polyline on map based on route visibility.
+          // The route data is already preloaded by Effect 5 — this just controls rendering.
           useEffect(
             () {
               if (mapController.value == null) return null;
 
+              if (!isRouteVisible.value && !isFollowing) {
+                // Route hidden — clear any drawn polyline
+                mapController.value!.clearPolylines();
+                return null;
+              }
+
+              // Route visible — draw current polyline and listen for updates
+              final polyState = ref.read(routePolylineProvider);
+              if (polyState.visibleRoute.length >= 2) {
+                // Draw immediately from cache
+                mapController.value!.clearPolylines().then((_) {
+                  mapController.value?.addPolylines([
+                    PolylineOptions(
+                      points: polyState.visibleRoute,
+                      strokeWidth: 6,
+                      strokeColor: AppColors.actionBlue,
+                      geodesic: true,
+                      zIndex: 500,
+                      clickable: false,
+                    ),
+                  ]);
+                });
+              }
+
+              // Listen for ongoing polyline updates (trim, re-fetch)
               final sub = ref.listenManual<RoutePolylineState>(
                 routePolylineProvider,
                 (prev, next) async {
-                  // Only redraw if visibleRoute actually changed
                   if (prev?.visibleRoute == next.visibleRoute) return;
-
                   try {
                     await mapController.value!.clearPolylines();
-
                     if (next.visibleRoute.length >= 2) {
                       await mapController.value!.addPolylines([
                         PolylineOptions(
@@ -1097,11 +1160,145 @@ class ManagerMapPage extends HookConsumerWidget {
 
               return sub.close;
             },
-            [mapController.value],
+            [mapController.value, isRouteVisible.value, isFollowing],
           );
 
           // Read polyline state for the floating card
           final polylineState = ref.watch(routePolylineProvider);
+
+          // Zoom-to-fit: smoothly animate camera to show driver + destination.
+          // Inflates southern bound so route renders above the floating card.
+          useEffect(
+            () {
+              if (pendingZoomToFit.value &&
+                  polylineState.destination != null &&
+                  mapController.value != null &&
+                  focusedDriverId != null) {
+                pendingZoomToFit.value = false;
+                final livePositions = ref.read(driverLivePositionsProvider);
+                final driverLoc = livePositions[focusedDriverId];
+                if (driverLoc != null) {
+                  final dest = polylineState.destination!;
+                  final minLat = math.min(driverLoc.latitude, dest.latitude);
+                  final maxLat = math.max(driverLoc.latitude, dest.latitude);
+                  final minLng = math.min(driverLoc.longitude, dest.longitude);
+                  final maxLng = math.max(driverLoc.longitude, dest.longitude);
+
+                  // Inflate southern bound by ~40% of lat span to push route
+                  // above the floating card + bottom nav (~300px).
+                  final latSpan = maxLat - minLat;
+                  final extraSouth = latSpan * 0.4;
+
+                  final sw = LatLng(
+                    latitude: minLat - extraSouth,
+                    longitude: minLng,
+                  );
+                  final ne = LatLng(
+                    latitude: maxLat,
+                    longitude: maxLng,
+                  );
+                  mapController.value!.animateCamera(
+                    CameraUpdate.newLatLngBounds(
+                      LatLngBounds(southwest: sw, northeast: ne),
+                      padding: 60.0,
+                    ),
+                    duration: const Duration(milliseconds: 600),
+                  );
+                }
+              }
+              return null;
+            },
+            [polylineState.destination, isRouteVisible.value],
+          );
+
+          // Hide all markers except focused driver when route is visible.
+          // Also add/remove a dedicated destination pin marker.
+          useEffect(
+            () {
+              if (mapController.value == null) return null;
+              final controller = mapController.value!;
+              final showRoute = isRouteVisible.value;
+              final showOthers = !showRoute;
+
+              // Bin markers
+              if (binMarkers.value.isNotEmpty) {
+                final updated = binMarkers.value
+                    .map((m) => m.copyWith(
+                          options: m.options.copyWith(visible: showOthers),
+                        ))
+                    .toList();
+                controller.updateMarkers(updated);
+              }
+              // Potential location markers
+              if (locationMarkers.value.isNotEmpty) {
+                final updated = locationMarkers.value
+                    .map((m) => m.copyWith(
+                          options: m.options.copyWith(visible: showOthers),
+                        ))
+                    .toList();
+                controller.updateMarkers(updated);
+              }
+              // Warehouse marker
+              if (warehouseMarker.value != null) {
+                controller.updateMarkers([
+                  warehouseMarker.value!.copyWith(
+                    options: warehouseMarker.value!.options.copyWith(visible: showOthers),
+                  ),
+                ]);
+              }
+              // Non-focused driver markers
+              if (driverMarkers.value.isNotEmpty) {
+                final otherDriverMarkers = driverMarkers.value.entries
+                    .where((e) => e.key != focusedDriverId)
+                    .map((e) => e.value.copyWith(
+                          options: e.value.options.copyWith(visible: showOthers),
+                        ))
+                    .toList();
+                if (otherDriverMarkers.isNotEmpty) {
+                  controller.updateMarkers(otherDriverMarkers);
+                }
+              }
+
+              // Destination marker: add when route visible, remove when hidden.
+              // Uses a generation counter to prevent stale async callbacks from
+              // adding markers after route has been toggled off.
+              destMarkerGeneration.value++;
+              final currentGen = destMarkerGeneration.value;
+
+              if (showRoute && polylineState.destination != null) {
+                GoogleNavigationMarkerService.createDestinationMarkerIcon()
+                    .then((icon) async {
+                  // Bail if route was toggled off while async was in flight
+                  if (destMarkerGeneration.value != currentGen) return;
+                  // Remove previous destination marker if any
+                  if (destinationMarker.value != null) {
+                    await controller.removeMarkers([destinationMarker.value!]);
+                  }
+                  if (destMarkerGeneration.value != currentGen) return;
+                  final markers = await controller.addMarkers([
+                    MarkerOptions(
+                      position: polylineState.destination!,
+                      icon: icon,
+                      zIndex: 600,
+                    ),
+                  ]);
+                  if (destMarkerGeneration.value != currentGen) return;
+                  if (markers.isNotEmpty) {
+                    destinationMarker.value = markers.first;
+                  }
+                });
+              } else {
+                // Remove destination marker
+                if (destinationMarker.value != null) {
+                  controller.removeMarkers([destinationMarker.value!]);
+                  destinationMarker.value = null;
+                }
+              }
+
+              return null;
+            },
+            [isRouteVisible.value, mapController.value, polylineState.destination],
+          );
 
           return Stack(
             children: [
@@ -1511,18 +1708,34 @@ class ManagerMapPage extends HookConsumerWidget {
                           .firstOrNull;
                       if (focusedDriver == null) return const SizedBox.shrink();
 
+                      // Get task info directly from shift detail (independent of polyline)
+                      final shiftDetail = ref.watch(
+                        driverShiftDetailProvider(focusedDriverId),
+                      ).valueOrNull;
+                      final cardCurrentTask = shiftDetail?.bins
+                          .where((t) => t.isCompleted == 0 && !t.skipped)
+                          .firstOrNull;
+                      final cardTotalTasks = shiftDetail?.bins.length ?? 0;
+                      final cardCompletedTasks = shiftDetail?.bins
+                          .where((t) => t.isCompleted == 1).length ?? 0;
+
                       return DriverFloatingCard(
                         driver: focusedDriver,
-                        currentTask: polylineState.currentTask,
-                        totalTasks: polylineState.totalTasks,
-                        completedTasks: polylineState.completedTasks,
+                        currentTask: cardCurrentTask,
+                        totalTasks: cardTotalTasks,
+                        completedTasks: cardCompletedTasks,
                         isRouteVisible: isRouteVisible.value,
                         onFollow: () {
+                          isRouteVisible.value = false;
                           ref.read(focusedDriverProvider.notifier)
                               .startFollowing(focusedDriverId);
                         },
                         onToggleRoute: () {
-                          isRouteVisible.value = !isRouteVisible.value;
+                          final willShow = !isRouteVisible.value;
+                          isRouteVisible.value = willShow;
+                          if (willShow) {
+                            pendingZoomToFit.value = true;
+                          }
                         },
                         onDetails: () {
                           context.push(

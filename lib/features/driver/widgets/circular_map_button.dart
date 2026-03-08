@@ -4,18 +4,20 @@ import 'package:ropacalapp/core/theme/app_colors.dart';
 /// Circular button with shadow for map controls
 /// Used for notification, audio, and recenter buttons
 class CircularMapButton extends StatelessWidget {
-  final IconData icon;
+  final IconData? icon;
+  final Widget? child;
   final VoidCallback onTap;
   final Color? backgroundColor;
   final Color? iconColor;
 
   const CircularMapButton({
     super.key,
-    required this.icon,
+    this.icon,
+    this.child,
     required this.onTap,
     this.backgroundColor,
     this.iconColor,
-  });
+  }) : assert(icon != null || child != null);
 
   @override
   Widget build(BuildContext context) {
@@ -46,8 +48,8 @@ class CircularMapButton extends StatelessWidget {
             ),
           ],
         ),
-        child: Icon(
-          icon,
+        child: child ?? Icon(
+          icon!,
           color: iconColor ?? (isWhiteBg ? AppColors.primaryGreen : Colors.white),
           size: 22,
         ),

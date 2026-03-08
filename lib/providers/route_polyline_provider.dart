@@ -67,6 +67,9 @@ class RoutePolylineState {
 
 @Riverpod(keepAlive: true)
 class RoutePolyline extends _$RoutePolyline {
+  /// Distance thresholds (meters)
+  static const _snapThreshold = 25.0; // Prepend driverPos only when this close
+
   @override
   RoutePolylineState build() => const RoutePolylineState();
 
@@ -145,39 +148,49 @@ class RoutePolyline extends _$RoutePolyline {
     }
   }
 
-  /// Update the driver's position — trims the polyline from the nearest
-  /// vertex forward. If the driver has deviated >150m from the route,
-  /// triggers a re-fetch from OSRM.
-  Future<void> updateDriverPosition(LatLng driverPos) async {
+  /// Local trim — adjusts the visible polyline based on the driver's
+  /// current position. Fast, no API calls.
+  ///
+  /// Only prepends the driver position when ≤25m from the route to avoid
+  /// straight lines cutting through buildings.
+  void updateDriverPosition(LatLng driverPos) {
     if (state.fullRoute.isEmpty || state.destination == null) return;
 
-    // Find nearest segment index (only search forward from last trim)
+    // Find nearest vertex (search forward from last trim to avoid jitter)
     final nearestIdx = _findNearestVertexIndex(
       state.fullRoute,
       driverPos,
       startFrom: state.lastTrimIndex,
     );
 
-    // Check if driver is off-route (>150m from nearest point)
     final distFromRoute = _haversineDistance(
       driverPos,
       state.fullRoute[nearestIdx],
     );
 
-    if (distFromRoute > 150.0 && !state.isLoading) {
-      // Off-route — re-fetch OSRM from current position
-      await _fetchRoute(driverPos, state.destination!);
-      return;
-    }
-
-    // Trim: slice from nearestIdx forward, prepend driver's current position
+    // Trim: slice from nearestIdx forward
     final remaining = state.fullRoute.sublist(nearestIdx);
-    final visible = [driverPos, ...remaining];
+
+    // Only prepend driver position when very close to the route.
+    // When further away, omit to avoid straight line through buildings.
+    // The periodic OSRM refresh (every 10s) will correct the route.
+    final visible = distFromRoute <= _snapThreshold
+        ? [driverPos, ...remaining]
+        : remaining;
 
     state = state.copyWith(
       visibleRoute: visible,
       lastTrimIndex: nearestIdx,
     );
+  }
+
+  /// Periodic OSRM refresh — re-fetches the full route from the driver's
+  /// current position to the destination. Guarantees the polyline is always
+  /// road-snapped. Called every ~10s by the map page timer.
+  Future<void> refreshRoute(LatLng driverPos) async {
+    if (state.destination == null || state.isLoading) return;
+
+    await _fetchRoute(driverPos, state.destination!);
   }
 
   /// Periodically check if the driver's active task has changed.

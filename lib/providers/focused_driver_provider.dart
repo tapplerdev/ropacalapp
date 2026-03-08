@@ -4,9 +4,9 @@ part 'focused_driver_provider.g.dart';
 
 /// Following mode for driver tracking
 enum FollowMode {
-  none,       // No following
-  focusOnce,  // One-time focus (current behavior)
-  following,  // Continuous following with auto-center
+  none,       // No focus — no card, no polyline
+  focused,    // Focused — floating card + polyline, camera centered once
+  following,  // Following — banner + polyline, continuous camera centering
 }
 
 /// State for focused/following driver
@@ -54,19 +54,20 @@ class FocusedDriver extends _$FocusedDriver {
     );
   }
 
-  /// Legacy: Set focused driver for one-time center (kept for compatibility)
+  /// Focus on a driver — shows floating card + polyline, centers camera once.
+  /// Persists until the user explicitly dismisses.
   void setFocusedDriver(String? driverId) {
     if (driverId == null) {
       state = const FocusedDriverState();
     } else {
       state = FocusedDriverState(
         driverId: driverId,
-        mode: FollowMode.focusOnce,
+        mode: FollowMode.focused,
       );
     }
   }
 
-  /// Legacy: Clear focus (kept for compatibility)
+  /// Clear all focus/following state.
   void clearFocus() {
     state = const FocusedDriverState();
   }

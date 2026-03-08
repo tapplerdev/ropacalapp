@@ -8,6 +8,7 @@ import 'package:ropacalapp/core/enums/bin_status.dart';
 import 'package:ropacalapp/core/theme/app_colors.dart';
 import 'package:ropacalapp/core/utils/bin_helpers.dart';
 import 'package:ropacalapp/features/driver/widgets/move_dialog.dart';
+import 'package:ropacalapp/features/manager/widgets/create_move_request_page.dart';
 import 'package:ropacalapp/models/bin.dart';
 import 'package:ropacalapp/providers/bins_provider.dart';
 import 'package:ropacalapp/providers/drivers_provider.dart';
@@ -402,11 +403,13 @@ class BinDetailPage extends HookConsumerWidget {
       }).toList();
 
       if (active.isEmpty) {
-        // No active requests - proceed normally
+        // No active requests - navigate to Schedule Move page with bin pre-selected
         if (context.mounted) {
-          showDialog(
-            context: context,
-            builder: (context) => MoveDialog(bin: bin),
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => CreateMoveRequestPage(initialBin: bin),
+            ),
           );
         }
         return;

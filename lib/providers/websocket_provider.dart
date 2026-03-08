@@ -2,6 +2,7 @@ import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:ropacalapp/services/websocket_service.dart';
 import 'package:ropacalapp/providers/shift_provider.dart';
 import 'package:ropacalapp/providers/drivers_provider.dart';
+import 'package:ropacalapp/providers/driver_live_position_provider.dart';
 import 'package:ropacalapp/models/driver_location.dart';
 import 'package:ropacalapp/core/utils/app_logger.dart';
 
@@ -38,6 +39,9 @@ WebSocketService webSocketService(WebSocketServiceRef ref) {
       AppLogger.general('   Calling driversNotifier.updateDriverLocation()...');
 
       driversNotifier.updateDriverLocation(location);
+
+      // Also broadcast raw position for polyline system + follow-mode camera
+      ref.read(driverLivePositionsProvider.notifier).updatePosition(location);
 
       AppLogger.general('   ✅ updateDriverLocation() call completed');
     } catch (e, stack) {

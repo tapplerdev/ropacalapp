@@ -165,11 +165,12 @@ class WarehouseStopCalculator {
       }
     }
 
-    // Calculate auto warehouse stops
+    // Calculate auto warehouse stops (guard against zero capacity)
+    final effectiveCapacity = truckBinCapacity > 0 ? truckBinCapacity : 1;
     final placementBatches =
-        placementCount > 0 ? (placementCount / truckBinCapacity).ceil() : 0;
+        placementCount > 0 ? (placementCount / effectiveCapacity).ceil() : 0;
     final collectionBatches =
-        collectionCount > 0 ? (collectionCount / truckBinCapacity).ceil() : 0;
+        collectionCount > 0 ? (collectionCount / effectiveCapacity).ceil() : 0;
 
     // Placement batches = load stops
     // Collection batches = unload stops (if waste needs to be dropped off)

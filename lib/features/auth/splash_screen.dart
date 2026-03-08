@@ -5,17 +5,23 @@ import 'package:go_router/go_router.dart';
 import 'package:ropacalapp/providers/auth_provider.dart';
 import 'package:ropacalapp/providers/shift_provider.dart';
 import 'package:ropacalapp/providers/location_provider.dart';
+import 'package:ropacalapp/providers/bins_provider.dart';
+import 'package:ropacalapp/providers/drivers_provider.dart';
+import 'package:ropacalapp/providers/potential_locations_list_provider.dart';
+import 'package:ropacalapp/providers/move_requests_list_provider.dart';
+import 'package:ropacalapp/providers/route_update_notification_provider.dart';
+import 'package:ropacalapp/providers/bin_marker_cache_provider.dart';
+import 'package:ropacalapp/providers/centrifugo_provider.dart';
 import 'package:ropacalapp/core/utils/app_logger.dart';
 import 'package:ropacalapp/core/services/session_manager.dart';
 import 'package:ropacalapp/core/enums/user_role.dart';
 
 /// Splash screen shown on app startup
 ///
-/// Responsibilities:
-/// - Display app logo and loading indicator
-/// - Check authentication status
-/// - If authenticated: Pre-load shift data and navigate to home
-/// - If not authenticated: Navigate to login
+/// Shows the Binly logo with a pulsing animation while:
+/// - Checking authentication status
+/// - Pre-fetching data (bins, drivers, locations for managers)
+/// - Restoring shift state (for drivers)
 class SplashScreen extends HookConsumerWidget {
   const SplashScreen({super.key});
 
@@ -25,6 +31,93 @@ class SplashScreen extends HookConsumerWidget {
     final authState = ref.watch(authNotifierProvider);
     final hasNavigated = useState(false);
     final isQuickRestoring = useState(false);
+
+    // Pulse animation controller
+    final pulseController = useAnimationController(
+      duration: const Duration(milliseconds: 1500),
+    );
+
+    // Glow animation controller (slightly offset for organic feel)
+    final glowController = useAnimationController(
+      duration: const Duration(milliseconds: 2000),
+    );
+
+    // Scale animation: 1.0 → 1.06 → 1.0
+    final scaleAnimation = useMemoized(
+      () => Tween<double>(begin: 1.0, end: 1.06).animate(
+        CurvedAnimation(parent: pulseController, curve: Curves.easeInOut),
+      ),
+      [pulseController],
+    );
+
+    // Glow animation: 0.0 → 0.15 → 0.0
+    final glowAnimation = useMemoized(
+      () => Tween<double>(begin: 0.0, end: 0.15).animate(
+        CurvedAnimation(parent: glowController, curve: Curves.easeInOut),
+      ),
+      [glowController],
+    );
+
+    // Start animations
+    useEffect(() {
+      pulseController.repeat(reverse: true);
+      glowController.repeat(reverse: true);
+      return null;
+    }, []);
+
+    // Pre-fetch manager data (bins, drivers, locations) in parallel and wait
+    Future<void> prefetchManagerData() async {
+      AppLogger.general('📦 SPLASH: Pre-fetching manager data...');
+
+      // Invalidate stale session-data providers to ensure fresh data
+      // (prevents showing cached data from a previous login session)
+      ref.invalidate(driversNotifierProvider);
+      ref.invalidate(binsListProvider);
+      ref.invalidate(potentialLocationsListNotifierProvider);
+      ref.invalidate(moveRequestsListNotifierProvider);
+      ref.invalidate(routeUpdateNotificationNotifierProvider);
+      ref.invalidate(binMarkerCacheNotifierProvider);
+      AppLogger.general('🗑️  SPLASH: Invalidated stale session-data providers');
+
+      // Wait for Centrifugo connection (CentrifugoManager auto-connects on auth change)
+      final centrifugoStopwatch = Stopwatch()..start();
+      const centrifugoTimeout = Duration(seconds: 5);
+      while (centrifugoStopwatch.elapsed < centrifugoTimeout) {
+        if (ref.read(centrifugoManagerProvider.notifier).isConnected) {
+          AppLogger.general('✅ SPLASH: Centrifugo connected in ${centrifugoStopwatch.elapsedMilliseconds}ms');
+          break;
+        }
+        await Future.delayed(const Duration(milliseconds: 100));
+      }
+      if (!ref.read(centrifugoManagerProvider.notifier).isConnected) {
+        AppLogger.general('⚠️ SPLASH: Centrifugo not connected after ${centrifugoTimeout.inSeconds}s, continuing anyway');
+      }
+
+      // Kick off all fetches by reading the providers
+      ref.read(binsListProvider);
+      ref.read(driversNotifierProvider);
+      ref.read(potentialLocationsListNotifierProvider);
+
+      // Wait for bins and drivers to complete (required for map rendering)
+      // Poll until both have values, with a timeout
+      final dataStopwatch = Stopwatch()..start();
+      const dataTimeout = Duration(seconds: 10);
+
+      while (dataStopwatch.elapsed < dataTimeout) {
+        final binsReady = ref.read(binsListProvider).hasValue;
+        final driversReady = ref.read(driversNotifierProvider).hasValue;
+
+        if (binsReady && driversReady) {
+          AppLogger.general('✅ SPLASH: Manager data loaded in ${dataStopwatch.elapsedMilliseconds}ms');
+          return;
+        }
+
+        // Wait a bit before checking again
+        await Future.delayed(const Duration(milliseconds: 100));
+      }
+
+      AppLogger.general('⚠️ SPLASH: Manager data timeout after ${dataTimeout.inSeconds}s, navigating anyway');
+    }
 
     // Initialize session manager and handle smart navigation
     useEffect(() {
@@ -39,17 +132,17 @@ class SplashScreen extends HookConsumerWidget {
           AppLogger.general(
             '⚡ INSTANT RESUME: Skipping validation, navigating to home',
           );
-          AppLogger.general(
-            '   📊 Shift fetch will be handled by event-driven listener',
-          );
           if (context.mounted && !hasNavigated.value) {
             hasNavigated.value = true;
 
             // Pre-fetch location in background (don't wait)
             ref.read(currentLocationProvider);
 
-            // NOTE: Shift fetch is now handled by event-driven listener in auth_provider
-            // No need to manually fetch here - prevents duplicate fetches
+            // Pre-fetch manager data and wait for it
+            final user = authState.valueOrNull;
+            if (user?.role == UserRole.admin) {
+              await prefetchManagerData();
+            }
 
             // Defer navigation to avoid setState during build
             WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -85,7 +178,7 @@ class SplashScreen extends HookConsumerWidget {
       return null;
     }, []);
 
-    // Pre-load shift data and navigate to home
+    // Pre-load data and navigate to home
     Future<void> preloadAndNavigate() async {
       if (!context.mounted || hasNavigated.value) return;
       hasNavigated.value = true;
@@ -101,12 +194,12 @@ class SplashScreen extends HookConsumerWidget {
 
         if (!success) {
           AppLogger.general('⚠️ Failed to fetch shift after 3 attempts');
-          // Polling will continue to check in background
         } else {
           AppLogger.general('✅ Shift state restored from backend');
         }
       } else {
-        AppLogger.general('👔 Manager startup - skipping shift fetch (managers don\'t have shifts)');
+        AppLogger.general('👔 Manager startup - pre-fetching data...');
+        await prefetchManagerData();
       }
 
       // Navigate to home (defer to avoid setState during build)
@@ -183,50 +276,37 @@ class SplashScreen extends HookConsumerWidget {
       return null;
     }, [authState]);
 
-    // Determine if we should show branded splash or clean loader
-    // Show branded splash only if going to login (user not authenticated)
-    final showBrandedSplash = authState.whenOrNull(
-      data: (user) => user == null, // No user = going to login
-    ) ?? true; // Default to branded while loading
-
     return Scaffold(
       backgroundColor: Colors.white,
-      body: SafeArea(
-        child: Center(
-          child: showBrandedSplash
-              ? Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    // App icon (only for login flow)
-                    Icon(
-                      Icons.delete_outline_rounded,
-                      size: 100,
-                      color: Theme.of(context).colorScheme.primary,
-                    ),
-                    const SizedBox(height: 24),
-
-                    // App title
-                    Text(
-                      'Bin Management',
-                      style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                        fontWeight: FontWeight.bold,
+      body: Center(
+        child: ListenableBuilder(
+          listenable: Listenable.merge([scaleAnimation, glowAnimation]),
+          builder: (context, child) {
+            return Transform.scale(
+              scale: scaleAnimation.value,
+              child: ShaderMask(
+                shaderCallback: (bounds) => const LinearGradient(
+                  colors: [Color(0xFF5E9646), Color(0xFF4AA0B5)],
+                ).createShader(bounds),
+                blendMode: BlendMode.srcIn,
+                child: Text(
+                  'BINLY',
+                  style: TextStyle(
+                    fontSize: 48,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 1.5,
+                    shadows: [
+                      Shadow(
+                        color: const Color(0xFF569349)
+                            .withValues(alpha: glowAnimation.value),
+                        blurRadius: 30,
                       ),
-                    ),
-                    const SizedBox(height: 48),
-
-                    // Loading indicator
-                    const SizedBox(
-                      width: 40,
-                      height: 40,
-                      child: CircularProgressIndicator(strokeWidth: 3),
-                    ),
-                  ],
-                )
-              : const SizedBox(
-                  width: 40,
-                  height: 40,
-                  child: CircularProgressIndicator(strokeWidth: 3),
+                    ],
+                  ),
                 ),
+              ),
+            );
+          },
         ),
       ),
     );

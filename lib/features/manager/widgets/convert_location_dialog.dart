@@ -273,6 +273,90 @@ class ConvertLocationDialog extends HookConsumerWidget {
                           ],
                         ),
                       ),
+                      const SizedBox(height: 16),
+                      // Conversion Details
+                      _buildInfoSection(
+                        icon: Icons.swap_horiz_rounded,
+                        title: 'Conversion Details',
+                        content: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            // Method
+                            Row(
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                    vertical: 3,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: location.convertedViaShiftId != null
+                                        ? Colors.blue[50]
+                                        : Colors.purple[50],
+                                    borderRadius: BorderRadius.circular(6),
+                                    border: Border.all(
+                                      color:
+                                          location.convertedViaShiftId != null
+                                              ? Colors.blue[200]!
+                                              : Colors.purple[200]!,
+                                      width: 0.5,
+                                    ),
+                                  ),
+                                  child: Text(
+                                    location.convertedViaShiftId != null
+                                        ? 'Via Driver Shift'
+                                        : 'Manual Conversion',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w600,
+                                      color:
+                                          location.convertedViaShiftId != null
+                                              ? Colors.blue[700]
+                                              : Colors.purple[700],
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            // Converted by
+                            if (location.convertedByDriverName != null &&
+                                location.convertedViaShiftId != null) ...[
+                              const SizedBox(height: 10),
+                              Row(
+                                children: [
+                                  Icon(Icons.person_outline,
+                                      size: 16, color: Colors.grey[600]),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    'Driver: ${location.convertedByDriverName}',
+                                    style: const TextStyle(
+                                      fontSize: 14,
+                                      color: Colors.black87,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ] else if (location.convertedByManagerName !=
+                                null) ...[
+                              const SizedBox(height: 10),
+                              Row(
+                                children: [
+                                  Icon(Icons.admin_panel_settings_outlined,
+                                      size: 16, color: Colors.grey[600]),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    'Manager: ${location.convertedByManagerName}',
+                                    style: const TextStyle(
+                                      fontSize: 14,
+                                      color: Colors.black87,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
                     ],
 
                     // Conversion Info
@@ -361,7 +445,7 @@ class ConvertLocationDialog extends HookConsumerWidget {
                                             );
 
                                         if (context.mounted) {
-                                          Navigator.of(context).pop();
+                                          Navigator.of(context).pop(true);
                                           ScaffoldMessenger.of(context)
                                               .showSnackBar(
                                             SnackBar(

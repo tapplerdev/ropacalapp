@@ -10,7 +10,6 @@ import 'package:ropacalapp/providers/focused_driver_provider.dart';
 import 'package:ropacalapp/providers/potential_locations_list_provider.dart';
 import 'package:ropacalapp/providers/focused_potential_location_provider.dart';
 import 'package:ropacalapp/models/active_driver.dart';
-import 'package:ropacalapp/models/shift_state.dart';
 import 'package:ropacalapp/models/potential_location.dart';
 import 'package:ropacalapp/models/bin.dart';
 import 'package:ropacalapp/core/utils/app_logger.dart';
@@ -28,6 +27,9 @@ import 'package:ropacalapp/models/driver_location.dart';
 import 'package:ropacalapp/features/manager/widgets/map_search_bar.dart';
 import 'package:ropacalapp/features/manager/widgets/map_layers_control.dart';
 import 'package:ropacalapp/providers/warehouse_provider.dart';
+import 'package:ropacalapp/providers/driver_live_position_provider.dart';
+import 'package:ropacalapp/providers/route_polyline_provider.dart';
+import 'package:ropacalapp/features/manager/widgets/driver_floating_card.dart';
 
 /// Manager dashboard map showing all active drivers
 ///
@@ -42,6 +44,7 @@ class ManagerMapPage extends HookConsumerWidget {
     final focusedDriverState = ref.watch(focusedDriverProvider);
     final focusedDriverId = focusedDriverState.driverId;
     final isFollowing = focusedDriverState.mode == FollowMode.following;
+    final isFocusedOrFollowing = focusedDriverState.mode != FollowMode.none;
 
     // Watch the focused potential location provider
     final focusedPotentialLocationState = ref.watch(focusedPotentialLocationProvider);
@@ -229,6 +232,10 @@ class ManagerMapPage extends HookConsumerWidget {
                         // Update provider (only triggers state change on first location)
                         ref.read(driversNotifierProvider.notifier)
                             .updateDriverLocation(location);
+
+                        // Feed the live-position store (used by polyline trimming)
+                        ref.read(driverLivePositionsProvider.notifier)
+                            .updatePosition(location);
 
                         // Start marker animation directly (bypass provider rebuild chain)
                         final newPos = LatLng(
@@ -612,7 +619,7 @@ class ManagerMapPage extends HookConsumerWidget {
           // Centrifugo callback (Effect 0) to avoid provider rebuild cascades.
 
           // Effect 3: Auto-center camera on focused driver
-          // - For focusOnce mode: center once then clear
+          // - For focused mode: center once (card + polyline persist)
           // - For following mode: continuously follow driver as they move
           useEffect(
             () {
@@ -658,10 +665,8 @@ class ManagerMapPage extends HookConsumerWidget {
                     ),
                   );
 
-                  // If focusOnce mode, clear focus after centering
-                  if (!isFollowing) {
-                    ref.read(focusedDriverProvider.notifier).clearFocus();
-                  }
+                  // In focused mode, keep focus (card + polyline persist)
+                  // In following mode, keep following (camera continues)
                 } catch (e) {
                   AppLogger.map('⚠️ Failed to center camera: $e');
                 } finally {
@@ -975,6 +980,112 @@ class ManagerMapPage extends HookConsumerWidget {
             ],
           );
 
+          // Effect 5: Polyline lifecycle — fetch OSRM route, trim, detect task changes
+          useEffect(
+            () {
+              if (focusedDriverId == null || !isFocusedOrFollowing || mapController.value == null) {
+                // Not focused — clear polyline (deferred to avoid build-phase mutation)
+                Future.microtask(() {
+                  ref.read(routePolylineProvider.notifier).clear();
+                  mapController.value?.clearPolylines();
+                });
+                return null;
+              }
+
+              AppLogger.map('🛤️ Effect 5: Starting polyline for $focusedDriverId');
+
+              bool cancelled = false;
+              final driverId = focusedDriverId;
+
+              // Initialize polyline for the focused driver (deferred to avoid build-phase mutation)
+              Future.microtask(() {
+                if (!cancelled) {
+                  ref.read(routePolylineProvider.notifier)
+                      .initializeForDriver(driverId);
+                }
+              });
+
+              // 3s timer: trim polyline based on driver's live position
+              final trimTimer = Timer.periodic(
+                const Duration(seconds: 3),
+                (_) {
+                  if (cancelled) return;
+                  final livePositions = ref.read(driverLivePositionsProvider);
+                  final driverLoc = livePositions[driverId];
+                  if (driverLoc != null) {
+                    ref.read(routePolylineProvider.notifier).updateDriverPosition(
+                      LatLng(
+                        latitude: driverLoc.latitude,
+                        longitude: driverLoc.longitude,
+                      ),
+                    );
+                  }
+                },
+              );
+
+              // 30s timer: check if the active task changed
+              final taskCheckTimer = Timer.periodic(
+                const Duration(seconds: 30),
+                (_) {
+                  if (cancelled) return;
+                  ref.read(routePolylineProvider.notifier)
+                      .checkForTaskChange(driverId);
+                },
+              );
+
+              return () {
+                AppLogger.map('🛤️ Effect 5: Cleaning up polyline');
+                cancelled = true;
+                trimTimer.cancel();
+                taskCheckTimer.cancel();
+                ref.read(routePolylineProvider.notifier).clear();
+                mapController.value?.clearPolylines();
+              };
+            },
+            [focusedDriverId, isFocusedOrFollowing, mapController.value],
+          );
+
+          // Effect 6: Draw polyline on map when visibleRoute changes
+          // Uses ref.listenManual to avoid full widget rebuilds
+          useEffect(
+            () {
+              if (mapController.value == null) return null;
+
+              final sub = ref.listenManual<RoutePolylineState>(
+                routePolylineProvider,
+                (prev, next) async {
+                  // Only redraw if visibleRoute actually changed
+                  if (prev?.visibleRoute == next.visibleRoute) return;
+
+                  try {
+                    await mapController.value!.clearPolylines();
+
+                    if (next.visibleRoute.length >= 2) {
+                      await mapController.value!.addPolylines([
+                        PolylineOptions(
+                          points: next.visibleRoute,
+                          strokeWidth: 6,
+                          strokeColor: AppColors.actionBlue,
+                          geodesic: true,
+                          zIndex: 500,
+                          clickable: false,
+                        ),
+                      ]);
+                    }
+                  } catch (e) {
+                    AppLogger.map('⚠️ Failed to draw polyline: $e');
+                  }
+                },
+              );
+
+              return sub.close;
+            },
+            [mapController.value],
+          );
+
+          // Read polyline state for the floating card
+          final polylineState = ref.watch(routePolylineProvider);
+
           return Stack(
             children: [
               // Standard Google Maps View (no navigation)
@@ -1003,8 +1114,10 @@ class ManagerMapPage extends HookConsumerWidget {
                 onCameraMoveStarted: (position, gesture) {
                   // gesture=true means user physically panned/pinched/rotated
                   if (gesture && isFollowing && !isProgrammaticMove.value) {
-                    AppLogger.map('🚨 User gesture detected — exiting follow mode');
-                    ref.read(focusedDriverProvider.notifier).stopFollowing();
+                    AppLogger.map('🚨 User gesture detected — dropping to focused mode');
+                    // Drop to focused mode (keeps card + polyline, stops auto-centering)
+                    ref.read(focusedDriverProvider.notifier)
+                        .setFocusedDriver(focusedDriverId!);
                   }
                 },
                 onMarkerClicked: (markerId) {
@@ -1045,8 +1158,18 @@ class ManagerMapPage extends HookConsumerWidget {
                     return;
                   }
 
-                  // It's a driver marker - ignore
-                  AppLogger.map('   → Driver marker, ignoring');
+                  // Check if it's a driver marker
+                  final driverEntry = driverMarkers.value.entries
+                      .where((e) => e.value.markerId == markerId)
+                      .firstOrNull;
+                  if (driverEntry != null) {
+                    AppLogger.map('🚛 Driver marker tapped: ${driverEntry.key}');
+                    AppLogger.map('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+                    ref.read(focusedDriverProvider.notifier).setFocusedDriver(driverEntry.key);
+                    return;
+                  }
+
+                  AppLogger.map('   → Unknown marker, ignoring');
                   AppLogger.map('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
                 },
               ),
@@ -1357,6 +1480,41 @@ class ManagerMapPage extends HookConsumerWidget {
                   },
                 ),
               ),
+
+              // Floating driver card — shown in focused mode (not following)
+              if (focusedDriverState.mode == FollowMode.focused && focusedDriverId != null)
+                Positioned(
+                  bottom: 100,
+                  left: 0,
+                  right: 0,
+                  child: Builder(
+                    builder: (context) {
+                      final focusedDriver = activeDrivers
+                          .where((d) => d.driverId == focusedDriverId)
+                          .firstOrNull;
+                      if (focusedDriver == null) return const SizedBox.shrink();
+
+                      return DriverFloatingCard(
+                        driver: focusedDriver,
+                        currentTask: polylineState.currentTask,
+                        totalTasks: polylineState.totalTasks,
+                        completedTasks: polylineState.completedTasks,
+                        onFollow: () {
+                          ref.read(focusedDriverProvider.notifier)
+                              .startFollowing(focusedDriverId);
+                        },
+                        onDetails: () {
+                          context.push(
+                            '/manager/driver-shift-detail/$focusedDriverId',
+                          );
+                        },
+                        onDismiss: () {
+                          ref.read(focusedDriverProvider.notifier).clearFocus();
+                        },
+                      );
+                    },
+                  ),
+                ),
             ],
           );
         },

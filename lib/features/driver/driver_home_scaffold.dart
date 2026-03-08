@@ -12,6 +12,7 @@ import 'package:ropacalapp/features/manager/manager_shifts_tab.dart';
 import 'package:ropacalapp/core/theme/app_colors.dart';
 import 'package:ropacalapp/providers/auth_provider.dart';
 import 'package:ropacalapp/providers/focused_driver_provider.dart';
+import 'package:ropacalapp/providers/focused_potential_location_provider.dart';
 import 'package:ropacalapp/core/enums/user_role.dart';
 
 class DriverHomeScaffold extends HookConsumerWidget {
@@ -22,15 +23,23 @@ class DriverHomeScaffold extends HookConsumerWidget {
     final currentIndex = useState(0);
     final userAsync = ref.watch(authNotifierProvider);
     final focusedDriverState = ref.watch(focusedDriverProvider);
+    final focusedLocationState = ref.watch(focusedPotentialLocationProvider);
 
     // Auto-switch to map tab when a driver is focused or followed
     useEffect(() {
       if (focusedDriverState.driverId != null) {
-        // Switch to map tab (index 0)
         currentIndex.value = 0;
       }
       return null;
     }, [focusedDriverState.driverId]);
+
+    // Auto-switch to map tab when a potential location is focused (e.g. "Locate on Map")
+    useEffect(() {
+      if (focusedLocationState.locationId != null) {
+        currentIndex.value = 0;
+      }
+      return null;
+    }, [focusedLocationState.locationId]);
 
     return userAsync.when(
       data: (user) {

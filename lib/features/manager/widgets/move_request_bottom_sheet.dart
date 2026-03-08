@@ -212,49 +212,16 @@ class MoveRequestBottomSheet extends HookConsumerWidget {
                 const SizedBox(height: 12),
               ],
 
-              // Location info
-              _buildSection(
-                icon: Icons.location_on,
-                title: 'Current Location',
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      currentStreet,
-                      style: const TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                    if (city.isNotEmpty || zip.isNotEmpty)
-                      Text(
-                        [city, zip].where((s) => s.isNotEmpty).join(', '),
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: Colors.grey.shade600,
-                        ),
-                      ),
-                  ],
-                ),
+              // Location flow card
+              _buildLocationFlow(
+                moveType: moveType,
+                currentStreet: currentStreet,
+                city: city,
+                zip: zip,
+                newStreet: newStreet,
+                newCity: newCity,
+                newAddress: newAddress,
               ),
-
-              // Destination (relocation only)
-              if (moveType == 'relocation' &&
-                  (newAddress != null || newStreet != null)) ...[
-                const SizedBox(height: 8),
-                _buildSection(
-                  icon: Icons.flag_outlined,
-                  title: 'Destination',
-                  child: Text(
-                    newStreet ?? newAddress ?? '',
-                    style: const TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                  iconColor: Colors.blue.shade600,
-                ),
-              ],
 
               const SizedBox(height: 12),
 
@@ -516,14 +483,70 @@ class MoveRequestBottomSheet extends HookConsumerWidget {
     );
   }
 
-  Widget _buildSection({
-    required IconData icon,
-    required String title,
-    required Widget child,
-    Color? iconColor,
+  Widget _buildLocationFlow({
+    required String moveType,
+    required String currentStreet,
+    required String city,
+    required String zip,
+    String? newStreet,
+    String? newCity,
+    String? newAddress,
   }) {
+    // Determine labels and addresses based on move type
+    final String fromLabel;
+    final String fromAddress;
+    final String fromSub;
+    final IconData fromIcon;
+    final Color fromColor;
+
+    final String toLabel;
+    final String toAddress;
+    final String toSub;
+    final IconData toIcon;
+    final Color toColor;
+
+    switch (moveType) {
+      case 'store':
+        fromLabel = 'Pickup';
+        fromAddress = currentStreet;
+        fromSub = [city, zip].where((s) => s.isNotEmpty).join(', ');
+        fromIcon = Icons.location_on;
+        fromColor = AppColors.primaryGreen;
+        toLabel = 'To Warehouse';
+        toAddress = newStreet ?? newAddress ?? 'Warehouse';
+        toSub = newCity ?? '';
+        toIcon = Icons.warehouse;
+        toColor = const Color(0xFF9C27B0);
+        break;
+      case 'redeployment':
+        fromLabel = 'From Storage';
+        fromAddress = currentStreet;
+        fromSub = [city, zip].where((s) => s.isNotEmpty).join(', ');
+        fromIcon = Icons.warehouse;
+        fromColor = const Color(0xFF9C27B0);
+        toLabel = 'Deploy To';
+        toAddress = newStreet ?? newAddress ?? '';
+        toSub = newCity ?? '';
+        toIcon = Icons.location_on;
+        toColor = Colors.blue.shade600;
+        break;
+      default: // relocation
+        fromLabel = 'Current';
+        fromAddress = currentStreet;
+        fromSub = [city, zip].where((s) => s.isNotEmpty).join(', ');
+        fromIcon = Icons.location_on;
+        fromColor = AppColors.primaryGreen;
+        toLabel = 'New Location';
+        toAddress = newStreet ?? newAddress ?? '';
+        toSub = newCity ?? '';
+        toIcon = Icons.flag_rounded;
+        toColor = Colors.blue.shade600;
+    }
+
+    final bool hasDestination = toAddress.isNotEmpty;
+
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: Colors.grey.shade50,
         borderRadius: BorderRadius.circular(12),
@@ -531,9 +554,104 @@ class MoveRequestBottomSheet extends HookConsumerWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, color: iconColor ?? Colors.grey.shade600, size: 18),
-          const SizedBox(width: 8),
-          Expanded(child: child),
+          // Left: icon timeline
+          Column(
+            children: [
+              Container(
+                width: 32,
+                height: 32,
+                decoration: BoxDecoration(
+                  color: fromColor.withValues(alpha: 0.12),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(fromIcon, size: 16, color: fromColor),
+              ),
+              if (hasDestination) ...[
+                Container(
+                  width: 2,
+                  height: 24,
+                  margin: const EdgeInsets.symmetric(vertical: 2),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade300,
+                    borderRadius: BorderRadius.circular(1),
+                  ),
+                ),
+                Container(
+                  width: 32,
+                  height: 32,
+                  decoration: BoxDecoration(
+                    color: toColor.withValues(alpha: 0.12),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(toIcon, size: 16, color: toColor),
+                ),
+              ],
+            ],
+          ),
+          const SizedBox(width: 12),
+          // Right: labels + addresses
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // From section
+                Text(
+                  fromLabel,
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    color: fromColor,
+                    letterSpacing: 0.5,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  fromAddress,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                if (fromSub.isNotEmpty)
+                  Text(
+                    fromSub,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.grey.shade500,
+                    ),
+                  ),
+                if (hasDestination) ...[
+                  const SizedBox(height: 14),
+                  // To section
+                  Text(
+                    toLabel,
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      color: toColor,
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    toAddress,
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  if (toSub.isNotEmpty)
+                    Text(
+                      toSub,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.grey.shade500,
+                      ),
+                    ),
+                ],
+              ],
+            ),
+          ),
         ],
       ),
     );

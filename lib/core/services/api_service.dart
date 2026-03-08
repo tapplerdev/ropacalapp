@@ -400,20 +400,21 @@ class ApiService {
     }
   }
 
-  Future<List<PotentialLocation>> getPotentialLocations() async {
+  Future<List<PotentialLocation>> getPotentialLocations({
+    String status = 'active',
+  }) async {
     try {
       AppLogger.api(
-        '📍 getPotentialLocations: Fetching active locations only',
+        '📍 getPotentialLocations: Fetching $status locations',
       );
 
-      // Fetch only active (non-converted) locations
       final response = await _dio.get(
         ApiConstants.potentialLocationsEndpoint,
-        queryParameters: {'status': 'active'},
+        queryParameters: {'status': status},
       );
 
       AppLogger.api(
-        '📍 getPotentialLocations: Got ${(response.data as List).length} active locations',
+        '📍 getPotentialLocations: Got ${(response.data as List).length} $status locations',
       );
 
       final List<dynamic> data = response.data as List<dynamic>;

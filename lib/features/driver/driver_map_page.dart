@@ -404,12 +404,13 @@ class DriverMapPage extends HookConsumerWidget {
                   _DynamicLocationButton(mapController: mapController.value),
                   // Potential Location button (above location button)
                   Positioned(
-                    bottom: 500,
+                    bottom: 156,
                     right: 16,
                     child: CircularMapButton(
-                      icon: Icons.add_location_alt_outlined,
-                      iconColor: AppColors.primaryGreen,
-                      onTap: () => _showPotentialLocationMenu(context, ref),
+                      icon: Icons.add_location_alt,
+                      backgroundColor: AppColors.primaryGreen,
+                      iconColor: Colors.white,
+                      onTap: () => context.push('/location-picker'),
                     ),
                   ),
                 ],
@@ -732,6 +733,70 @@ class DriverMapPage extends HookConsumerWidget {
                           Icons.arrow_forward_ios_rounded,
                           size: 18,
                           color: Colors.blue[700],
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+
+            // Pick on Map Option
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Material(
+                color: Colors.orange[50],
+                borderRadius: BorderRadius.circular(16),
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(16),
+                  onTap: () {
+                    Navigator.pop(context);
+                    context.push('/location-picker');
+                  },
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Colors.orange[100],
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Icon(
+                            Icons.map_rounded,
+                            color: Colors.orange[700],
+                            size: 24,
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        const Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Pick on Map',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              SizedBox(height: 4),
+                              Text(
+                                'Place a pin on the map',
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  color: Colors.black54,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        Icon(
+                          Icons.arrow_forward_ios_rounded,
+                          size: 18,
+                          color: Colors.orange[700],
                         ),
                       ],
                     ),
@@ -1146,12 +1211,12 @@ class _ShiftInactiveOverlay extends ConsumerWidget {
     }
 
     return Positioned(
-      bottom: 90, // Position very close to bottom tab navigator
-      left: 0,
-      right: 0,
+      top: 0,
+      left: 74, // Right of notification bell (16 + 42 + 16)
+      right: 16,
       child: AnimatedShiftTransitionWithSlide(
-        useSlideAnimation: true, // Use slide-up animation for bottom content
-        hasActiveShift: false, // Lyft-style modal handles shift acceptance now
+        useSlideAnimation: true,
+        hasActiveShift: false,
         emptyState: NoShiftEmptyState(
           onRefresh: () async {
             // Refresh shift status from backend
@@ -1165,7 +1230,6 @@ class _ShiftInactiveOverlay extends ConsumerWidget {
               );
             }
           },
-          // TODO: Get next shift time from backend if available
           nextShiftTime: null,
         ),
         activeRouteCard: const SizedBox.shrink(),
@@ -1251,12 +1315,9 @@ class _DynamicLocationButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Fixed position that works for all shift states:
-    // - Above shift ready modal (45% screen height = ~360px + 80px spacing = 440px)
-    // - Above no shift card (~150px tall at bottom: 90 = 240px total, button at 440px is well above)
-    // - Above active shift card (~310px at bottom)
+    // Match manager map position: bottom-right, above bottom nav
     return Positioned(
-      bottom: 440.0, // Fixed position - always visible above any bottom sheet
+      bottom: 100,
       right: 16,
       child: MapLocationButton(
         mapController: mapController,

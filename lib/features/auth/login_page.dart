@@ -2,10 +2,16 @@ import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:go_router/go_router.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:ropacalapp/providers/auth_provider.dart';
 import 'package:ropacalapp/providers/shift_provider.dart';
+import 'package:ropacalapp/providers/bins_provider.dart';
+import 'package:ropacalapp/providers/drivers_provider.dart';
+import 'package:ropacalapp/providers/potential_locations_list_provider.dart';
+import 'package:ropacalapp/providers/move_requests_list_provider.dart';
+import 'package:ropacalapp/providers/route_update_notification_provider.dart';
+import 'package:ropacalapp/providers/bin_marker_cache_provider.dart';
+import 'package:ropacalapp/providers/centrifugo_provider.dart';
 import 'package:ropacalapp/core/services/location_tracking_service.dart';
 import 'package:ropacalapp/features/driver/widgets/dialogs/location_permission_dialog.dart';
 import 'package:ropacalapp/models/user.dart';
@@ -101,7 +107,51 @@ class LoginPage extends HookConsumerWidget {
           AppLogger.general('✅ Current shift fetched successfully');
         }
       } else {
-        AppLogger.general('👔 Manager logged in - skipping shift fetch (managers don\'t have shifts)');
+        AppLogger.general('👔 Manager logged in - pre-fetching data...');
+
+        // Invalidate stale session-data providers to ensure fresh data
+        ref.invalidate(driversNotifierProvider);
+        ref.invalidate(binsListProvider);
+        ref.invalidate(potentialLocationsListNotifierProvider);
+        ref.invalidate(moveRequestsListNotifierProvider);
+        ref.invalidate(routeUpdateNotificationNotifierProvider);
+        ref.invalidate(binMarkerCacheNotifierProvider);
+        AppLogger.general('🗑️  Invalidated stale session-data providers');
+
+        // Wait for Centrifugo connection (CentrifugoManager auto-connects on auth change)
+        final centrifugoStopwatch = Stopwatch()..start();
+        const centrifugoTimeout = Duration(seconds: 5);
+        while (centrifugoStopwatch.elapsed < centrifugoTimeout) {
+          if (ref.read(centrifugoManagerProvider.notifier).isConnected) {
+            AppLogger.general('✅ Centrifugo connected in ${centrifugoStopwatch.elapsedMilliseconds}ms');
+            break;
+          }
+          await Future.delayed(const Duration(milliseconds: 100));
+        }
+        if (!ref.read(centrifugoManagerProvider.notifier).isConnected) {
+          AppLogger.general('⚠️ Centrifugo not connected after ${centrifugoTimeout.inSeconds}s, continuing anyway');
+        }
+
+        // Kick off all fetches
+        ref.read(binsListProvider);
+        ref.read(driversNotifierProvider);
+        ref.read(potentialLocationsListNotifierProvider);
+
+        // Wait for bins and drivers to load (required for map)
+        final dataStopwatch = Stopwatch()..start();
+        const dataTimeout = Duration(seconds: 10);
+
+        while (dataStopwatch.elapsed < dataTimeout) {
+          final binsReady = ref.read(binsListProvider).hasValue;
+          final driversReady = ref.read(driversNotifierProvider).hasValue;
+
+          if (binsReady && driversReady) {
+            AppLogger.general('✅ Manager data loaded in ${dataStopwatch.elapsedMilliseconds}ms');
+            break;
+          }
+
+          await Future.delayed(const Duration(milliseconds: 100));
+        }
       }
 
       // Navigate directly to home
@@ -122,13 +172,23 @@ class LoginPage extends HookConsumerWidget {
                 mainAxisAlignment: MainAxisAlignment.center,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  SvgPicture.asset(
-                    'assets/images/binly_logo.svg',
-                    height: 280,
-                    width: 280,
-                    fit: BoxFit.contain,
+                  Center(
+                    child: ShaderMask(
+                      shaderCallback: (bounds) => const LinearGradient(
+                        colors: [Color(0xFF5E9646), Color(0xFF4AA0B5)],
+                      ).createShader(bounds),
+                      blendMode: BlendMode.srcIn,
+                      child: const Text(
+                        'BINLY',
+                        style: TextStyle(
+                          fontSize: 48,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: 1.5,
+                        ),
+                      ),
+                    ),
                   ),
-                  const SizedBox(height: 4),
+                  const SizedBox(height: 40),
                   TextField(
                     controller: emailController,
                     decoration: const InputDecoration(

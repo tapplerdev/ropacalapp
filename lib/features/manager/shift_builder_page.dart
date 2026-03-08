@@ -3,9 +3,16 @@ import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:ropacalapp/core/theme/app_colors.dart';
 import 'package:ropacalapp/core/enums/stop_type.dart';
+import 'package:ropacalapp/models/route.dart';
 import 'package:ropacalapp/models/route_task.dart';
 import 'package:ropacalapp/core/utils/warehouse_stop_calculator.dart';
+import 'package:ropacalapp/providers/drivers_provider.dart';
 import 'package:ropacalapp/providers/warehouse_provider.dart';
+import 'package:ropacalapp/models/potential_location.dart';
+import 'package:ropacalapp/features/manager/widgets/driver_picker_sheet.dart';
+import 'package:ropacalapp/features/manager/widgets/route_picker_sheet.dart';
+import 'package:ropacalapp/features/manager/widgets/potential_location_picker_sheet.dart';
+import 'package:ropacalapp/features/manager/widgets/move_request_picker_sheet.dart';
 
 /// Manager interface for building agnostic shifts with tasks
 class ShiftBuilderPage extends HookConsumerWidget {
@@ -14,8 +21,12 @@ class ShiftBuilderPage extends HookConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final tasks = useState<List<RouteTask>>([]);
-    final truckCapacity = useState<int>(6);
-    final selectedDriver = useState<String?>(null);
+    final truckCapacity = useState<int>(0);
+    final truckCapacityController = useTextEditingController(text: '0');
+    final selectedDriverId = useState<String?>(null);
+    final selectedDriverName = useState<String?>(null);
+    final lockRouteOrder = useState<bool>(false);
+    final isSaving = useState<bool>(false);
 
     // Watch warehouse location from backend
     final warehouseAsync = ref.watch(warehouseLocationNotifierProvider);
@@ -29,340 +40,718 @@ class ShiftBuilderPage extends HookConsumerWidget {
       [tasks.value, truckCapacity.value],
     );
 
-    return Scaffold(
-      backgroundColor: Colors.white,
+    // Determine if Create Shift button should be enabled
+    final canCreate = selectedDriverId.value != null &&
+        tasks.value.length >= 2 &&
+        truckCapacity.value > 0 &&
+        !isSaving.value;
+
+    return GestureDetector(
+      onTap: () => FocusScope.of(context).unfocus(),
+      child: Scaffold(
+      backgroundColor: const Color(0xFFF5F5F8),
       appBar: AppBar(
         title: const Text('Build New Shift'),
         backgroundColor: Colors.white,
         surfaceTintColor: Colors.transparent,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.save),
-            onPressed: tasks.value.isEmpty
-                ? null
-                : () {
-                    // TODO: Save shift
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Shift saved successfully!'),
-                        backgroundColor: AppColors.primaryGreen,
-                      ),
-                    );
-                  },
-          ),
-        ],
       ),
       body: Column(
         children: [
           // Shift Configuration
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: Colors.grey.shade50,
-              border: Border(
-                bottom: BorderSide(color: Colors.grey.shade200),
-              ),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Truck Capacity Input
-                Row(
-                  children: [
-                    Expanded(
+          Expanded(
+            child: SingleChildScrollView(
+              child: Column(
+                children: [
+                  const SizedBox(height: 16),
+
+                  // Driver Selection Card
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: _buildDriverSelector(
+                      context,
+                      selectedDriverName: selectedDriverName.value,
+                      onTap: () => _showDriverPicker(
+                        context,
+                        selectedDriverId: selectedDriverId,
+                        selectedDriverName: selectedDriverName,
+                      ),
+                    ),
+                  ),
+
+                  const SizedBox(height: 12),
+
+                  // Truck Capacity & Lock Route Order Card
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(14),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.06),
+                            blurRadius: 12,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
                       child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
-                            'Truck Bin Capacity',
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                              color: Colors.grey.shade700,
+                          // Truck Capacity
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
+                            child: Row(
+                              children: [
+                                Container(
+                                  width: 36,
+                                  height: 36,
+                                  decoration: BoxDecoration(
+                                    color: Colors.blue.shade50,
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                  child: Icon(
+                                    Icons.local_shipping_outlined,
+                                    size: 20,
+                                    color: Colors.blue.shade600,
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      const Text(
+                                        'Truck Bin Capacity',
+                                        style: TextStyle(
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                      Text(
+                                        'How many bins can the truck carry?',
+                                        style: TextStyle(
+                                          fontSize: 11,
+                                          color: Colors.grey.shade500,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Container(
+                                  width: 64,
+                                  height: 40,
+                                  decoration: BoxDecoration(
+                                    color: Colors.grey.shade50,
+                                    borderRadius: BorderRadius.circular(10),
+                                    border: Border.all(
+                                      color: Colors.grey.shade200,
+                                    ),
+                                  ),
+                                  alignment: Alignment.center,
+                                  child: TextField(
+                                    controller: truckCapacityController,
+                                    keyboardType: TextInputType.number,
+                                    textAlign: TextAlign.center,
+                                    textAlignVertical: TextAlignVertical.center,
+                                    style: const TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                    decoration: const InputDecoration(
+                                      border: InputBorder.none,
+                                      contentPadding: EdgeInsets.zero,
+                                      isDense: true,
+                                    ),
+                                    onChanged: (value) {
+                                      if (value.isEmpty) {
+                                        truckCapacity.value = 0;
+                                        return;
+                                      }
+                                      final capacity = int.tryParse(value);
+                                      truckCapacity.value =
+                                          (capacity != null && capacity > 0)
+                                              ? capacity
+                                              : 0;
+                                    },
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
-                          const SizedBox(height: 4),
-                          Text(
-                            'Required - How many bins can the truck carry?',
-                            style: TextStyle(
-                              fontSize: 11,
-                              color: Colors.grey.shade600,
+
+                          Divider(
+                            height: 1,
+                            color: Colors.grey.shade100,
+                            indent: 16,
+                            endIndent: 16,
+                          ),
+
+                          // Lock Route Order
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(16, 12, 8, 12),
+                            child: Row(
+                              children: [
+                                Container(
+                                  width: 36,
+                                  height: 36,
+                                  decoration: BoxDecoration(
+                                    color: Colors.orange.shade50,
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                  child: Icon(
+                                    Icons.lock_outline,
+                                    size: 20,
+                                    color: Colors.orange.shade600,
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      const Text(
+                                        'Lock Route Order',
+                                        style: TextStyle(
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                      Text(
+                                        'Prevent reordering during optimization',
+                                        style: TextStyle(
+                                          fontSize: 11,
+                                          color: Colors.grey.shade500,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                Switch.adaptive(
+                                  value: lockRouteOrder.value,
+                                  onChanged: (v) => lockRouteOrder.value = v,
+                                  activeColor: AppColors.primaryGreen,
+                                ),
+                              ],
                             ),
                           ),
                         ],
                       ),
                     ),
-                    const SizedBox(width: 16),
-                    SizedBox(
-                      width: 80,
-                      child: TextField(
-                        keyboardType: TextInputType.number,
-                        textAlign: TextAlign.center,
-                        decoration: InputDecoration(
-                          hintText: '6',
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          contentPadding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 12,
-                          ),
-                        ),
-                        onChanged: (value) {
-                          final capacity = int.tryParse(value);
-                          if (capacity != null && capacity > 0) {
-                            truckCapacity.value = capacity;
-                          }
-                        },
-                      ),
-                    ),
-                  ],
-                ),
-
-                const SizedBox(height: 16),
-
-                // System Analysis
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: Colors.blue.shade50,
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: Colors.blue.shade200),
                   ),
-                  child: Row(
-                    children: [
-                      Icon(
-                        Icons.analytics_outlined,
-                        color: Colors.blue.shade700,
-                        size: 20,
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+
+                  const SizedBox(height: 12),
+
+                  // Shift Analysis Card
+                  if (tasks.value.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: Container(
+                        padding: const EdgeInsets.all(14),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(14),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.06),
+                              blurRadius: 12,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                        child: Row(
                           children: [
-                            Text(
-                              'Shift Analysis',
-                              style: TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w600,
-                                color: Colors.blue.shade900,
+                            Container(
+                              width: 36,
+                              height: 36,
+                              decoration: BoxDecoration(
+                                color: Colors.blue.shade50,
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: Icon(
+                                Icons.analytics_outlined,
+                                size: 20,
+                                color: Colors.blue.shade600,
                               ),
                             ),
-                            const SizedBox(height: 4),
-                            Text(
-                              analysis.summary,
-                              style: TextStyle(
-                                fontSize: 11,
-                                color: Colors.blue.shade800,
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Shift Analysis',
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w600,
+                                      color: Colors.blue.shade900,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    analysis.summary,
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: Colors.blue.shade700,
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
                           ],
                         ),
                       ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
+                    ),
 
-          // Quick Add Buttons
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              border: Border(
-                bottom: BorderSide(color: Colors.grey.shade200),
-              ),
-            ),
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                children: [
-                  _QuickAddButton(
-                    icon: Icons.route,
-                    label: 'Add Route',
-                    color: Colors.blue,
-                    onTap: () => _showAddRouteDialog(context, tasks),
-                  ),
-                  const SizedBox(width: 12),
-                  _QuickAddButton(
-                    icon: Icons.delete_outline,
-                    label: 'Add Collection',
-                    color: Colors.green,
-                    onTap: () => _showAddCollectionDialog(context, tasks),
-                  ),
-                  const SizedBox(width: 12),
-                  _QuickAddButton(
-                    icon: Icons.add_location,
-                    label: 'Add Placement',
-                    color: Colors.orange,
-                    onTap: () => _showAddPlacementDialog(context, tasks),
-                  ),
-                  const SizedBox(width: 12),
-                  _QuickAddButton(
-                    icon: Icons.move_up,
-                    label: 'Add Move Request',
-                    color: Colors.purple,
-                    onTap: () => _showAddMoveRequestDialog(context, tasks),
-                  ),
-                  const SizedBox(width: 12),
-                  _QuickAddButton(
-                    icon: Icons.warehouse,
-                    label: 'Warehouse Stop',
-                    color: Colors.grey.shade700,
-                    onTap: warehouseAsync.when(
-                      data: (warehouse) =>
-                          () => _addWarehouseStop(context, tasks, warehouse),
-                      loading: () => null,
-                      error: (_, __) => null,
+                  const SizedBox(height: 16),
+
+                  // Quick Add Buttons
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: Row(
+                        children: [
+                          _QuickAddButton(
+                            icon: Icons.route,
+                            label: 'Add Route',
+                            color: Colors.blue,
+                            onTap: () => _showAddRouteSheet(context, tasks),
+                          ),
+                          const SizedBox(width: 10),
+                          _QuickAddButton(
+                            icon: Icons.delete_outline,
+                            label: 'Add Collection',
+                            color: Colors.green,
+                            onTap: () =>
+                                _showAddCollectionDialog(context, tasks),
+                          ),
+                          const SizedBox(width: 10),
+                          _QuickAddButton(
+                            icon: Icons.add_location,
+                            label: 'Add Placement',
+                            color: Colors.orange,
+                            onTap: () =>
+                                _showAddPlacementDialog(context, tasks),
+                          ),
+                          const SizedBox(width: 10),
+                          _QuickAddButton(
+                            icon: Icons.move_up,
+                            label: 'Move Request',
+                            color: Colors.purple,
+                            onTap: () =>
+                                _showAddMoveRequestDialog(context, tasks),
+                          ),
+                          const SizedBox(width: 10),
+                          _QuickAddButton(
+                            icon: Icons.warehouse,
+                            label: 'Warehouse',
+                            color: Colors.grey.shade700,
+                            onTap: warehouseAsync.when(
+                              data: (warehouse) => () =>
+                                  _addWarehouseStop(context, tasks, warehouse),
+                              loading: () => null,
+                              error: (_, __) => null,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
+
+                  const SizedBox(height: 12),
+
+                  // Task List
+                  if (tasks.value.isEmpty)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 48),
+                      child: Column(
+                        children: [
+                          Icon(
+                            Icons.playlist_add,
+                            size: 56,
+                            color: Colors.grey.shade300,
+                          ),
+                          const SizedBox(height: 12),
+                          Text(
+                            'No tasks added yet',
+                            style: TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w500,
+                              color: Colors.grey.shade500,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            'Tap "Add Route" to import a route template',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.grey.shade400,
+                            ),
+                          ),
+                        ],
+                      ),
+                    )
+                  else
+                    ListView.builder(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      itemCount: tasks.value.length,
+                      itemBuilder: (context, index) {
+                        final task = tasks.value[index];
+                        return _TaskCard(
+                          key: ValueKey(task.id),
+                          task: task,
+                          index: index,
+                          onDelete: () {
+                            final items = List<RouteTask>.from(tasks.value);
+                            items.removeAt(index);
+                            tasks.value = items;
+                          },
+                        );
+                      },
+                    ),
+
+                  // Bottom spacing for button
+                  const SizedBox(height: 100),
                 ],
               ),
             ),
           ),
 
-          // Task List
-          Expanded(
-            child: tasks.value.isEmpty
-                ? Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          Icons.playlist_add,
-                          size: 64,
-                          color: Colors.grey.shade400,
-                        ),
-                        const SizedBox(height: 16),
-                        Text(
-                          'No tasks added yet',
-                          style: TextStyle(
-                            fontSize: 16,
-                            color: Colors.grey.shade600,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          'Use the buttons above to add tasks',
-                          style: TextStyle(
-                            fontSize: 13,
-                            color: Colors.grey.shade500,
-                          ),
-                        ),
-                      ],
-                    ),
-                  )
-                : ReorderableListView.builder(
-                    padding: const EdgeInsets.all(16),
-                    itemCount: tasks.value.length,
-                    onReorder: (oldIndex, newIndex) {
-                      final items = List<RouteTask>.from(tasks.value);
-                      if (newIndex > oldIndex) {
-                        newIndex -= 1;
-                      }
-                      final item = items.removeAt(oldIndex);
-                      items.insert(newIndex, item);
-                      tasks.value = items;
-                    },
-                    itemBuilder: (context, index) {
-                      final task = tasks.value[index];
-                      return _TaskCard(
-                        key: ValueKey(task.id),
-                        task: task,
-                        index: index,
-                        onDelete: () {
-                          final items = List<RouteTask>.from(tasks.value);
-                          items.removeAt(index);
-                          tasks.value = items;
-                        },
-                      );
-                    },
-                  ),
-          ),
-
-          // Auto-Calculate Warehouse Stops Button
-          if (tasks.value.isNotEmpty)
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                border: Border(
-                  top: BorderSide(color: Colors.grey.shade200),
+          // Bottom: Create Shift Button
+          Container(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.08),
+                  blurRadius: 10,
+                  offset: const Offset(0, -2),
                 ),
-              ),
-              child: SafeArea(
-                top: false,
-                child: ElevatedButton.icon(
-                  onPressed: warehouseAsync.when(
-                    data: (warehouse) => () {
-                      // Auto-insert warehouse stops using backend warehouse location
-                      final withWarehouse =
-                          WarehouseStopCalculator.insertWarehouseStops(
-                        tasks: tasks.value,
-                        truckBinCapacity: truckCapacity.value,
-                        warehouseLocation: warehouse,
-                        shiftId: 'temp_shift_id',
-                      );
-                      tasks.value = withWarehouse;
-
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text(
-                            'Added ${analysis.totalWarehouseStops} warehouse stops',
-                          ),
-                          backgroundColor: AppColors.primaryGreen,
+              ],
+            ),
+            child: SafeArea(
+              top: false,
+              child: ElevatedButton.icon(
+                onPressed: canCreate
+                    ? () => _saveShift(
+                          context,
+                          ref,
+                          tasks: tasks,
+                          driverId: selectedDriverId.value,
+                          driverName: selectedDriverName.value,
+                          truckCapacity: truckCapacity.value,
+                          lockRouteOrder: lockRouteOrder.value,
+                          isSaving: isSaving,
+                        )
+                    : null,
+                icon: isSaving.value
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
                         ),
-                      );
-                    },
-                    loading: () => null,
-                    error: (_, __) => null,
+                      )
+                    : const Icon(Icons.check_circle),
+                label: Text(
+                  isSaving.value ? 'Creating Shift...' : 'Create Shift',
+                ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primaryGreen,
+                  foregroundColor: Colors.white,
+                  disabledBackgroundColor: Colors.grey.shade300,
+                  disabledForegroundColor: Colors.grey.shade500,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  minimumSize: const Size(double.infinity, 50),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
                   ),
-                  icon: const Icon(Icons.auto_fix_high),
-                  label: const Text('Auto-Insert Warehouse Stops'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.primaryGreen,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    minimumSize: const Size(double.infinity, 48),
-                  ),
+                  elevation: 0,
                 ),
               ),
             ),
+          ),
         ],
+      ),
+    ),
+    );
+  }
+
+  // ═══════════════════════════════════════════════════════════════
+  // Driver Selection
+  // ═══════════════════════════════════════════════════════════════
+
+  Widget _buildDriverSelector(
+    BuildContext context, {
+    required String? selectedDriverName,
+    required VoidCallback onTap,
+  }) {
+    final isSelected = selectedDriverName != null;
+    return Material(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(14),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(14),
+        child: Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color: isSelected
+                  ? AppColors.primaryGreen.withValues(alpha: 0.4)
+                  : Colors.transparent,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.06),
+                blurRadius: 12,
+                offset: const Offset(0, 2),
+              ),
+            ],
+            color: Colors.white,
+          ),
+          child: Row(
+            children: [
+              CircleAvatar(
+                radius: 20,
+                backgroundColor: isSelected
+                    ? AppColors.primaryGreen.withValues(alpha: 0.12)
+                    : Colors.grey.shade100,
+                child: Icon(
+                  isSelected ? Icons.person : Icons.person_add_alt_1,
+                  size: 22,
+                  color: isSelected
+                      ? AppColors.primaryGreen
+                      : Colors.grey.shade400,
+                ),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      isSelected ? 'Driver' : 'Select Driver',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w500,
+                        color: Colors.grey.shade500,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      isSelected
+                          ? selectedDriverName
+                          : 'Required - Tap to choose',
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight:
+                            isSelected ? FontWeight.w600 : FontWeight.w400,
+                        color: isSelected
+                            ? Colors.black87
+                            : Colors.grey.shade400,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(
+                Icons.chevron_right,
+                color: Colors.grey.shade300,
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
 
-  void _showAddRouteDialog(
+  void _showDriverPicker(
+    BuildContext context, {
+    required ValueNotifier<String?> selectedDriverId,
+    required ValueNotifier<String?> selectedDriverName,
+  }) async {
+    final result = await showModalBottomSheet<Map<String, String>>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => const DriverPickerSheet(),
+    );
+
+    if (result != null) {
+      selectedDriverId.value = result['id'];
+      selectedDriverName.value = result['name'];
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════════
+  // Route Import
+  // ═══════════════════════════════════════════════════════════════
+
+  void _showAddRouteSheet(
     BuildContext context,
     ValueNotifier<List<RouteTask>> tasks,
-  ) {
-    showDialog(
+  ) async {
+    final route = await showModalBottomSheet<RouteTemplate>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Add Route'),
-        content: const Text(
-          'Select an existing route to import all its bins as collection tasks.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () {
-              // TODO: Show route picker
-              Navigator.pop(context);
-            },
-            child: const Text('Select Route'),
-          ),
-        ],
-      ),
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => const RoutePickerSheet(),
     );
+
+    if (route == null) return;
+
+    // Convert route bins to collection tasks
+    final newTasks = route.bins.map((bin) {
+      return RouteTask(
+        id: 'temp_${bin.id}',
+        shiftId: 'temp',
+        sequenceOrder: bin.sequenceOrder,
+        taskType: StopType.collection,
+        latitude: bin.latitude ?? 0,
+        longitude: bin.longitude ?? 0,
+        address: bin.address,
+        binId: bin.id,
+        binNumber: bin.binNumber,
+        fillPercentage: bin.fillPercentage,
+        routeId: route.id,
+        createdAt: DateTime.now().millisecondsSinceEpoch ~/ 1000,
+      );
+    }).toList();
+
+    // Sort by sequence order
+    newTasks.sort((a, b) => a.sequenceOrder.compareTo(b.sequenceOrder));
+
+    // Append to existing tasks
+    tasks.value = [...tasks.value, ...newTasks];
+
   }
+
+  // ═══════════════════════════════════════════════════════════════
+  // Save Shift
+  // ═══════════════════════════════════════════════════════════════
+
+  Future<void> _saveShift(
+    BuildContext context,
+    WidgetRef ref, {
+    required ValueNotifier<List<RouteTask>> tasks,
+    required String? driverId,
+    required String? driverName,
+    required int truckCapacity,
+    required bool lockRouteOrder,
+    required ValueNotifier<bool> isSaving,
+  }) async {
+    // Get warehouse location
+    final warehouseAsync = ref.read(warehouseLocationNotifierProvider);
+    final warehouse = warehouseAsync.valueOrNull;
+    if (warehouse == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Warehouse location not loaded yet'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    isSaving.value = true;
+
+    try {
+      final managerService = ref.read(managerServiceProvider);
+
+      // Build tasks payload — filter out warehouse_stop tasks (backend auto-inserts them)
+      final taskPayload = tasks.value
+          .where((t) => t.taskType != StopType.warehouseStop)
+          .map((t) {
+        final taskMap = <String, dynamic>{
+          'task_type': t.taskType.name,
+          'latitude': t.latitude,
+          'longitude': t.longitude,
+          'address': t.address ?? '',
+        };
+
+        // Collection fields
+        if (t.binId != null) taskMap['bin_id'] = t.binId;
+        if (t.binNumber != null) taskMap['bin_number'] = t.binNumber;
+        if (t.fillPercentage != null) {
+          taskMap['fill_percentage'] = t.fillPercentage;
+        }
+
+        // Placement fields
+        if (t.potentialLocationId != null) {
+          taskMap['potential_location_id'] = t.potentialLocationId;
+        }
+        if (t.newBinNumber != null) {
+          taskMap['new_bin_number'] = t.newBinNumber;
+        }
+
+        // Move request fields
+        if (t.moveRequestId != null) {
+          taskMap['move_request_id'] = t.moveRequestId;
+        }
+        if (t.destinationLatitude != null) {
+          taskMap['destination_latitude'] = t.destinationLatitude;
+        }
+        if (t.destinationLongitude != null) {
+          taskMap['destination_longitude'] = t.destinationLongitude;
+        }
+        if (t.destinationAddress != null) {
+          taskMap['destination_address'] = t.destinationAddress;
+        }
+        if (t.moveType != null) taskMap['move_type'] = t.moveType;
+
+        // Route ID
+        if (t.routeId != null) taskMap['route_id'] = t.routeId;
+
+        return taskMap;
+      }).toList();
+
+      await managerService.createShiftWithTasks(
+        driverId: driverId!,
+        truckBinCapacity: truckCapacity,
+        warehouseLatitude: warehouse.latitude,
+        warehouseLongitude: warehouse.longitude,
+        warehouseAddress: warehouse.address,
+        lockRouteOrder: lockRouteOrder,
+        tasks: taskPayload,
+      );
+
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Shift created for $driverName with ${taskPayload.length} tasks',
+            ),
+            backgroundColor: AppColors.primaryGreen,
+          ),
+        );
+        Navigator.of(context).pop();
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to create shift: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      isSaving.value = false;
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════════
+  // Placeholder Dialogs (Phase 2)
+  // ═══════════════════════════════════════════════════════════════
 
   void _showAddCollectionDialog(
     BuildContext context,
@@ -393,57 +782,124 @@ class ShiftBuilderPage extends HookConsumerWidget {
   void _showAddPlacementDialog(
     BuildContext context,
     ValueNotifier<List<RouteTask>> tasks,
-  ) {
-    showDialog(
+  ) async {
+    final selected = await showModalBottomSheet<List<PotentialLocation>>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Add Placement'),
-        content: const Text(
-          'Select potential locations where new bins will be placed.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () {
-              // TODO: Show location picker
-              Navigator.pop(context);
-            },
-            child: const Text('Select Locations'),
-          ),
-        ],
-      ),
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => const PotentialLocationPickerSheet(),
     );
+
+    if (selected == null || selected.isEmpty) return;
+
+    final newTasks = selected.map((location) {
+      final addressParts = <String>[];
+      if (location.street.isNotEmpty) addressParts.add(location.street);
+      if (location.city.isNotEmpty) addressParts.add(location.city);
+      if (location.zip.isNotEmpty) addressParts.add(location.zip);
+      final address =
+          addressParts.isEmpty ? 'No address' : addressParts.join(', ');
+
+      return RouteTask(
+        id: 'temp_pl_${location.id}',
+        shiftId: 'temp',
+        sequenceOrder: tasks.value.length + 1,
+        taskType: StopType.placement,
+        latitude: location.latitude ?? 0,
+        longitude: location.longitude ?? 0,
+        address: address,
+        potentialLocationId: location.id,
+        createdAt: DateTime.now().millisecondsSinceEpoch ~/ 1000,
+      );
+    }).toList();
+
+    tasks.value = [...tasks.value, ...newTasks];
   }
 
   void _showAddMoveRequestDialog(
     BuildContext context,
     ValueNotifier<List<RouteTask>> tasks,
-  ) {
-    showDialog(
+  ) async {
+    final selected = await showModalBottomSheet<List<Map<String, dynamic>>>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Add Move Request'),
-        content: const Text(
-          'Create a new move request or select an existing one to add to this shift.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () {
-              // TODO: Show move request creator/picker
-              Navigator.pop(context);
-            },
-            child: const Text('Create/Select'),
-          ),
-        ],
-      ),
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => const MoveRequestPickerSheet(),
     );
+
+    if (selected == null || selected.isEmpty) return;
+
+    final newTasks = <RouteTask>[];
+    final now = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+
+    for (final request in selected) {
+      final requestId = request['id'] as String;
+      final binId = request['bin_id'] as String?;
+      final binNumber = request['bin_number'] as int?;
+      final moveType = (request['move_type'] as String?) ?? 'relocation';
+
+      // Current (pickup) location
+      final origLat = (request['original_latitude'] as num?)?.toDouble() ?? 0;
+      final origLng = (request['original_longitude'] as num?)?.toDouble() ?? 0;
+      final currentStreet = request['current_street'] as String? ?? '';
+      final city = request['city'] as String? ?? '';
+      final zip = request['zip'] as String? ?? '';
+      final pickupAddress = currentStreet.isNotEmpty
+          ? '$currentStreet, $city $zip'.trim()
+          : 'No address';
+
+      // Destination (dropoff) location
+      final newLat = (request['new_latitude'] as num?)?.toDouble() ?? 0;
+      final newLng = (request['new_longitude'] as num?)?.toDouble() ?? 0;
+      final newStreet = request['new_street'] as String? ?? '';
+      final newCity = request['new_city'] as String? ?? '';
+      final newZip = request['new_zip'] as String? ?? '';
+      final dropoffAddress = moveType == 'store'
+          ? 'Warehouse Storage'
+          : newStreet.isNotEmpty
+              ? '$newStreet, $newCity $newZip'.trim()
+              : 'No address';
+
+      // 1. Pickup task at current location
+      newTasks.add(RouteTask(
+        id: 'temp_mr_${requestId}_pickup',
+        shiftId: 'temp',
+        sequenceOrder: tasks.value.length + newTasks.length + 1,
+        taskType: StopType.pickup,
+        latitude: origLat,
+        longitude: origLng,
+        address: pickupAddress,
+        moveRequestId: requestId,
+        binId: binId,
+        binNumber: binNumber,
+        destinationLatitude: newLat,
+        destinationLongitude: newLng,
+        destinationAddress: dropoffAddress,
+        moveType: moveType,
+        createdAt: now,
+      ));
+
+      // 2. Dropoff task at destination
+      newTasks.add(RouteTask(
+        id: 'temp_mr_${requestId}_dropoff',
+        shiftId: 'temp',
+        sequenceOrder: tasks.value.length + newTasks.length + 1,
+        taskType: StopType.dropoff,
+        latitude: newLat,
+        longitude: newLng,
+        address: dropoffAddress,
+        moveRequestId: requestId,
+        binId: binId,
+        binNumber: binNumber,
+        destinationLatitude: newLat,
+        destinationLongitude: newLng,
+        destinationAddress: dropoffAddress,
+        moveType: moveType,
+        createdAt: now,
+      ));
+    }
+
+    tasks.value = [...tasks.value, ...newTasks];
   }
 
   void _addWarehouseStop(
@@ -451,9 +907,8 @@ class ShiftBuilderPage extends HookConsumerWidget {
     ValueNotifier<List<RouteTask>> tasks,
     WarehouseLocation warehouse,
   ) {
-    // Add manual warehouse stop using backend warehouse location
     final newTask = RouteTask(
-      id: "-${DateTime.now().millisecondsSinceEpoch}", // Negative ID for temporary tasks
+      id: "-${DateTime.now().millisecondsSinceEpoch}",
       shiftId: 'temp',
       sequenceOrder: tasks.value.length + 1,
       taskType: StopType.warehouseStop,
@@ -487,22 +942,26 @@ class _QuickAddButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: color.withOpacity(0.1),
-      borderRadius: BorderRadius.circular(8),
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(10),
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(8),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        borderRadius: BorderRadius.circular(10),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: color.withOpacity(0.25)),
+          ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(icon, size: 18, color: color),
+              Icon(icon, size: 16, color: color),
               const SizedBox(width: 6),
               Text(
                 label,
                 style: TextStyle(
-                  fontSize: 13,
+                  fontSize: 12,
                   fontWeight: FontWeight.w600,
                   color: color,
                 ),
@@ -530,50 +989,85 @@ class _TaskCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey.shade200),
-      ),
-      child: ListTile(
-        leading: Row(
+    return Dismissible(
+      key: ValueKey('dismiss_${task.id}'),
+      direction: DismissDirection.endToStart,
+      onDismissed: (_) => onDelete(),
+      background: Container(
+        margin: const EdgeInsets.only(bottom: 8),
+        decoration: BoxDecoration(
+          color: Colors.red,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        alignment: Alignment.centerRight,
+        padding: const EdgeInsets.only(right: 20),
+        child: const Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.drag_handle, color: Colors.grey.shade400),
-            const SizedBox(width: 8),
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: _getTaskColor(task.taskType).withOpacity(0.1),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Icon(
-                _getTaskIcon(task.taskType),
-                color: _getTaskColor(task.taskType),
-                size: 20,
+            Icon(Icons.delete_outline, color: Colors.white, size: 20),
+            SizedBox(width: 6),
+            Text(
+              'Delete',
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.w600,
+                fontSize: 14,
               ),
             ),
           ],
         ),
-        title: Text(
-          task.displayTitle,
-          style: const TextStyle(
-            fontSize: 14,
-            fontWeight: FontWeight.w600,
-          ),
+      ),
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 8),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.04),
+              blurRadius: 8,
+              offset: const Offset(0, 1),
+            ),
+          ],
         ),
-        subtitle: Text(
-          task.displaySubtitle,
-          style: TextStyle(
-            fontSize: 12,
-            color: Colors.grey.shade600,
+        child: ListTile(
+          contentPadding:
+              const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+          leading: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.drag_handle, color: Colors.grey.shade300, size: 20),
+              const SizedBox(width: 8),
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: _getTaskColor(task.taskType).withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(
+                  _getTaskIcon(task.taskType),
+                  color: _getTaskColor(task.taskType),
+                  size: 18,
+                ),
+              ),
+            ],
           ),
-        ),
-        trailing: IconButton(
-          icon: Icon(Icons.close, color: Colors.grey.shade600, size: 20),
-          onPressed: onDelete,
+          title: Text(
+            task.displayTitle,
+            style: const TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          subtitle: Text(
+            task.displaySubtitle,
+            style: TextStyle(
+              fontSize: 11,
+              color: Colors.grey.shade500,
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
         ),
       ),
     );

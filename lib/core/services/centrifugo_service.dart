@@ -23,6 +23,7 @@ class CentrifugoService {
   Client? _client;
   final Map<String, Subscription> _subscriptions = {};
   final ApiService _apiService;
+  Completer<void>? _connectCompleter; // Guards against concurrent connect() calls
 
   CentrifugoService(this._apiService);
 
@@ -34,6 +35,14 @@ class CentrifugoService {
       AppLogger.general('🔌 [Centrifugo] Already connected (client exists)');
       return;
     }
+
+    // If another connect() is already in progress, wait for it
+    if (_connectCompleter != null) {
+      AppLogger.general('🔌 [Centrifugo] Connection already in progress, waiting...');
+      return _connectCompleter!.future;
+    }
+
+    _connectCompleter = Completer<void>();
 
     try {
       AppLogger.general('🔌 [Centrifugo] Fetching connection token from backend...');
@@ -98,6 +107,9 @@ class CentrifugoService {
 
       _client!.connected.listen((event) {
         AppLogger.general('🟢 [Centrifugo] Connected! (client: ${event.client})');
+        // SDK auto-resubscribes all client-side subscriptions on reconnect
+        // (per Centrifugo spec: subscriptions not explicitly unsubscribed
+        //  automatically resubscribe when connection is re-established)
       });
 
       _client!.disconnected.listen((event) {
@@ -112,9 +124,13 @@ class CentrifugoService {
       await _client!.connect();
 
       AppLogger.general('✅ [Centrifugo] Connection initiated');
+      _connectCompleter?.complete();
     } catch (e) {
       AppLogger.general('❌ [Centrifugo] Failed to connect: $e');
+      _connectCompleter?.completeError(e);
       rethrow;
+    } finally {
+      _connectCompleter = null;
     }
   }
 

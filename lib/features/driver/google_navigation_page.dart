@@ -735,10 +735,10 @@ class GoogleNavigationPage extends HookConsumerWidget {
               child: CircularProgressIndicator(),
             ),
 
-          // Turn-by-turn navigation card - positioned higher and thinner
+          // Turn-by-turn navigation card - within SafeArea
           if (navState.isNavigating && navState.currentStep != null)
             Positioned(
-              top: Responsive.spacing(context, mobile: 20),
+              top: MediaQuery.of(context).padding.top + 16,
               left: Responsive.spacing(context, mobile: 16),
               right: Responsive.spacing(context, mobile: 16),
               child: TurnByTurnNavigationCard(
@@ -754,8 +754,9 @@ class GoogleNavigationPage extends HookConsumerWidget {
             bottom: Responsive.spacing(context, mobile: 300),
             right: Responsive.spacing(context, mobile: 16),
             child: CircularMapButton(
-              icon: Icons.notifications_outlined,
-              iconColor: AppColors.primaryGreen,
+              icon: Icons.notifications,
+              backgroundColor: AppColors.primaryGreen,
+              iconColor: Colors.white,
               onTap: () {
                 Navigator.push(
                   context,
@@ -772,9 +773,10 @@ class GoogleNavigationPage extends HookConsumerWidget {
             bottom: Responsive.spacing(context, mobile: 240),
             right: Responsive.spacing(context, mobile: 16),
             child: CircularMapButton(
-              icon: Icons.add_location_alt_outlined,
-              iconColor: AppColors.primaryGreen,
-              onTap: () => _showPotentialLocationMenu(context, ref),
+              icon: Icons.add_location_alt,
+              backgroundColor: AppColors.primaryGreen,
+              iconColor: Colors.white,
+              onTap: () => context.push('/location-picker'),
             ),
           ),
 
@@ -784,6 +786,8 @@ class GoogleNavigationPage extends HookConsumerWidget {
             right: Responsive.spacing(context, mobile: 16),
             child: CircularMapButton(
               icon: navState.isAudioMuted ? Icons.volume_off : Icons.volume_up,
+              backgroundColor: AppColors.primaryGreen,
+              iconColor: Colors.white,
               onTap: () => GoogleNavigationService.toggleAudio(
                 navState.isAudioMuted,
                 navNotifier.setAudioMuted,

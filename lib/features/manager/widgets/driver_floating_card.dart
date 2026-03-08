@@ -10,7 +10,9 @@ class DriverFloatingCard extends StatelessWidget {
   final RouteTask? currentTask;
   final int totalTasks;
   final int completedTasks;
+  final bool isRouteVisible;
   final VoidCallback onFollow;
+  final VoidCallback onToggleRoute;
   final VoidCallback onDetails;
   final VoidCallback onDismiss;
 
@@ -20,7 +22,9 @@ class DriverFloatingCard extends StatelessWidget {
     this.currentTask,
     required this.totalTasks,
     required this.completedTasks,
+    required this.isRouteVisible,
     required this.onFollow,
+    required this.onToggleRoute,
     required this.onDetails,
     required this.onDismiss,
   });
@@ -214,6 +218,55 @@ class DriverFloatingCard extends StatelessWidget {
                       ),
                     ),
                   ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              // Route toggle button
+              Expanded(
+                child: SizedBox(
+                  height: 38,
+                  child: isRouteVisible
+                      ? ElevatedButton.icon(
+                          onPressed: onToggleRoute,
+                          icon: const Icon(Icons.route, size: 16),
+                          label: const Text(
+                            'Route',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppColors.primaryGreen,
+                            foregroundColor: Colors.white,
+                            elevation: 0,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                          ),
+                        )
+                      : OutlinedButton.icon(
+                          onPressed: onToggleRoute,
+                          icon: Icon(
+                            Icons.route,
+                            size: 16,
+                            color: Colors.grey.shade700,
+                          ),
+                          label: Text(
+                            'Route',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.grey.shade700,
+                            ),
+                          ),
+                          style: OutlinedButton.styleFrom(
+                            side: BorderSide(color: Colors.grey.shade300),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                          ),
+                        ),
                 ),
               ),
               const SizedBox(width: 8),

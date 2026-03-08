@@ -132,6 +132,9 @@ class ManagerMapPage extends HookConsumerWidget {
     // Guard to suppress gesture-exit during programmatic camera moves
     final isProgrammaticMove = useState<bool>(false);
 
+    // Route polyline visibility (user toggles via "Route" button on card)
+    final isRouteVisible = useState<bool>(false);
+
     // Create animation service
     final animationService = useMemoized(
       () => MarkerAnimationService(),
@@ -980,11 +983,22 @@ class ManagerMapPage extends HookConsumerWidget {
             ],
           );
 
-          // Effect 5: Polyline lifecycle — fetch OSRM route, trim, detect task changes
+          // Reset route visibility when switching drivers
           useEffect(
             () {
-              if (focusedDriverId == null || !isFocusedOrFollowing || mapController.value == null) {
-                // Not focused — clear polyline (deferred to avoid build-phase mutation)
+              isRouteVisible.value = false;
+              return null;
+            },
+            [focusedDriverId],
+          );
+
+          // Effect 5: Polyline lifecycle — fetch OSRM route, trim, detect task changes
+          // Only activates when route is visible (user toggled) or in follow mode
+          useEffect(
+            () {
+              if (focusedDriverId == null || !isFocusedOrFollowing || mapController.value == null ||
+                  (!isRouteVisible.value && !isFollowing)) {
+                // Not focused or route hidden — clear polyline (deferred to avoid build-phase mutation)
                 Future.microtask(() {
                   ref.read(routePolylineProvider.notifier).clear();
                   mapController.value?.clearPolylines();
@@ -1042,7 +1056,7 @@ class ManagerMapPage extends HookConsumerWidget {
                 mapController.value?.clearPolylines();
               };
             },
-            [focusedDriverId, isFocusedOrFollowing, mapController.value],
+            [focusedDriverId, isFocusedOrFollowing, isRouteVisible.value, mapController.value],
           );
 
           // Effect 6: Draw polyline on map when visibleRoute changes
@@ -1499,9 +1513,13 @@ class ManagerMapPage extends HookConsumerWidget {
                         currentTask: polylineState.currentTask,
                         totalTasks: polylineState.totalTasks,
                         completedTasks: polylineState.completedTasks,
+                        isRouteVisible: isRouteVisible.value,
                         onFollow: () {
                           ref.read(focusedDriverProvider.notifier)
                               .startFollowing(focusedDriverId);
+                        },
+                        onToggleRoute: () {
+                          isRouteVisible.value = !isRouteVisible.value;
                         },
                         onDetails: () {
                           context.push(
@@ -1509,7 +1527,10 @@ class ManagerMapPage extends HookConsumerWidget {
                           );
                         },
                         onDismiss: () {
-                          ref.read(focusedDriverProvider.notifier).clearFocus();
+                          isRouteVisible.value = false;
+                          Future.microtask(() {
+                            ref.read(focusedDriverProvider.notifier).clearFocus();
+                          });
                         },
                       );
                     },

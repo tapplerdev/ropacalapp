@@ -191,10 +191,10 @@ class _HeroSection extends StatelessWidget {
                       return;
                     }
 
-                    // Start following the driver (continuous auto-center with banner)
+                    // Focus on the driver (center once, show card + polyline)
                     ref
                         .read(focusedDriverProvider.notifier)
-                        .startFollowing(driver.driverId);
+                        .setFocusedDriver(driver.driverId);
 
                     // Navigate back to home (which will trigger the map to follow driver)
                     context.go('/home');

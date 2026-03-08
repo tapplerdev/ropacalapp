@@ -1052,8 +1052,11 @@ class ManagerMapPage extends HookConsumerWidget {
                 cancelled = true;
                 trimTimer.cancel();
                 taskCheckTimer.cancel();
-                ref.read(routePolylineProvider.notifier).clear();
-                mapController.value?.clearPolylines();
+                // Deferred to avoid build-phase mutation
+                Future.microtask(() {
+                  ref.read(routePolylineProvider.notifier).clear();
+                  mapController.value?.clearPolylines();
+                });
               };
             },
             [focusedDriverId, isFocusedOrFollowing, isRouteVisible.value, mapController.value],

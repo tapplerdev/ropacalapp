@@ -336,8 +336,16 @@ class _NotificationBannerState extends State<_NotificationBanner>
 
     _controller.forward();
 
+    // Play sound and vibration
     final isCritical =
         widget.config.priority == NotificationPriority.critical;
+    if (isCritical) {
+      HapticFeedback.heavyImpact();
+    } else {
+      HapticFeedback.mediumImpact();
+    }
+    SystemSound.play(SystemSoundType.alert);
+
     Future.delayed(Duration(seconds: isCritical ? 6 : 4), _dismiss);
   }
 

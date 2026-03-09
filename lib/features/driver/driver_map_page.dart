@@ -36,7 +36,7 @@ import 'package:ropacalapp/features/driver/widgets/pre_shift_overview_card.dart'
 import 'package:ropacalapp/features/driver/widgets/navigation_blue_dot_overlay.dart';
 import 'package:ropacalapp/features/driver/widgets/positioned_blue_dot_overlay.dart';
 import 'package:ropacalapp/features/driver/widgets/no_shift_empty_state.dart';
-import 'package:ropacalapp/features/driver/widgets/animated_shift_transition.dart';
+// animated_shift_transition removed — no longer used
 import 'package:ropacalapp/features/driver/widgets/map_notification_button.dart';
 import 'package:ropacalapp/features/driver/widgets/map_2d_3d_toggle_button.dart';
 import 'package:ropacalapp/features/driver/widgets/map_location_button.dart';
@@ -908,29 +908,9 @@ class _ShiftInactiveOverlay extends ConsumerWidget {
       return const SizedBox.shrink();
     }
 
-    return Positioned(
-      top: 0,
-      left: 74, // Right of notification bell (16 + 42 + 16)
-      right: 16,
-      child: AnimatedShiftTransitionWithSlide(
-        useSlideAnimation: true,
-        hasActiveShift: false,
-        emptyState: NoShiftEmptyState(
-          onRefresh: () async {
-            // Refresh shift status from backend
-            await ref.read(shiftNotifierProvider.notifier).fetchCurrentShift();
-            if (context.mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Shift status refreshed'),
-                  duration: Duration(seconds: 2),
-                ),
-              );
-            }
-          },
-          nextShiftTime: null,
-        ),
-        activeRouteCard: const SizedBox.shrink(),
+    return const Positioned.fill(
+      child: Center(
+        child: NoShiftEmptyState(),
       ),
     );
   }

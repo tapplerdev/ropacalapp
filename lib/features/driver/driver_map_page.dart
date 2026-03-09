@@ -908,9 +908,16 @@ class _ShiftInactiveOverlay extends ConsumerWidget {
       return const SizedBox.shrink();
     }
 
-    return const Positioned.fill(
-      child: Center(
-        child: NoShiftEmptyState(),
+    return const Positioned(
+      top: 0,
+      left: 0,
+      right: 0,
+      child: SafeArea(
+        bottom: false,
+        child: Padding(
+          padding: EdgeInsets.fromLTRB(74, 8, 16, 0),
+          child: NoShiftEmptyState(),
+        ),
       ),
     );
   }

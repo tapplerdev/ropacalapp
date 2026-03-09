@@ -24,21 +24,20 @@ class AppLogger {
     _backendUrl = url;
   }
 
-  // WebSocket callback for remote logging (set by WebSocketService)
+  // Remote logging callback (unused — WebSocket service was removed)
   static void Function(String)? _sendLogCallback;
 
-  /// Register WebSocket callback for remote logging
-  /// Call this from main() or when WebSocket connects
+  /// Register callback for remote logging
   static void setRemoteLogging(void Function(String) callback) {
     _sendLogCallback = callback;
   }
 
-  /// Clear remote logging callback (when WebSocket disconnects)
+  /// Clear remote logging callback
   static void clearRemoteLogging() {
     _sendLogCallback = null;
   }
 
-  /// Send log to backend via WebSocket
+  /// Send log to backend
   /// DISABLED: Verbose logging makes backend logs difficult to read
   /// Only ERROR-level logs are sent remotely for critical issue tracking
   static void _sendToBackend(String category, String message, int level) {

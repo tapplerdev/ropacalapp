@@ -1,13 +1,19 @@
 import 'dart:io';
 import 'package:firebase_messaging/firebase_messaging.dart';
-import 'package:flutter/foundation.dart';
 import 'package:ropacalapp/core/utils/app_logger.dart';
+import 'package:ropacalapp/core/notifications/notification_service.dart';
+import 'package:ropacalapp/core/notifications/notification_router.dart';
+import 'package:ropacalapp/core/notifications/notification_adapters.dart';
 
 /// Firebase Cloud Messaging Service
 /// Handles push notifications for route assignments and shift updates
 class FCMService {
   static final FirebaseMessaging _messaging = FirebaseMessaging.instance;
   static String? _fcmToken;
+
+  /// Set by notification_provider when router is created, so FCM messages
+  /// flow through the full pipeline (dedup, role check, prefs, side effects).
+  static NotificationRouter? router;
 
   /// Get the current FCM token
   static String? get token => _fcmToken;
@@ -75,42 +81,24 @@ class FCMService {
     }
   }
 
-  /// Handle incoming push notification
+  /// Handle incoming push notification.
+  /// Routes through NotificationRouter for dedup, role/pref checks, and side effects.
+  /// Falls back to direct display if router isn't set yet (cold start).
   static void _handleMessage(RemoteMessage message) {
     final data = message.data;
     final type = data['type'];
 
-    AppLogger.general('FCM Message Type: $type');
-    AppLogger.general('FCM Message Data: $data');
+    AppLogger.general('FCM Message Type: $type, Data: $data');
 
-    switch (type) {
-      case 'route_assigned':
-        _handleRouteAssigned(data);
-        break;
-      case 'shift_update':
-        _handleShiftUpdate(data);
-        break;
-      default:
-        AppLogger.general(
-          'Unknown FCM message type: $type',
-          level: AppLogger.warning,
-        );
+    final event = NotificationAdapters.fromFCM(data);
+
+    if (router != null) {
+      router!.receive(event);
+    } else {
+      // Router not yet available (app cold-started from terminated state).
+      // Show directly as fallback — dedup will catch any later duplicate.
+      NotificationService().showNotification(event);
     }
-  }
-
-  /// Handle route assignment notification
-  static void _handleRouteAssigned(Map<String, dynamic> data) {
-    AppLogger.general(
-      'Route assigned: ${data['route_id']} with ${data['total_bins']} bins',
-    );
-    // TODO: Refresh shift state from backend
-    // TODO: Show in-app notification
-  }
-
-  /// Handle shift update notification
-  static void _handleShiftUpdate(Map<String, dynamic> data) {
-    AppLogger.general('Shift update: ${data['shift_id']}');
-    // TODO: Refresh shift state from backend
   }
 
   /// Register FCM token with backend

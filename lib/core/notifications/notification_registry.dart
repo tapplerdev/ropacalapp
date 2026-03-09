@@ -543,8 +543,70 @@ class NotificationRegistry {
             : 'Warehouse location has been updated.';
       },
     ),
+
+    // -----------------------------------------------------------------------
+    //  DAILY DIGEST EVENTS (scheduled backend push, Manager only)
+    // -----------------------------------------------------------------------
+    NotificationTypeConfig(
+      eventType: 'digest_overdue_moves',
+      channelKey: NotificationChannels.moveRequests,
+      priority: NotificationPriority.high,
+      allowedRoles: const ['admin'],
+      titleBuilder: (p) {
+        final count = p['overdue_count'] ?? '?';
+        return '$count Overdue Move Request${_pluralS(count)}';
+      },
+      bodyBuilder: (_) => 'These moves are past their scheduled date.',
+      deepLinkBuilder: (_) => '/manager/move-requests',
+    ),
+
+    NotificationTypeConfig(
+      eventType: 'digest_upcoming_moves',
+      channelKey: NotificationChannels.moveRequests,
+      priority: NotificationPriority.normal,
+      allowedRoles: const ['admin'],
+      titleBuilder: (p) {
+        final urgent = _toInt(p['urgent_count']);
+        final soon = _toInt(p['soon_count']);
+        final total = urgent + soon;
+        return '$total Move Request${_pluralS(total)} Due Soon';
+      },
+      bodyBuilder: (p) {
+        final urgent = _toInt(p['urgent_count']);
+        final soon = _toInt(p['soon_count']);
+        final parts = <String>[];
+        if (urgent > 0) parts.add('$urgent urgent (< 24h)');
+        if (soon > 0) parts.add('$soon due within 3 days');
+        return parts.join(', ');
+      },
+      deepLinkBuilder: (_) => '/manager/move-requests',
+    ),
+
+    NotificationTypeConfig(
+      eventType: 'digest_warehouse_bins',
+      channelKey: NotificationChannels.binAlerts,
+      priority: NotificationPriority.normal,
+      allowedRoles: const ['admin'],
+      titleBuilder: (p) {
+        final count = p['warehouse_count'] ?? '?';
+        return '$count Bin${_pluralS(count)} in Warehouse';
+      },
+      bodyBuilder: (_) => 'Awaiting redeployment.',
+      deepLinkBuilder: (_) => '/manager/move-requests',
+    ),
   ];
 }
 
 String _capitalize(String s) =>
     s.isEmpty ? s : '${s[0].toUpperCase()}${s.substring(1)}';
+
+String _pluralS(dynamic n) {
+  final v = _toInt(n);
+  return v == 1 ? '' : 's';
+}
+
+int _toInt(dynamic v) {
+  if (v is int) return v;
+  if (v is String) return int.tryParse(v) ?? 0;
+  return 0;
+}

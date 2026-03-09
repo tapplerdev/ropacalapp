@@ -411,7 +411,14 @@ class _NotificationBannerState extends State<_NotificationBanner>
                   _dismiss();
                 }
               },
-              onTap: _dismiss,
+              onTap: () {
+                final deepLink = widget.config.deepLinkBuilder
+                    ?.call(widget.event.payload) ?? '';
+                if (deepLink.isNotEmpty) {
+                  NotificationService.router?.go(deepLink);
+                }
+                _dismiss();
+              },
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
                 child: Container(

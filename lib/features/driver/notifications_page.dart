@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:ropacalapp/core/theme/app_colors.dart';
 import 'package:ropacalapp/core/notifications/notification_event.dart';
@@ -59,6 +60,9 @@ IconData _eventIcon(String eventType) {
     'zone_updated': Icons.shield,
     'zone_merged': Icons.merge,
     'warehouse_location_updated': Icons.warehouse,
+    'digest_overdue_moves': Icons.schedule_rounded,
+    'digest_upcoming_moves': Icons.upcoming_rounded,
+    'digest_warehouse_bins': Icons.warehouse_rounded,
   };
   return map[eventType] ?? Icons.notifications_outlined;
 }
@@ -289,8 +293,11 @@ class _NotificationCard extends StatelessWidget {
         color: Colors.transparent,
         child: InkWell(
           onTap: () {
-            // Deep-link if config has a deepLinkBuilder
-            // For now, just dismiss
+            final deepLink =
+                config?.deepLinkBuilder?.call(event.payload) ?? '';
+            if (deepLink.isNotEmpty && context.mounted) {
+              context.go(deepLink);
+            }
           },
           borderRadius: BorderRadius.circular(12),
           child: Padding(

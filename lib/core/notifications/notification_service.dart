@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:awesome_notifications/awesome_notifications.dart';
+import 'package:flutter/widgets.dart';
 import 'package:go_router/go_router.dart';
 import 'package:ropacalapp/core/notifications/notification_channels.dart';
 import 'package:ropacalapp/core/notifications/notification_event.dart';
@@ -61,7 +62,16 @@ class NotificationService {
     return true;
   }
 
+  /// Whether the app is currently in the foreground.
+  bool get _isAppInForeground {
+    final state = WidgetsBinding.instance.lifecycleState;
+    return state == AppLifecycleState.resumed;
+  }
+
   /// Display a notification for a given event.
+  /// When the app is in the foreground and the event has showInAppOverlay,
+  /// only the custom in-app banner is shown (no OS notification).
+  /// When the app is in the background, the OS notification is shown.
   Future<void> showNotification(NotificationEvent event) async {
     final config = NotificationRegistry.getConfig(event.eventType);
     if (config == null) {
@@ -70,40 +80,46 @@ class NotificationService {
       return;
     }
 
-    final id = _nextId++;
-    final payload = event.payload;
+    final isForeground = _isAppInForeground;
+    final hasInAppOverlay = config.showInAppOverlay;
 
-    final content = NotificationContent(
-      id: id,
-      channelKey: config.channelKey,
-      title: config.titleBuilder(payload),
-      body: config.bodyBuilder(payload),
-      notificationLayout: config.layout,
-      bigPicture: config.bigPictureBuilder?.call(payload),
-      progress: (config.progressBuilder?.call(payload) ?? 0).toDouble(),
-      groupKey: config.groupKey,
-      payload: {
-        'eventType': event.eventType,
-        'deepLink': config.deepLinkBuilder?.call(payload) ?? '',
-        // Serialize primitive payload values for deep-link reconstruction
-        ...Map.fromEntries(
-          payload.entries
-              .where((e) =>
-                  e.value is String || e.value is int || e.value is double)
-              .map((e) => MapEntry(e.key, e.value.toString())),
-        ),
-      },
-    );
+    // Only show OS notification if app is NOT in foreground,
+    // or if this event type doesn't have an in-app overlay.
+    if (!isForeground || !hasInAppOverlay) {
+      final id = _nextId++;
+      final payload = event.payload;
 
-    final actionButtons = config.actionButtonsBuilder?.call(payload);
+      final content = NotificationContent(
+        id: id,
+        channelKey: config.channelKey,
+        title: config.titleBuilder(payload),
+        body: config.bodyBuilder(payload),
+        notificationLayout: config.layout,
+        bigPicture: config.bigPictureBuilder?.call(payload),
+        progress: (config.progressBuilder?.call(payload) ?? 0).toDouble(),
+        groupKey: config.groupKey,
+        payload: {
+          'eventType': event.eventType,
+          'deepLink': config.deepLinkBuilder?.call(payload) ?? '',
+          ...Map.fromEntries(
+            payload.entries
+                .where((e) =>
+                    e.value is String || e.value is int || e.value is double)
+                .map((e) => MapEntry(e.key, e.value.toString())),
+          ),
+        },
+      );
 
-    await AwesomeNotifications().createNotification(
-      content: content,
-      actionButtons: actionButtons,
-    );
+      final actionButtons = config.actionButtonsBuilder?.call(payload);
 
-    // Emit to in-app stream if configured
-    if (config.showInAppOverlay) {
+      await AwesomeNotifications().createNotification(
+        content: content,
+        actionButtons: actionButtons,
+      );
+    }
+
+    // Emit to in-app stream if configured (foreground only)
+    if (hasInAppOverlay) {
       _inAppStream.add(event);
     }
 

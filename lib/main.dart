@@ -299,6 +299,7 @@ class _NotificationBanner extends StatefulWidget {
   final VoidCallback onDismiss;
 
   const _NotificationBanner({
+    super.key,
     required this.event,
     required this.config,
     required this.onDismiss,

@@ -239,6 +239,7 @@ class _RopacalAppState extends ConsumerState<RopacalApp>
 
 /// Listens to the in-app notification stream and shows a custom animated
 /// banner from the top of the screen for in-app notification events.
+/// Uses a Stack so the banner renders above the Navigator/child.
 class _InAppNotificationOverlay extends ConsumerStatefulWidget {
   final Widget child;
   const _InAppNotificationOverlay({required this.child});
@@ -250,39 +251,8 @@ class _InAppNotificationOverlay extends ConsumerStatefulWidget {
 
 class _InAppNotificationOverlayState
     extends ConsumerState<_InAppNotificationOverlay> {
-  OverlayEntry? _currentEntry;
-
-  @override
-  void dispose() {
-    _currentEntry?.remove();
-    _currentEntry = null;
-    super.dispose();
-  }
-
-  void _showBanner(NotificationEvent event) {
-    _currentEntry?.remove();
-    _currentEntry = null;
-
-    final config = NotificationRegistry.getConfig(event.eventType);
-    if (config == null) return;
-
-    final overlay = Overlay.maybeOf(context);
-    if (overlay == null) return;
-
-    late OverlayEntry entry;
-    entry = OverlayEntry(
-      builder: (context) => _NotificationBanner(
-        event: event,
-        config: config,
-        onDismiss: () {
-          entry.remove();
-          if (_currentEntry == entry) _currentEntry = null;
-        },
-      ),
-    );
-    _currentEntry = entry;
-    overlay.insert(entry);
-  }
+  NotificationEvent? _currentEvent;
+  NotificationTypeConfig? _currentConfig;
 
   @override
   Widget build(BuildContext context) {
@@ -290,11 +260,34 @@ class _InAppNotificationOverlayState
       inAppNotificationStreamProvider,
       (previous, next) {
         if (next == null) return;
-        _showBanner(next);
+        final config = NotificationRegistry.getConfig(next.eventType);
+        if (config == null) return;
+        setState(() {
+          _currentEvent = next;
+          _currentConfig = config;
+        });
         ref.read(inAppNotificationStreamProvider.notifier).clear();
       },
     );
-    return widget.child;
+
+    return Stack(
+      children: [
+        widget.child,
+        if (_currentEvent != null && _currentConfig != null)
+          _NotificationBanner(
+            key: ValueKey(_currentEvent!.dedupKey +
+                _currentEvent!.receivedAt.millisecondsSinceEpoch.toString()),
+            event: _currentEvent!,
+            config: _currentConfig!,
+            onDismiss: () {
+              if (mounted) setState(() {
+                _currentEvent = null;
+                _currentConfig = null;
+              });
+            },
+          ),
+      ],
+    );
   }
 }
 

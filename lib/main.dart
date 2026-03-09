@@ -16,6 +16,9 @@ import 'package:ropacalapp/providers/auth_provider.dart';
 import 'package:ropacalapp/core/enums/user_role.dart';
 import 'package:ropacalapp/core/services/google_navigation_marker_service.dart';
 import 'package:ropacalapp/core/notifications/notification_service.dart';
+import 'package:ropacalapp/core/notifications/notification_registry.dart';
+import 'package:ropacalapp/core/notifications/notification_event.dart';
+import 'package:ropacalapp/providers/notification_provider.dart';
 
 void main() async {
   // Note: Navigation session is now initialized lazily when first needed
@@ -224,7 +227,101 @@ class _RopacalAppState extends ConsumerState<RopacalApp>
       ),
       themeMode: ThemeMode.light, // Always use light theme
       routerConfig: router,
-      builder: EasyLoading.init(),
+      builder: (context, child) {
+        // Chain EasyLoading init with in-app notification overlay
+        final easyLoadingBuilder = EasyLoading.init();
+        final wrappedChild = easyLoadingBuilder(context, child);
+        return _InAppNotificationOverlay(child: wrappedChild ?? child ?? const SizedBox.shrink());
+      },
     );
+  }
+}
+
+/// Listens to the in-app notification stream and shows a Material Banner
+/// for critical/high-priority events while the app is in the foreground.
+class _InAppNotificationOverlay extends ConsumerWidget {
+  final Widget child;
+  const _InAppNotificationOverlay({required this.child});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    ref.listen<NotificationEvent?>(
+      inAppNotificationStreamProvider,
+      (previous, next) {
+        if (next == null) return;
+
+        final config = NotificationRegistry.getConfig(next.eventType);
+        if (config == null) return;
+
+        final title = config.titleBuilder(next.payload);
+        final body = config.bodyBuilder(next.payload);
+        final isCritical =
+            config.priority == NotificationPriority.critical;
+
+        final messenger = ScaffoldMessenger.maybeOf(context);
+        if (messenger == null) return;
+
+        messenger.clearSnackBars();
+        messenger.showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                Icon(
+                  isCritical
+                      ? Icons.error_outline
+                      : Icons.info_outline,
+                  color: Colors.white,
+                  size: 20,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 14,
+                        ),
+                      ),
+                      if (body.isNotEmpty)
+                        Text(
+                          body,
+                          style: const TextStyle(fontSize: 12),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            backgroundColor: isCritical
+                ? AppColors.alertRed
+                : AppColors.primaryGreen,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+            margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+            duration: Duration(seconds: isCritical ? 6 : 4),
+            action: SnackBarAction(
+              label: 'Dismiss',
+              textColor: Colors.white70,
+              onPressed: () {
+                messenger.hideCurrentSnackBar();
+              },
+            ),
+          ),
+        );
+
+        // Clear after showing so it doesn't re-trigger on rebuild
+        ref.read(inAppNotificationStreamProvider.notifier).clear();
+      },
+    );
+
+    return child;
   }
 }

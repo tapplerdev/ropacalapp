@@ -17,7 +17,7 @@ import 'package:ropacalapp/models/bin.dart';
 import 'package:ropacalapp/core/utils/app_logger.dart';
 import 'package:ropacalapp/providers/location_provider.dart';
 import 'package:ropacalapp/features/driver/widgets/circular_map_button.dart';
-import 'package:ropacalapp/features/driver/notifications_page.dart';
+import 'package:ropacalapp/features/driver/widgets/map_notification_button.dart';
 import 'package:ropacalapp/features/driver/widgets/bin_details_bottom_sheet.dart';
 import 'package:ropacalapp/features/manager/widgets/potential_location_bottom_sheet.dart';
 import 'package:ropacalapp/core/services/google_navigation_marker_service.dart';
@@ -1456,56 +1456,7 @@ class ManagerMapPage extends HookConsumerWidget {
                   duration: const Duration(milliseconds: 250),
                   child: IgnorePointer(
                     ignoring: isSearchExpanded.value,
-                    child: Stack(
-                      clipBehavior: Clip.none,
-                      children: [
-                        CircularMapButton(
-                          icon: Icons.notifications,
-                          backgroundColor: AppColors.primaryGreen,
-                          iconColor: Colors.white,
-                          onTap: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) => const NotificationsPage(),
-                              ),
-                            );
-                          },
-                        ),
-                        // Badge indicator
-                        if (binsAsync.valueOrNull != null)
-                          Builder(builder: (context) {
-                            final count = binsAsync.valueOrNull!
-                                .where((b) => (b.fillPercentage ?? 0) > 80)
-                                .length;
-                            if (count == 0) return const SizedBox.shrink();
-                            return Positioned(
-                              right: -2,
-                              top: -2,
-                              child: Container(
-                                padding: const EdgeInsets.all(4),
-                                decoration: const BoxDecoration(
-                                  color: AppColors.alertRed,
-                                  shape: BoxShape.circle,
-                                ),
-                                constraints: const BoxConstraints(
-                                  minWidth: 18,
-                                  minHeight: 18,
-                                ),
-                                child: Text(
-                                  count > 9 ? '9+' : '$count',
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                  textAlign: TextAlign.center,
-                                ),
-                              ),
-                            );
-                          }),
-                      ],
-                    ),
+                    child: const MapNotificationButton(),
                   ),
                 ),
               ),

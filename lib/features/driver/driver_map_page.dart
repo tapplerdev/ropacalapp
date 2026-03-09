@@ -397,7 +397,7 @@ class DriverMapPage extends HookConsumerWidget {
                   Positioned(
                     top: 16,
                     left: 16,
-                    child: MapNotificationButton(binsState: binsState),
+                    child: const MapNotificationButton(),
                   ),
                   // Location button (bottom right)
                   _DynamicLocationButton(mapController: mapController.value),

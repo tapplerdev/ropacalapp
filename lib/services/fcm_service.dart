@@ -1,4 +1,3 @@
-import 'dart:io';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:ropacalapp/core/utils/app_logger.dart';
 import 'package:ropacalapp/core/notifications/notification_service.dart';
@@ -6,7 +5,8 @@ import 'package:ropacalapp/core/notifications/notification_router.dart';
 import 'package:ropacalapp/core/notifications/notification_adapters.dart';
 
 /// Firebase Cloud Messaging Service
-/// Handles push notifications for route assignments and shift updates
+/// Handles push notification permissions, token management, and message routing.
+/// Token registration with the backend is handled by auth_provider on login.
 class FCMService {
   static final FirebaseMessaging _messaging = FirebaseMessaging.instance;
   static String? _fcmToken;
@@ -46,8 +46,9 @@ class FCMService {
       // Listen for token refresh
       _messaging.onTokenRefresh.listen((newToken) {
         _fcmToken = newToken;
-        AppLogger.general('FCM Token refreshed: $newToken');
-        // TODO: Send new token to backend
+        AppLogger.general('FCM Token refreshed');
+        // Note: re-registration with backend happens on next login
+        // or could be triggered via a provider if needed
       });
 
       // Handle foreground messages
@@ -70,20 +71,24 @@ class FCMService {
       RemoteMessage? initialMessage = await _messaging.getInitialMessage();
       if (initialMessage != null) {
         AppLogger.general(
-          'App opened from terminated state: ${initialMessage.notification?.title}',
+          'App opened from terminated state: '
+          '${initialMessage.notification?.title}',
         );
         _handleMessage(initialMessage);
       }
 
       AppLogger.general('FCM initialized successfully');
     } catch (e) {
-      AppLogger.general('FCM initialization error: $e', level: AppLogger.error);
+      AppLogger.general(
+        'FCM initialization error: $e',
+        level: AppLogger.error,
+      );
     }
   }
 
   /// Handle incoming push notification.
-  /// Routes through NotificationRouter for dedup, role/pref checks, and side effects.
-  /// Falls back to direct display if router isn't set yet (cold start).
+  /// Routes through NotificationRouter for dedup, role/pref checks,
+  /// and side effects. Falls back to direct display on cold start.
   static void _handleMessage(RemoteMessage message) {
     final data = message.data;
     final type = data['type'];
@@ -95,35 +100,7 @@ class FCMService {
     if (router != null) {
       router!.receive(event);
     } else {
-      // Router not yet available (app cold-started from terminated state).
-      // Show directly as fallback — dedup will catch any later duplicate.
       NotificationService().showNotification(event);
-    }
-  }
-
-  /// Register FCM token with backend
-  static Future<void> registerToken() async {
-    if (_fcmToken == null) {
-      AppLogger.general('No FCM token available', level: AppLogger.warning);
-      return;
-    }
-
-    try {
-      final deviceType = Platform.isIOS ? 'ios' : 'android';
-
-      AppLogger.general('Registering FCM token with backend...');
-
-      // Import will be added at top of file when we use this
-      // For now, we'll import it dynamically
-      // This will be called from main.dart where we have access to providers
-
-      AppLogger.general('FCM token ready: $_fcmToken');
-      AppLogger.general('Device type: $deviceType');
-    } catch (e) {
-      AppLogger.general(
-        'Failed to register FCM token: $e',
-        level: AppLogger.error,
-      );
     }
   }
 }

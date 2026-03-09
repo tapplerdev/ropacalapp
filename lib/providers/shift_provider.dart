@@ -11,6 +11,8 @@ import 'package:ropacalapp/core/services/location_tracking_service.dart';
 import 'package:ropacalapp/core/services/centrifugo_service.dart';
 import 'package:ropacalapp/services/notification_sound_service.dart';
 import 'package:ropacalapp/providers/route_update_notification_provider.dart';
+import 'package:ropacalapp/providers/notification_provider.dart';
+import 'package:ropacalapp/core/notifications/notification_adapters.dart';
 
 part 'shift_provider.g.dart';
 
@@ -104,71 +106,49 @@ class ShiftNotifier extends _$ShiftNotifier {
         shiftId,
         (data) {
           final type = data['type'] as String?;
-          AppLogger.general('🔔 Received shift update via Centrifugo: type=$type, data=$data');
+          AppLogger.general('🔔 Received shift update via Centrifugo: type=$type');
 
+          // Route through unified notification pipeline (OS notifications + feed + side effects)
+          final notifEvent = NotificationAdapters.fromCentrifugoShiftEvent(data);
+          ref.read(notificationRouterProvider).receive(notifEvent);
+
+          // Shift-specific handlers that need local state access
           switch (type) {
-            case 'shift_cancelled':
-              AppLogger.general('❌ Shift cancelled via Centrifugo - calling handleShiftCancellation()');
-              handleShiftCancellation();
-              break;
-
             case 'shift_edited':
-              AppLogger.general('✏️ Shift edited by manager - handling update');
               _handleShiftEdited(data);
-              break;
+
+            case 'shift_update':
+            case 'route_assigned':
+              // Full shift data arrives via Centrifugo — refresh state
+              fetchCurrentShift();
+
+            case 'move_request_assigned':
+              // Move request assigned — refresh shift to get updated route
+              fetchCurrentShift();
 
             case 'route_updated':
-              AppLogger.general('🔄 Route updated via Centrifugo - triggering notification');
-
+              // Keep existing in-app dialog + sound for route updates
               final managerName = data['manager_name'] as String?;
               final actionType = data['action_type'] as String?;
               final binNumber = data['bin_number'] as int?;
               final moveRequestId = data['move_request_id'] as String?;
 
               if (managerName != null && actionType != null && binNumber != null && moveRequestId != null) {
-                AppLogger.general('   📦 Bin #$binNumber $actionType by $managerName');
-
-                // Play notification sound
                 NotificationSoundService().playRouteUpdateSound();
-
-                // Show notification dialog
                 ref.read(routeUpdateNotificationNotifierProvider.notifier).notify(
                   managerName: managerName,
                   actionType: actionType,
                   binNumber: binNumber,
                   moveRequestId: moveRequestId,
                 );
-
-                // Refresh shift data to get updated task list
-                AppLogger.general('   🔄 Refreshing shift data...');
-                fetchCurrentShift();
-              } else {
-                AppLogger.general('   ⚠️  Missing notification data - skipping UI notification');
               }
-              break;
-
-            case 'move_request_cancelled':
-              AppLogger.general('❌ Move request cancelled - refreshing shift');
-              fetchCurrentShift();
-              break;
-
-            case 'potential_location_deleted':
-              AppLogger.general('🗑️ Potential location deleted - refreshing shift');
-              fetchCurrentShift();
-              break;
-
-            case 'potential_location_converted':
-              AppLogger.general('🔄 Potential location converted to bin - refreshing shift');
-              fetchCurrentShift();
-              break;
 
             case 'move_request_address_changed':
-              AppLogger.general('📍 Move request address changed - refreshing shift');
+              // Not in the generic registry — handle locally
               fetchCurrentShift();
-              break;
 
             default:
-              AppLogger.general('⚠️ Unknown shift update type: $type');
+              break;
           }
         },
       );
@@ -847,61 +827,6 @@ class ShiftNotifier extends _$ShiftNotifier {
       state = previousState;
       AppLogger.general('↩️  Rolled back to previous state');
       rethrow;
-    }
-  }
-
-  /// Update shift state from WebSocket data (called by WebSocket listener)
-  /// This is more efficient and reliable than calling refreshShift()
-  ///
-  /// SYNC STRATEGY: Server always wins
-  /// - If we have an optimistic update and server confirms it → No visual change
-  /// - If server state differs from optimistic update → Server state overwrites ours
-  /// - This prevents sync bugs and race conditions
-  void updateFromWebSocket(Map<String, dynamic> data) {
-    try {
-      AppLogger.general('📡 WebSocket: Updating shift state from WebSocket data');
-      AppLogger.general('   Data: $data');
-
-      // Parse the data into ShiftState
-      final updatedShift = ShiftState.fromJson(data);
-
-      AppLogger.general(
-        '✅ WebSocket: Shift updated - ${updatedShift.completedBins}/${updatedShift.totalBins} (${updatedShift.remainingTasks.length} remaining)',
-      );
-      AppLogger.general('   Status: ${updatedShift.status}');
-      AppLogger.general('   Bins array length: ${updatedShift.bins.length}');
-      AppLogger.general('   Route ID: ${updatedShift.assignedRouteId}');
-
-      // DEBUG: Log logical counting
-      AppLogger.general('🔍 DEBUG: Logical bin counts:');
-      AppLogger.general('   - logicalTotalBins: ${updatedShift.logicalTotalBins}');
-      AppLogger.general('   - logicalCompletedBins: ${updatedShift.logicalCompletedBins}');
-      AppLogger.general('   - remainingTasks.length: ${updatedShift.remainingTasks.length}');
-
-      if (updatedShift.remainingTasks.isNotEmpty) {
-        AppLogger.general('🔍 DEBUG: First remaining bin:');
-        final nextBin = updatedShift.remainingTasks.first;
-        AppLogger.general('   - Bin #${nextBin.binNumber}');
-        AppLogger.general('   - Stop type: ${nextBin.taskType}');
-        AppLogger.general('   - Address: ${nextBin.address}');
-        AppLogger.general('   - Is completed: ${nextBin.isCompleted}');
-        AppLogger.general('   - Move request ID: ${nextBin.moveRequestId}');
-      }
-
-      // Server state always wins (overwrites optimistic updates)
-      // This ensures eventual consistency and prevents sync bugs
-      state = updatedShift;
-
-      // Manage Centrifugo subscription based on updated shift status
-      _manageShiftSubscription();
-    } catch (e) {
-      AppLogger.general(
-        '❌ Error updating shift from WebSocket: $e',
-        level: AppLogger.error,
-      );
-      // Fallback to refreshing from backend
-      AppLogger.general('   Falling back to refreshShift()...');
-      refreshShift();
     }
   }
 

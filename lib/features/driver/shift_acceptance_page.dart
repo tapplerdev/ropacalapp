@@ -19,7 +19,11 @@ class ShiftAcceptancePage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final shiftState = ref.watch(shiftNotifierProvider);
 
+    // Dismiss keyboard when this page is shown (map behind may have focusable elements)
+    FocusManager.instance.primaryFocus?.unfocus();
+
     return Scaffold(
+      resizeToAvoidBottomInset: false,
       body: Stack(
         children: [
           // Background: Map view (still visible)

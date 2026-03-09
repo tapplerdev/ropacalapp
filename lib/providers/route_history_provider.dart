@@ -1,9 +1,12 @@
 import 'package:riverpod_annotation/riverpod_annotation.dart';
+import 'package:ropacalapp/core/enums/user_role.dart';
 import 'package:ropacalapp/core/utils/app_logger.dart';
 import 'package:ropacalapp/models/shift_history.dart';
 import 'package:ropacalapp/models/shift_state.dart';
 import 'package:ropacalapp/models/route_task.dart';
 import 'package:ropacalapp/providers/api_provider.dart';
+import 'package:ropacalapp/providers/auth_provider.dart';
+import 'package:ropacalapp/providers/drivers_provider.dart';
 import 'package:ropacalapp/services/shift_service.dart';
 import 'package:ropacalapp/providers/shift_provider.dart';
 
@@ -52,7 +55,10 @@ class RouteHistory extends _$RouteHistory {
   }
 }
 
-/// Provider for a single shift's detailed information
+/// Provider for a single shift's detailed information.
+/// Automatically uses the correct endpoint based on user role:
+/// - Driver: GET /api/driver/shift-details?shift_id=...
+/// - Manager: GET /api/manager/shifts/{shiftId} + GET /api/shifts/{shiftId}/tasks
 @riverpod
 class ShiftDetail extends _$ShiftDetail {
   @override
@@ -65,20 +71,14 @@ class ShiftDetail extends _$ShiftDetail {
     try {
       AppLogger.general('📋 Fetching shift details for: $shiftId');
 
-      final shiftService = ref.read(shiftServiceProvider);
-      final data = await shiftService.getShiftDetails(shiftId);
+      final user = ref.read(authNotifierProvider).valueOrNull;
+      final isManager = user?.role == UserRole.admin;
 
-      // Parse shift history from the response
-      final shiftHistory = ShiftHistory.fromJson(data);
-
-      // Parse tasks array (new task-based system)
-      final bins = (data['tasks'] as List)
-          .map((json) => RouteTask.fromJson(json as Map<String, dynamic>))
-          .toList();
-
-      AppLogger.general('✅ Loaded shift with ${bins.length} tasks');
-
-      return ShiftDetailData(shift: shiftHistory, bins: bins);
+      if (isManager) {
+        return _fetchAsManager(shiftId);
+      } else {
+        return _fetchAsDriver(shiftId);
+      }
     } catch (e, stack) {
       AppLogger.general(
         '❌ Error fetching shift details: $e',
@@ -87,6 +87,40 @@ class ShiftDetail extends _$ShiftDetail {
       AppLogger.general('Stack trace: $stack');
       rethrow;
     }
+  }
+
+  Future<ShiftDetailData> _fetchAsDriver(String shiftId) async {
+    final shiftService = ref.read(shiftServiceProvider);
+    final data = await shiftService.getShiftDetails(shiftId);
+
+    final shiftHistory = ShiftHistory.fromJson(data);
+    final bins = (data['tasks'] as List)
+        .map((json) => RouteTask.fromJson(json as Map<String, dynamic>))
+        .toList();
+
+    AppLogger.general('✅ [Driver] Loaded shift with ${bins.length} tasks');
+    return ShiftDetailData(shift: shiftHistory, bins: bins);
+  }
+
+  Future<ShiftDetailData> _fetchAsManager(String shiftId) async {
+    final managerService = ref.read(managerServiceProvider);
+
+    // Fetch shift summary and tasks in parallel
+    final results = await Future.wait([
+      managerService.getManagerShiftDetails(shiftId),
+      managerService.getManagerShiftTasks(shiftId),
+    ]);
+
+    final shiftData = results[0] as Map<String, dynamic>;
+    final tasksData = results[1] as List<dynamic>;
+
+    final shiftHistory = ShiftHistory.fromJson(shiftData);
+    final bins = tasksData
+        .map((json) => RouteTask.fromJson(json as Map<String, dynamic>))
+        .toList();
+
+    AppLogger.general('✅ [Manager] Loaded shift with ${bins.length} tasks');
+    return ShiftDetailData(shift: shiftHistory, bins: bins);
   }
 }
 

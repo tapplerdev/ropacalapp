@@ -15,6 +15,7 @@ import 'package:ropacalapp/providers/shift_provider.dart';
 import 'package:ropacalapp/providers/auth_provider.dart';
 import 'package:ropacalapp/core/enums/user_role.dart';
 import 'package:ropacalapp/core/services/google_navigation_marker_service.dart';
+import 'package:ropacalapp/core/notifications/notification_service.dart';
 
 void main() async {
   // Note: Navigation session is now initialized lazily when first needed
@@ -41,6 +42,9 @@ void main() async {
 
   // Initialize FCM (Firebase Cloud Messaging)
   await FCMService.initialize();
+
+  // Initialize awesome_notifications
+  await NotificationService().initialize();
 
   // Pre-cache common marker icons for better performance
   await GoogleNavigationMarkerService.preCacheCommonMarkers();
@@ -129,6 +133,12 @@ class _RopacalAppState extends ConsumerState<RopacalApp>
   @override
   Widget build(BuildContext context) {
     final router = ref.watch(goRouterProvider);
+
+    // Initialize auth event listener (triggers shift fetch on driver login)
+    ref.watch(authEventListenerProvider);
+
+    // Set router reference for notification deep-linking
+    NotificationService.router = router;
 
     return MaterialApp.router(
       title: 'Bin Management',

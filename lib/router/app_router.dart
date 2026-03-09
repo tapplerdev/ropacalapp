@@ -241,6 +241,14 @@ final goRouterProvider = Provider<GoRouter>((ref) {
         },
       ),
       GoRoute(
+        path: '/manager/drivers/:driverId/shift',
+        name: 'driver-shift-detail',
+        builder: (context, state) {
+          final driverId = state.pathParameters['driverId']!;
+          return DriverShiftDetailPage(driverId: driverId);
+        },
+      ),
+      GoRoute(
         path: '/shift-demo',
         name: 'shift-demo',
         builder: (context, state) => const ShiftDemoPage(),

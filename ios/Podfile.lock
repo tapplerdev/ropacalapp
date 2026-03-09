@@ -1,4 +1,7 @@
 PODS:
+  - awesome_notifications (0.11.0):
+    - Flutter
+    - IosAwnCore (~> 0.11.0)
   - device_info_plus (0.0.1):
     - Flutter
   - Flutter (1.0.0)
@@ -8,10 +11,12 @@ PODS:
     - Flutter
   - flutter_tts (0.0.1):
     - Flutter
+  - IosAwnCore (0.11.0)
   - location (0.0.1):
     - Flutter
 
 DEPENDENCIES:
+  - awesome_notifications (from `.symlinks/plugins/awesome_notifications/ios`)
   - device_info_plus (from `.symlinks/plugins/device_info_plus/ios`)
   - Flutter (from `Flutter`)
   - flutter_compass (from `.symlinks/plugins/flutter_compass/ios`)
@@ -19,7 +24,13 @@ DEPENDENCIES:
   - flutter_tts (from `.symlinks/plugins/flutter_tts/ios`)
   - location (from `.symlinks/plugins/location/ios`)
 
+SPEC REPOS:
+  trunk:
+    - IosAwnCore
+
 EXTERNAL SOURCES:
+  awesome_notifications:
+    :path: ".symlinks/plugins/awesome_notifications/ios"
   device_info_plus:
     :path: ".symlinks/plugins/device_info_plus/ios"
   Flutter:
@@ -34,13 +45,15 @@ EXTERNAL SOURCES:
     :path: ".symlinks/plugins/location/ios"
 
 SPEC CHECKSUMS:
+  awesome_notifications: 8291dd4082db761556cd8bf7977567f5c960c87e
   device_info_plus: 71ffc6ab7634ade6267c7a93088ed7e4f74e5896
   Flutter: cabc95a1d2626b1b06e7179b784ebcf0c0cde467
   flutter_compass: b236ab69b61545cce89fd58527f401a7587d5cc1
   flutter_secure_storage: 1ed9476fba7e7a782b22888f956cce43e2c62f13
   flutter_tts: 35ac3c7d42412733e795ea96ad2d7e05d0a75113
+  IosAwnCore: 32019505f4a4909fa9079ee401b2c82aeeab78a8
   location: 155caecf9da4f280ab5fe4a55f94ceccfab838f8
 
-PODFILE CHECKSUM: 350b14f29fb39a025c14aa659f4dbaa7748d5316
+PODFILE CHECKSUM: ce0745eb17ecfede20e735dfae8d0076e8335da1
 
 COCOAPODS: 1.16.2

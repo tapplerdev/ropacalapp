@@ -25,6 +25,12 @@ class CentrifugoService {
   final ApiService _apiService;
   Completer<void>? _connectCompleter; // Guards against concurrent connect() calls
 
+  /// Called on reconnect so consumers can refresh stale data.
+  void Function()? onReconnected;
+
+  /// Track if we've connected at least once (to distinguish initial connect from reconnect).
+  bool _hasConnectedOnce = false;
+
   CentrifugoService(this._apiService);
 
   /// Initialize Centrifugo client and establish WebSocket connection
@@ -108,8 +114,11 @@ class CentrifugoService {
       _client!.connected.listen((event) {
         AppLogger.general('🟢 [Centrifugo] Connected! (client: ${event.client})');
         // SDK auto-resubscribes all client-side subscriptions on reconnect
-        // (per Centrifugo spec: subscriptions not explicitly unsubscribed
-        //  automatically resubscribe when connection is re-established)
+        if (_hasConnectedOnce) {
+          AppLogger.general('🔄 [Centrifugo] Reconnected — triggering refresh callback');
+          onReconnected?.call();
+        }
+        _hasConnectedOnce = true;
       });
 
       _client!.disconnected.listen((event) {
@@ -358,6 +367,68 @@ class CentrifugoService {
 
     return subscription.publication.listen((pub) {
       AppLogger.general('📢 [Centrifugo] Company event received on $channel');
+      final data = jsonDecode(utf8.decode(pub.data));
+      onEvent(data as Map<String, dynamic>);
+    });
+  }
+
+  /// Subscribe to driver-specific events (shift_created, route_assigned, etc.)
+  ///
+  /// Channel: driver:events:{driverId}
+  ///
+  /// This channel is subscribed to on login (before any shift exists),
+  /// solving the chicken-and-egg problem where shift:updates:{shiftId}
+  /// can't be subscribed to until a shift is created.
+  ///
+  /// Event shape: { "type": "shift_created", "data": {...} }
+  Future<StreamSubscription> subscribeToDriverEvents(
+    String driverId,
+    void Function(Map<String, dynamic> event) onEvent,
+  ) async {
+    final channel = 'driver:events:$driverId';
+
+    if (_client == null) {
+      throw StateError(
+        'Centrifugo client not connected. Call connect() first.',
+      );
+    }
+
+    if (_subscriptions.containsKey(channel)) {
+      AppLogger.general('⚠️ [Centrifugo] Already subscribed to $channel');
+      return _subscriptions[channel]!.publication.listen((pub) {
+        final data = jsonDecode(utf8.decode(pub.data));
+        onEvent(data as Map<String, dynamic>);
+      });
+    }
+
+    AppLogger.general('🔄 [Centrifugo] Subscribing to $channel...');
+
+    final subscription = _client!.newSubscription(channel);
+
+    subscription.subscribing.listen((event) {
+      AppLogger.general('🔄 [Centrifugo] Subscribing to $channel...');
+    });
+
+    subscription.subscribed.listen((event) {
+      AppLogger.general('✅ [Centrifugo] Subscribed to $channel');
+    });
+
+    subscription.unsubscribed.listen((event) {
+      AppLogger.general('❌ [Centrifugo] Unsubscribed from $channel '
+          '(${event.code}: ${event.reason})');
+      _subscriptions.remove(channel);
+    });
+
+    subscription.error.listen((event) {
+      AppLogger.general(
+          '❌ [Centrifugo] Subscription error on $channel: ${event.error}');
+    });
+
+    _subscriptions[channel] = subscription;
+    await subscription.subscribe();
+
+    return subscription.publication.listen((pub) {
+      AppLogger.general('🔔 [Centrifugo] Driver event received on $channel');
       final data = jsonDecode(utf8.decode(pub.data));
       onEvent(data as Map<String, dynamic>);
     });

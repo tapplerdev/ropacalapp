@@ -6,13 +6,13 @@ part of 'centrifugo_provider.dart';
 // RiverpodGenerator
 // **************************************************************************
 
-String _$centrifugoManagerHash() => r'centrifugo_manager_bool_retry_v2';
+String _$centrifugoManagerHash() => r'1f821c3a2cb6f210cdd397072aba7169f68fee3a';
 
 /// Centrifugo connection lifecycle manager
 ///
 /// Automatically connects when ANY user logs in (drivers AND managers)
-/// - Drivers: Publish location to driver:location:{id} channel
-/// - Managers: Subscribe to driver location channels for real-time tracking
+/// - Drivers: Subscribe to driver:events:{id} for shift_created, route_assigned, etc.
+/// - Managers: Subscribe to company:events for real-time tracking
 ///
 /// Returns [bool] indicating connection status. This makes the state reactive:
 /// watchers (e.g. map page) automatically rebuild when connection transitions

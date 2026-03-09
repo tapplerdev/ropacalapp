@@ -713,6 +713,9 @@ class _ShiftReadyOverlay extends ConsumerWidget {
       return const SizedBox.shrink();
     }
 
+    // Dismiss keyboard so it doesn't appear behind the bottom sheet
+    FocusManager.instance.primaryFocus?.unfocus();
+
     // Fetch tasks for the shift using shift ID (not route ID)
     final shiftId = shiftState.shiftId ?? '';
 

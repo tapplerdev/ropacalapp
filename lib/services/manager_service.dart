@@ -355,6 +355,30 @@ class ManagerService {
   }
 
   // ═══════════════════════════════════════════════════════════════
+  // Shift Management
+  // ═══════════════════════════════════════════════════════════════
+
+  /// Cancel a shift (manager action)
+  /// Backend handles: status→cancelled, move requests→pending,
+  /// history recording, WebSocket notification to driver
+  Future<void> cancelShift(String shiftId) async {
+    try {
+      print('📤 REQUEST: PUT /api/manager/shifts/$shiftId/cancel');
+
+      final response = await _apiService.put(
+        '/api/manager/shifts/$shiftId/cancel',
+        {},
+      );
+
+      print('📥 RESPONSE: ${response.statusCode}');
+      print('   ✅ Shift cancelled successfully');
+    } catch (e) {
+      print('   ❌ ERROR cancelling shift: $e');
+      rethrow;
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════════
   // Routes & Shift Creation
   // ═══════════════════════════════════════════════════════════════
 
@@ -460,6 +484,84 @@ class ManagerService {
       throw Exception(response.data['error'] ?? 'Failed to create shift');
     } catch (e) {
       print('   ❌ ERROR creating shift: $e');
+      rethrow;
+    }
+  }
+
+  /// Get a single shift's details (manager view)
+  /// Returns shift data including id, driver_id, status, start_time, end_time, etc.
+  Future<Map<String, dynamic>> getManagerShiftDetails(String shiftId) async {
+    try {
+      print('📤 REQUEST: GET /api/manager/shifts/$shiftId');
+
+      final response = await _apiService.get('/api/manager/shifts/$shiftId');
+
+      print('📥 RESPONSE: ${response.statusCode}');
+
+      if (response.data['success'] == true) {
+        return response.data['data'] as Map<String, dynamic>;
+      }
+
+      throw Exception(
+          response.data['error'] ?? 'Failed to fetch shift details');
+    } catch (e) {
+      print('   ❌ ERROR: $e');
+      rethrow;
+    }
+  }
+
+  /// Get tasks for a specific shift (manager view, returns RouteTask format)
+  Future<List<dynamic>> getManagerShiftTasks(String shiftId) async {
+    try {
+      print('📤 REQUEST: GET /api/shifts/$shiftId/tasks');
+
+      final response = await _apiService.get('/api/shifts/$shiftId/tasks');
+
+      print('📥 RESPONSE: ${response.statusCode}');
+
+      if (response.data['success'] == true) {
+        return response.data['data'] as List<dynamic>;
+      }
+
+      throw Exception(
+          response.data['error'] ?? 'Failed to fetch shift tasks');
+    } catch (e) {
+      print('   ❌ ERROR: $e');
+      rethrow;
+    }
+  }
+
+  /// Get shift history for all drivers (manager view)
+  /// Returns paginated shift history with per-type task stats.
+  Future<Map<String, dynamic>> getShiftHistory({
+    String? driverId,
+    int? startDate,
+    int? endDate,
+    int limit = 50,
+    int offset = 0,
+  }) async {
+    try {
+      final queryParams = <String, dynamic>{
+        'limit': limit,
+        'offset': offset,
+      };
+      if (driverId != null) queryParams['driver_id'] = driverId;
+      if (startDate != null) queryParams['start_date'] = startDate;
+      if (endDate != null) queryParams['end_date'] = endDate;
+
+      final response = await _apiService.get(
+        '/api/manager/shifts/history',
+        queryParameters: queryParams,
+      );
+
+      if (response.data['success'] == true) {
+        return response.data['data'] as Map<String, dynamic>;
+      }
+
+      throw Exception(
+          response.data['error'] ?? 'Failed to fetch shift history');
+    } catch (e) {
+      print('   ❌ ERROR fetching shift history: $e');
       rethrow;
     }
   }

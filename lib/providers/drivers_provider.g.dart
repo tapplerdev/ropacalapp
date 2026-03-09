@@ -46,7 +46,7 @@ final activeDriversProvider =
 @Deprecated('Will be removed in 3.0. Use Ref instead')
 // ignore: unused_element
 typedef ActiveDriversRef = AutoDisposeFutureProviderRef<List<ActiveDriver>>;
-String _$driversNotifierHash() => r'94d6dbd37d0591d70115edb1f24da08825206363';
+String _$driversNotifierHash() => r'9d50e750fdbb2a791452355290c287f585ce54e7';
 
 /// Provider for managing list of drivers (for manager dashboard)
 /// This provider is WebSocket-enabled for real-time updates

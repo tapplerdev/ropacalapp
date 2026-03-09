@@ -24,7 +24,7 @@ final routeHistoryProvider =
     );
 
 typedef _$RouteHistory = AutoDisposeAsyncNotifier<List<ShiftHistory>>;
-String _$shiftDetailHash() => r'e345eca28f38dd9702f8d322c2ed628e45784e22';
+String _$shiftDetailHash() => r'7e5f1940e73ff0408d07de464c4e326829abda5f';
 
 /// Copied from Dart SDK
 class _SystemHash {
@@ -54,22 +54,34 @@ abstract class _$ShiftDetail
   FutureOr<ShiftDetailData> build(String shiftId);
 }
 
-/// Provider for a single shift's detailed information
+/// Provider for a single shift's detailed information.
+/// Automatically uses the correct endpoint based on user role:
+/// - Driver: GET /api/driver/shift-details?shift_id=...
+/// - Manager: GET /api/manager/shifts/{shiftId} + GET /api/shifts/{shiftId}/tasks
 ///
 /// Copied from [ShiftDetail].
 @ProviderFor(ShiftDetail)
 const shiftDetailProvider = ShiftDetailFamily();
 
-/// Provider for a single shift's detailed information
+/// Provider for a single shift's detailed information.
+/// Automatically uses the correct endpoint based on user role:
+/// - Driver: GET /api/driver/shift-details?shift_id=...
+/// - Manager: GET /api/manager/shifts/{shiftId} + GET /api/shifts/{shiftId}/tasks
 ///
 /// Copied from [ShiftDetail].
 class ShiftDetailFamily extends Family<AsyncValue<ShiftDetailData>> {
-  /// Provider for a single shift's detailed information
+  /// Provider for a single shift's detailed information.
+  /// Automatically uses the correct endpoint based on user role:
+  /// - Driver: GET /api/driver/shift-details?shift_id=...
+  /// - Manager: GET /api/manager/shifts/{shiftId} + GET /api/shifts/{shiftId}/tasks
   ///
   /// Copied from [ShiftDetail].
   const ShiftDetailFamily();
 
-  /// Provider for a single shift's detailed information
+  /// Provider for a single shift's detailed information.
+  /// Automatically uses the correct endpoint based on user role:
+  /// - Driver: GET /api/driver/shift-details?shift_id=...
+  /// - Manager: GET /api/manager/shifts/{shiftId} + GET /api/shifts/{shiftId}/tasks
   ///
   /// Copied from [ShiftDetail].
   ShiftDetailProvider call(String shiftId) {
@@ -98,12 +110,18 @@ class ShiftDetailFamily extends Family<AsyncValue<ShiftDetailData>> {
   String? get name => r'shiftDetailProvider';
 }
 
-/// Provider for a single shift's detailed information
+/// Provider for a single shift's detailed information.
+/// Automatically uses the correct endpoint based on user role:
+/// - Driver: GET /api/driver/shift-details?shift_id=...
+/// - Manager: GET /api/manager/shifts/{shiftId} + GET /api/shifts/{shiftId}/tasks
 ///
 /// Copied from [ShiftDetail].
 class ShiftDetailProvider
     extends AutoDisposeAsyncNotifierProviderImpl<ShiftDetail, ShiftDetailData> {
-  /// Provider for a single shift's detailed information
+  /// Provider for a single shift's detailed information.
+  /// Automatically uses the correct endpoint based on user role:
+  /// - Driver: GET /api/driver/shift-details?shift_id=...
+  /// - Manager: GET /api/manager/shifts/{shiftId} + GET /api/shifts/{shiftId}/tasks
   ///
   /// Copied from [ShiftDetail].
   ShiftDetailProvider(String shiftId)

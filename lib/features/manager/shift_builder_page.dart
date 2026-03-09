@@ -13,6 +13,8 @@ import 'package:ropacalapp/features/manager/widgets/driver_picker_sheet.dart';
 import 'package:ropacalapp/features/manager/widgets/route_picker_sheet.dart';
 import 'package:ropacalapp/features/manager/widgets/potential_location_picker_sheet.dart';
 import 'package:ropacalapp/features/manager/widgets/move_request_picker_sheet.dart';
+import 'package:ropacalapp/features/manager/widgets/bin_collection_picker_sheet.dart';
+import 'package:ropacalapp/models/bin.dart';
 
 /// Manager interface for building agnostic shifts with tasks
 class ShiftBuilderPage extends HookConsumerWidget {
@@ -326,7 +328,7 @@ class ShiftBuilderPage extends HookConsumerWidget {
                             label: 'Add Collection',
                             color: Colors.green,
                             onTap: () =>
-                                _showAddCollectionDialog(context, tasks),
+                                _showAddCollectionSheet(context, tasks),
                           ),
                           const SizedBox(width: 10),
                           _QuickAddButton(
@@ -753,30 +755,45 @@ class ShiftBuilderPage extends HookConsumerWidget {
   // Placeholder Dialogs (Phase 2)
   // ═══════════════════════════════════════════════════════════════
 
-  void _showAddCollectionDialog(
+  void _showAddCollectionSheet(
     BuildContext context,
     ValueNotifier<List<RouteTask>> tasks,
-  ) {
-    showDialog(
+  ) async {
+    // Collect bin IDs already in the task list
+    final existingBinIds = tasks.value
+        .where((t) => t.binId != null && t.taskType == StopType.collection)
+        .map((t) => t.binId!)
+        .toSet();
+
+    final selected = await showModalBottomSheet<List<Bin>>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Add Collection'),
-        content: const Text('Select bins to collect from the map or list.'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () {
-              // TODO: Show bin picker
-              Navigator.pop(context);
-            },
-            child: const Text('Select Bins'),
-          ),
-        ],
-      ),
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => BinCollectionPickerSheet(existingBinIds: existingBinIds),
     );
+
+    if (selected == null || selected.isEmpty) return;
+
+    // Deduplicate: skip bins already in the task list
+    final newBins = selected.where((b) => !existingBinIds.contains(b.id));
+
+    final newTasks = newBins.map((bin) {
+      return RouteTask(
+        id: 'temp_col_${bin.id}',
+        shiftId: 'temp',
+        sequenceOrder: tasks.value.length + 1,
+        taskType: StopType.collection,
+        latitude: bin.latitude ?? 0,
+        longitude: bin.longitude ?? 0,
+        address: bin.address,
+        binId: bin.id,
+        binNumber: bin.binNumber,
+        fillPercentage: bin.fillPercentage,
+        createdAt: DateTime.now().millisecondsSinceEpoch ~/ 1000,
+      );
+    }).toList();
+
+    tasks.value = [...tasks.value, ...newTasks];
   }
 
   void _showAddPlacementDialog(

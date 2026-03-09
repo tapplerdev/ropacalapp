@@ -238,11 +238,6 @@ class _DriverCard extends StatelessWidget {
 
   const _DriverCard({required this.driver});
 
-  bool get _hasActiveShift =>
-      driver.status == ShiftStatus.active ||
-      driver.status == ShiftStatus.paused ||
-      driver.status == ShiftStatus.ready;
-
   Color _statusColor(ShiftStatus status) {
     switch (status) {
       case ShiftStatus.active:
@@ -287,11 +282,7 @@ class _DriverCard extends StatelessWidget {
       color: Colors.transparent,
       child: InkWell(
         onTap: () {
-          if (_hasActiveShift) {
-            context.push('/manager/drivers/${driver.driverId}/shift');
-          } else {
-            context.push('/manager/drivers/${driver.driverId}');
-          }
+          context.push('/manager/drivers/${driver.driverId}');
         },
         borderRadius: BorderRadius.circular(16),
         child: Container(
@@ -414,7 +405,7 @@ class _DriverCard extends StatelessWidget {
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
                   Text(
-                    _hasActiveShift ? 'View Shift Details' : 'View Profile',
+                    'View Details',
                     style: TextStyle(
                       fontSize: 12,
                       color: Colors.grey.shade400,

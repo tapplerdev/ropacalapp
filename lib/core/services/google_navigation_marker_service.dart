@@ -768,6 +768,77 @@ class GoogleNavigationMarkerService {
     );
   }
 
+  /// Create a selected variant of a bin marker icon with a blue glow ring.
+  /// The blue ring is baked into the bitmap so it's visible at any zoom level.
+  static Future<ImageDescriptor> createSelectedBinMarkerIcon(
+    int binNumber,
+    int fillPercentage,
+  ) async {
+    final recorder = ui.PictureRecorder();
+    final canvas = Canvas(recorder);
+
+    final fillColor = getFillColor(fillPercentage);
+
+    // Slightly larger canvas to accommodate the glow ring
+    const canvasSize = 72.0;
+    const renderScale = 3.0;
+
+    // Draw blue glow ring behind the pin
+    final glowCenter = Offset(
+      canvasSize * renderScale / 2,
+      20.0 * renderScale, // Aligned with pin circle center
+    );
+
+    // Outer soft glow
+    final outerGlow = Paint()
+      ..color = const Color(0xFF4880FF).withValues(alpha: 0.25)
+      ..style = PaintingStyle.fill;
+    canvas.drawCircle(glowCenter, 30.0 * renderScale, outerGlow);
+
+    // Inner glow ring
+    final innerGlow = Paint()
+      ..color = const Color(0xFF4880FF).withValues(alpha: 0.15)
+      ..style = PaintingStyle.fill;
+    canvas.drawCircle(glowCenter, 25.0 * renderScale, innerGlow);
+
+    // Blue border ring
+    final ringPaint = Paint()
+      ..color = const Color(0xFF4880FF)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2.5 * renderScale;
+    canvas.drawCircle(glowCenter, 24.0 * renderScale, ringPaint);
+
+    // Now draw the normal pin on top (same as createBinMarkerIcon but offset for larger canvas)
+    final painter = PinMarkerPainter(
+      binNumber: binNumber,
+      fillPercentage: fillPercentage,
+      fillColor: fillColor,
+    );
+    // Offset the painter to center within the larger canvas
+    final pinSize = 60.0 * renderScale;
+    final offset = (canvasSize * renderScale - pinSize) / 2;
+    canvas.save();
+    canvas.translate(offset, 0);
+    painter.paint(canvas, Size(pinSize, pinSize));
+    canvas.restore();
+
+    final picture = recorder.endRecording();
+    final image = await picture.toImage(
+      (canvasSize * renderScale).toInt(),
+      (canvasSize * renderScale).toInt(),
+    );
+    final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
+
+    if (bytes == null) {
+      throw Exception('Failed to create selected marker icon');
+    }
+
+    return await registerBitmapImage(
+      bitmap: bytes,
+      imagePixelRatio: 3.0,
+    );
+  }
+
   /// Get fill color based on fill percentage
   static Color getFillColor(int fillPercentage) {
     if (fillPercentage >= 80) {

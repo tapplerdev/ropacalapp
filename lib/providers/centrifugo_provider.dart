@@ -3,18 +3,18 @@ import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:ropacalapp/core/services/centrifugo_service.dart';
 import 'package:ropacalapp/core/enums/user_role.dart';
 import 'package:ropacalapp/providers/auth_provider.dart';
-import 'package:ropacalapp/providers/potential_locations_list_provider.dart';
-import 'package:ropacalapp/providers/bins_provider.dart';
-import 'package:ropacalapp/providers/drivers_provider.dart';
+import 'package:ropacalapp/providers/notification_provider.dart';
+import 'package:ropacalapp/core/notifications/notification_adapters.dart';
 import 'package:ropacalapp/core/utils/app_logger.dart';
+import 'package:ropacalapp/providers/shift_provider.dart';
 
 part 'centrifugo_provider.g.dart';
 
 /// Centrifugo connection lifecycle manager
 ///
 /// Automatically connects when ANY user logs in (drivers AND managers)
-/// - Drivers: Publish location to driver:location:{id} channel
-/// - Managers: Subscribe to driver location channels for real-time tracking
+/// - Drivers: Subscribe to driver:events:{id} for shift_created, route_assigned, etc.
+/// - Managers: Subscribe to company:events for real-time tracking
 ///
 /// Returns [bool] indicating connection status. This makes the state reactive:
 /// watchers (e.g. map page) automatically rebuild when connection transitions
@@ -25,6 +25,7 @@ part 'centrifugo_provider.g.dart';
 @Riverpod(keepAlive: true)
 class CentrifugoManager extends _$CentrifugoManager {
   StreamSubscription? _companyEventsSubscription;
+  StreamSubscription? _driverEventsSubscription;
   Timer? _retryTimer;
   int _retryAttempts = 0;
   static const int _maxRetryAttempts = 10;
@@ -55,9 +56,16 @@ class CentrifugoManager extends _$CentrifugoManager {
 
       final connected = await _connect();
 
-      // Admins subscribe to company-wide events
-      if (connected && user.role == UserRole.admin) {
-        await _subscribeToCompanyEvents();
+      if (connected) {
+        // Admins/managers subscribe to company-wide events
+        if (user.role == UserRole.admin) {
+          await _subscribeToCompanyEvents();
+        }
+
+        // Drivers subscribe to their personal events channel
+        if (user.role == UserRole.driver) {
+          await _subscribeToDriverEvents(user.id);
+        }
       }
 
       return connected;
@@ -99,6 +107,17 @@ class CentrifugoManager extends _$CentrifugoManager {
 
       AppLogger.general('🔌 [CentrifugoManager] Connecting to Centrifugo...');
       final centrifugoService = ref.read(centrifugoServiceProvider);
+
+      // Set up reconnect handler to refresh shift data after connection loss
+      centrifugoService.onReconnected = () {
+        final authState = ref.read(authNotifierProvider);
+        final user = authState.valueOrNull;
+        if (user?.role == UserRole.driver) {
+          AppLogger.general('🔄 [CentrifugoManager] Reconnected — fetching shift to catch missed updates');
+          ref.read(shiftNotifierProvider.notifier).fetchCurrentShift();
+        }
+      };
+
       await centrifugoService.connect();
 
       _retryAttempts = 0; // Reset on success
@@ -141,12 +160,16 @@ class CentrifugoManager extends _$CentrifugoManager {
         // Update provider state to true so watchers (map page) rebuild
         state = const AsyncData(true);
 
-        // Subscribe to company events if admin
+        // Re-subscribe after retry
         final authState = ref.read(authNotifierProvider);
-        if (authState.hasValue &&
-            authState.value != null &&
-            authState.value!.role == UserRole.admin) {
-          await _subscribeToCompanyEvents();
+        if (authState.hasValue && authState.value != null) {
+          final user = authState.value!;
+          if (user.role == UserRole.admin) {
+            await _subscribeToCompanyEvents();
+          }
+          if (user.role == UserRole.driver) {
+            await _subscribeToDriverEvents(user.id);
+          }
         }
       }
     });
@@ -167,20 +190,10 @@ class CentrifugoManager extends _$CentrifugoManager {
         final type = event['type'] as String?;
         AppLogger.general('📢 [CentrifugoManager] Company event: $type');
 
-        switch (type) {
-          case 'potential_location_created':
-            ref.invalidate(potentialLocationsListNotifierProvider);
-          case 'potential_location_converted':
-            ref.invalidate(potentialLocationsListNotifierProvider);
-            ref.invalidate(binsListProvider);
-          case 'potential_location_deleted':
-            ref.invalidate(potentialLocationsListNotifierProvider);
-          case 'shift_created':
-          case 'shift_updated':
-            ref.invalidate(driversNotifierProvider);
-          default:
-            AppLogger.general('⚠️ [CentrifugoManager] Unknown event type: $type');
-        }
+        // Route through unified notification pipeline
+        final notifEvent =
+            NotificationAdapters.fromCentrifugoCompanyEvent(event);
+        ref.read(notificationRouterProvider).receive(notifEvent);
       });
       AppLogger.general('✅ [CentrifugoManager] Subscribed to company:events');
     } catch (e) {
@@ -188,10 +201,47 @@ class CentrifugoManager extends _$CentrifugoManager {
     }
   }
 
+  /// Subscribe to driver-specific events (drivers only)
+  /// Channel: driver:events:{driverId}
+  /// Events: shift_created, route_assigned, etc.
+  Future<void> _subscribeToDriverEvents(String driverId) async {
+    if (_driverEventsSubscription != null) {
+      AppLogger.general('⚠️ [CentrifugoManager] Already subscribed to driver:events');
+      return;
+    }
+
+    try {
+      AppLogger.general('🔄 [CentrifugoManager] Subscribing to driver:events:$driverId...');
+      final centrifugoService = ref.read(centrifugoServiceProvider);
+      _driverEventsSubscription =
+          await centrifugoService.subscribeToDriverEvents(driverId, (event) {
+        final type = event['type'] as String?;
+        AppLogger.general('🔔 [CentrifugoManager] Driver event: $type');
+
+        // Route through unified notification pipeline
+        final notifEvent =
+            NotificationAdapters.fromCentrifugoCompanyEvent(event);
+        ref.read(notificationRouterProvider).receive(notifEvent);
+
+        // For shift_created: trigger fetchCurrentShift so the UI updates
+        if (type == 'shift_created') {
+          AppLogger.general('🔔 [CentrifugoManager] shift_created — fetching shift...');
+          ref.read(shiftNotifierProvider.notifier).fetchCurrentShift();
+        }
+      });
+      AppLogger.general('✅ [CentrifugoManager] Subscribed to driver:events:$driverId');
+    } catch (e) {
+      AppLogger.general('❌ [CentrifugoManager] Failed to subscribe to driver:events: $e');
+    }
+  }
+
   /// Disconnect from Centrifugo
   void _disconnect() {
     _companyEventsSubscription?.cancel();
     _companyEventsSubscription = null;
+
+    _driverEventsSubscription?.cancel();
+    _driverEventsSubscription = null;
 
     final centrifugoService = ref.read(centrifugoServiceProvider);
     if (centrifugoService.isConnected) {

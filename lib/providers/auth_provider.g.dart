@@ -25,25 +25,26 @@ final apiServiceProvider = Provider<ApiService>.internal(
 @Deprecated('Will be removed in 3.0. Use Ref instead')
 // ignore: unused_element
 typedef ApiServiceRef = ProviderRef<ApiService>;
-String _$webSocketManagerHash() => r'e3c4d4cb9e3601d401c785c299edcfd0cab08499';
+String _$authEventListenerHash() => r'7e79cbd141959e8044bf688a648c5b2ff74894cf';
 
-/// WebSocket service provider (global singleton)
+/// Auth listener that triggers shift fetch when driver logs in.
+/// Replaces the old WebSocketManager — all real-time events now flow through Centrifugo.
 ///
-/// Copied from [WebSocketManager].
-@ProviderFor(WebSocketManager)
-final webSocketManagerProvider =
-    NotifierProvider<WebSocketManager, WebSocketService?>.internal(
-      WebSocketManager.new,
-      name: r'webSocketManagerProvider',
+/// Copied from [AuthEventListener].
+@ProviderFor(AuthEventListener)
+final authEventListenerProvider =
+    NotifierProvider<AuthEventListener, bool>.internal(
+      AuthEventListener.new,
+      name: r'authEventListenerProvider',
       debugGetCreateSourceHash: const bool.fromEnvironment('dart.vm.product')
           ? null
-          : _$webSocketManagerHash,
+          : _$authEventListenerHash,
       dependencies: null,
       allTransitiveDependencies: null,
     );
 
-typedef _$WebSocketManager = Notifier<WebSocketService?>;
-String _$authNotifierHash() => r'8bb2c93b441963d1ef72642f56f6b9898023870a';
+typedef _$AuthEventListener = Notifier<bool>;
+String _$authNotifierHash() => r'2b2f71806168a18c975d884609798fdee31d1a48';
 
 /// See also [AuthNotifier].
 @ProviderFor(AuthNotifier)

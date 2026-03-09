@@ -237,91 +237,294 @@ class _RopacalAppState extends ConsumerState<RopacalApp>
   }
 }
 
-/// Listens to the in-app notification stream and shows a Material Banner
-/// for critical/high-priority events while the app is in the foreground.
-class _InAppNotificationOverlay extends ConsumerWidget {
+/// Listens to the in-app notification stream and shows a custom animated
+/// banner from the top of the screen for in-app notification events.
+class _InAppNotificationOverlay extends ConsumerStatefulWidget {
   final Widget child;
   const _InAppNotificationOverlay({required this.child});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_InAppNotificationOverlay> createState() =>
+      _InAppNotificationOverlayState();
+}
+
+class _InAppNotificationOverlayState
+    extends ConsumerState<_InAppNotificationOverlay> {
+  OverlayEntry? _currentEntry;
+
+  @override
+  void dispose() {
+    _currentEntry?.remove();
+    _currentEntry = null;
+    super.dispose();
+  }
+
+  void _showBanner(NotificationEvent event) {
+    _currentEntry?.remove();
+    _currentEntry = null;
+
+    final config = NotificationRegistry.getConfig(event.eventType);
+    if (config == null) return;
+
+    final overlay = Overlay.maybeOf(context);
+    if (overlay == null) return;
+
+    late OverlayEntry entry;
+    entry = OverlayEntry(
+      builder: (context) => _NotificationBanner(
+        event: event,
+        config: config,
+        onDismiss: () {
+          entry.remove();
+          if (_currentEntry == entry) _currentEntry = null;
+        },
+      ),
+    );
+    _currentEntry = entry;
+    overlay.insert(entry);
+  }
+
+  @override
+  Widget build(BuildContext context) {
     ref.listen<NotificationEvent?>(
       inAppNotificationStreamProvider,
       (previous, next) {
         if (next == null) return;
-
-        final config = NotificationRegistry.getConfig(next.eventType);
-        if (config == null) return;
-
-        final title = config.titleBuilder(next.payload);
-        final body = config.bodyBuilder(next.payload);
-        final isCritical =
-            config.priority == NotificationPriority.critical;
-
-        final messenger = ScaffoldMessenger.maybeOf(context);
-        if (messenger == null) return;
-
-        messenger.clearSnackBars();
-        messenger.showSnackBar(
-          SnackBar(
-            content: Row(
-              children: [
-                Icon(
-                  isCritical
-                      ? Icons.error_outline
-                      : Icons.info_outline,
-                  color: Colors.white,
-                  size: 20,
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        title,
-                        style: const TextStyle(
-                          fontWeight: FontWeight.w600,
-                          fontSize: 14,
-                        ),
-                      ),
-                      if (body.isNotEmpty)
-                        Text(
-                          body,
-                          style: const TextStyle(fontSize: 12),
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-            backgroundColor: isCritical
-                ? AppColors.alertRed
-                : AppColors.primaryGreen,
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
-            margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-            duration: Duration(seconds: isCritical ? 6 : 4),
-            action: SnackBarAction(
-              label: 'Dismiss',
-              textColor: Colors.white70,
-              onPressed: () {
-                messenger.hideCurrentSnackBar();
-              },
-            ),
-          ),
-        );
-
-        // Clear after showing so it doesn't re-trigger on rebuild
+        _showBanner(next);
         ref.read(inAppNotificationStreamProvider.notifier).clear();
       },
     );
+    return widget.child;
+  }
+}
 
-    return child;
+/// Animated notification banner card — slides down from the top with a fade,
+/// styled to match the app's card design language.
+class _NotificationBanner extends StatefulWidget {
+  final NotificationEvent event;
+  final NotificationTypeConfig config;
+  final VoidCallback onDismiss;
+
+  const _NotificationBanner({
+    required this.event,
+    required this.config,
+    required this.onDismiss,
+  });
+
+  @override
+  State<_NotificationBanner> createState() => _NotificationBannerState();
+}
+
+class _NotificationBannerState extends State<_NotificationBanner>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+  late final Animation<Offset> _slideAnimation;
+  late final Animation<double> _fadeAnimation;
+  bool _dismissed = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 400),
+    );
+    _slideAnimation = Tween<Offset>(
+      begin: const Offset(0, -1.5),
+      end: Offset.zero,
+    ).animate(CurvedAnimation(
+      parent: _controller,
+      curve: Curves.easeOutCubic,
+    ));
+    _fadeAnimation = Tween<double>(begin: 0, end: 1).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeOut),
+    );
+
+    _controller.forward();
+
+    final isCritical =
+        widget.config.priority == NotificationPriority.critical;
+    Future.delayed(Duration(seconds: isCritical ? 6 : 4), _dismiss);
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _dismiss() {
+    if (_dismissed || !mounted) return;
+    _dismissed = true;
+    _controller.reverse().then((_) {
+      if (mounted) widget.onDismiss();
+    });
+  }
+
+  Color _accentColor() {
+    switch (widget.config.priority) {
+      case NotificationPriority.critical:
+        return AppColors.alertRed;
+      case NotificationPriority.high:
+        return AppColors.warningOrange;
+      case NotificationPriority.normal:
+      case NotificationPriority.low:
+        return AppColors.primaryGreen;
+    }
+  }
+
+  IconData _icon() {
+    final type = widget.event.eventType;
+    if (type.startsWith('shift_') || type.startsWith('task_')) {
+      return Icons.event_note_rounded;
+    }
+    if (type.startsWith('route_')) return Icons.route_rounded;
+    if (type.startsWith('move_request_')) return Icons.swap_horiz_rounded;
+    if (type.startsWith('bin_')) return Icons.delete_rounded;
+    if (type.startsWith('driver_')) return Icons.person_rounded;
+    return Icons.notifications_rounded;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final title = widget.config.titleBuilder(widget.event.payload);
+    final body = widget.config.bodyBuilder(widget.event.payload);
+    final accent = _accentColor();
+    final isCritical =
+        widget.config.priority == NotificationPriority.critical;
+
+    return Positioned(
+      top: 0,
+      left: 0,
+      right: 0,
+      child: SlideTransition(
+        position: _slideAnimation,
+        child: FadeTransition(
+          opacity: _fadeAnimation,
+          child: SafeArea(
+            bottom: false,
+            child: GestureDetector(
+              onVerticalDragEnd: (details) {
+                if (details.velocity.pixelsPerSecond.dy < -100) {
+                  _dismiss();
+                }
+              },
+              onTap: _dismiss,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(20),
+                    boxShadow: [
+                      BoxShadow(
+                        color: accent.withValues(alpha: 0.3),
+                        blurRadius: 20,
+                        offset: const Offset(0, 8),
+                      ),
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.08),
+                        blurRadius: 10,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(20),
+                    child: IntrinsicHeight(
+                      child: Row(
+                        children: [
+                          // Left accent strip
+                          Container(width: 5, color: accent),
+                          const SizedBox(width: 14),
+                          // Icon container
+                          Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            child: Container(
+                              width: 44,
+                              height: 44,
+                              decoration: BoxDecoration(
+                                color: accent.withValues(alpha: 0.1),
+                                borderRadius: BorderRadius.circular(14),
+                              ),
+                              child: Icon(
+                                isCritical
+                                    ? Icons.warning_amber_rounded
+                                    : _icon(),
+                                color: accent,
+                                size: 24,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          // Text content
+                          Expanded(
+                            child: Padding(
+                              padding:
+                                  const EdgeInsets.symmetric(vertical: 14),
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                crossAxisAlignment:
+                                    CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    title,
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.w700,
+                                      fontSize: 14,
+                                      color: AppColors.textPrimary,
+                                      letterSpacing: -0.2,
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                  if (body.isNotEmpty) ...[
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      body,
+                                      style: const TextStyle(
+                                        fontSize: 12,
+                                        color: AppColors.textSecondary,
+                                        height: 1.3,
+                                      ),
+                                      maxLines: 2,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ],
+                                ],
+                              ),
+                            ),
+                          ),
+                          // Close button
+                          Padding(
+                            padding: const EdgeInsets.only(right: 12),
+                            child: GestureDetector(
+                              onTap: _dismiss,
+                              child: Container(
+                                width: 28,
+                                height: 28,
+                                decoration: BoxDecoration(
+                                  color: Colors.grey.shade100,
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: const Icon(
+                                  Icons.close_rounded,
+                                  size: 16,
+                                  color: AppColors.textSecondary,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }

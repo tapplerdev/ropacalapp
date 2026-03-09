@@ -69,9 +69,8 @@ class NotificationService {
   }
 
   /// Display a notification for a given event.
-  /// When the app is in the foreground and the event has showInAppOverlay,
-  /// only the custom in-app banner is shown (no OS notification).
-  /// When the app is in the background, the OS notification is shown.
+  /// Foreground: custom in-app banner only (no OS notification).
+  /// Background: OS notification only.
   Future<void> showNotification(NotificationEvent event) async {
     final config = NotificationRegistry.getConfig(event.eventType);
     if (config == null) {
@@ -81,11 +80,12 @@ class NotificationService {
     }
 
     final isForeground = _isAppInForeground;
-    final hasInAppOverlay = config.showInAppOverlay;
 
-    // Only show OS notification if app is NOT in foreground,
-    // or if this event type doesn't have an in-app overlay.
-    if (!isForeground || !hasInAppOverlay) {
+    if (isForeground) {
+      // App is on screen — show custom in-app banner, skip OS notification
+      _inAppStream.add(event);
+    } else {
+      // App is in background/closed — show OS notification
       final id = _nextId++;
       final payload = event.payload;
 
@@ -116,11 +116,6 @@ class NotificationService {
         content: content,
         actionButtons: actionButtons,
       );
-    }
-
-    // Emit to in-app stream if configured (foreground only)
-    if (hasInAppOverlay) {
-      _inAppStream.add(event);
     }
 
     // Emit to feed stream if configured

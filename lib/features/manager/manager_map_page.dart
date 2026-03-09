@@ -10,6 +10,7 @@ import 'package:ropacalapp/providers/bins_provider.dart';
 import 'package:ropacalapp/providers/focused_driver_provider.dart';
 import 'package:ropacalapp/providers/potential_locations_list_provider.dart';
 import 'package:ropacalapp/providers/focused_potential_location_provider.dart';
+import 'package:ropacalapp/providers/move_requests_list_provider.dart';
 import 'package:ropacalapp/models/active_driver.dart';
 import 'package:ropacalapp/models/potential_location.dart';
 import 'package:ropacalapp/models/bin.dart';
@@ -54,6 +55,7 @@ class ManagerMapPage extends HookConsumerWidget {
     final driversAsync = ref.watch(driversNotifierProvider);
     final binsAsync = ref.watch(binsListProvider);
     final potentialLocationsAsync = ref.watch(potentialLocationsListNotifierProvider);
+    ref.watch(moveRequestsListNotifierProvider); // Pre-fetch for Operations tab
     final locationState = ref.watch(currentLocationProvider);
     final warehouseAsync = ref.watch(warehouseLocationNotifierProvider);
 
@@ -157,6 +159,7 @@ class ManagerMapPage extends HookConsumerWidget {
     final isUpdatingMarkers = useState<bool>(false);
 
     return Scaffold(
+      resizeToAvoidBottomInset: false,
       body: driversAsync.when(
         data: (drivers) {
           // Use useMemoized to prevent list recreation on every build

@@ -20,6 +20,7 @@ import 'package:ropacalapp/features/manager/potential_locations_page.dart';
 import 'package:ropacalapp/features/manager/move_requests_page.dart';
 import 'package:ropacalapp/features/manager/shift_builder_page.dart';
 import 'package:ropacalapp/features/manager/shifts_operations_page.dart';
+import 'package:ropacalapp/features/shared/location_picker_page.dart';
 import 'package:ropacalapp/providers/auth_provider.dart';
 
 // Placeholder page for admin dashboard (will be implemented in Phase 4)
@@ -243,6 +244,11 @@ final goRouterProvider = Provider<GoRouter>((ref) {
         path: '/shift-demo',
         name: 'shift-demo',
         builder: (context, state) => const ShiftDemoPage(),
+      ),
+      GoRoute(
+        path: '/location-picker',
+        name: 'location-picker',
+        builder: (context, state) => const LocationPickerPage(),
       ),
     ],
   );

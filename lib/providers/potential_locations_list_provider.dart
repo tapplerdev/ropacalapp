@@ -7,7 +7,7 @@ import 'package:ropacalapp/providers/bins_provider.dart';
 part 'potential_locations_list_provider.g.dart';
 
 /// Provider for managing potential locations list (manager view)
-@riverpod
+@Riverpod(keepAlive: true)
 class PotentialLocationsListNotifier
     extends _$PotentialLocationsListNotifier {
   @override

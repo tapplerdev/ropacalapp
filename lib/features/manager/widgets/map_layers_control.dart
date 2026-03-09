@@ -225,14 +225,11 @@ class _LayerToggle extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
           child: Row(
             children: [
-              AnimatedContainer(
-                duration: const Duration(milliseconds: 200),
+              Container(
                 width: 36,
                 height: 36,
                 decoration: BoxDecoration(
-                  color: isActive
-                      ? color.withValues(alpha: 0.12)
-                      : Colors.grey.shade100,
+                  color: color.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Icon(

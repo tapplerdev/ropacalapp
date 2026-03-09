@@ -5,6 +5,7 @@ import 'package:ropacalapp/core/enums/user_role.dart';
 import 'package:ropacalapp/providers/auth_provider.dart';
 import 'package:ropacalapp/providers/potential_locations_list_provider.dart';
 import 'package:ropacalapp/providers/bins_provider.dart';
+import 'package:ropacalapp/providers/drivers_provider.dart';
 import 'package:ropacalapp/core/utils/app_logger.dart';
 
 part 'centrifugo_provider.g.dart';
@@ -174,6 +175,9 @@ class CentrifugoManager extends _$CentrifugoManager {
             ref.invalidate(binsListProvider);
           case 'potential_location_deleted':
             ref.invalidate(potentialLocationsListNotifierProvider);
+          case 'shift_created':
+          case 'shift_updated':
+            ref.invalidate(driversNotifierProvider);
           default:
             AppLogger.general('⚠️ [CentrifugoManager] Unknown event type: $type');
         }

@@ -4,7 +4,9 @@ import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:google_navigation_flutter/google_navigation_flutter.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:ropacalapp/core/services/geocoding_service.dart';
+import 'package:ropacalapp/core/theme/app_colors.dart';
 import 'package:ropacalapp/core/utils/app_logger.dart';
+import 'package:ropacalapp/features/driver/widgets/circular_map_button.dart';
 import 'package:ropacalapp/core/widgets/here_places_autocomplete_field.dart';
 import 'package:ropacalapp/providers/location_provider.dart';
 import 'package:ropacalapp/providers/potential_location_provider.dart';
@@ -361,55 +363,40 @@ class LocationPickerPage extends HookConsumerWidget {
           Positioned(
             bottom: 280,
             right: 16,
-            child: Container(
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(12),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.15),
-                    blurRadius: 8,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
-              ),
-              child: IconButton(
-                icon: const Icon(
-                  Icons.my_location,
-                  color: Colors.blue,
-                  size: 24,
-                ),
-                onPressed: () async {
-                  final locationService = ref.read(locationServiceProvider);
-                  final pos = await locationService.getCurrentLocation();
-                  if (pos != null) {
-                    centerLat.value = pos.latitude;
-                    centerLng.value = pos.longitude;
+            child: CircularMapButton(
+              icon: Icons.my_location,
+              backgroundColor: AppColors.primaryGreen,
+              iconColor: Colors.white,
+              onTap: () async {
+                final locationService = ref.read(locationServiceProvider);
+                final pos = await locationService.getCurrentLocation();
+                if (pos != null) {
+                  centerLat.value = pos.latitude;
+                  centerLng.value = pos.longitude;
 
-                    mapController.value?.animateCamera(
-                      CameraUpdate.newCameraPosition(
-                        CameraPosition(
-                          target: LatLng(
-                            latitude: pos.latitude,
-                            longitude: pos.longitude,
-                          ),
-                          zoom: 17,
+                  mapController.value?.animateCamera(
+                    CameraUpdate.newCameraPosition(
+                      CameraPosition(
+                        target: LatLng(
+                          latitude: pos.latitude,
+                          longitude: pos.longitude,
                         ),
+                        zoom: 17,
                       ),
-                    );
+                    ),
+                  );
 
-                    _reverseGeocode(
-                      pos.latitude,
-                      pos.longitude,
-                      currentAddress,
-                      isGeocoding,
-                      geoStreet,
-                      geoCity,
-                      geoZip,
-                    );
-                  }
-                },
-              ),
+                  _reverseGeocode(
+                    pos.latitude,
+                    pos.longitude,
+                    currentAddress,
+                    isGeocoding,
+                    geoStreet,
+                    geoCity,
+                    geoZip,
+                  );
+                }
+              },
             ),
           ),
 

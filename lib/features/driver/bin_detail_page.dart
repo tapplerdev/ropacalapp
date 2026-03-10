@@ -2554,12 +2554,48 @@ class _CheckHistoryModalContent extends HookConsumerWidget {
                     ),
                   ),
                   const SizedBox(width: 12),
-                  const Text(
-                    'Check History',
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.black87,
+                  const Expanded(
+                    child: Text(
+                      'Check History',
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.black87,
+                      ),
+                    ),
+                  ),
+                  // Schedule Move action
+                  GestureDetector(
+                    onTap: () {
+                      Navigator.pop(context); // close bottom sheet
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => CreateMoveRequestPage(initialBin: bin),
+                        ),
+                      );
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: AppColors.primaryGreen.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.swap_horiz_rounded, size: 16, color: AppColors.primaryGreen),
+                          const SizedBox(width: 4),
+                          Text(
+                            'Move',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.primaryGreen,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ],
@@ -2675,21 +2711,33 @@ class _CheckHistoryModalContent extends HookConsumerWidget {
       separatorBuilder: (context, index) => const SizedBox(height: 16),
       itemBuilder: (context, index) {
         final check = checks[index];
-        return _buildCheckItem(check);
+        return _buildCheckItem(context, check, index);
       },
     );
   }
 
-  Widget _buildCheckItem(Map<String, dynamic> check) {
+  Widget _buildCheckItem(BuildContext context, Map<String, dynamic> check, int index) {
     final checkedOnIso = check['checkedOnIso'] as String?;
     final fillPercentage = check['fillPercentage'] as int?;
+    final previousFill = check['previousFillPercentage'] as int?;
     final checkedByName = check['checkedByName'] as String?;
-    final checkedFrom = check['checkedFrom'] as String? ?? 'Unknown location';
+    final checkedFrom = check['checkedFrom'] as String?;
+    final binLocation = check['binLocation'] as String?;
     final photoUrl = check['photoUrl'] as String?;
+    final shiftId = check['shiftId'] as String?;
+    final moveRequestId = check['moveRequestId'] as String?;
+
+    final location = (binLocation != null && binLocation.isNotEmpty)
+        ? binLocation
+        : checkedFrom ?? 'Unknown location';
 
     final fillColor = fillPercentage != null
         ? BinHelpers.getFillColor(fillPercentage)
         : Colors.grey;
+
+    // Determine check type
+    final bool isMoveRequest = moveRequestId != null && moveRequestId.isNotEmpty;
+    final bool isShiftCheck = shiftId != null && shiftId.isNotEmpty;
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -2704,7 +2752,7 @@ class _CheckHistoryModalContent extends HookConsumerWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Date and driver info header
+          // Date, driver, and fill badge
           Row(
             children: [
               Icon(
@@ -2740,33 +2788,46 @@ class _CheckHistoryModalContent extends HookConsumerWidget {
                   ],
                 ),
               ),
-              // Fill percentage badge
+              // Fill percentage badge with change
               if (fillPercentage != null)
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 6,
-                  ),
-                  decoration: BoxDecoration(
-                    color: fillColor.withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(
-                      color: fillColor.withValues(alpha: 0.3),
-                      width: 1,
-                    ),
-                  ),
-                  child: Text(
-                    '$fillPercentage%',
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.bold,
-                      color: fillColor,
-                    ),
-                  ),
-                ),
+                _buildFillBadge(fillPercentage, previousFill),
             ],
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 10),
+          // Check type chip + View Shift link
+          Row(
+            children: [
+              _buildCheckTypeChip(
+                isMoveRequest: isMoveRequest,
+                isShiftCheck: isShiftCheck,
+              ),
+              if (isShiftCheck && !isMoveRequest) ...[
+                const SizedBox(width: 8),
+                GestureDetector(
+                  onTap: () {
+                    Navigator.pop(context); // close bottom sheet
+                    context.push('/shifts/$shiftId');
+                  },
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        'View Shift',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.blue.shade600,
+                        ),
+                      ),
+                      const SizedBox(width: 2),
+                      Icon(Icons.arrow_forward_ios_rounded, size: 10, color: Colors.blue.shade600),
+                    ],
+                  ),
+                ),
+              ],
+            ],
+          ),
+          const SizedBox(height: 10),
           // Location info
           Row(
             children: [
@@ -2778,55 +2839,167 @@ class _CheckHistoryModalContent extends HookConsumerWidget {
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  checkedFrom,
+                  location,
                   style: TextStyle(
                     fontSize: 13,
                     color: Colors.grey.shade700,
                   ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
             ],
           ),
-          // Photo thumbnail if available
+          // Photo thumbnail — tappable for full-screen
           if (photoUrl != null) ...[
             const SizedBox(height: 12),
-            ClipRRect(
-              borderRadius: BorderRadius.circular(8),
-              child: Image.network(
-                photoUrl,
-                height: 150,
-                width: double.infinity,
-                fit: BoxFit.cover,
-                errorBuilder: (context, error, stackTrace) => Container(
-                  height: 150,
-                  color: Colors.grey.shade200,
-                  child: Center(
-                    child: Icon(
-                      Icons.broken_image_outlined,
-                      color: Colors.grey.shade400,
-                      size: 48,
+            GestureDetector(
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => _FullScreenImageViewer(
+                      imageUrl: photoUrl,
+                      heroTag: 'check-photo-$index',
                     ),
                   ),
-                ),
-                loadingBuilder: (context, child, loadingProgress) {
-                  if (loadingProgress == null) return child;
-                  return Container(
+                );
+              },
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: Hero(
+                  tag: 'check-photo-$index',
+                  child: Image.network(
+                    photoUrl,
                     height: 150,
-                    color: Colors.grey.shade200,
-                    child: Center(
-                      child: CircularProgressIndicator(
-                        value: loadingProgress.expectedTotalBytes != null
-                            ? loadingProgress.cumulativeBytesLoaded /
-                                loadingProgress.expectedTotalBytes!
-                            : null,
-                        color: AppColors.primaryGreen,
+                    width: double.infinity,
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) => Container(
+                      height: 150,
+                      color: Colors.grey.shade200,
+                      child: Center(
+                        child: Icon(
+                          Icons.broken_image_outlined,
+                          color: Colors.grey.shade400,
+                          size: 48,
+                        ),
                       ),
                     ),
-                  );
-                },
+                    loadingBuilder: (context, child, loadingProgress) {
+                      if (loadingProgress == null) return child;
+                      return Container(
+                        height: 150,
+                        color: Colors.grey.shade200,
+                        child: Center(
+                          child: CircularProgressIndicator(
+                            value: loadingProgress.expectedTotalBytes != null
+                                ? loadingProgress.cumulativeBytesLoaded /
+                                    loadingProgress.expectedTotalBytes!
+                                : null,
+                            color: AppColors.primaryGreen,
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
               ),
             ),
           ],
+        ],
+      ),
+    );
+  }
+
+  /// Fill badge showing change: "65% → 0%"
+  Widget _buildFillBadge(int current, int? previous) {
+    final fillColor = BinHelpers.getFillColor(current);
+
+    if (previous == null) {
+      // First check — no change to show
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(
+          color: fillColor.withValues(alpha: 0.15),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: fillColor.withValues(alpha: 0.3)),
+        ),
+        child: Text(
+          '$current%',
+          style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: fillColor),
+        ),
+      );
+    }
+
+    final decreased = current < previous;
+    final arrowColor = decreased ? AppColors.primaryGreen : Colors.red.shade600;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: fillColor.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: fillColor.withValues(alpha: 0.25)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            '$previous%',
+            style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 4),
+            child: Icon(
+              Icons.arrow_forward_rounded,
+              size: 12,
+              color: arrowColor,
+            ),
+          ),
+          Text(
+            '$current%',
+            style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: fillColor),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Chip indicating check type: Shift, Move Request, or Manual
+  Widget _buildCheckTypeChip({required bool isMoveRequest, required bool isShiftCheck}) {
+    final String label;
+    final Color color;
+    final IconData icon;
+
+    if (isMoveRequest) {
+      label = 'Move Request';
+      color = Colors.orange.shade700;
+      icon = Icons.swap_horiz_rounded;
+    } else if (isShiftCheck) {
+      label = 'Shift Check';
+      color = Colors.blue.shade600;
+      icon = Icons.work_outline_rounded;
+    } else {
+      label = 'Manual Check';
+      color = Colors.grey.shade600;
+      icon = Icons.touch_app_outlined;
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 12, color: color),
+          const SizedBox(width: 4),
+          Text(
+            label,
+            style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: color),
+          ),
         ],
       ),
     );
@@ -2850,5 +3023,46 @@ class _CheckHistoryModalContent extends HookConsumerWidget {
     } catch (e) {
       return 'Unknown';
     }
+  }
+}
+
+/// Full-screen image viewer with pinch-to-zoom and Hero animation.
+class _FullScreenImageViewer extends StatelessWidget {
+  final String imageUrl;
+  final String heroTag;
+
+  const _FullScreenImageViewer({
+    required this.imageUrl,
+    required this.heroTag,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.black,
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        iconTheme: const IconThemeData(color: Colors.white),
+      ),
+      body: Center(
+        child: InteractiveViewer(
+          minScale: 0.5,
+          maxScale: 4.0,
+          child: Hero(
+            tag: heroTag,
+            child: Image.network(
+              imageUrl,
+              fit: BoxFit.contain,
+              errorBuilder: (context, error, stackTrace) => const Icon(
+                Icons.broken_image_outlined,
+                color: Colors.white54,
+                size: 64,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }

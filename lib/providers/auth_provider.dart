@@ -88,6 +88,9 @@ class AuthNotifier extends _$AuthNotifier {
             }
           }
 
+          // Re-register FCM token on auto-login (may have changed since last login)
+          await _registerFCMToken();
+
           AppLogger.general('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
           return user;
         }

@@ -1,6 +1,7 @@
 import 'dart:collection';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:ropacalapp/core/utils/app_logger.dart';
 import 'package:ropacalapp/core/notifications/notification_event.dart';
 import 'package:ropacalapp/core/notifications/notification_registry.dart';
@@ -21,10 +22,12 @@ class NotificationRouter {
   /// Current user role string ('driver' or 'admin'). Set by the provider.
   String? currentUserRole;
 
-  /// Dedup cache: maps dedupKey → timestamp. Drops duplicates within 10s.
+  /// Dedup cache: maps dedupKey → timestamp. Drops duplicates within 5 minutes.
+  /// The window is long enough to cover background-to-foreground transitions
+  /// where Centrifugo reconnects and re-delivers events that FCM already handled.
   final LinkedHashMap<String, DateTime> _dedupCache = LinkedHashMap();
   static const int _dedupMaxEntries = 500;
-  static const Duration _dedupWindow = Duration(seconds: 10);
+  static const Duration _dedupWindow = Duration(minutes: 5);
 
   NotificationRouter({
     required NotificationService service,
@@ -100,6 +103,45 @@ class NotificationRouter {
     await _service.showNotification(event);
     AppLogger.general(
         '[NotificationRouter] Notification displayed: ${event.eventType}');
+  }
+
+  /// Load dedup keys persisted by the FCM background handler (separate isolate).
+  /// Call this on app startup and when the app resumes from background.
+  Future<void> loadPersistedDedupKeys() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.reload(); // Ensure we see writes from the background isolate
+      final storedKeys = prefs.getStringList('fcm_bg_dedup_keys') ?? [];
+      if (storedKeys.isEmpty) return;
+
+      final now = DateTime.now();
+      int loaded = 0;
+
+      for (final entry in storedKeys) {
+        final separatorIndex = entry.lastIndexOf('|');
+        if (separatorIndex == -1) continue;
+        final key = entry.substring(0, separatorIndex);
+        final timestampMs = int.tryParse(entry.substring(separatorIndex + 1));
+        if (timestampMs == null) continue;
+
+        final timestamp = DateTime.fromMillisecondsSinceEpoch(timestampMs);
+        if (now.difference(timestamp) < _dedupWindow) {
+          _dedupCache[key] = timestamp;
+          loaded++;
+        }
+      }
+
+      // Clear persisted keys after loading
+      await prefs.remove('fcm_bg_dedup_keys');
+
+      if (loaded > 0) {
+        AppLogger.general(
+            '[NotificationRouter] Loaded $loaded persisted dedup keys from background');
+      }
+    } catch (e) {
+      AppLogger.general(
+          '[NotificationRouter] Failed to load persisted dedup keys: $e');
+    }
   }
 
   /// Returns true if this event was seen within the dedup window.

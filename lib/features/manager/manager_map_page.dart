@@ -152,8 +152,9 @@ class ManagerMapPage extends HookConsumerWidget {
       [],
     );
 
-    // Listen to animation state changes (triggers update loop)
-    final hasActiveAnimations = useValueListenable(animationService.animationStateNotifier);
+    // Track animation state without triggering full widget rebuilds.
+    // Effect 4 listens to the ValueNotifier directly instead.
+    final hasActiveAnimationsRef = useRef(animationService.animationStateNotifier.value);
 
     // Flag to prevent concurrent marker updates
     final isUpdatingMarkers = useState<bool>(false);
@@ -443,12 +444,6 @@ class ManagerMapPage extends HookConsumerWidget {
           // Extract data directly for dependency tracking
           final potentialLocationsData = potentialLocationsAsync.valueOrNull;
           final potentialLocationsCount = potentialLocationsData?.length ?? 0;
-
-          AppLogger.map('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-          AppLogger.map('🔑 LOCATION MARKERS DEPENDENCY CHECK');
-          AppLogger.map('   potentialLocationsCount: $potentialLocationsCount');
-          AppLogger.map('   Pending locations: ${potentialLocationsData?.where((loc) => loc.convertedToBinId == null).length ?? 0}');
-          AppLogger.map('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
 
           useEffect(
             () {
@@ -878,14 +873,15 @@ class ManagerMapPage extends HookConsumerWidget {
           );
 
           // Effect 4: Update driver marker positions at 60fps (using updateMarkers)
-          // This only updates positions, never adds/removes markers
+          // This only updates positions, never adds/removes markers.
+          // Listens to animationStateNotifier directly to avoid full widget rebuilds.
           useEffect(
             () {
               if (mapController.value == null || driverMarkers.value.isEmpty) {
                 return null;
               }
 
-              AppLogger.map('🔧 Effect 4: Setting up driver position update logic (hasActiveAnimations=$hasActiveAnimations)');
+              Timer? animationTimer;
 
               // Function to update driver marker positions
               Future<void> updateDriverPositions() async {
@@ -955,11 +951,10 @@ class ManagerMapPage extends HookConsumerWidget {
                   // Update markers on the native map
                   if (updatedMarkers.isNotEmpty) {
                     await mapController.value!.updateMarkers(updatedMarkers);
-                    // Sync state only in the one-shot path (no active animations).
+                    // Sync state only when not animating.
                     // During 60fps animation, skip to avoid 60 rebuilds/second.
-                    // When animations end, hasActiveAnimations flips false,
-                    // Effect 4 re-runs one-shot, and syncs state here.
-                    if (!hasActiveAnimations) {
+                    // When animations end, the listener fires one-shot and syncs here.
+                    if (!hasActiveAnimationsRef.value) {
                       driverMarkers.value = updatedMap;
                     }
                   }
@@ -970,33 +965,44 @@ class ManagerMapPage extends HookConsumerWidget {
                 }
               }
 
-              // Use Timer.periodic for 60fps updates when animating
-              if (hasActiveAnimations) {
-                AppLogger.map('🎬 Starting 60fps timer for driver position updates');
+              // Start or stop the 60fps timer based on animation state.
+              void applyAnimationState(bool animating) {
+                hasActiveAnimationsRef.value = animating;
+                animationTimer?.cancel();
+                animationTimer = null;
 
-                final timer = Timer.periodic(
-                  const Duration(milliseconds: 16), // ~60fps (16ms per frame)
-                  (_) {
-                    if (!isUpdatingMarkers.value) {
-                      updateDriverPositions();
-                    }
-                  },
-                );
-
-                return () {
-                  AppLogger.map('🎬 Cancelling timer');
-                  timer.cancel();
-                };
-              } else {
-                // No animation - just update once
-                AppLogger.map('📍 No animation, updating driver positions once');
-                updateDriverPositions();
-                return null;
+                if (animating) {
+                  AppLogger.map('🎬 Starting 60fps timer for driver position updates');
+                  animationTimer = Timer.periodic(
+                    const Duration(milliseconds: 16), // ~60fps
+                    (_) {
+                      if (!isUpdatingMarkers.value) {
+                        updateDriverPositions();
+                      }
+                    },
+                  );
+                } else {
+                  AppLogger.map('📍 No animation, updating driver positions once');
+                  updateDriverPositions();
+                }
               }
+
+              // Apply initial state
+              applyAnimationState(animationService.animationStateNotifier.value);
+
+              // React to future animation state changes without rebuilding widget
+              void onAnimationStateChanged() {
+                applyAnimationState(animationService.animationStateNotifier.value);
+              }
+              animationService.animationStateNotifier.addListener(onAnimationStateChanged);
+
+              return () {
+                animationTimer?.cancel();
+                animationService.animationStateNotifier.removeListener(onAnimationStateChanged);
+              };
             },
             [
               mapController.value,
-              hasActiveAnimations,
               driverMarkers.value.isNotEmpty,
               focusedDriverId,
               isFollowing,

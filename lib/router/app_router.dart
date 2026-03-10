@@ -12,7 +12,9 @@ import 'package:ropacalapp/features/driver/shifts_page.dart';
 import 'package:ropacalapp/features/driver/shift_history_page.dart';
 import 'package:ropacalapp/features/driver/route_detail_page.dart';
 import 'package:ropacalapp/features/driver/notification_settings_page.dart';
+import 'package:ropacalapp/features/driver/notification_detail_page.dart';
 import 'package:ropacalapp/features/driver/language_settings_page.dart';
+import 'package:ropacalapp/core/notifications/notification_event.dart';
 import 'package:ropacalapp/features/manager/active_drivers_list_page.dart';
 import 'package:ropacalapp/features/manager/driver_shift_detail_page.dart';
 import 'package:ropacalapp/features/manager/driver_detail_page.dart';
@@ -252,6 +254,14 @@ final goRouterProvider = Provider<GoRouter>((ref) {
         path: '/shift-demo',
         name: 'shift-demo',
         builder: (context, state) => const ShiftDemoPage(),
+      ),
+      GoRoute(
+        path: '/notification-detail',
+        name: 'notification-detail',
+        builder: (context, state) {
+          final event = state.extra as NotificationEvent?;
+          return NotificationDetailPage(event: event);
+        },
       ),
       GoRoute(
         path: '/location-picker',

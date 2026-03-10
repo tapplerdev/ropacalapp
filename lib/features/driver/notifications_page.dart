@@ -293,11 +293,7 @@ class _NotificationCard extends StatelessWidget {
         color: Colors.transparent,
         child: InkWell(
           onTap: () {
-            final deepLink =
-                config?.deepLinkBuilder?.call(event.payload) ?? '';
-            if (deepLink.isNotEmpty && context.mounted) {
-              context.go(deepLink);
-            }
+            context.push('/notification-detail', extra: event);
           },
           borderRadius: BorderRadius.circular(12),
           child: Padding(

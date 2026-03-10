@@ -149,6 +149,10 @@ class NotificationRegistry {
       allowedRoles: const ['driver'],
       titleBuilder: (_) => 'Shift Cancelled',
       bodyBuilder: (p) {
+        final cancelledBy = p['cancelled_by'];
+        if (cancelledBy != null && cancelledBy.toString().isNotEmpty) {
+          return 'Your shift has been cancelled by $cancelledBy.';
+        }
         final message =
             p['message'] ?? 'Your shift has been cancelled by management.';
         return message.toString();

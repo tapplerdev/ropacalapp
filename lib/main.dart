@@ -100,6 +100,9 @@ class _RopacalAppState extends ConsumerState<RopacalApp>
   void didChangeAppLifecycleState(AppLifecycleState state) {
     switch (state) {
       case AppLifecycleState.resumed:
+        // Load dedup keys persisted by the FCM background handler before
+        // Centrifugo reconnects and re-delivers the same events.
+        ref.read(notificationRouterProvider).loadPersistedDedupKeys();
         // App came to foreground - restore shift state from backend (drivers only)
         _restoreShiftState();
         break;
@@ -412,11 +415,10 @@ class _NotificationBannerState extends State<_NotificationBanner>
                 }
               },
               onTap: () {
-                final deepLink = widget.config.deepLinkBuilder
-                    ?.call(widget.event.payload) ?? '';
-                if (deepLink.isNotEmpty) {
-                  NotificationService.router?.go(deepLink);
-                }
+                NotificationService.router?.push(
+                  '/notification-detail',
+                  extra: widget.event,
+                );
                 _dismiss();
               },
               child: Padding(

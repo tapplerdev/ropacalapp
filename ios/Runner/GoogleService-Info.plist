@@ -9,7 +9,7 @@
 	<key>PLIST_VERSION</key>
 	<string>1</string>
 	<key>BUNDLE_ID</key>
-	<string>com.example.ropacalapp</string>
+	<string>com.binly.binlyapp</string>
 	<key>PROJECT_ID</key>
 	<string>ropacal</string>
 	<key>STORAGE_BUCKET</key>
@@ -25,6 +25,6 @@
 	<key>IS_SIGNIN_ENABLED</key>
 	<true></true>
 	<key>GOOGLE_APP_ID</key>
-	<string>1:396696058818:ios:5c0df70670e872fca2f45b</string>
+	<string>1:396696058818:ios:938e91cc21a480d5a2f45b</string>
 </dict>
 </plist>

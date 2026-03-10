@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io' show Platform;
 import 'package:awesome_notifications/awesome_notifications.dart';
 import 'package:flutter/widgets.dart';
 import 'package:go_router/go_router.dart';
@@ -52,12 +53,19 @@ class NotificationService {
     );
   }
 
-  /// Request notification permissions.
+  /// Request notification permissions (including sound & vibration).
   Future<bool> requestPermissions() async {
     final isAllowed = await AwesomeNotifications().isNotificationAllowed();
     if (!isAllowed) {
       return await AwesomeNotifications()
-          .requestPermissionToSendNotifications();
+          .requestPermissionToSendNotifications(
+        permissions: [
+          NotificationPermission.Alert,
+          NotificationPermission.Sound,
+          NotificationPermission.Badge,
+          NotificationPermission.Vibration,
+        ],
+      );
     }
     return true;
   }
@@ -82,10 +90,14 @@ class NotificationService {
     final isForeground = _isAppInForeground;
 
     if (isForeground) {
-      // App is on screen — show custom in-app banner, skip OS notification
+      // App is on screen — show custom in-app banner only (no OS notification)
       _inAppStream.add(event);
+    } else if (Platform.isIOS) {
+      // iOS background: the backend already sends an APNS alert payload so iOS
+      // displays the notification natively. Creating a local notification here
+      // would cause a duplicate. Only add to feed (below).
     } else {
-      // App is in background/closed — show OS notification
+      // Android background: FCM is data-only, so we create the local notification.
       final id = _nextId++;
       final payload = event.payload;
 

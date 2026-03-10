@@ -42,6 +42,9 @@ NotificationRouter notificationRouter(NotificationRouterRef ref) {
     ref: ref,
   );
 
+  // Load dedup keys persisted by the FCM background handler
+  router.loadPersistedDedupKeys();
+
   // Watch auth state to keep role updated
   final authState = ref.watch(authNotifierProvider);
   authState.whenData((user) {
@@ -98,6 +101,8 @@ class NotificationFeed extends _$NotificationFeed {
 
     _subscription?.cancel();
     _subscription = service.feedUpdates.listen((event) {
+      // Skip if already in feed (same dedupKey = same event from another transport)
+      if (state.any((e) => e.dedupKey == event.dedupKey)) return;
       // Prepend new events (most recent first), cap at 100
       state = [event, ...state].take(100).toList();
     });

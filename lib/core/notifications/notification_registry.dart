@@ -598,6 +598,27 @@ class NotificationRegistry {
       bodyBuilder: (_) => 'Awaiting redeployment.',
       deepLinkBuilder: (_) => '/manager/move-requests',
     ),
+
+    // -----------------------------------------------------------------------
+    //  AIRTAG DRIFT ALERTS (Backend 5-min poll, Manager only)
+    // -----------------------------------------------------------------------
+    NotificationTypeConfig(
+      eventType: 'bin_drift_alert',
+      channelKey: NotificationChannels.binAlerts,
+      priority: NotificationPriority.critical,
+      allowedRoles: const ['admin', 'manager'],
+      titleBuilder: (p) {
+        final binNumber = p['bin_number'] ?? '?';
+        return 'Bin $binNumber Moved!';
+      },
+      bodyBuilder: (p) {
+        final distance = p['distance_meters'] ?? '?';
+        return 'Detected ${distance}m from assigned location';
+      },
+      deepLinkBuilder: (_) => '/home',
+      showInAppOverlay: true,
+      addToFeed: true,
+    ),
   ];
 }
 

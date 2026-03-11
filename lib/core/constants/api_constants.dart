@@ -36,4 +36,7 @@ class ApiConstants {
 
   // Centrifugo real-time messaging
   static const String centrifugoTokenEndpoint = '/api/centrifugo/token';
+
+  // Notification preferences
+  static const String notificationPreferencesEndpoint = '/api/notifications/preferences';
 }

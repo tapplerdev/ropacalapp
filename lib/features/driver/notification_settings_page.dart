@@ -4,53 +4,38 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:ropacalapp/core/theme/app_colors.dart';
 import 'package:ropacalapp/core/notifications/notification_channels.dart';
 import 'package:ropacalapp/providers/notification_provider.dart';
+import 'package:ropacalapp/providers/notification_preferences_provider.dart';
 
 /// Notification Settings Page - Manage notification preferences
+/// Backend-synced toggles for shift_events and move_requests.
+/// Local-only toggles for sound and vibration.
 class NotificationSettingsPage extends HookConsumerWidget {
   const NotificationSettingsPage({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final prefs = ref.read(notificationPreferencesProvider);
-    final isLoaded = useState(false);
+    final localPrefs = ref.read(notificationPreferencesProvider);
+    final backendPrefsAsync =
+        ref.watch(backendNotificationPreferencesProvider);
 
-    // Channel toggles
-    final shiftUpdates = useState(true);
-    final routeUpdates = useState(true);
-    final moveRequests = useState(true);
-    final binAlerts = useState(true);
-    final driverAlerts = useState(true);
-    final systemUpdates = useState(true);
-
-    // Global toggles
+    // Local device settings (SharedPreferences only)
     final soundEnabled = useState(true);
     final vibrationEnabled = useState(true);
+    final localLoaded = useState(false);
 
-    // Load initial values from SharedPreferences
+    // Load local device settings
     useEffect(() {
       Future<void> load() async {
-        shiftUpdates.value =
-            await prefs.isChannelEnabled(NotificationChannels.shiftUpdates);
-        routeUpdates.value =
-            await prefs.isChannelEnabled(NotificationChannels.routeUpdates);
-        moveRequests.value =
-            await prefs.isChannelEnabled(NotificationChannels.moveRequests);
-        binAlerts.value =
-            await prefs.isChannelEnabled(NotificationChannels.binAlerts);
-        driverAlerts.value =
-            await prefs.isChannelEnabled(NotificationChannels.driverAlerts);
-        systemUpdates.value =
-            await prefs.isChannelEnabled(NotificationChannels.systemUpdates);
-        soundEnabled.value = await prefs.isSoundEnabled();
-        vibrationEnabled.value = await prefs.isVibrationEnabled();
-        isLoaded.value = true;
+        soundEnabled.value = await localPrefs.isSoundEnabled();
+        vibrationEnabled.value = await localPrefs.isVibrationEnabled();
+        localLoaded.value = true;
       }
 
       load();
       return null;
     }, []);
 
-    if (!isLoaded.value) {
+    if (!localLoaded.value) {
       return Scaffold(
         backgroundColor: Colors.white,
         appBar: AppBar(
@@ -82,98 +67,124 @@ class NotificationSettingsPage extends HookConsumerWidget {
             ),
             const SizedBox(height: 24),
 
-            // Route Updates Section
-            _buildSectionHeader('ROUTE UPDATES'),
+            // Route & Shift Updates Section (backend-synced)
+            _buildSectionHeader('ROUTE & SHIFT UPDATES'),
             const SizedBox(height: 8),
-            _buildCard([
-              _ToggleItem(
-                icon: Icons.route,
-                iconColor: Colors.blue.shade600,
-                title: 'Route Assignments',
-                subtitle: 'New route assignments & updates',
-                value: routeUpdates.value,
-                onChanged: (v) {
-                  routeUpdates.value = v;
-                  prefs.setChannelEnabled(
-                      NotificationChannels.routeUpdates, v);
-                },
-              ),
-              _ToggleItem(
-                icon: Icons.work_history,
-                iconColor: Colors.green.shade600,
-                title: 'Shift Updates',
-                subtitle: 'Shift assignments, edits & cancellations',
-                value: shiftUpdates.value,
-                onChanged: (v) {
-                  shiftUpdates.value = v;
-                  prefs.setChannelEnabled(
-                      NotificationChannels.shiftUpdates, v);
-                },
-              ),
-              _ToggleItem(
-                icon: Icons.move_down,
-                iconColor: Colors.orange.shade600,
-                title: 'Move Requests',
-                subtitle: 'Bin move requests and status updates',
-                value: moveRequests.value,
-                onChanged: (v) {
-                  moveRequests.value = v;
-                  prefs.setChannelEnabled(
-                      NotificationChannels.moveRequests, v);
-                },
-              ),
-            ]),
+            backendPrefsAsync.when(
+              data: (prefs) => _buildCard([
+                _ToggleItem(
+                  icon: Icons.work_history,
+                  iconColor: Colors.green.shade600,
+                  title: 'Shift & Route Updates',
+                  subtitle:
+                      'Shift assignments, cancellations, route assignments',
+                  value: prefs.shiftEvents,
+                  onChanged: (v) {
+                    ref
+                        .read(backendNotificationPreferencesProvider.notifier)
+                        .updatePreference(shiftEvents: v);
+                    // Also update local channels so FCM filtering matches
+                    localPrefs.setChannelEnabled(
+                        NotificationChannels.shiftUpdates, v);
+                    localPrefs.setChannelEnabled(
+                        NotificationChannels.routeUpdates, v);
+                  },
+                ),
+                _ToggleItem(
+                  icon: Icons.move_down,
+                  iconColor: Colors.orange.shade600,
+                  title: 'Move Requests',
+                  subtitle: 'Bin move assignments and status updates',
+                  value: prefs.moveRequests,
+                  onChanged: (v) {
+                    ref
+                        .read(backendNotificationPreferencesProvider.notifier)
+                        .updatePreference(moveRequests: v);
+                    localPrefs.setChannelEnabled(
+                        NotificationChannels.moveRequests, v);
+                  },
+                ),
+              ]),
+              loading: () => _buildCard([
+                _ToggleItem(
+                  icon: Icons.work_history,
+                  iconColor: Colors.green.shade600,
+                  title: 'Shift & Route Updates',
+                  subtitle:
+                      'Shift assignments, cancellations, route assignments',
+                  value: true,
+                  onChanged: null,
+                ),
+                _ToggleItem(
+                  icon: Icons.move_down,
+                  iconColor: Colors.orange.shade600,
+                  title: 'Move Requests',
+                  subtitle: 'Bin move assignments and status updates',
+                  value: true,
+                  onChanged: null,
+                ),
+              ]),
+              error: (_, __) => _buildCard([
+                _ToggleItem(
+                  icon: Icons.work_history,
+                  iconColor: Colors.green.shade600,
+                  title: 'Shift & Route Updates',
+                  subtitle: 'Could not load preferences',
+                  value: true,
+                  onChanged: null,
+                ),
+                _ToggleItem(
+                  icon: Icons.move_down,
+                  iconColor: Colors.orange.shade600,
+                  title: 'Move Requests',
+                  subtitle: 'Could not load preferences',
+                  value: true,
+                  onChanged: null,
+                ),
+              ]),
+            ),
 
             const SizedBox(height: 24),
 
-            // Alerts Section
-            _buildSectionHeader('ALERTS'),
+            // Coming Soon Section (grayed out)
+            _buildSectionHeader('COMING SOON'),
             const SizedBox(height: 8),
-            _buildCard([
-              _ToggleItem(
-                icon: Icons.warning_amber_rounded,
-                iconColor: Colors.red.shade600,
-                title: 'Bin Alerts',
-                subtitle: 'High fill levels & bin status changes',
-                value: binAlerts.value,
-                onChanged: (v) {
-                  binAlerts.value = v;
-                  prefs.setChannelEnabled(
-                      NotificationChannels.binAlerts, v);
-                },
-              ),
-              _ToggleItem(
-                icon: Icons.person_pin,
-                iconColor: Colors.purple.shade600,
-                title: 'Driver Alerts',
-                subtitle: 'Driver status changes & location issues',
-                value: driverAlerts.value,
-                onChanged: (v) {
-                  driverAlerts.value = v;
-                  prefs.setChannelEnabled(
-                      NotificationChannels.driverAlerts, v);
-                },
-              ),
-            ]),
+            Opacity(
+              opacity: 0.5,
+              child: _buildCard([
+                _ToggleItem(
+                  icon: Icons.warning_amber_rounded,
+                  iconColor: Colors.red.shade400,
+                  title: 'High Fill Alerts',
+                  subtitle: 'Alerts when bins reach high fill levels',
+                  value: false,
+                  onChanged: null,
+                ),
+                _ToggleItem(
+                  icon: Icons.priority_high,
+                  iconColor: Colors.amber.shade600,
+                  title: 'Priority Bins',
+                  subtitle: 'Notifications for priority bin changes',
+                  value: false,
+                  onChanged: null,
+                ),
+                _ToggleItem(
+                  icon: Icons.message_outlined,
+                  iconColor: Colors.blue.shade400,
+                  title: 'Manager Messages',
+                  subtitle: 'Direct messages from management',
+                  value: false,
+                  onChanged: null,
+                ),
+              ]),
+            ),
 
             const SizedBox(height: 24),
 
-            // General Section
-            _buildSectionHeader('GENERAL'),
+            // Device Settings Section (local only)
+            _buildSectionHeader('DEVICE'),
             const SizedBox(height: 8),
             _buildCard([
-              _ToggleItem(
-                icon: Icons.info_outline,
-                iconColor: Colors.teal.shade600,
-                title: 'System Updates',
-                subtitle: 'App updates & general information',
-                value: systemUpdates.value,
-                onChanged: (v) {
-                  systemUpdates.value = v;
-                  prefs.setChannelEnabled(
-                      NotificationChannels.systemUpdates, v);
-                },
-              ),
               _ToggleItem(
                 icon: Icons.notifications_active,
                 iconColor: Colors.indigo.shade600,
@@ -182,7 +193,7 @@ class NotificationSettingsPage extends HookConsumerWidget {
                 value: soundEnabled.value,
                 onChanged: (v) {
                   soundEnabled.value = v;
-                  prefs.setSoundEnabled(v);
+                  localPrefs.setSoundEnabled(v);
                 },
               ),
               _ToggleItem(
@@ -193,7 +204,7 @@ class NotificationSettingsPage extends HookConsumerWidget {
                 value: vibrationEnabled.value,
                 onChanged: (v) {
                   vibrationEnabled.value = v;
-                  prefs.setVibrationEnabled(v);
+                  localPrefs.setVibrationEnabled(v);
                 },
               ),
             ]),
@@ -301,7 +312,7 @@ class _ToggleItem {
   final String title;
   final String subtitle;
   final bool value;
-  final ValueChanged<bool> onChanged;
+  final ValueChanged<bool>? onChanged;
 
   const _ToggleItem({
     required this.icon,

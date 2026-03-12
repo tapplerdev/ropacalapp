@@ -663,11 +663,21 @@ class NotificationRegistry {
         final urgent = _toInt(p['urgent_count']);
         final soon = _toInt(p['soon_count']);
         final warehouse = _toInt(p['warehouse_count']);
-        if (overdue > 0) parts.add('$overdue overdue');
-        if (urgent > 0) parts.add('$urgent urgent');
-        if (soon > 0) parts.add('$soon due soon');
-        if (warehouse > 0) parts.add('$warehouse in warehouse');
-        return parts.isEmpty ? 'No pending move requests.' : parts.join(' · ');
+        if (overdue > 0) {
+          parts.add('$overdue move${overdue == 1 ? '' : 's'} overdue and need attention');
+        }
+        if (urgent > 0) {
+          parts.add('$urgent move${urgent == 1 ? '' : 's'} due within 24 hours');
+        }
+        if (soon > 0) {
+          parts.add('$soon move${soon == 1 ? '' : 's'} coming up in the next few days');
+        }
+        if (warehouse > 0) {
+          parts.add('$warehouse bin${warehouse == 1 ? '' : 's'} sitting in warehouse');
+        }
+        return parts.isEmpty
+            ? 'All clear — no pending move requests today.'
+            : parts.join('. ') + '.';
       },
       deepLinkBuilder: (_) => '/manager/move-requests',
       groupKey: 'daily_reports',
@@ -688,11 +698,15 @@ class NotificationRegistry {
         final parts = <String>[];
         final critical = _toInt(p['critical_count']);
         final overdue = _toInt(p['overdue_count']);
-        if (critical > 0) parts.add('$critical critical (14+ days)');
-        if (overdue > 0) parts.add('$overdue overdue (7-13 days)');
+        if (critical > 0) {
+          parts.add('$critical bin${critical == 1 ? " hasn\'t" : "s haven\'t"} been checked in over 2 weeks');
+        }
+        if (overdue > 0) {
+          parts.add('$overdue bin${overdue == 1 ? " is" : "s are"} overdue for a check (7–13 days)');
+        }
         return parts.isEmpty
-            ? 'All bins are up to date.'
-            : parts.join(' · ');
+            ? 'All bins are up to date!'
+            : parts.join('. ') + '.';
       },
       deepLinkBuilder: (_) => '/manager/bins',
       groupKey: 'daily_reports',

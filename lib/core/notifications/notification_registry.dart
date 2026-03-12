@@ -720,12 +720,7 @@ class NotificationRegistry {
       channelKey: NotificationChannels.binAlerts,
       priority: NotificationPriority.high,
       allowedRoles: const ['admin'],
-      titleBuilder: (p) {
-        final critical = _toInt(p['critical_count']);
-        final low = _toInt(p['low_count']);
-        final total = critical + low;
-        return 'Battery Alert: $total Tag${_pluralS(total)} Need Attention';
-      },
+      titleBuilder: (p) => 'Battery Alert',
       bodyBuilder: (p) {
         final parts = <String>[];
         final critical = _toInt(p['critical_count']);

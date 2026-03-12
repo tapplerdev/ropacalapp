@@ -607,10 +607,7 @@ class _DailyBatteryReportDetail extends StatelessWidget {
             icon: Icons.battery_alert_rounded,
             color: AppColors.alertRed,
             items: criticalItems,
-            trailingBuilder: (item) {
-              final lastSeen = item['last_seen']?.toString() ?? '';
-              return lastSeen.isNotEmpty ? lastSeen : 'Critical';
-            },
+            trailingBuilder: (item) => 'Critical',
           ),
         if (lowItems.isNotEmpty) ...[
           const SizedBox(height: 12),
@@ -619,10 +616,7 @@ class _DailyBatteryReportDetail extends StatelessWidget {
             icon: Icons.battery_2_bar_rounded,
             color: AppColors.warningOrange,
             items: lowItems,
-            trailingBuilder: (item) {
-              final lastSeen = item['last_seen']?.toString() ?? '';
-              return lastSeen.isNotEmpty ? lastSeen : 'Low';
-            },
+            trailingBuilder: (item) => 'Low',
           ),
         ],
         if (criticalItems.isEmpty && lowItems.isEmpty)

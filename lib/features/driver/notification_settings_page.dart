@@ -65,12 +65,6 @@ class NotificationSettingsPage extends HookConsumerWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              'Manage your notification preferences',
-              style: TextStyle(fontSize: 14, color: Colors.grey.shade600),
-            ),
-            const SizedBox(height: 24),
-
             // Shifts & Routes Section
             _buildSectionHeader('SHIFTS & ROUTES'),
             const SizedBox(height: 8),
@@ -122,9 +116,9 @@ class NotificationSettingsPage extends HookConsumerWidget {
                   _ToggleItem(
                     icon: Icons.assignment_rounded,
                     iconColor: Colors.blue.shade600,
-                    title: 'Daily Reports',
+                    title: 'Move Reports',
                     subtitle:
-                        'Daily move and bin check report summaries',
+                        'Daily summary of overdue and upcoming moves',
                     value: prefs.digests,
                     onChanged: (v) {
                       ref
@@ -133,9 +127,23 @@ class NotificationSettingsPage extends HookConsumerWidget {
                           .updatePreference(digests: v);
                     },
                   ),
+                  _ToggleItem(
+                    icon: Icons.fact_check_rounded,
+                    iconColor: Colors.teal.shade600,
+                    title: 'Bin Check Reports',
+                    subtitle:
+                        'Daily summary of bins that need checking',
+                    value: prefs.binCheckReports,
+                    onChanged: (v) {
+                      ref
+                          .read(
+                              backendNotificationPreferencesProvider.notifier)
+                          .updatePreference(binCheckReports: v);
+                    },
+                  ),
                 ]),
-                loading: () => _buildLoadingCard(1),
-                error: (_, __) => _buildErrorCard(1),
+                loading: () => _buildLoadingCard(2),
+                error: (_, __) => _buildErrorCard(2),
               ),
 
               const SizedBox(height: 24),
@@ -340,10 +348,10 @@ class NotificationSettingsPage extends HookConsumerWidget {
               ],
             ),
           ),
-          Switch(
+          Switch.adaptive(
             value: item.value,
             onChanged: item.onChanged,
-            activeThumbColor: AppColors.primaryGreen,
+            activeColor: AppColors.primaryGreen,
           ),
         ],
       ),

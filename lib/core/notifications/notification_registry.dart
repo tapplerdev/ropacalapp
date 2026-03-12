@@ -600,6 +600,49 @@ class NotificationRegistry {
     ),
 
     // -----------------------------------------------------------------------
+    //  REAL-TIME MOVE REQUEST ALERTS (Backend monitor, Manager only)
+    // -----------------------------------------------------------------------
+    NotificationTypeConfig(
+      eventType: 'move_request_overdue',
+      channelKey: NotificationChannels.moveRequests,
+      priority: NotificationPriority.critical,
+      allowedRoles: const ['admin'],
+      titleBuilder: (p) {
+        final binNumber = p['bin_number'] ?? '?';
+        return 'Move Request Overdue: Bin #$binNumber';
+      },
+      bodyBuilder: (p) {
+        final hours = p['hours_overdue'] ?? '?';
+        return 'This move is $hours hours past its scheduled date.';
+      },
+      deepLinkBuilder: (_) => '/manager/move-requests',
+      groupKey: 'move_request_alerts',
+      showInAppOverlay: true,
+      addToFeed: true,
+      hasSideEffects: true,
+    ),
+
+    NotificationTypeConfig(
+      eventType: 'move_request_due_soon',
+      channelKey: NotificationChannels.moveRequests,
+      priority: NotificationPriority.high,
+      allowedRoles: const ['admin'],
+      titleBuilder: (p) {
+        final binNumber = p['bin_number'] ?? '?';
+        return 'Move Due Soon: Bin #$binNumber';
+      },
+      bodyBuilder: (p) {
+        final hours = p['hours_until'] ?? '?';
+        return 'Due in $hours hours. Plan ahead.';
+      },
+      deepLinkBuilder: (_) => '/manager/move-requests',
+      groupKey: 'move_request_alerts',
+      showInAppOverlay: true,
+      addToFeed: true,
+      hasSideEffects: true,
+    ),
+
+    // -----------------------------------------------------------------------
     //  AIRTAG DRIFT ALERTS (Backend 5-min poll, Manager only)
     // -----------------------------------------------------------------------
     NotificationTypeConfig(

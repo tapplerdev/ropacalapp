@@ -47,6 +47,8 @@ class NotificationSideEffects {
       case 'move_request_created':
       case 'move_request_updated':
       case 'move_request_cancelled':
+      case 'move_request_overdue':
+      case 'move_request_due_soon':
         ref.invalidate(moveRequestsListNotifierProvider);
         ref.read(shiftNotifierProvider.notifier).fetchCurrentShift();
 

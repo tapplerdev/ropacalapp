@@ -21,12 +21,27 @@ class NotificationEvent {
   /// When the event was received (client-side timestamp).
   final DateTime receivedAt;
 
+  /// Whether this notification has been read.
+  final bool isRead;
+
   const NotificationEvent({
     required this.eventType,
     required this.source,
     required this.payload,
     required this.receivedAt,
+    this.isRead = false,
   });
+
+  /// Returns a copy with the given fields overridden.
+  NotificationEvent copyWith({bool? isRead}) {
+    return NotificationEvent(
+      eventType: eventType,
+      source: source,
+      payload: payload,
+      receivedAt: receivedAt,
+      isRead: isRead ?? this.isRead,
+    );
+  }
 
   /// Dedup key: '{eventType}:{primaryId}'. Used by the router to drop
   /// duplicate events arriving from multiple transports within a 10s window.

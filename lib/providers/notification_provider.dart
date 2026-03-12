@@ -154,6 +154,7 @@ class NotificationFeed extends _$NotificationFeed {
             receivedAt: DateTime.fromMillisecondsSinceEpoch(
               ((map['created_at'] as num?) ?? 0).toInt() * 1000,
             ),
+            isRead: map['read_at'] != null,
           );
         }).toList();
 
@@ -174,6 +175,31 @@ class NotificationFeed extends _$NotificationFeed {
     await _loadFromBackend();
   }
 
+  /// Mark a single notification as read (optimistic + backend).
+  Future<void> markAsRead(String notificationId) async {
+    // Optimistic update
+    state = state.map((e) {
+      final id = e.payload['id']?.toString();
+      if (id == notificationId) return e.copyWith(isRead: true);
+      return e;
+    }).toList();
+
+    try {
+      final apiService = ref.read(apiServiceProvider);
+      await apiService.patch('/api/notifications/$notificationId/read', {});
+    } catch (_) {}
+  }
+
+  /// Mark all notifications as read (optimistic + backend).
+  Future<void> markAllAsRead() async {
+    state = state.map((e) => e.copyWith(isRead: true)).toList();
+
+    try {
+      final apiService = ref.read(apiServiceProvider);
+      await apiService.patch('/api/notifications/read-all', {});
+    } catch (_) {}
+  }
+
   /// Clear all feed items.
   void clearAll() {
     state = [];
@@ -184,5 +210,5 @@ class NotificationFeed extends _$NotificationFeed {
 @riverpod
 int unreadNotificationCount(UnreadNotificationCountRef ref) {
   final feed = ref.watch(notificationFeedProvider);
-  return feed.length;
+  return feed.where((e) => !e.isRead).length;
 }

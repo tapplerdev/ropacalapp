@@ -4,7 +4,6 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:ropacalapp/core/theme/app_colors.dart';
 import 'package:ropacalapp/core/notifications/notification_event.dart';
 import 'package:ropacalapp/core/notifications/notification_registry.dart';
-import 'package:ropacalapp/providers/auth_provider.dart';
 import 'package:ropacalapp/providers/notification_provider.dart';
 
 /// Severity buckets for the filter tabs.
@@ -91,18 +90,13 @@ class NotificationsPage extends ConsumerWidget {
           surfaceTintColor: Colors.transparent,
           scrolledUnderElevation: 0,
           actions: [
-            if (feed.isNotEmpty)
+            if (feed.any((e) => !e.isRead))
               TextButton(
-                onPressed: () async {
-                  // Mark all as read on the backend
-                  try {
-                    final apiService = ref.read(apiServiceProvider);
-                    await apiService.patch('/api/notifications/read-all', {});
-                  } catch (_) {}
-                  ref.read(notificationFeedProvider.notifier).clearAll();
+                onPressed: () {
+                  ref.read(notificationFeedProvider.notifier).markAllAsRead();
                 },
                 child: Text(
-                  'Clear all',
+                  'Mark all as read',
                   style: TextStyle(
                     color: Colors.grey.shade500,
                     fontSize: 13,
@@ -265,13 +259,13 @@ class _NotificationList extends StatelessWidget {
   }
 }
 
-class _NotificationCard extends StatelessWidget {
+class _NotificationCard extends ConsumerWidget {
   final NotificationEvent event;
 
   const _NotificationCard({required this.event});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final severity = _eventSeverity(event);
     final color = _severityColor(severity);
     final icon = _eventIcon(event.eventType);
@@ -286,7 +280,7 @@ class _NotificationCard extends StatelessWidget {
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: color.withValues(alpha: 0.2),
+          color: color.withValues(alpha: event.isRead ? 0.08 : 0.2),
           width: 1,
         ),
         boxShadow: [
@@ -301,6 +295,12 @@ class _NotificationCard extends StatelessWidget {
         color: Colors.transparent,
         child: InkWell(
           onTap: () {
+            if (!event.isRead) {
+              final id = event.payload['id']?.toString();
+              if (id != null) {
+                ref.read(notificationFeedProvider.notifier).markAsRead(id);
+              }
+            }
             context.push('/notification-detail', extra: event);
           },
           borderRadius: BorderRadius.circular(12),
@@ -313,10 +313,10 @@ class _NotificationCard extends StatelessWidget {
                   width: 40,
                   height: 40,
                   decoration: BoxDecoration(
-                    color: color.withValues(alpha: 0.1),
+                    color: color.withValues(alpha: event.isRead ? 0.05 : 0.1),
                     borderRadius: BorderRadius.circular(10),
                   ),
-                  child: Icon(icon, color: color, size: 20),
+                  child: Icon(icon, color: event.isRead ? Colors.grey.shade400 : color, size: 20),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -328,21 +328,22 @@ class _NotificationCard extends StatelessWidget {
                           Expanded(
                             child: Text(
                               title,
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontSize: 14,
                                 fontWeight: FontWeight.w600,
-                                color: Colors.black87,
+                                color: event.isRead ? Colors.grey.shade500 : Colors.black87,
                               ),
                             ),
                           ),
-                          Container(
-                            width: 8,
-                            height: 8,
-                            decoration: BoxDecoration(
-                              color: color,
-                              shape: BoxShape.circle,
+                          if (!event.isRead)
+                            Container(
+                              width: 8,
+                              height: 8,
+                              decoration: BoxDecoration(
+                                color: color,
+                                shape: BoxShape.circle,
+                              ),
                             ),
-                          ),
                         ],
                       ),
                       if (body.isNotEmpty) ...[

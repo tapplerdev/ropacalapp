@@ -69,7 +69,7 @@ final notificationSideEffectsProvider =
 // ignore: unused_element
 typedef NotificationSideEffectsRef = ProviderRef<NotificationSideEffects>;
 String _$notificationRouterHash() =>
-    r'7ad38fdf8af8dd36814638a3a3203ace2c2003b8';
+    r'b1fb411cfc404cc9acbb563bfb71b9fba235024f';
 
 /// The notification router — central pipeline.
 /// Watches auth state to set the current user's role for filtering.
@@ -90,7 +90,7 @@ final notificationRouterProvider = Provider<NotificationRouter>.internal(
 // ignore: unused_element
 typedef NotificationRouterRef = ProviderRef<NotificationRouter>;
 String _$unreadNotificationCountHash() =>
-    r'c0e72e5e901b56a4f1eed6b14516c4262021686c';
+    r'2701fc7eda903fd74cdad370363faa49e8774701';
 
 /// Unread notification count for badge display.
 ///
@@ -129,9 +129,11 @@ final inAppNotificationStreamProvider =
     );
 
 typedef _$InAppNotificationStream = Notifier<NotificationEvent?>;
-String _$notificationFeedHash() => r'cb40e9becb4ffeec498904084fb1fb642644970c';
+String _$notificationFeedHash() => r'5b3e517568223bbcf01022c716c14e62fc85c707';
 
 /// Notification feed (list of recent notifications).
+/// Fetches persisted notifications from the backend on startup,
+/// then merges real-time events on top.
 ///
 /// Copied from [NotificationFeed].
 @ProviderFor(NotificationFeed)

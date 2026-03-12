@@ -131,26 +131,26 @@ class NotificationsPage extends ConsumerWidget {
                 dividerColor: Colors.transparent,
                 labelPadding: const EdgeInsets.symmetric(horizontal: 4),
                 tabs: [
-                  _buildTab('All', feed.length),
+                  _buildTab('All', feed.where((e) => !e.isRead).length),
                   _buildTab(
                     'Critical',
                     feed
                         .where((e) =>
-                            _eventSeverity(e) == _Severity.critical)
+                            !e.isRead && _eventSeverity(e) == _Severity.critical)
                         .length,
                   ),
                   _buildTab(
                     'Warn',
                     feed
                         .where((e) =>
-                            _eventSeverity(e) == _Severity.warning)
+                            !e.isRead && _eventSeverity(e) == _Severity.warning)
                         .length,
                   ),
                   _buildTab(
                     'Updates',
                     feed
                         .where(
-                            (e) => _eventSeverity(e) == _Severity.info)
+                            (e) => !e.isRead && _eventSeverity(e) == _Severity.info)
                         .length,
                   ),
                 ],

@@ -4,6 +4,7 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:ropacalapp/core/theme/app_colors.dart';
 import 'package:ropacalapp/core/notifications/notification_event.dart';
 import 'package:ropacalapp/core/notifications/notification_registry.dart';
+import 'package:ropacalapp/providers/auth_provider.dart';
 import 'package:ropacalapp/providers/notification_provider.dart';
 
 /// Severity buckets for the filter tabs.
@@ -90,7 +91,12 @@ class NotificationsPage extends ConsumerWidget {
           actions: [
             if (feed.isNotEmpty)
               TextButton(
-                onPressed: () {
+                onPressed: () async {
+                  // Mark all as read on the backend
+                  try {
+                    final apiService = ref.read(apiServiceProvider);
+                    await apiService.patch('/api/notifications/read-all', {});
+                  } catch (_) {}
                   ref.read(notificationFeedProvider.notifier).clearAll();
                 },
                 child: Text(

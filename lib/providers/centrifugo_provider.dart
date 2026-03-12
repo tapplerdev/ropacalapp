@@ -30,9 +30,16 @@ class CentrifugoManager extends _$CentrifugoManager {
   int _retryAttempts = 0;
   static const int _maxRetryAttempts = 10;
 
+  /// Captured reference to CentrifugoService so _disconnect() can use it
+  /// inside onDispose without calling ref.read() (which throws after invalidation).
+  CentrifugoService? _centrifugoService;
+
   @override
   FutureOr<bool> build() async {
     AppLogger.general('🔵 [CentrifugoManager] build() called');
+
+    // Capture service reference early so onDispose can use it safely
+    _centrifugoService = ref.read(centrifugoServiceProvider);
 
     // Watch auth state changes
     final authState = ref.watch(authNotifierProvider);
@@ -235,7 +242,9 @@ class CentrifugoManager extends _$CentrifugoManager {
     }
   }
 
-  /// Disconnect from Centrifugo
+  /// Disconnect from Centrifugo.
+  /// Uses _centrifugoService (captured in build) instead of ref.read()
+  /// to avoid Riverpod's "ref used after invalidation" error in onDispose.
   void _disconnect() {
     _companyEventsSubscription?.cancel();
     _companyEventsSubscription = null;
@@ -243,10 +252,10 @@ class CentrifugoManager extends _$CentrifugoManager {
     _driverEventsSubscription?.cancel();
     _driverEventsSubscription = null;
 
-    final centrifugoService = ref.read(centrifugoServiceProvider);
-    if (centrifugoService.isConnected) {
+    final service = _centrifugoService;
+    if (service != null && service.isConnected) {
       AppLogger.general('🔌 [CentrifugoManager] Disconnecting from Centrifugo...');
-      centrifugoService.disconnect();
+      service.disconnect();
       AppLogger.general('✅ [CentrifugoManager] Disconnected');
     }
   }

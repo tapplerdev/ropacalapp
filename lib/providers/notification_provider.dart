@@ -1,7 +1,9 @@
 import 'dart:async';
+import 'dart:convert';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:ropacalapp/core/enums/user_role.dart';
 import 'package:ropacalapp/core/notifications/notifications.dart';
+import 'package:ropacalapp/core/utils/app_logger.dart';
 import 'package:ropacalapp/providers/auth_provider.dart';
 import 'package:ropacalapp/services/fcm_service.dart';
 
@@ -91,6 +93,8 @@ class InAppNotificationStream extends _$InAppNotificationStream {
 }
 
 /// Notification feed (list of recent notifications).
+/// Fetches persisted notifications from the backend on startup,
+/// then merges real-time events on top.
 @Riverpod(keepAlive: true)
 class NotificationFeed extends _$NotificationFeed {
   StreamSubscription<NotificationEvent>? _subscription;
@@ -99,6 +103,7 @@ class NotificationFeed extends _$NotificationFeed {
   List<NotificationEvent> build() {
     final service = ref.read(notificationServiceProvider);
 
+    // Listen for real-time events and prepend them
     _subscription?.cancel();
     _subscription = service.feedUpdates.listen((event) {
       // Skip if already in feed (same dedupKey = same event from another transport)
@@ -111,7 +116,62 @@ class NotificationFeed extends _$NotificationFeed {
       _subscription?.cancel();
     });
 
+    // Fetch persisted notifications from backend
+    _loadFromBackend();
+
     return [];
+  }
+
+  /// Fetch persisted notifications from the backend API.
+  Future<void> _loadFromBackend() async {
+    try {
+      final apiService = ref.read(apiServiceProvider);
+      final response = await apiService.get('/api/notifications?limit=50');
+
+      if (response.statusCode == 200) {
+        final data = response.data as Map<String, dynamic>;
+        final notifications = data['notifications'] as List<dynamic>? ?? [];
+
+        final events = notifications.map<NotificationEvent>((n) {
+          final map = n as Map<String, dynamic>;
+          // Parse the data field — may be a string or already a map
+          Map<String, dynamic> payload;
+          if (map['data'] is String) {
+            payload = jsonDecode(map['data'] as String) as Map<String, dynamic>;
+          } else {
+            payload = Map<String, dynamic>.from(map['data'] as Map? ?? {});
+          }
+
+          return NotificationEvent(
+            eventType: map['type'] as String? ?? 'unknown',
+            source: NotificationSource.local,
+            payload: {
+              ...payload,
+              'title': map['title'],
+              'body': map['body'],
+              'id': map['id'],
+            },
+            receivedAt: DateTime.fromMillisecondsSinceEpoch(
+              ((map['created_at'] as num?) ?? 0).toInt() * 1000,
+            ),
+          );
+        }).toList();
+
+        // Merge with any real-time events already in state (deduplicate)
+        final existingKeys = state.map((e) => e.dedupKey).toSet();
+        final newEvents = events.where((e) => !existingKeys.contains(e.dedupKey)).toList();
+        state = [...state, ...newEvents].take(100).toList();
+
+        AppLogger.general('📬 [NotificationFeed] Loaded ${events.length} notifications from backend');
+      }
+    } catch (e) {
+      AppLogger.general('⚠️ [NotificationFeed] Failed to load from backend: $e');
+    }
+  }
+
+  /// Refresh from backend (pull-to-refresh or manual).
+  Future<void> refresh() async {
+    await _loadFromBackend();
   }
 
   /// Clear all feed items.

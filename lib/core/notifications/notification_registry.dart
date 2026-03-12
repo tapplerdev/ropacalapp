@@ -747,11 +747,13 @@ class NotificationRegistry {
       priority: NotificationPriority.critical,
       allowedRoles: const ['admin', 'manager'],
       titleBuilder: (p) {
-        final binNumber = p['bin_number'] ?? '?';
+        final alert = p['alert'] as Map<String, dynamic>? ?? p;
+        final binNumber = alert['bin_number'] ?? '?';
         return 'Bin $binNumber Moved!';
       },
       bodyBuilder: (p) {
-        final distance = p['distance_meters'] ?? '?';
+        final alert = p['alert'] as Map<String, dynamic>? ?? p;
+        final distance = alert['distance_meters'] ?? '?';
         return 'Detected ${distance}m from assigned location';
       },
       deepLinkBuilder: (_) => '/home',

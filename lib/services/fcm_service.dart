@@ -97,11 +97,14 @@ Future<void> _firebaseBackgroundHandler(RemoteMessage message) async {
     _remoteLog('[FCM-BG] Failed to persist dedupKey: $e', level: 'WARNING');
   }
 
+  final subtitle = data['subtitle'] as String?;
+
   final content = NotificationContent(
     id: id,
     channelKey: config.channelKey,
     title: title,
     body: body,
+    summary: subtitle,
     notificationLayout: config.layout,
     bigPicture: config.bigPictureBuilder?.call(payload),
     progress: (config.progressBuilder?.call(payload) ?? 0).toDouble(),

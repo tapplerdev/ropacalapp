@@ -13,6 +13,7 @@ class BackendNotificationPreferences {
   final bool overdueMoveAlerts;
   final bool dueSoonAlerts;
   final bool binCheckReports;
+  final bool batteryAlerts;
 
   const BackendNotificationPreferences({
     this.driftAlerts = true,
@@ -22,6 +23,7 @@ class BackendNotificationPreferences {
     this.overdueMoveAlerts = true,
     this.dueSoonAlerts = true,
     this.binCheckReports = true,
+    this.batteryAlerts = true,
   });
 
   factory BackendNotificationPreferences.fromJson(Map<String, dynamic> json) {
@@ -33,6 +35,7 @@ class BackendNotificationPreferences {
       overdueMoveAlerts: json['overdue_move_alerts'] as bool? ?? true,
       dueSoonAlerts: json['due_soon_alerts'] as bool? ?? true,
       binCheckReports: json['bin_check_reports'] as bool? ?? true,
+      batteryAlerts: json['battery_alerts'] as bool? ?? true,
     );
   }
 
@@ -44,6 +47,7 @@ class BackendNotificationPreferences {
         'overdue_move_alerts': overdueMoveAlerts,
         'due_soon_alerts': dueSoonAlerts,
         'bin_check_reports': binCheckReports,
+        'battery_alerts': batteryAlerts,
       };
 
   BackendNotificationPreferences copyWith({
@@ -54,6 +58,7 @@ class BackendNotificationPreferences {
     bool? overdueMoveAlerts,
     bool? dueSoonAlerts,
     bool? binCheckReports,
+    bool? batteryAlerts,
   }) {
     return BackendNotificationPreferences(
       driftAlerts: driftAlerts ?? this.driftAlerts,
@@ -63,6 +68,7 @@ class BackendNotificationPreferences {
       overdueMoveAlerts: overdueMoveAlerts ?? this.overdueMoveAlerts,
       dueSoonAlerts: dueSoonAlerts ?? this.dueSoonAlerts,
       binCheckReports: binCheckReports ?? this.binCheckReports,
+      batteryAlerts: batteryAlerts ?? this.batteryAlerts,
     );
   }
 }
@@ -101,6 +107,7 @@ class BackendNotificationPreferencesNotifier
     bool? overdueMoveAlerts,
     bool? dueSoonAlerts,
     bool? binCheckReports,
+    bool? batteryAlerts,
   }) async {
     final current = state.valueOrNull ?? const BackendNotificationPreferences();
     final updated = current.copyWith(
@@ -111,6 +118,7 @@ class BackendNotificationPreferencesNotifier
       overdueMoveAlerts: overdueMoveAlerts,
       dueSoonAlerts: dueSoonAlerts,
       binCheckReports: binCheckReports,
+      batteryAlerts: batteryAlerts,
     );
 
     // Optimistic update

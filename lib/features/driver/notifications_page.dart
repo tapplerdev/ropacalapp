@@ -64,6 +64,7 @@ IconData _eventIcon(String eventType) {
     'digest_upcoming_moves': Icons.upcoming_rounded,
     'digest_warehouse_bins': Icons.warehouse_rounded,
     'daily_move_report': Icons.assignment_rounded,
+    'daily_battery_report': Icons.battery_alert_rounded,
     'daily_bin_check_report': Icons.fact_check_rounded,
   };
   return map[eventType] ?? Icons.notifications_outlined;

@@ -81,6 +81,8 @@ class NotificationDetailPage extends StatelessWidget {
                 _DailyMoveReportDetail(payload: e.payload),
               ] else if (e.eventType == 'daily_bin_check_report') ...[
                 _DailyBinCheckReportDetail(payload: e.payload),
+              ] else if (e.eventType == 'daily_battery_report') ...[
+                _DailyBatteryReportDetail(payload: e.payload),
               ] else ...[
                 // Payload details (generic fallback)
                 _buildDetailsCard(e.payload),
@@ -483,6 +485,7 @@ class NotificationDetailPage extends StatelessWidget {
       'digest_warehouse_bins': Icons.warehouse_rounded,
       'daily_move_report': Icons.assignment_rounded,
       'daily_bin_check_report': Icons.fact_check_rounded,
+      'daily_battery_report': Icons.battery_alert_rounded,
     };
     return map[eventType] ?? Icons.notifications_outlined;
   }
@@ -579,6 +582,51 @@ class _DailyBinCheckReportDetail extends StatelessWidget {
         ],
         if (criticalItems.isEmpty && overdueItems.isEmpty)
           _buildEmptyState('All bins are up to date.'),
+      ],
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+//  Daily Battery Report — snapshot detail renderer
+// ---------------------------------------------------------------------------
+class _DailyBatteryReportDetail extends StatelessWidget {
+  final Map<String, dynamic> payload;
+  const _DailyBatteryReportDetail({required this.payload});
+
+  @override
+  Widget build(BuildContext context) {
+    final criticalItems = _toList(payload['critical_items']);
+    final lowItems = _toList(payload['low_items']);
+
+    return Column(
+      children: [
+        if (criticalItems.isNotEmpty)
+          _ReportSection(
+            title: 'Critical Battery',
+            icon: Icons.battery_alert_rounded,
+            color: AppColors.alertRed,
+            items: criticalItems,
+            trailingBuilder: (item) {
+              final lastSeen = item['last_seen']?.toString() ?? '';
+              return lastSeen.isNotEmpty ? lastSeen : 'Critical';
+            },
+          ),
+        if (lowItems.isNotEmpty) ...[
+          const SizedBox(height: 12),
+          _ReportSection(
+            title: 'Low Battery',
+            icon: Icons.battery_2_bar_rounded,
+            color: AppColors.warningOrange,
+            items: lowItems,
+            trailingBuilder: (item) {
+              final lastSeen = item['last_seen']?.toString() ?? '';
+              return lastSeen.isNotEmpty ? lastSeen : 'Low';
+            },
+          ),
+        ],
+        if (criticalItems.isEmpty && lowItems.isEmpty)
+          _buildEmptyState('All batteries are good!'),
       ],
     );
   }

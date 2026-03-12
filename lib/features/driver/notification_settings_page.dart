@@ -141,6 +141,20 @@ class NotificationSettingsPage extends HookConsumerWidget {
                           .updatePreference(binCheckReports: v);
                     },
                   ),
+                  _ToggleItem(
+                    icon: Icons.battery_alert_rounded,
+                    iconColor: Colors.amber.shade700,
+                    title: 'Battery Alerts',
+                    subtitle:
+                        'Daily AirTag low battery reports',
+                    value: prefs.batteryAlerts,
+                    onChanged: (v) {
+                      ref
+                          .read(
+                              backendNotificationPreferencesProvider.notifier)
+                          .updatePreference(batteryAlerts: v);
+                    },
+                  ),
                 ]),
                 loading: () => _buildLoadingCard(2),
                 error: (_, __) => _buildErrorCard(2),

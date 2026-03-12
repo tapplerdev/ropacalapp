@@ -713,6 +713,37 @@ class NotificationRegistry {
     ),
 
     // -----------------------------------------------------------------------
+    //  DAILY BATTERY REPORT (Scheduled backend push, Manager only)
+    // -----------------------------------------------------------------------
+    NotificationTypeConfig(
+      eventType: 'daily_battery_report',
+      channelKey: NotificationChannels.binAlerts,
+      priority: NotificationPriority.high,
+      allowedRoles: const ['admin'],
+      titleBuilder: (p) {
+        final critical = _toInt(p['critical_count']);
+        final low = _toInt(p['low_count']);
+        final total = critical + low;
+        return 'Battery Alert: $total Tag${_pluralS(total)} Need Attention';
+      },
+      bodyBuilder: (p) {
+        final parts = <String>[];
+        final critical = _toInt(p['critical_count']);
+        final low = _toInt(p['low_count']);
+        if (critical > 0) {
+          parts.add('$critical tag${critical == 1 ? '' : 's'} with critical battery');
+        }
+        if (low > 0) {
+          parts.add('$low tag${low == 1 ? '' : 's'} with low battery');
+        }
+        if (parts.isEmpty) return 'All batteries are good!';
+        return parts.join(', ') + '. Replace batteries soon.';
+      },
+      deepLinkBuilder: (_) => '/home',
+      groupKey: 'daily_reports',
+    ),
+
+    // -----------------------------------------------------------------------
     //  AIRTAG DRIFT ALERTS (Backend 5-min poll, Manager only)
     // -----------------------------------------------------------------------
     NotificationTypeConfig(

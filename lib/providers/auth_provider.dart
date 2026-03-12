@@ -146,18 +146,34 @@ class AuthNotifier extends _$AuthNotifier {
       return;
     }
 
-    try {
-      final deviceType = Platform.isIOS ? 'ios' : 'android';
-      final shiftService = ref.read(shiftServiceProvider);
+    final deviceType = Platform.isIOS ? 'ios' : 'android';
+    final shiftService = ref.read(shiftServiceProvider);
 
-      await shiftService.registerFCMToken(fcmToken, deviceType);
-      AppLogger.general('✅ FCM token registered with backend');
-    } catch (e) {
-      AppLogger.general(
-        '⚠️  Failed to register FCM token: $e',
-        level: AppLogger.warning,
-      );
+    // Retry up to 3 times with exponential backoff
+    for (int attempt = 1; attempt <= 3; attempt++) {
+      try {
+        await shiftService.registerFCMToken(fcmToken, deviceType);
+        AppLogger.general('✅ FCM token registered with backend (attempt $attempt)');
+
+        // Wire up token refresh callback so future token changes auto-register
+        FCMService.setTokenRefreshCallback((newToken) async {
+          final dt = Platform.isIOS ? 'ios' : 'android';
+          final svc = ref.read(shiftServiceProvider);
+          await svc.registerFCMToken(newToken, dt);
+        });
+
+        return;
+      } catch (e) {
+        AppLogger.general(
+          '⚠️  Failed to register FCM token (attempt $attempt/3): $e',
+          level: AppLogger.warning,
+        );
+        if (attempt < 3) {
+          await Future.delayed(Duration(seconds: attempt * 2));
+        }
+      }
     }
+    AppLogger.general('❌ FCM token registration failed after 3 attempts', level: AppLogger.warning);
   }
 
   Future<void> logout() async {

@@ -148,6 +148,15 @@ class FCMService {
   /// flow through the full pipeline (dedup, role check, prefs, side effects).
   static NotificationRouter? router;
 
+  /// Callback invoked when Firebase refreshes the FCM token.
+  /// Set by auth_provider to re-register the new token with the backend.
+  static Future<void> Function(String newToken)? _onTokenRefresh;
+
+  /// Register a callback that fires when the FCM token is refreshed by Firebase.
+  static void setTokenRefreshCallback(Future<void> Function(String newToken) callback) {
+    _onTokenRefresh = callback;
+  }
+
   /// Get the current FCM token
   static String? get token => _fcmToken;
 
@@ -211,10 +220,22 @@ class FCMService {
       _fcmToken = await _messaging.getToken();
       _remoteLog('[FCM-INIT] FCM Token: $_fcmToken');
 
-      // Listen for token refresh
-      _messaging.onTokenRefresh.listen((newToken) {
+      // Listen for token refresh — re-register with backend automatically
+      _messaging.onTokenRefresh.listen((newToken) async {
+        final oldToken = _fcmToken;
         _fcmToken = newToken;
-        _remoteLog('[FCM] Token refreshed');
+        _remoteLog('[FCM] Token refreshed (old: ${oldToken?.substring(0, 10) ?? "null"}..., new: ${newToken.substring(0, 10)}...)');
+
+        if (_onTokenRefresh != null) {
+          try {
+            await _onTokenRefresh!(newToken);
+            _remoteLog('[FCM] Token re-registered with backend after refresh');
+          } catch (e) {
+            _remoteLog('[FCM] Failed to re-register refreshed token: $e', level: 'WARNING');
+          }
+        } else {
+          _remoteLog('[FCM] No token refresh callback set — backend not notified', level: 'WARNING');
+        }
       });
 
       // Handle foreground messages

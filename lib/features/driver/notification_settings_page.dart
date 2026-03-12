@@ -2,12 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:ropacalapp/core/theme/app_colors.dart';
+import 'package:ropacalapp/core/enums/user_role.dart';
 import 'package:ropacalapp/core/notifications/notification_channels.dart';
+import 'package:ropacalapp/providers/auth_provider.dart';
 import 'package:ropacalapp/providers/notification_provider.dart';
 import 'package:ropacalapp/providers/notification_preferences_provider.dart';
 
 /// Notification Settings Page - Manage notification preferences
-/// Backend-synced toggles for shift_events and move_requests.
+/// Shows all 6 backend-synced toggles for admins, 2 for drivers.
 /// Local-only toggles for sound and vibration.
 class NotificationSettingsPage extends HookConsumerWidget {
   const NotificationSettingsPage({super.key});
@@ -17,6 +19,8 @@ class NotificationSettingsPage extends HookConsumerWidget {
     final localPrefs = ref.read(notificationPreferencesProvider);
     final backendPrefsAsync =
         ref.watch(backendNotificationPreferencesProvider);
+    final authState = ref.watch(authNotifierProvider);
+    final isAdmin = authState.valueOrNull?.role == UserRole.admin;
 
     // Local device settings (SharedPreferences only)
     final soundEnabled = useState(true);
@@ -67,23 +71,22 @@ class NotificationSettingsPage extends HookConsumerWidget {
             ),
             const SizedBox(height: 24),
 
-            // Route & Shift Updates Section (backend-synced)
-            _buildSectionHeader('ROUTE & SHIFT UPDATES'),
+            // Shifts & Routes Section
+            _buildSectionHeader('SHIFTS & ROUTES'),
             const SizedBox(height: 8),
             backendPrefsAsync.when(
               data: (prefs) => _buildCard([
                 _ToggleItem(
                   icon: Icons.work_history,
                   iconColor: Colors.green.shade600,
-                  title: 'Shift & Route Updates',
+                  title: 'Shift Updates',
                   subtitle:
-                      'Shift assignments, cancellations, route assignments',
+                      'Shift assignments, cancellations, and route changes',
                   value: prefs.shiftEvents,
                   onChanged: (v) {
                     ref
                         .read(backendNotificationPreferencesProvider.notifier)
                         .updatePreference(shiftEvents: v);
-                    // Also update local channels so FCM filtering matches
                     localPrefs.setChannelEnabled(
                         NotificationChannels.shiftUpdates, v);
                     localPrefs.setChannelEnabled(
@@ -105,79 +108,90 @@ class NotificationSettingsPage extends HookConsumerWidget {
                   },
                 ),
               ]),
-              loading: () => _buildCard([
-                _ToggleItem(
-                  icon: Icons.work_history,
-                  iconColor: Colors.green.shade600,
-                  title: 'Shift & Route Updates',
-                  subtitle:
-                      'Shift assignments, cancellations, route assignments',
-                  value: true,
-                  onChanged: null,
-                ),
-                _ToggleItem(
-                  icon: Icons.move_down,
-                  iconColor: Colors.orange.shade600,
-                  title: 'Move Requests',
-                  subtitle: 'Bin move assignments and status updates',
-                  value: true,
-                  onChanged: null,
-                ),
-              ]),
-              error: (_, __) => _buildCard([
-                _ToggleItem(
-                  icon: Icons.work_history,
-                  iconColor: Colors.green.shade600,
-                  title: 'Shift & Route Updates',
-                  subtitle: 'Could not load preferences',
-                  value: true,
-                  onChanged: null,
-                ),
-                _ToggleItem(
-                  icon: Icons.move_down,
-                  iconColor: Colors.orange.shade600,
-                  title: 'Move Requests',
-                  subtitle: 'Could not load preferences',
-                  value: true,
-                  onChanged: null,
-                ),
-              ]),
+              loading: () => _buildLoadingCard(2),
+              error: (_, __) => _buildErrorCard(2),
             ),
 
-            const SizedBox(height: 24),
+            // Admin-only sections
+            if (isAdmin) ...[
+              const SizedBox(height: 24),
+              _buildSectionHeader('DAILY REPORTS'),
+              const SizedBox(height: 8),
+              backendPrefsAsync.when(
+                data: (prefs) => _buildCard([
+                  _ToggleItem(
+                    icon: Icons.assignment_rounded,
+                    iconColor: Colors.blue.shade600,
+                    title: 'Daily Reports',
+                    subtitle:
+                        'Daily move and bin check report summaries',
+                    value: prefs.digests,
+                    onChanged: (v) {
+                      ref
+                          .read(
+                              backendNotificationPreferencesProvider.notifier)
+                          .updatePreference(digests: v);
+                    },
+                  ),
+                ]),
+                loading: () => _buildLoadingCard(1),
+                error: (_, __) => _buildErrorCard(1),
+              ),
 
-            // Coming Soon Section (grayed out)
-            _buildSectionHeader('COMING SOON'),
-            const SizedBox(height: 8),
-            Opacity(
-              opacity: 0.5,
-              child: _buildCard([
-                _ToggleItem(
-                  icon: Icons.warning_amber_rounded,
-                  iconColor: Colors.red.shade400,
-                  title: 'High Fill Alerts',
-                  subtitle: 'Alerts when bins reach high fill levels',
-                  value: false,
-                  onChanged: null,
-                ),
-                _ToggleItem(
-                  icon: Icons.priority_high,
-                  iconColor: Colors.amber.shade600,
-                  title: 'Priority Bins',
-                  subtitle: 'Notifications for priority bin changes',
-                  value: false,
-                  onChanged: null,
-                ),
-                _ToggleItem(
-                  icon: Icons.message_outlined,
-                  iconColor: Colors.blue.shade400,
-                  title: 'Manager Messages',
-                  subtitle: 'Direct messages from management',
-                  value: false,
-                  onChanged: null,
-                ),
-              ]),
-            ),
+              const SizedBox(height: 24),
+              _buildSectionHeader('REAL-TIME ALERTS'),
+              const SizedBox(height: 8),
+              backendPrefsAsync.when(
+                data: (prefs) => _buildCard([
+                  _ToggleItem(
+                    icon: Icons.gps_off_rounded,
+                    iconColor: Colors.red.shade600,
+                    title: 'Drift Alerts',
+                    subtitle:
+                        'Get alerted when bins move from their location',
+                    value: prefs.driftAlerts,
+                    onChanged: (v) {
+                      ref
+                          .read(
+                              backendNotificationPreferencesProvider.notifier)
+                          .updatePreference(driftAlerts: v);
+                      localPrefs.setChannelEnabled(
+                          NotificationChannels.binAlerts, v);
+                    },
+                  ),
+                  _ToggleItem(
+                    icon: Icons.warning_amber_rounded,
+                    iconColor: Colors.red.shade400,
+                    title: 'Overdue Move Alerts',
+                    subtitle:
+                        'Real-time alerts when moves pass their due date',
+                    value: prefs.overdueMoveAlerts,
+                    onChanged: (v) {
+                      ref
+                          .read(
+                              backendNotificationPreferencesProvider.notifier)
+                          .updatePreference(overdueMoveAlerts: v);
+                    },
+                  ),
+                  _ToggleItem(
+                    icon: Icons.schedule_rounded,
+                    iconColor: Colors.amber.shade600,
+                    title: 'Due Soon Alerts',
+                    subtitle:
+                        'Alerts when moves are approaching their due date',
+                    value: prefs.dueSoonAlerts,
+                    onChanged: (v) {
+                      ref
+                          .read(
+                              backendNotificationPreferencesProvider.notifier)
+                          .updatePreference(dueSoonAlerts: v);
+                    },
+                  ),
+                ]),
+                loading: () => _buildLoadingCard(3),
+                error: (_, __) => _buildErrorCard(3),
+              ),
+            ],
 
             const SizedBox(height: 24),
 
@@ -260,6 +274,34 @@ class NotificationSettingsPage extends HookConsumerWidget {
     );
   }
 
+  Widget _buildLoadingCard(int count) {
+    return _buildCard(List.generate(
+      count,
+      (_) => _ToggleItem(
+        icon: Icons.hourglass_empty,
+        iconColor: Colors.grey.shade400,
+        title: 'Loading...',
+        subtitle: '',
+        value: true,
+        onChanged: null,
+      ),
+    ));
+  }
+
+  Widget _buildErrorCard(int count) {
+    return _buildCard(List.generate(
+      count,
+      (_) => _ToggleItem(
+        icon: Icons.error_outline,
+        iconColor: Colors.grey.shade400,
+        title: 'Could not load',
+        subtitle: 'Pull down to retry',
+        value: true,
+        onChanged: null,
+      ),
+    ));
+  }
+
   Widget _buildToggle(_ToggleItem item) {
     return Padding(
       padding: const EdgeInsets.all(16),
@@ -287,11 +329,14 @@ class NotificationSettingsPage extends HookConsumerWidget {
                     color: AppColors.textPrimary,
                   ),
                 ),
-                const SizedBox(height: 2),
-                Text(
-                  item.subtitle,
-                  style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
-                ),
+                if (item.subtitle.isNotEmpty) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    item.subtitle,
+                    style:
+                        TextStyle(fontSize: 13, color: Colors.grey.shade600),
+                  ),
+                ],
               ],
             ),
           ),

@@ -76,8 +76,15 @@ class NotificationDetailPage extends StatelessWidget {
                 const SizedBox(height: 16),
               ],
 
-              // Payload details
-              _buildDetailsCard(e.payload),
+              // Event-specific snapshot renderers
+              if (e.eventType == 'daily_move_report') ...[
+                _DailyMoveReportDetail(payload: e.payload),
+              ] else if (e.eventType == 'daily_bin_check_report') ...[
+                _DailyBinCheckReportDetail(payload: e.payload),
+              ] else ...[
+                // Payload details (generic fallback)
+                _buildDetailsCard(e.payload),
+              ],
               const SizedBox(height: 16),
 
               // Source
@@ -474,7 +481,276 @@ class NotificationDetailPage extends StatelessWidget {
       'digest_overdue_moves': Icons.schedule_rounded,
       'digest_upcoming_moves': Icons.upcoming_rounded,
       'digest_warehouse_bins': Icons.warehouse_rounded,
+      'daily_move_report': Icons.assignment_rounded,
+      'daily_bin_check_report': Icons.fact_check_rounded,
     };
     return map[eventType] ?? Icons.notifications_outlined;
   }
+}
+
+// ---------------------------------------------------------------------------
+//  Daily Move Report — snapshot detail renderer
+// ---------------------------------------------------------------------------
+class _DailyMoveReportDetail extends StatelessWidget {
+  final Map<String, dynamic> payload;
+  const _DailyMoveReportDetail({required this.payload});
+
+  @override
+  Widget build(BuildContext context) {
+    final overdueItems = _toList(payload['overdue_items']);
+    final upcomingItems = _toList(payload['upcoming_items']);
+    final warehouseItems = _toList(payload['warehouse_items']);
+
+    return Column(
+      children: [
+        if (overdueItems.isNotEmpty)
+          _ReportSection(
+            title: 'Overdue Moves',
+            icon: Icons.error_outline_rounded,
+            color: AppColors.alertRed,
+            items: overdueItems,
+            trailingBuilder: (item) =>
+                '${item['days_overdue'] ?? '?'} days overdue',
+          ),
+        if (upcomingItems.isNotEmpty) ...[
+          const SizedBox(height: 12),
+          _ReportSection(
+            title: 'Due Soon',
+            icon: Icons.schedule_rounded,
+            color: AppColors.warningOrange,
+            items: upcomingItems,
+            trailingBuilder: (item) =>
+                'Due in ${item['hours_until'] ?? '?'}h',
+          ),
+        ],
+        if (warehouseItems.isNotEmpty) ...[
+          const SizedBox(height: 12),
+          _ReportSection(
+            title: 'In Warehouse',
+            icon: Icons.warehouse_rounded,
+            color: Colors.blue.shade600,
+            items: warehouseItems,
+            trailingBuilder: (item) =>
+                '${item['days_in_storage'] ?? '?'} days',
+          ),
+        ],
+        if (overdueItems.isEmpty &&
+            upcomingItems.isEmpty &&
+            warehouseItems.isEmpty)
+          _buildEmptyState('No pending move requests.'),
+      ],
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+//  Daily Bin Check Report — snapshot detail renderer
+// ---------------------------------------------------------------------------
+class _DailyBinCheckReportDetail extends StatelessWidget {
+  final Map<String, dynamic> payload;
+  const _DailyBinCheckReportDetail({required this.payload});
+
+  @override
+  Widget build(BuildContext context) {
+    final criticalItems = _toList(payload['critical_items']);
+    final overdueItems = _toList(payload['overdue_items']);
+
+    return Column(
+      children: [
+        if (criticalItems.isNotEmpty)
+          _ReportSection(
+            title: 'Critical (14+ Days)',
+            icon: Icons.warning_rounded,
+            color: AppColors.alertRed,
+            items: criticalItems,
+            trailingBuilder: (item) =>
+                '${item['days_since_check'] ?? '?'} days',
+          ),
+        if (overdueItems.isNotEmpty) ...[
+          const SizedBox(height: 12),
+          _ReportSection(
+            title: 'Overdue (7-13 Days)',
+            icon: Icons.access_time_rounded,
+            color: AppColors.warningOrange,
+            items: overdueItems,
+            trailingBuilder: (item) =>
+                '${item['days_since_check'] ?? '?'} days',
+          ),
+        ],
+        if (criticalItems.isEmpty && overdueItems.isEmpty)
+          _buildEmptyState('All bins are up to date.'),
+      ],
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+//  Shared report section widget
+// ---------------------------------------------------------------------------
+class _ReportSection extends StatelessWidget {
+  final String title;
+  final IconData icon;
+  final Color color;
+  final List<Map<String, dynamic>> items;
+  final String Function(Map<String, dynamic> item) trailingBuilder;
+
+  const _ReportSection({
+    required this.title,
+    required this.icon,
+    required this.color,
+    required this.items,
+    required this.trailingBuilder,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Section header
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.06),
+              borderRadius:
+                  const BorderRadius.vertical(top: Radius.circular(16)),
+            ),
+            child: Row(
+              children: [
+                Icon(icon, size: 18, color: color),
+                const SizedBox(width: 8),
+                Text(
+                  '$title (${items.length})',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                    color: color,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          // Items
+          ...items.asMap().entries.map((entry) {
+            final idx = entry.key;
+            final item = entry.value;
+            final binNumber = item['bin_number'] ?? '?';
+            final address = item['address'] ?? 'Unknown location';
+            final trailing = trailingBuilder(item);
+
+            return Container(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              decoration: BoxDecoration(
+                border: idx < items.length - 1
+                    ? Border(
+                        bottom: BorderSide(color: Colors.grey.shade100),
+                      )
+                    : null,
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    width: 36,
+                    height: 36,
+                    decoration: BoxDecoration(
+                      color: color.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Center(
+                      child: Text(
+                        '#$binNumber',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                          color: color,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      address.toString(),
+                      style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                        color: AppColors.textPrimary,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    trailing,
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: color,
+                    ),
+                  ),
+                ],
+              ),
+            );
+          }),
+        ],
+      ),
+    );
+  }
+}
+
+Widget _buildEmptyState(String message) {
+  return Container(
+    width: double.infinity,
+    padding: const EdgeInsets.all(24),
+    decoration: BoxDecoration(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(16),
+      boxShadow: [
+        BoxShadow(
+          color: Colors.black.withValues(alpha: 0.04),
+          blurRadius: 8,
+          offset: const Offset(0, 2),
+        ),
+      ],
+    ),
+    child: Column(
+      children: [
+        Icon(Icons.check_circle_outline, size: 40, color: Colors.green.shade300),
+        const SizedBox(height: 8),
+        Text(
+          message,
+          style: TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w500,
+            color: Colors.grey.shade500,
+          ),
+        ),
+      ],
+    ),
+  );
+}
+
+List<Map<String, dynamic>> _toList(dynamic value) {
+  if (value is List) {
+    return value
+        .whereType<Map>()
+        .map((m) => Map<String, dynamic>.from(m))
+        .toList();
+  }
+  return [];
 }

@@ -643,6 +643,62 @@ class NotificationRegistry {
     ),
 
     // -----------------------------------------------------------------------
+    //  DAILY REPORT EVENTS (Scheduled backend push, Manager only)
+    // -----------------------------------------------------------------------
+    NotificationTypeConfig(
+      eventType: 'daily_move_report',
+      channelKey: NotificationChannels.moveRequests,
+      priority: NotificationPriority.high,
+      allowedRoles: const ['admin'],
+      titleBuilder: (p) {
+        final overdue = _toInt(p['overdue_count']);
+        final urgent = _toInt(p['urgent_count']);
+        final soon = _toInt(p['soon_count']);
+        final total = overdue + urgent + soon;
+        return 'Daily Move Report: $total Request${_pluralS(total)}';
+      },
+      bodyBuilder: (p) {
+        final parts = <String>[];
+        final overdue = _toInt(p['overdue_count']);
+        final urgent = _toInt(p['urgent_count']);
+        final soon = _toInt(p['soon_count']);
+        final warehouse = _toInt(p['warehouse_count']);
+        if (overdue > 0) parts.add('$overdue overdue');
+        if (urgent > 0) parts.add('$urgent urgent');
+        if (soon > 0) parts.add('$soon due soon');
+        if (warehouse > 0) parts.add('$warehouse in warehouse');
+        return parts.isEmpty ? 'No pending move requests.' : parts.join(' · ');
+      },
+      deepLinkBuilder: (_) => '/manager/move-requests',
+      groupKey: 'daily_reports',
+    ),
+
+    NotificationTypeConfig(
+      eventType: 'daily_bin_check_report',
+      channelKey: NotificationChannels.binAlerts,
+      priority: NotificationPriority.high,
+      allowedRoles: const ['admin'],
+      titleBuilder: (p) {
+        final critical = _toInt(p['critical_count']);
+        final overdue = _toInt(p['overdue_count']);
+        final total = critical + overdue;
+        return 'Bin Check Report: $total Bin${_pluralS(total)} Need Checking';
+      },
+      bodyBuilder: (p) {
+        final parts = <String>[];
+        final critical = _toInt(p['critical_count']);
+        final overdue = _toInt(p['overdue_count']);
+        if (critical > 0) parts.add('$critical critical (14+ days)');
+        if (overdue > 0) parts.add('$overdue overdue (7-13 days)');
+        return parts.isEmpty
+            ? 'All bins are up to date.'
+            : parts.join(' · ');
+      },
+      deepLinkBuilder: (_) => '/manager/bins',
+      groupKey: 'daily_reports',
+    ),
+
+    // -----------------------------------------------------------------------
     //  AIRTAG DRIFT ALERTS (Backend 5-min poll, Manager only)
     // -----------------------------------------------------------------------
     NotificationTypeConfig(

@@ -531,6 +531,9 @@ class _ActionButtons extends HookConsumerWidget {
           'Uploading service task photo to Cloudinary...',
         );
         final cloudinary = CloudinaryService();
+        if (!cloudinary.isInitialized) {
+          await cloudinary.initialize();
+        }
         photoUrl = await cloudinary.uploadImage(
           File(capturedImage.value!.path),
         );

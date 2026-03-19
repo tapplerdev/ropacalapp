@@ -36,6 +36,18 @@ class ShiftState with _$ShiftState {
     /// Completed bins count
     @JsonKey(name: 'completed_bins') @Default(0) int completedBins,
 
+    /// Shift type: "standard" or "custom"
+    @JsonKey(name: 'shift_type') @Default('standard') String shiftType,
+
+    /// Display label for custom shifts
+    @JsonKey(name: 'shift_label') String? shiftLabel,
+
+    /// Custom start address
+    @JsonKey(name: 'start_address') String? startAddress,
+
+    /// Custom end address
+    @JsonKey(name: 'end_address') String? endAddress,
+
     /// List of bins/tasks in the route
     @JsonKey(name: 'tasks') @Default([]) List<RouteTask> bins,
   }) = _ShiftState;
@@ -44,6 +56,9 @@ class ShiftState with _$ShiftState {
 
   factory ShiftState.fromJson(Map<String, dynamic> json) =>
       _$ShiftStateFromJson(json);
+
+  /// Check if this is a custom shift
+  bool get isCustomShift => shiftType == 'custom';
 
   /// Check if this shift uses the task-based system
   bool get usesTasks => bins.isNotEmpty;

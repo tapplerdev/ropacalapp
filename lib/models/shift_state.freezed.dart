@@ -54,6 +54,22 @@ mixin _$ShiftState {
   @JsonKey(name: 'completed_bins')
   int get completedBins => throw _privateConstructorUsedError;
 
+  /// Shift type: "standard" or "custom"
+  @JsonKey(name: 'shift_type')
+  String get shiftType => throw _privateConstructorUsedError;
+
+  /// Display label for custom shifts
+  @JsonKey(name: 'shift_label')
+  String? get shiftLabel => throw _privateConstructorUsedError;
+
+  /// Custom start address
+  @JsonKey(name: 'start_address')
+  String? get startAddress => throw _privateConstructorUsedError;
+
+  /// Custom end address
+  @JsonKey(name: 'end_address')
+  String? get endAddress => throw _privateConstructorUsedError;
+
   /// List of bins/tasks in the route
   @JsonKey(name: 'tasks')
   List<RouteTask> get bins => throw _privateConstructorUsedError;
@@ -86,6 +102,10 @@ abstract class $ShiftStateCopyWith<$Res> {
     @JsonKey(name: 'route_id') String? assignedRouteId,
     @JsonKey(name: 'total_bins') int totalBins,
     @JsonKey(name: 'completed_bins') int completedBins,
+    @JsonKey(name: 'shift_type') String shiftType,
+    @JsonKey(name: 'shift_label') String? shiftLabel,
+    @JsonKey(name: 'start_address') String? startAddress,
+    @JsonKey(name: 'end_address') String? endAddress,
     @JsonKey(name: 'tasks') List<RouteTask> bins,
   });
 }
@@ -113,6 +133,10 @@ class _$ShiftStateCopyWithImpl<$Res, $Val extends ShiftState>
     Object? assignedRouteId = freezed,
     Object? totalBins = null,
     Object? completedBins = null,
+    Object? shiftType = null,
+    Object? shiftLabel = freezed,
+    Object? startAddress = freezed,
+    Object? endAddress = freezed,
     Object? bins = null,
   }) {
     return _then(
@@ -149,6 +173,22 @@ class _$ShiftStateCopyWithImpl<$Res, $Val extends ShiftState>
                 ? _value.completedBins
                 : completedBins // ignore: cast_nullable_to_non_nullable
                       as int,
+            shiftType: null == shiftType
+                ? _value.shiftType
+                : shiftType // ignore: cast_nullable_to_non_nullable
+                      as String,
+            shiftLabel: freezed == shiftLabel
+                ? _value.shiftLabel
+                : shiftLabel // ignore: cast_nullable_to_non_nullable
+                      as String?,
+            startAddress: freezed == startAddress
+                ? _value.startAddress
+                : startAddress // ignore: cast_nullable_to_non_nullable
+                      as String?,
+            endAddress: freezed == endAddress
+                ? _value.endAddress
+                : endAddress // ignore: cast_nullable_to_non_nullable
+                      as String?,
             bins: null == bins
                 ? _value.bins
                 : bins // ignore: cast_nullable_to_non_nullable
@@ -179,6 +219,10 @@ abstract class _$$ShiftStateImplCopyWith<$Res>
     @JsonKey(name: 'route_id') String? assignedRouteId,
     @JsonKey(name: 'total_bins') int totalBins,
     @JsonKey(name: 'completed_bins') int completedBins,
+    @JsonKey(name: 'shift_type') String shiftType,
+    @JsonKey(name: 'shift_label') String? shiftLabel,
+    @JsonKey(name: 'start_address') String? startAddress,
+    @JsonKey(name: 'end_address') String? endAddress,
     @JsonKey(name: 'tasks') List<RouteTask> bins,
   });
 }
@@ -205,6 +249,10 @@ class __$$ShiftStateImplCopyWithImpl<$Res>
     Object? assignedRouteId = freezed,
     Object? totalBins = null,
     Object? completedBins = null,
+    Object? shiftType = null,
+    Object? shiftLabel = freezed,
+    Object? startAddress = freezed,
+    Object? endAddress = freezed,
     Object? bins = null,
   }) {
     return _then(
@@ -241,6 +289,22 @@ class __$$ShiftStateImplCopyWithImpl<$Res>
             ? _value.completedBins
             : completedBins // ignore: cast_nullable_to_non_nullable
                   as int,
+        shiftType: null == shiftType
+            ? _value.shiftType
+            : shiftType // ignore: cast_nullable_to_non_nullable
+                  as String,
+        shiftLabel: freezed == shiftLabel
+            ? _value.shiftLabel
+            : shiftLabel // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        startAddress: freezed == startAddress
+            ? _value.startAddress
+            : startAddress // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        endAddress: freezed == endAddress
+            ? _value.endAddress
+            : endAddress // ignore: cast_nullable_to_non_nullable
+                  as String?,
         bins: null == bins
             ? _value._bins
             : bins // ignore: cast_nullable_to_non_nullable
@@ -264,6 +328,10 @@ class _$ShiftStateImpl extends _ShiftState {
     @JsonKey(name: 'route_id') this.assignedRouteId,
     @JsonKey(name: 'total_bins') this.totalBins = 0,
     @JsonKey(name: 'completed_bins') this.completedBins = 0,
+    @JsonKey(name: 'shift_type') this.shiftType = 'standard',
+    @JsonKey(name: 'shift_label') this.shiftLabel,
+    @JsonKey(name: 'start_address') this.startAddress,
+    @JsonKey(name: 'end_address') this.endAddress,
     @JsonKey(name: 'tasks') final List<RouteTask> bins = const [],
   }) : _bins = bins,
        super._();
@@ -312,6 +380,26 @@ class _$ShiftStateImpl extends _ShiftState {
   @JsonKey(name: 'completed_bins')
   final int completedBins;
 
+  /// Shift type: "standard" or "custom"
+  @override
+  @JsonKey(name: 'shift_type')
+  final String shiftType;
+
+  /// Display label for custom shifts
+  @override
+  @JsonKey(name: 'shift_label')
+  final String? shiftLabel;
+
+  /// Custom start address
+  @override
+  @JsonKey(name: 'start_address')
+  final String? startAddress;
+
+  /// Custom end address
+  @override
+  @JsonKey(name: 'end_address')
+  final String? endAddress;
+
   /// List of bins/tasks in the route
   final List<RouteTask> _bins;
 
@@ -326,7 +414,7 @@ class _$ShiftStateImpl extends _ShiftState {
 
   @override
   String toString() {
-    return 'ShiftState(status: $status, shiftId: $shiftId, startTime: $startTime, totalPauseSeconds: $totalPauseSeconds, pauseStartTime: $pauseStartTime, assignedRouteId: $assignedRouteId, totalBins: $totalBins, completedBins: $completedBins, bins: $bins)';
+    return 'ShiftState(status: $status, shiftId: $shiftId, startTime: $startTime, totalPauseSeconds: $totalPauseSeconds, pauseStartTime: $pauseStartTime, assignedRouteId: $assignedRouteId, totalBins: $totalBins, completedBins: $completedBins, shiftType: $shiftType, shiftLabel: $shiftLabel, startAddress: $startAddress, endAddress: $endAddress, bins: $bins)';
   }
 
   @override
@@ -348,6 +436,14 @@ class _$ShiftStateImpl extends _ShiftState {
                 other.totalBins == totalBins) &&
             (identical(other.completedBins, completedBins) ||
                 other.completedBins == completedBins) &&
+            (identical(other.shiftType, shiftType) ||
+                other.shiftType == shiftType) &&
+            (identical(other.shiftLabel, shiftLabel) ||
+                other.shiftLabel == shiftLabel) &&
+            (identical(other.startAddress, startAddress) ||
+                other.startAddress == startAddress) &&
+            (identical(other.endAddress, endAddress) ||
+                other.endAddress == endAddress) &&
             const DeepCollectionEquality().equals(other._bins, _bins));
   }
 
@@ -363,6 +459,10 @@ class _$ShiftStateImpl extends _ShiftState {
     assignedRouteId,
     totalBins,
     completedBins,
+    shiftType,
+    shiftLabel,
+    startAddress,
+    endAddress,
     const DeepCollectionEquality().hash(_bins),
   );
 
@@ -394,6 +494,10 @@ abstract class _ShiftState extends ShiftState {
     @JsonKey(name: 'route_id') final String? assignedRouteId,
     @JsonKey(name: 'total_bins') final int totalBins,
     @JsonKey(name: 'completed_bins') final int completedBins,
+    @JsonKey(name: 'shift_type') final String shiftType,
+    @JsonKey(name: 'shift_label') final String? shiftLabel,
+    @JsonKey(name: 'start_address') final String? startAddress,
+    @JsonKey(name: 'end_address') final String? endAddress,
     @JsonKey(name: 'tasks') final List<RouteTask> bins,
   }) = _$ShiftStateImpl;
   const _ShiftState._() : super._();
@@ -441,6 +545,26 @@ abstract class _ShiftState extends ShiftState {
   @override
   @JsonKey(name: 'completed_bins')
   int get completedBins;
+
+  /// Shift type: "standard" or "custom"
+  @override
+  @JsonKey(name: 'shift_type')
+  String get shiftType;
+
+  /// Display label for custom shifts
+  @override
+  @JsonKey(name: 'shift_label')
+  String? get shiftLabel;
+
+  /// Custom start address
+  @override
+  @JsonKey(name: 'start_address')
+  String? get startAddress;
+
+  /// Custom end address
+  @override
+  @JsonKey(name: 'end_address')
+  String? get endAddress;
 
   /// List of bins/tasks in the route
   @override

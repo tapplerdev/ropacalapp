@@ -235,6 +235,7 @@ class ShiftService {
     String? incidentPhotoUrl,
     String? incidentDescription,
     String? moveRequestId, // Links check to move request for pickup/dropoff
+    String? completionNotes, // Driver notes for service tasks
   }) async {
     try {
       print('📤 REQUEST: POST /api/driver/shift/complete-task');
@@ -250,6 +251,7 @@ class ShiftService {
         if (incidentPhotoUrl != null) 'incident_photo_url': incidentPhotoUrl,
         if (incidentDescription != null) 'incident_description': incidentDescription,
         if (moveRequestId != null) 'move_request_id': moveRequestId,
+        if (completionNotes != null) 'completion_notes': completionNotes,
       };
 
       print('   Body: $requestData');

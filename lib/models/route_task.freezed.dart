@@ -122,7 +122,38 @@ mixin _$RouteTask {
 
   /// Photo URL taken during task completion
   @JsonKey(name: 'photo_url')
-  String? get photoUrl => throw _privateConstructorUsedError; // ========== METADATA ==========
+  String? get photoUrl => throw _privateConstructorUsedError; // ========== SERVICE TASK FIELDS ==========
+  /// Display label for service tasks
+  @JsonKey(name: 'task_label')
+  String? get taskLabel => throw _privateConstructorUsedError;
+
+  /// Description of the service task
+  @JsonKey(name: 'task_description')
+  String? get taskDescription => throw _privateConstructorUsedError;
+
+  /// Whether photo is required for this task
+  @JsonKey(name: 'photo_required')
+  bool get photoRequired => throw _privateConstructorUsedError;
+
+  /// Driver notes on task completion
+  @JsonKey(name: 'completion_notes')
+  String? get completionNotes => throw _privateConstructorUsedError;
+
+  /// Earliest arrival time (ISO 8601)
+  @JsonKey(name: 'earliest_arrival')
+  String? get earliestArrival => throw _privateConstructorUsedError;
+
+  /// Latest arrival time (ISO 8601)
+  @JsonKey(name: 'latest_arrival')
+  String? get latestArrival => throw _privateConstructorUsedError;
+
+  /// Time window type (soft, strict, soft_start, soft_end)
+  @JsonKey(name: 'time_window_type')
+  String? get timeWindowType => throw _privateConstructorUsedError;
+
+  /// Service duration in seconds
+  @JsonKey(name: 'service_duration_seconds')
+  int? get serviceDurationSeconds => throw _privateConstructorUsedError; // ========== METADATA ==========
   /// Flexible JSON data for task-specific information
   @JsonKey(name: 'task_data')
   Map<String, dynamic>? get taskData => throw _privateConstructorUsedError;
@@ -176,6 +207,14 @@ abstract class $RouteTaskCopyWith<$Res> {
     bool skipped,
     @JsonKey(name: 'updated_fill_percentage') int? updatedFillPercentage,
     @JsonKey(name: 'photo_url') String? photoUrl,
+    @JsonKey(name: 'task_label') String? taskLabel,
+    @JsonKey(name: 'task_description') String? taskDescription,
+    @JsonKey(name: 'photo_required') bool photoRequired,
+    @JsonKey(name: 'completion_notes') String? completionNotes,
+    @JsonKey(name: 'earliest_arrival') String? earliestArrival,
+    @JsonKey(name: 'latest_arrival') String? latestArrival,
+    @JsonKey(name: 'time_window_type') String? timeWindowType,
+    @JsonKey(name: 'service_duration_seconds') int? serviceDurationSeconds,
     @JsonKey(name: 'task_data') Map<String, dynamic>? taskData,
     @JsonKey(name: 'created_at') int createdAt,
   });
@@ -225,6 +264,14 @@ class _$RouteTaskCopyWithImpl<$Res, $Val extends RouteTask>
     Object? skipped = null,
     Object? updatedFillPercentage = freezed,
     Object? photoUrl = freezed,
+    Object? taskLabel = freezed,
+    Object? taskDescription = freezed,
+    Object? photoRequired = null,
+    Object? completionNotes = freezed,
+    Object? earliestArrival = freezed,
+    Object? latestArrival = freezed,
+    Object? timeWindowType = freezed,
+    Object? serviceDurationSeconds = freezed,
     Object? taskData = freezed,
     Object? createdAt = null,
   }) {
@@ -346,6 +393,38 @@ class _$RouteTaskCopyWithImpl<$Res, $Val extends RouteTask>
                 ? _value.photoUrl
                 : photoUrl // ignore: cast_nullable_to_non_nullable
                       as String?,
+            taskLabel: freezed == taskLabel
+                ? _value.taskLabel
+                : taskLabel // ignore: cast_nullable_to_non_nullable
+                      as String?,
+            taskDescription: freezed == taskDescription
+                ? _value.taskDescription
+                : taskDescription // ignore: cast_nullable_to_non_nullable
+                      as String?,
+            photoRequired: null == photoRequired
+                ? _value.photoRequired
+                : photoRequired // ignore: cast_nullable_to_non_nullable
+                      as bool,
+            completionNotes: freezed == completionNotes
+                ? _value.completionNotes
+                : completionNotes // ignore: cast_nullable_to_non_nullable
+                      as String?,
+            earliestArrival: freezed == earliestArrival
+                ? _value.earliestArrival
+                : earliestArrival // ignore: cast_nullable_to_non_nullable
+                      as String?,
+            latestArrival: freezed == latestArrival
+                ? _value.latestArrival
+                : latestArrival // ignore: cast_nullable_to_non_nullable
+                      as String?,
+            timeWindowType: freezed == timeWindowType
+                ? _value.timeWindowType
+                : timeWindowType // ignore: cast_nullable_to_non_nullable
+                      as String?,
+            serviceDurationSeconds: freezed == serviceDurationSeconds
+                ? _value.serviceDurationSeconds
+                : serviceDurationSeconds // ignore: cast_nullable_to_non_nullable
+                      as int?,
             taskData: freezed == taskData
                 ? _value.taskData
                 : taskData // ignore: cast_nullable_to_non_nullable
@@ -399,6 +478,14 @@ abstract class _$$RouteTaskImplCopyWith<$Res>
     bool skipped,
     @JsonKey(name: 'updated_fill_percentage') int? updatedFillPercentage,
     @JsonKey(name: 'photo_url') String? photoUrl,
+    @JsonKey(name: 'task_label') String? taskLabel,
+    @JsonKey(name: 'task_description') String? taskDescription,
+    @JsonKey(name: 'photo_required') bool photoRequired,
+    @JsonKey(name: 'completion_notes') String? completionNotes,
+    @JsonKey(name: 'earliest_arrival') String? earliestArrival,
+    @JsonKey(name: 'latest_arrival') String? latestArrival,
+    @JsonKey(name: 'time_window_type') String? timeWindowType,
+    @JsonKey(name: 'service_duration_seconds') int? serviceDurationSeconds,
     @JsonKey(name: 'task_data') Map<String, dynamic>? taskData,
     @JsonKey(name: 'created_at') int createdAt,
   });
@@ -447,6 +534,14 @@ class __$$RouteTaskImplCopyWithImpl<$Res>
     Object? skipped = null,
     Object? updatedFillPercentage = freezed,
     Object? photoUrl = freezed,
+    Object? taskLabel = freezed,
+    Object? taskDescription = freezed,
+    Object? photoRequired = null,
+    Object? completionNotes = freezed,
+    Object? earliestArrival = freezed,
+    Object? latestArrival = freezed,
+    Object? timeWindowType = freezed,
+    Object? serviceDurationSeconds = freezed,
     Object? taskData = freezed,
     Object? createdAt = null,
   }) {
@@ -568,6 +663,38 @@ class __$$RouteTaskImplCopyWithImpl<$Res>
             ? _value.photoUrl
             : photoUrl // ignore: cast_nullable_to_non_nullable
                   as String?,
+        taskLabel: freezed == taskLabel
+            ? _value.taskLabel
+            : taskLabel // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        taskDescription: freezed == taskDescription
+            ? _value.taskDescription
+            : taskDescription // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        photoRequired: null == photoRequired
+            ? _value.photoRequired
+            : photoRequired // ignore: cast_nullable_to_non_nullable
+                  as bool,
+        completionNotes: freezed == completionNotes
+            ? _value.completionNotes
+            : completionNotes // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        earliestArrival: freezed == earliestArrival
+            ? _value.earliestArrival
+            : earliestArrival // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        latestArrival: freezed == latestArrival
+            ? _value.latestArrival
+            : latestArrival // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        timeWindowType: freezed == timeWindowType
+            ? _value.timeWindowType
+            : timeWindowType // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        serviceDurationSeconds: freezed == serviceDurationSeconds
+            ? _value.serviceDurationSeconds
+            : serviceDurationSeconds // ignore: cast_nullable_to_non_nullable
+                  as int?,
         taskData: freezed == taskData
             ? _value._taskData
             : taskData // ignore: cast_nullable_to_non_nullable
@@ -614,6 +741,14 @@ class _$RouteTaskImpl extends _RouteTask {
     this.skipped = false,
     @JsonKey(name: 'updated_fill_percentage') this.updatedFillPercentage,
     @JsonKey(name: 'photo_url') this.photoUrl,
+    @JsonKey(name: 'task_label') this.taskLabel,
+    @JsonKey(name: 'task_description') this.taskDescription,
+    @JsonKey(name: 'photo_required') this.photoRequired = false,
+    @JsonKey(name: 'completion_notes') this.completionNotes,
+    @JsonKey(name: 'earliest_arrival') this.earliestArrival,
+    @JsonKey(name: 'latest_arrival') this.latestArrival,
+    @JsonKey(name: 'time_window_type') this.timeWindowType,
+    @JsonKey(name: 'service_duration_seconds') this.serviceDurationSeconds,
     @JsonKey(name: 'task_data') final Map<String, dynamic>? taskData,
     @JsonKey(name: 'created_at') required this.createdAt,
   }) : _taskData = taskData,
@@ -760,6 +895,46 @@ class _$RouteTaskImpl extends _RouteTask {
   @override
   @JsonKey(name: 'photo_url')
   final String? photoUrl;
+  // ========== SERVICE TASK FIELDS ==========
+  /// Display label for service tasks
+  @override
+  @JsonKey(name: 'task_label')
+  final String? taskLabel;
+
+  /// Description of the service task
+  @override
+  @JsonKey(name: 'task_description')
+  final String? taskDescription;
+
+  /// Whether photo is required for this task
+  @override
+  @JsonKey(name: 'photo_required')
+  final bool photoRequired;
+
+  /// Driver notes on task completion
+  @override
+  @JsonKey(name: 'completion_notes')
+  final String? completionNotes;
+
+  /// Earliest arrival time (ISO 8601)
+  @override
+  @JsonKey(name: 'earliest_arrival')
+  final String? earliestArrival;
+
+  /// Latest arrival time (ISO 8601)
+  @override
+  @JsonKey(name: 'latest_arrival')
+  final String? latestArrival;
+
+  /// Time window type (soft, strict, soft_start, soft_end)
+  @override
+  @JsonKey(name: 'time_window_type')
+  final String? timeWindowType;
+
+  /// Service duration in seconds
+  @override
+  @JsonKey(name: 'service_duration_seconds')
+  final int? serviceDurationSeconds;
   // ========== METADATA ==========
   /// Flexible JSON data for task-specific information
   final Map<String, dynamic>? _taskData;
@@ -782,7 +957,7 @@ class _$RouteTaskImpl extends _RouteTask {
 
   @override
   String toString() {
-    return 'RouteTask(id: $id, shiftId: $shiftId, sequenceOrder: $sequenceOrder, taskType: $taskType, latitude: $latitude, longitude: $longitude, address: $address, city: $city, zip: $zip, originalAddress: $originalAddress, newAddress: $newAddress, binId: $binId, binNumber: $binNumber, fillPercentage: $fillPercentage, potentialLocationId: $potentialLocationId, newBinNumber: $newBinNumber, moveRequestId: $moveRequestId, destinationLatitude: $destinationLatitude, destinationLongitude: $destinationLongitude, destinationAddress: $destinationAddress, moveType: $moveType, warehouseAction: $warehouseAction, binsToLoad: $binsToLoad, routeId: $routeId, isCompleted: $isCompleted, completedAt: $completedAt, skipped: $skipped, updatedFillPercentage: $updatedFillPercentage, photoUrl: $photoUrl, taskData: $taskData, createdAt: $createdAt)';
+    return 'RouteTask(id: $id, shiftId: $shiftId, sequenceOrder: $sequenceOrder, taskType: $taskType, latitude: $latitude, longitude: $longitude, address: $address, city: $city, zip: $zip, originalAddress: $originalAddress, newAddress: $newAddress, binId: $binId, binNumber: $binNumber, fillPercentage: $fillPercentage, potentialLocationId: $potentialLocationId, newBinNumber: $newBinNumber, moveRequestId: $moveRequestId, destinationLatitude: $destinationLatitude, destinationLongitude: $destinationLongitude, destinationAddress: $destinationAddress, moveType: $moveType, warehouseAction: $warehouseAction, binsToLoad: $binsToLoad, routeId: $routeId, isCompleted: $isCompleted, completedAt: $completedAt, skipped: $skipped, updatedFillPercentage: $updatedFillPercentage, photoUrl: $photoUrl, taskLabel: $taskLabel, taskDescription: $taskDescription, photoRequired: $photoRequired, completionNotes: $completionNotes, earliestArrival: $earliestArrival, latestArrival: $latestArrival, timeWindowType: $timeWindowType, serviceDurationSeconds: $serviceDurationSeconds, taskData: $taskData, createdAt: $createdAt)';
   }
 
   @override
@@ -840,6 +1015,22 @@ class _$RouteTaskImpl extends _RouteTask {
                 other.updatedFillPercentage == updatedFillPercentage) &&
             (identical(other.photoUrl, photoUrl) ||
                 other.photoUrl == photoUrl) &&
+            (identical(other.taskLabel, taskLabel) ||
+                other.taskLabel == taskLabel) &&
+            (identical(other.taskDescription, taskDescription) ||
+                other.taskDescription == taskDescription) &&
+            (identical(other.photoRequired, photoRequired) ||
+                other.photoRequired == photoRequired) &&
+            (identical(other.completionNotes, completionNotes) ||
+                other.completionNotes == completionNotes) &&
+            (identical(other.earliestArrival, earliestArrival) ||
+                other.earliestArrival == earliestArrival) &&
+            (identical(other.latestArrival, latestArrival) ||
+                other.latestArrival == latestArrival) &&
+            (identical(other.timeWindowType, timeWindowType) ||
+                other.timeWindowType == timeWindowType) &&
+            (identical(other.serviceDurationSeconds, serviceDurationSeconds) ||
+                other.serviceDurationSeconds == serviceDurationSeconds) &&
             const DeepCollectionEquality().equals(other._taskData, _taskData) &&
             (identical(other.createdAt, createdAt) ||
                 other.createdAt == createdAt));
@@ -878,6 +1069,14 @@ class _$RouteTaskImpl extends _RouteTask {
     skipped,
     updatedFillPercentage,
     photoUrl,
+    taskLabel,
+    taskDescription,
+    photoRequired,
+    completionNotes,
+    earliestArrival,
+    latestArrival,
+    timeWindowType,
+    serviceDurationSeconds,
     const DeepCollectionEquality().hash(_taskData),
     createdAt,
   ]);
@@ -927,6 +1126,15 @@ abstract class _RouteTask extends RouteTask {
     final bool skipped,
     @JsonKey(name: 'updated_fill_percentage') final int? updatedFillPercentage,
     @JsonKey(name: 'photo_url') final String? photoUrl,
+    @JsonKey(name: 'task_label') final String? taskLabel,
+    @JsonKey(name: 'task_description') final String? taskDescription,
+    @JsonKey(name: 'photo_required') final bool photoRequired,
+    @JsonKey(name: 'completion_notes') final String? completionNotes,
+    @JsonKey(name: 'earliest_arrival') final String? earliestArrival,
+    @JsonKey(name: 'latest_arrival') final String? latestArrival,
+    @JsonKey(name: 'time_window_type') final String? timeWindowType,
+    @JsonKey(name: 'service_duration_seconds')
+    final int? serviceDurationSeconds,
     @JsonKey(name: 'task_data') final Map<String, dynamic>? taskData,
     @JsonKey(name: 'created_at') required final int createdAt,
   }) = _$RouteTaskImpl;
@@ -1065,7 +1273,46 @@ abstract class _RouteTask extends RouteTask {
   /// Photo URL taken during task completion
   @override
   @JsonKey(name: 'photo_url')
-  String? get photoUrl; // ========== METADATA ==========
+  String? get photoUrl; // ========== SERVICE TASK FIELDS ==========
+  /// Display label for service tasks
+  @override
+  @JsonKey(name: 'task_label')
+  String? get taskLabel;
+
+  /// Description of the service task
+  @override
+  @JsonKey(name: 'task_description')
+  String? get taskDescription;
+
+  /// Whether photo is required for this task
+  @override
+  @JsonKey(name: 'photo_required')
+  bool get photoRequired;
+
+  /// Driver notes on task completion
+  @override
+  @JsonKey(name: 'completion_notes')
+  String? get completionNotes;
+
+  /// Earliest arrival time (ISO 8601)
+  @override
+  @JsonKey(name: 'earliest_arrival')
+  String? get earliestArrival;
+
+  /// Latest arrival time (ISO 8601)
+  @override
+  @JsonKey(name: 'latest_arrival')
+  String? get latestArrival;
+
+  /// Time window type (soft, strict, soft_start, soft_end)
+  @override
+  @JsonKey(name: 'time_window_type')
+  String? get timeWindowType;
+
+  /// Service duration in seconds
+  @override
+  @JsonKey(name: 'service_duration_seconds')
+  int? get serviceDurationSeconds; // ========== METADATA ==========
   /// Flexible JSON data for task-specific information
   @override
   @JsonKey(name: 'task_data')

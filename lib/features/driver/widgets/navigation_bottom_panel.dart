@@ -12,6 +12,7 @@ import 'package:ropacalapp/features/driver/widgets/move_request_pickup_dialog.da
 import 'package:ropacalapp/features/driver/widgets/move_request_placement_dialog.dart';
 import 'package:ropacalapp/features/driver/widgets/warehouse_checkin_dialog.dart';
 import 'package:ropacalapp/features/driver/widgets/placement_checkin_dialog.dart';
+import 'package:ropacalapp/features/driver/widgets/service_checkin_dialog.dart';
 import 'package:ropacalapp/core/enums/stop_type.dart';
 import 'package:ropacalapp/providers/navigation_page_provider.dart';
 import 'package:ropacalapp/providers/shift_provider.dart';
@@ -1152,6 +1153,21 @@ class NavigationBottomPanel extends HookConsumerWidget {
                               );
                               break;
 
+                            case StopType.service:
+                              showDialog(
+                                context: context,
+                                barrierDismissible: false,
+                                builder: (context) => ServiceCheckinDialog(
+                                  task: task,
+                                  onCompleted: () {
+                                    AppLogger.general(
+                                      '✅ Service task completed: ${task.taskLabel}',
+                                    );
+                                  },
+                                ),
+                              );
+                              break;
+
                             default:
                               // Fallback for any unknown task types
                               ScaffoldMessenger.of(context).showSnackBar(
@@ -1964,6 +1980,20 @@ class NavigationBottomPanel extends HookConsumerWidget {
                             ),
                           );
                           break;
+                        case StopType.service:
+                          showDialog(
+                            context: context,
+                            barrierDismissible: false,
+                            builder: (context) => ServiceCheckinDialog(
+                              task: bin,
+                              onCompleted: () {
+                                AppLogger.general(
+                                  '✅ Service task completed: ${bin.taskLabel}',
+                                );
+                              },
+                            ),
+                          );
+                          break;
                       }
                     }
                   : null, // Disabled when not within geofence
@@ -2010,6 +2040,8 @@ class NavigationBottomPanel extends HookConsumerWidget {
         return 'Complete Dropoff';
       case StopType.collection:
         return 'Complete Bin';
+      case StopType.service:
+        return 'Complete';
     }
   }
 

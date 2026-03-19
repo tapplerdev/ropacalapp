@@ -16,7 +16,10 @@ enum StopType {
   placement('placement'),
 
   /// Warehouse stop - load new bins or unload waste
-  warehouseStop('warehouse_stop');
+  warehouseStop('warehouse_stop'),
+
+  /// Service task - custom location visit with photo check-in
+  service('service');
 
   const StopType(this.value);
 

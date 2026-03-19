@@ -103,6 +103,32 @@ class RouteTask with _$RouteTask {
     /// Photo URL taken during task completion
     @JsonKey(name: 'photo_url') String? photoUrl,
 
+    // ========== SERVICE TASK FIELDS ==========
+    /// Display label for service tasks
+    @JsonKey(name: 'task_label') String? taskLabel,
+
+    /// Description of the service task
+    @JsonKey(name: 'task_description') String? taskDescription,
+
+    /// Whether photo is required for this task
+    @JsonKey(name: 'photo_required') @Default(false) bool photoRequired,
+
+    /// Driver notes on task completion
+    @JsonKey(name: 'completion_notes') String? completionNotes,
+
+    /// Earliest arrival time (ISO 8601)
+    @JsonKey(name: 'earliest_arrival') String? earliestArrival,
+
+    /// Latest arrival time (ISO 8601)
+    @JsonKey(name: 'latest_arrival') String? latestArrival,
+
+    /// Time window type (soft, strict, soft_start, soft_end)
+    @JsonKey(name: 'time_window_type') String? timeWindowType,
+
+    /// Service duration in seconds
+    @JsonKey(name: 'service_duration_seconds')
+    int? serviceDurationSeconds,
+
     // ========== METADATA ==========
     /// Flexible JSON data for task-specific information
     @JsonKey(name: 'task_data') Map<String, dynamic>? taskData,
@@ -124,6 +150,9 @@ class RouteTask with _$RouteTask {
 
   /// Check if this is a warehouse stop
   bool get isWarehouseStop => taskType == StopType.warehouseStop;
+
+  /// Check if this is a service task
+  bool get isService => taskType == StopType.service;
 
   /// Check if this is a move request (pickup or dropoff)
   bool get isMoveRequest =>
@@ -155,6 +184,8 @@ class RouteTask with _$RouteTask {
                        warehouseAction == 'unload' ? 'Unload' : 'Stop';
         final bins = binsToLoad != null ? ' $binsToLoad bins' : '';
         return 'Warehouse - $action$bins';
+      case StopType.service:
+        return taskLabel ?? 'Service Stop';
     }
   }
 
@@ -178,6 +209,8 @@ class RouteTask with _$RouteTask {
         return destinationAddress!;
       case StopType.warehouseStop:
         return address ?? 'Warehouse Location';
+      case StopType.service:
+        return taskDescription ?? address ?? 'Service Location';
     }
   }
 
@@ -194,6 +227,8 @@ class RouteTask with _$RouteTask {
         return 'download';
       case StopType.warehouseStop:
         return 'warehouse';
+      case StopType.service:
+        return 'assignment';
     }
   }
 }

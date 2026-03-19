@@ -70,4 +70,5 @@ const _$StopTypeEnumMap = {
   StopType.dropoff: 'dropoff',
   StopType.placement: 'placement',
   StopType.warehouseStop: 'warehouse_stop',
+  StopType.service: 'service',
 };

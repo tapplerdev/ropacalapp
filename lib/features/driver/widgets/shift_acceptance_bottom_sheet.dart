@@ -280,6 +280,12 @@ class ShiftAcceptanceBottomSheet extends StatelessWidget {
           emoji: '🏭',
           label: 'Warehouse',
         );
+      case StopType.service:
+        return (
+          color: Colors.blue.shade600,
+          emoji: '📋',
+          label: 'Service${shiftOverview.taskCounts[taskType] != null && shiftOverview.taskCounts[taskType]! > 1 ? ' Stops' : ' Stop'}',
+        );
     }
   }
 

@@ -20,6 +20,10 @@ _$ShiftStateImpl _$$ShiftStateImplFromJson(Map<String, dynamic> json) =>
       assignedRouteId: json['route_id'] as String?,
       totalBins: (json['total_bins'] as num?)?.toInt() ?? 0,
       completedBins: (json['completed_bins'] as num?)?.toInt() ?? 0,
+      shiftType: json['shift_type'] as String? ?? 'standard',
+      shiftLabel: json['shift_label'] as String?,
+      startAddress: json['start_address'] as String?,
+      endAddress: json['end_address'] as String?,
       bins:
           (json['tasks'] as List<dynamic>?)
               ?.map((e) => RouteTask.fromJson(e as Map<String, dynamic>))
@@ -39,6 +43,10 @@ Map<String, dynamic> _$$ShiftStateImplToJson(_$ShiftStateImpl instance) =>
       'route_id': instance.assignedRouteId,
       'total_bins': instance.totalBins,
       'completed_bins': instance.completedBins,
+      'shift_type': instance.shiftType,
+      'shift_label': instance.shiftLabel,
+      'start_address': instance.startAddress,
+      'end_address': instance.endAddress,
       'tasks': instance.bins,
     };
 

@@ -398,6 +398,8 @@ class _CurrentTaskBanner extends StatelessWidget {
         return (icon: Icons.arrow_downward, color: _moveTypeColor, label: 'Dropoff');
       case StopType.warehouseStop:
         return (icon: Icons.warehouse, color: Colors.teal.shade600, label: 'Warehouse');
+      case StopType.service:
+        return (icon: Icons.assignment_outlined, color: Colors.blue.shade600, label: 'Service');
     }
   }
 
@@ -807,6 +809,12 @@ class _TaskCard extends StatelessWidget {
           icon: Icons.warehouse,
           color: Colors.teal.shade600,
           label: 'Warehouse'
+        );
+      case StopType.service:
+        return (
+          icon: Icons.assignment_outlined,
+          color: Colors.blue.shade600,
+          label: 'Service'
         );
     }
   }

@@ -884,6 +884,8 @@ class _TaskCard extends StatelessWidget {
         return Colors.purple;
       case StopType.warehouseStop:
         return Colors.grey.shade700;
+      case StopType.service:
+        return Colors.blue;
     }
   }
 
@@ -899,6 +901,8 @@ class _TaskCard extends StatelessWidget {
         return Icons.download;
       case StopType.warehouseStop:
         return Icons.warehouse;
+      case StopType.service:
+        return Icons.assignment_outlined;
     }
   }
 }

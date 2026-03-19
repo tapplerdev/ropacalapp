@@ -37,6 +37,15 @@ _$RouteTaskImpl _$$RouteTaskImplFromJson(Map<String, dynamic> json) =>
       skipped: json['skipped'] as bool? ?? false,
       updatedFillPercentage: (json['updated_fill_percentage'] as num?)?.toInt(),
       photoUrl: json['photo_url'] as String?,
+      taskLabel: json['task_label'] as String?,
+      taskDescription: json['task_description'] as String?,
+      photoRequired: json['photo_required'] as bool? ?? false,
+      completionNotes: json['completion_notes'] as String?,
+      earliestArrival: json['earliest_arrival'] as String?,
+      latestArrival: json['latest_arrival'] as String?,
+      timeWindowType: json['time_window_type'] as String?,
+      serviceDurationSeconds: (json['service_duration_seconds'] as num?)
+          ?.toInt(),
       taskData: json['task_data'] as Map<String, dynamic>?,
       createdAt: (json['created_at'] as num).toInt(),
     );
@@ -72,6 +81,14 @@ Map<String, dynamic> _$$RouteTaskImplToJson(_$RouteTaskImpl instance) =>
       'skipped': instance.skipped,
       'updated_fill_percentage': instance.updatedFillPercentage,
       'photo_url': instance.photoUrl,
+      'task_label': instance.taskLabel,
+      'task_description': instance.taskDescription,
+      'photo_required': instance.photoRequired,
+      'completion_notes': instance.completionNotes,
+      'earliest_arrival': instance.earliestArrival,
+      'latest_arrival': instance.latestArrival,
+      'time_window_type': instance.timeWindowType,
+      'service_duration_seconds': instance.serviceDurationSeconds,
       'task_data': instance.taskData,
       'created_at': instance.createdAt,
     };
@@ -82,4 +99,5 @@ const _$StopTypeEnumMap = {
   StopType.dropoff: 'dropoff',
   StopType.placement: 'placement',
   StopType.warehouseStop: 'warehouse_stop',
+  StopType.service: 'service',
 };

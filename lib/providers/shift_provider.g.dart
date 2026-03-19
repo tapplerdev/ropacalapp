@@ -25,7 +25,7 @@ final shiftServiceProvider = AutoDisposeProvider<ShiftService>.internal(
 @Deprecated('Will be removed in 3.0. Use Ref instead')
 // ignore: unused_element
 typedef ShiftServiceRef = AutoDisposeProviderRef<ShiftService>;
-String _$shiftNotifierHash() => r'02b515af53cadb29770b038a934ed2e8c7cf5971';
+String _$shiftNotifierHash() => r'34e974c9666536e06c51441bba477fcd99ddf5a4';
 
 /// See also [ShiftNotifier].
 @ProviderFor(ShiftNotifier)

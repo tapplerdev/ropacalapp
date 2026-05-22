@@ -528,12 +528,12 @@ class ShiftNotifier extends _$ShiftNotifier {
       final apiDuration = apiEndTime.difference(apiStartTime).inMilliseconds;
       AppLogger.general('✅ Shift started in ${apiDuration}ms');
 
-      // IMPORTANT: Preserve bins from current state
-      // The API response doesn't include bins array, but we already have it from route assignment
-      // This prevents the navigation page from being blocked due to empty bins
-      state = updatedShift.copyWith(
-        bins: state.bins.isNotEmpty ? state.bins : updatedShift.bins,
-      );
+      // Fetch fresh tasks with optimized sequence order from backend
+      // The start API runs route optimization (OR-Tools) which reorders tasks,
+      // so we need the updated task list before the navigation page loads
+      AppLogger.general('📍 STEP 3.5: Fetching optimized task order...');
+      await fetchCurrentShift();
+      AppLogger.general('✅ Got optimized task order');
 
       AppLogger.general('');
       AppLogger.general('📍 STEP 4: Starting continuous location tracking...');

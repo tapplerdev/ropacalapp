@@ -33,6 +33,7 @@ import 'package:ropacalapp/features/driver/widgets/move_request_notification_dia
 import 'package:ropacalapp/providers/move_request_notification_provider.dart';
 import 'package:ropacalapp/features/driver/widgets/route_update_notification_dialog.dart';
 import 'package:ropacalapp/providers/route_update_notification_provider.dart';
+import 'package:ropacalapp/features/driver/widgets/dialogs/end_shift_prompt_dialog.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:ropacalapp/features/driver/notifications_page.dart';
 import 'package:ropacalapp/models/route_task.dart';
@@ -273,6 +274,34 @@ class GoogleNavigationPage extends HookConsumerWidget {
       }
       return null;
     }, [routeUpdateNotification]);
+
+    // Listen for end shift prompt (driver near warehouse, all tasks done)
+    final showEndPrompt = ref.watch(endShiftPromptProvider);
+
+    useEffect(() {
+      if (showEndPrompt) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (context.mounted) {
+            showDialog(
+              context: context,
+              barrierDismissible: false,
+              builder: (ctx) => EndShiftPromptDialog(
+                completedBins: shift.completedBins,
+                totalBins: shift.totalBins,
+                onEndShift: () async {
+                  ref.read(endShiftPromptProvider.notifier).state = false;
+                  await ref.read(shiftNotifierProvider.notifier).endShift();
+                },
+                onDismiss: () {
+                  ref.read(endShiftPromptProvider.notifier).state = false;
+                },
+              ),
+            );
+          }
+        });
+      }
+      return null;
+    }, [showEndPrompt]);
 
     // Listen for route reoptimization events (Centrifugo-based)
     final reoptEvent = ref.watch(routeReoptimizationEventProvider);

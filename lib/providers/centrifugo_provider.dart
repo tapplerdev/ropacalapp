@@ -235,6 +235,18 @@ class CentrifugoManager extends _$CentrifugoManager {
           AppLogger.general('🔔 [CentrifugoManager] shift_created — fetching shift...');
           ref.read(shiftNotifierProvider.notifier).fetchCurrentShift();
         }
+
+        // For shift_ready_to_end: driver near warehouse with all tasks done
+        if (type == 'shift_ready_to_end') {
+          AppLogger.general('🏁 [CentrifugoManager] shift_ready_to_end — showing end shift prompt');
+          ref.read(endShiftPromptProvider.notifier).state = true;
+        }
+
+        // For shift_auto_ended: shift was ended by system
+        if (type == 'shift_auto_ended') {
+          AppLogger.general('🏁 [CentrifugoManager] shift_auto_ended — refreshing shift');
+          ref.read(shiftNotifierProvider.notifier).fetchCurrentShift();
+        }
       });
       AppLogger.general('✅ [CentrifugoManager] Subscribed to driver:events:$driverId');
     } catch (e) {

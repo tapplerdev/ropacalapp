@@ -28,6 +28,10 @@ ShiftService shiftService(ShiftServiceRef ref) {
 final routeReoptimizationEventProvider =
     StateProvider<Map<String, dynamic>?>((ref) => null);
 
+/// State provider for end shift prompt
+/// Set to true when driver is near warehouse with all tasks done
+final endShiftPromptProvider = StateProvider<bool>((ref) => false);
+
 @Riverpod(keepAlive: true)
 class ShiftNotifier extends _$ShiftNotifier {
   Timer? _pollingTimer;

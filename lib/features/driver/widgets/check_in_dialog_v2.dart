@@ -91,32 +91,17 @@ class CheckInDialogV2 extends HookConsumerWidget {
                   selectedIncidentType.value,
                 ),
 
-                // Animated content switcher
-                AnimatedSwitcher(
-                  duration: const Duration(milliseconds: 300),
-                  transitionBuilder: (child, animation) {
-                    return FadeTransition(
-                      opacity: animation,
-                      child: SlideTransition(
-                        position: Tween<Offset>(
-                          begin: const Offset(0.1, 0),
-                          end: Offset.zero,
-                        ).animate(animation),
-                        child: child,
-                      ),
-                    );
-                  },
-                  child: _buildStepContent(
-                    context,
-                    currentStep.value,
-                    capturedImage,
-                    afterImage,
-                    fillPercentage,
-                    hasIncident.value,
-                    selectedIncidentType,
-                    incidentPhoto,
-                    incidentDescription,
-                  ),
+                // Step content — rendered directly (no AnimatedSwitcher)
+                _buildStepContent(
+                  context,
+                  currentStep.value,
+                  capturedImage,
+                  afterImage,
+                  fillPercentage,
+                  hasIncident.value,
+                  selectedIncidentType,
+                  incidentPhoto,
+                  incidentDescription,
                 ),
 
                 // Modern footer with action buttons

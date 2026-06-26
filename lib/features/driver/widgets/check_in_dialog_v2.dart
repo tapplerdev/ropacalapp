@@ -649,9 +649,10 @@ class CheckInDialogV2 extends HookConsumerWidget {
       }
     }
 
-    return SingleChildScrollView(
+    return Padding(
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
       child: Column(
+        mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // Photo section — compact

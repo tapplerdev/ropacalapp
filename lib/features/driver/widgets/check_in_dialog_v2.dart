@@ -154,27 +154,31 @@ class CheckInDialogV2 extends HookConsumerWidget {
     ValueNotifier<XFile?> incidentPhoto,
     ValueNotifier<String> incidentDescription,
   ) {
-    // Step 1: Before photo + fill slider combined
+    // Step 1: Before photo
     if (step == 1) {
-      return _buildBeforePhotoAndFill(context, capturedImage, fillPercentage);
+      return _buildModernPhotoCapture(context, capturedImage, label: 'Before — Bin contents');
     }
 
-    // Step 2: After photo (normal) or incident type (incident flow)
+    // Step 2: Fill slider (normal) or incident type (incident flow)
     if (step == 2) {
       if (hasIncident) {
         return IncidentTypeSelector(selectedIncidentType: selectedIncidentType);
       } else {
-        return _buildModernPhotoCapture(context, afterImage, label: 'After — Show the empty bin');
+        return _buildModernFillLevel(context, bin, capturedImage.value, fillPercentage);
       }
     }
 
-    // Step 3: Incident details (only if incident flow)
-    if (step == 3 && hasIncident) {
-      return IncidentDetailsForm(
-        incidentPhoto: incidentPhoto,
-        incidentDescription: incidentDescription,
-        incidentType: selectedIncidentType.value,
-      );
+    // Step 3: After photo (normal) or incident details (incident flow)
+    if (step == 3) {
+      if (hasIncident) {
+        return IncidentDetailsForm(
+          incidentPhoto: incidentPhoto,
+          incidentDescription: incidentDescription,
+          incidentType: selectedIncidentType.value,
+        );
+      } else {
+        return _buildModernPhotoCapture(context, afterImage, label: 'After — Empty bin');
+      }
     }
 
     return Container();
@@ -191,11 +195,13 @@ class CheckInDialogV2 extends HookConsumerWidget {
     // Calculate dynamic subtitle based on current state
     String subtitle;
     if (step == 1) {
-      subtitle = 'Photo & fill level';
+      subtitle = 'Before photo';
     } else if (step == 2 && hasIncident) {
       subtitle = 'Report an issue';
     } else if (step == 2 && !hasIncident) {
-      subtitle = 'After — Empty bin';
+      subtitle = 'Set fill level';
+    } else if (step == 3 && !hasIncident) {
+      subtitle = 'After photo';
     } else if (step == 3 && hasIncident) {
       subtitle = incidentType != null ? _formatIncidentType(incidentType) : 'Incident details';
     } else {
@@ -203,7 +209,7 @@ class CheckInDialogV2 extends HookConsumerWidget {
     }
 
     // Calculate total steps dynamically
-    int totalSteps = hasIncident ? 3 : 2;
+    int totalSteps = hasIncident ? 3 : 3;
 
     return Container(
       padding: const EdgeInsets.fromLTRB(24, 24, 24, 20),
@@ -1129,19 +1135,18 @@ class CheckInDialogV2 extends HookConsumerWidget {
     String buttonText = 'Continue';
 
     if (currentStep.value == 1) {
-      // Step 1: before photo + fill — need photo to proceed
       canProceed = capturedImage.value != null;
-      buttonText = 'Take After Photo';
-    } else if (currentStep.value == 2 && !hasIncident.value) {
-      // Step 2 (normal): after photo taken → submit
-      canProceed = afterImage.value != null;
-      buttonText = 'Complete Bin';
+      buttonText = 'Continue';
     } else if (currentStep.value == 2 && hasIncident.value) {
-      // Step 2 (incident): incident type selected → next
       canProceed = selectedIncidentType.value != null;
       buttonText = 'Next';
+    } else if (currentStep.value == 2 && !hasIncident.value) {
+      canProceed = true;
+      buttonText = 'Take After Photo';
+    } else if (currentStep.value == 3 && !hasIncident.value) {
+      canProceed = afterImage.value != null;
+      buttonText = 'Complete Bin';
     } else if (currentStep.value == 3 && hasIncident.value) {
-      // Step 3 (incident): incident details → submit
       canProceed = incidentPhoto.value != null || incidentDescription.value.isNotEmpty;
       buttonText = 'Submit Report';
     }
@@ -1228,13 +1233,19 @@ class CheckInDialogV2 extends HookConsumerWidget {
     ValueNotifier<String> incidentDescription,
     VoidCallback? onCheckedIn,
   ) async {
-    // Step 1: Before photo + fill → go to after photo
+    // Step 1: Before photo → fill slider
     if (currentStep.value == 1 && !hasIncident.value) {
       currentStep.value = 2;
       return;
     }
 
-    // Step 2 (incident type): Continue to details
+    // Step 2 (normal): Fill slider → after photo
+    if (currentStep.value == 2 && !hasIncident.value) {
+      currentStep.value = 3;
+      return;
+    }
+
+    // Step 2 (incident): Incident type → details
     if (currentStep.value == 2 && hasIncident.value) {
       currentStep.value = 3;
       return;

@@ -677,6 +677,11 @@ class ShiftNotifier extends _$ShiftNotifier {
     String binId, // DEPRECATED: kept for reference only
     int? updatedFillPercentage, { // Now nullable for incident reports
     String? photoUrl,
+    String? afterPhotoUrl,
+    double? photoLatitude,
+    double? photoLongitude,
+    double? afterPhotoLatitude,
+    double? afterPhotoLongitude,
     int? newBinNumber, // REQUIRED for placement tasks
     bool hasIncident = false,
     String? incidentType,
@@ -725,6 +730,11 @@ class ShiftNotifier extends _$ShiftNotifier {
         binId,
         updatedFillPercentage,
         photoUrl: photoUrl,
+        afterPhotoUrl: afterPhotoUrl,
+        photoLatitude: photoLatitude,
+        photoLongitude: photoLongitude,
+        afterPhotoLatitude: afterPhotoLatitude,
+        afterPhotoLongitude: afterPhotoLongitude,
         newBinNumber: newBinNumber,
         hasIncident: hasIncident,
         incidentType: incidentType,

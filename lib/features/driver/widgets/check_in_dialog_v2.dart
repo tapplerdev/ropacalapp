@@ -29,8 +29,10 @@ class CheckInDialogV2 extends HookConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     // Main flow state
-    final currentStep = useState(1); // 1=photo, 2=fill/incident_type, 3=incident_details
-    final capturedImage = useState<XFile?>(null);
+    // Steps: 1=before photo, 2=fill/incident_type, 3=after photo, 4=incident_details
+    final currentStep = useState(1);
+    final capturedImage = useState<XFile?>(null); // Before photo
+    final afterImage = useState<XFile?>(null); // After photo
     final fillPercentage = useState(bin.safeFillPercentage);
     final isSubmitting = useState(false);
 
@@ -108,6 +110,7 @@ class CheckInDialogV2 extends HookConsumerWidget {
                     context,
                     currentStep.value,
                     capturedImage,
+                    afterImage,
                     fillPercentage,
                     hasIncident.value,
                     selectedIncidentType,
@@ -122,6 +125,7 @@ class CheckInDialogV2 extends HookConsumerWidget {
                   ref,
                   currentStep,
                   capturedImage,
+                  afterImage,
                   fillPercentage,
                   isSubmitting,
                   hasIncident,
@@ -143,15 +147,16 @@ class CheckInDialogV2 extends HookConsumerWidget {
     BuildContext context,
     int step,
     ValueNotifier<XFile?> capturedImage,
+    ValueNotifier<XFile?> afterImage,
     ValueNotifier<int> fillPercentage,
     bool hasIncident,
     ValueNotifier<String?> selectedIncidentType,
     ValueNotifier<XFile?> incidentPhoto,
     ValueNotifier<String> incidentDescription,
   ) {
-    // Step 1: Always photo capture
+    // Step 1: Before photo capture
     if (step == 1) {
-      return _buildModernPhotoCapture(context, capturedImage);
+      return _buildModernPhotoCapture(context, capturedImage, label: 'Before — Show the bin contents');
     }
 
     // Step 2: Incident type selection OR fill level
@@ -163,8 +168,21 @@ class CheckInDialogV2 extends HookConsumerWidget {
       }
     }
 
-    // Step 3: Incident details (only if hasIncident)
-    if (step == 3 && hasIncident) {
+    // Step 3: After photo capture (normal flow) or incident details
+    if (step == 3) {
+      if (hasIncident) {
+        return IncidentDetailsForm(
+          incidentPhoto: incidentPhoto,
+          incidentDescription: incidentDescription,
+          incidentType: selectedIncidentType.value,
+        );
+      } else {
+        return _buildModernPhotoCapture(context, afterImage, label: 'After — Show the empty bin');
+      }
+    }
+
+    // Step 4: Incident details (only if hasIncident — shifted from 3)
+    if (step == 4 && hasIncident) {
       return IncidentDetailsForm(
         incidentPhoto: incidentPhoto,
         incidentDescription: incidentDescription,
@@ -186,17 +204,21 @@ class CheckInDialogV2 extends HookConsumerWidget {
     // Calculate dynamic subtitle based on current state
     String subtitle;
     if (step == 1) {
-      subtitle = 'Take bin photo';
+      subtitle = 'Before — Take photo of bin contents';
     } else if (step == 2 && hasIncident) {
       subtitle = 'Report an issue';
+    } else if (step == 2 && !hasIncident) {
+      subtitle = 'Set fill level';
+    } else if (step == 3 && !hasIncident) {
+      subtitle = 'After — Take photo of empty bin';
     } else if (step == 3 && hasIncident) {
       subtitle = incidentType != null ? _formatIncidentType(incidentType) : 'Add incident details';
     } else {
-      subtitle = 'Update fill level';
+      subtitle = 'Complete';
     }
 
     // Calculate total steps dynamically
-    int totalSteps = hasIncident ? 3 : 2;
+    int totalSteps = hasIncident ? 3 : 3;
 
     return Container(
       padding: const EdgeInsets.fromLTRB(24, 24, 24, 20),
@@ -340,8 +362,9 @@ class CheckInDialogV2 extends HookConsumerWidget {
   /// Build modern photo capture UI with camera and gallery options
   Widget _buildModernPhotoCapture(
     BuildContext context,
-    ValueNotifier<XFile?> capturedImage,
-  ) {
+    ValueNotifier<XFile?> capturedImage, {
+    String label = 'Take a photo of the bin',
+  }) {
     final imagePicker = ImagePicker();
 
     Future<void> pickImageFromCamera() async {
@@ -476,7 +499,7 @@ class CheckInDialogV2 extends HookConsumerWidget {
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        'Take a clear photo of the bin',
+                        label,
                         style: TextStyle(
                           fontSize: 15,
                           color: Colors.grey.shade600,
@@ -829,6 +852,7 @@ class CheckInDialogV2 extends HookConsumerWidget {
     WidgetRef ref,
     ValueNotifier<int> currentStep,
     ValueNotifier<XFile?> capturedImage,
+    ValueNotifier<XFile?> afterImage,
     ValueNotifier<int> fillPercentage,
     ValueNotifier<bool> isSubmitting,
     ValueNotifier<bool> hasIncident,
@@ -909,6 +933,7 @@ class CheckInDialogV2 extends HookConsumerWidget {
                   ref,
                   currentStep,
                   capturedImage,
+                  afterImage,
                   fillPercentage,
                   isSubmitting,
                   hasIncident,
@@ -931,6 +956,7 @@ class CheckInDialogV2 extends HookConsumerWidget {
     WidgetRef ref,
     ValueNotifier<int> currentStep,
     ValueNotifier<XFile?> capturedImage,
+    ValueNotifier<XFile?> afterImage,
     ValueNotifier<int> fillPercentage,
     ValueNotifier<bool> isSubmitting,
     ValueNotifier<bool> hasIncident,
@@ -944,19 +970,24 @@ class CheckInDialogV2 extends HookConsumerWidget {
     String buttonText = 'Continue';
 
     if (currentStep.value == 1) {
+      // Before photo taken?
       canProceed = capturedImage.value != null;
       buttonText = 'Continue';
     } else if (currentStep.value == 2 && hasIncident.value) {
       canProceed = selectedIncidentType.value != null;
       buttonText = 'Next';
+    } else if (currentStep.value == 2 && !hasIncident.value) {
+      // Fill level → next is after photo
+      canProceed = true;
+      buttonText = 'Take After Photo';
+    } else if (currentStep.value == 3 && !hasIncident.value) {
+      // After photo taken? → submit
+      canProceed = afterImage.value != null;
+      buttonText = 'Complete Bin';
     } else if (currentStep.value == 3 && hasIncident.value) {
-      // Incident details - at least photo OR description required
+      // Incident details
       canProceed = incidentPhoto.value != null || incidentDescription.value.isNotEmpty;
       buttonText = 'Submit Report';
-    } else if (currentStep.value == 2 && !hasIncident.value) {
-      // Normal flow - fill level
-      canProceed = true;
-      buttonText = 'Complete Bin';
     }
 
     return Container(
@@ -987,6 +1018,7 @@ class CheckInDialogV2 extends HookConsumerWidget {
                   ref,
                   currentStep,
                   capturedImage,
+                  afterImage,
                   fillPercentage,
                   isSubmitting,
                   hasIncident,
@@ -1031,6 +1063,7 @@ class CheckInDialogV2 extends HookConsumerWidget {
     WidgetRef ref,
     ValueNotifier<int> currentStep,
     ValueNotifier<XFile?> capturedImage,
+    ValueNotifier<XFile?> afterImage,
     ValueNotifier<int> fillPercentage,
     ValueNotifier<bool> isSubmitting,
     ValueNotifier<bool> hasIncident,
@@ -1039,9 +1072,15 @@ class CheckInDialogV2 extends HookConsumerWidget {
     ValueNotifier<String> incidentDescription,
     VoidCallback? onCheckedIn,
   ) async {
-    // Step 1: Continue to next step
+    // Step 1: Before photo taken → go to fill slider
     if (currentStep.value == 1 && !hasIncident.value) {
       currentStep.value = 2;
+      return;
+    }
+
+    // Step 2 (normal): Fill slider → go to after photo
+    if (currentStep.value == 2 && !hasIncident.value) {
+      currentStep.value = 3;
       return;
     }
 
@@ -1051,7 +1090,7 @@ class CheckInDialogV2 extends HookConsumerWidget {
       return;
     }
 
-    // Final submit (either step 2 normal or step 3 incident)
+    // Final submit (step 3 normal with after photo, or step 3 incident)
     isSubmitting.value = true;
 
     try {
@@ -1065,12 +1104,20 @@ class CheckInDialogV2 extends HookConsumerWidget {
         await cloudinaryService.initialize();
       }
 
-      // Upload bin photo
+      // Upload before photo
       String? binPhotoUrl;
       if (capturedImage.value != null) {
-        AppLogger.general('[DIAGNOSTIC] 🌥️ Uploading bin photo...');
+        AppLogger.general('[DIAGNOSTIC] 🌥️ Uploading BEFORE photo...');
         binPhotoUrl = await cloudinaryService.uploadImage(File(capturedImage.value!.path));
-        AppLogger.general('[DIAGNOSTIC]    Bin photo URL: $binPhotoUrl');
+        AppLogger.general('[DIAGNOSTIC]    Before photo URL: $binPhotoUrl');
+      }
+
+      // Upload after photo
+      String? afterPhotoUrl;
+      if (afterImage.value != null) {
+        AppLogger.general('[DIAGNOSTIC] 🌥️ Uploading AFTER photo...');
+        afterPhotoUrl = await cloudinaryService.uploadImage(File(afterImage.value!.path));
+        AppLogger.general('[DIAGNOSTIC]    After photo URL: $afterPhotoUrl');
       }
 
       // Upload incident photo if present
@@ -1081,13 +1128,14 @@ class CheckInDialogV2 extends HookConsumerWidget {
         AppLogger.general('[DIAGNOSTIC]    Incident photo URL: $incidentPhotoUrl');
       }
 
-      // Call completeBin with incident data
+      // Call completeBin with before/after photos + incident data
       AppLogger.general('[DIAGNOSTIC] 📡 Calling completeBin API...');
       await ref.read(shiftNotifierProvider.notifier).completeTask(
-            bin.id, // NEW: shift_bin_id (properly identifies this specific waypoint)
-            bin.safeBinId, // DEPRECATED: kept for backward compatibility
-            hasIncident.value ? null : fillPercentage.value, // NULL if incident
+            bin.id,
+            bin.safeBinId,
+            hasIncident.value ? null : fillPercentage.value,
             photoUrl: binPhotoUrl,
+            afterPhotoUrl: afterPhotoUrl,
             hasIncident: hasIncident.value,
             incidentType: selectedIncidentType.value,
             incidentPhotoUrl: incidentPhotoUrl,

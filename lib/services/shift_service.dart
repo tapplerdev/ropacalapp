@@ -229,6 +229,11 @@ class ShiftService {
     String binId, // DEPRECATED: kept for reference only
     int? updatedFillPercentage, { // Now nullable for incidents
     String? photoUrl,
+    String? afterPhotoUrl, // "After" photo — bin empty after collection
+    double? photoLatitude, // EXIF GPS from before photo
+    double? photoLongitude,
+    double? afterPhotoLatitude, // EXIF GPS from after photo
+    double? afterPhotoLongitude,
     int? newBinNumber, // REQUIRED for placement tasks
     bool hasIncident = false,
     String? incidentType,
@@ -241,10 +246,15 @@ class ShiftService {
       print('📤 REQUEST: POST /api/driver/shift/complete-task');
 
       final requestData = {
-        'task_id': taskId, // NEW: Properly identifies specific waypoint
-        'bin_id': binId, // DEPRECATED: Kept for backward compatibility
+        'task_id': taskId,
+        'bin_id': binId,
         if (updatedFillPercentage != null) 'updated_fill_percentage': updatedFillPercentage,
         if (photoUrl != null) 'photo_url': photoUrl,
+        if (afterPhotoUrl != null) 'after_photo_url': afterPhotoUrl,
+        if (photoLatitude != null) 'photo_latitude': photoLatitude,
+        if (photoLongitude != null) 'photo_longitude': photoLongitude,
+        if (afterPhotoLatitude != null) 'after_photo_latitude': afterPhotoLatitude,
+        if (afterPhotoLongitude != null) 'after_photo_longitude': afterPhotoLongitude,
         if (newBinNumber != null) 'new_bin_number': newBinNumber, // Driver-provided bin number
         if (hasIncident) 'has_incident': hasIncident,
         if (incidentType != null) 'incident_type': incidentType,

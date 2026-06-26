@@ -29,11 +29,9 @@ class CheckInDialogV2 extends HookConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     // Main flow state
-    // Steps: 1=before photo + fill slider, 2=after photo (or incident flow)
-    final currentStep = useState(1);
-    final capturedImage = useState<XFile?>(null); // Before photo
-    final afterImage = useState<XFile?>(null); // After photo
-    final fillPercentage = useState(0); // Start at 0% — driver sets current level
+    final currentStep = useState(1); // 1=photo, 2=fill/incident_type, 3=incident_details
+    final capturedImage = useState<XFile?>(null);
+    final fillPercentage = useState(bin.safeFillPercentage);
     final isSubmitting = useState(false);
 
     // Incident state
@@ -42,15 +40,13 @@ class CheckInDialogV2 extends HookConsumerWidget {
     final incidentPhoto = useState<XFile?>(null);
     final incidentDescription = useState<String>('');
 
-    final screenWidth = MediaQuery.of(context).size.width;
-    final dialogWidth = screenWidth - 32 > 500 ? 500.0 : screenWidth - 32;
-
-    return Material(
-      color: Colors.black54,
-      child: Center(
-        child: SizedBox(
-          width: dialogWidth,
-          child: Container(
+    return BackdropFilter(
+      filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+      child: Dialog(
+        backgroundColor: Colors.transparent,
+        insetPadding: const EdgeInsets.symmetric(horizontal: 16),
+        child: Container(
+          constraints: const BoxConstraints(maxWidth: 500),
           decoration: BoxDecoration(
             gradient: LinearGradient(
               begin: Alignment.topLeft,
@@ -93,17 +89,31 @@ class CheckInDialogV2 extends HookConsumerWidget {
                   selectedIncidentType.value,
                 ),
 
-                // Step content
-                _buildStepContent(
-                  context,
-                  currentStep.value,
-                  capturedImage,
-                  afterImage,
-                  fillPercentage,
-                  hasIncident.value,
-                  selectedIncidentType,
-                  incidentPhoto,
-                  incidentDescription,
+                // Animated content switcher
+                AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 300),
+                  transitionBuilder: (child, animation) {
+                    return FadeTransition(
+                      opacity: animation,
+                      child: SlideTransition(
+                        position: Tween<Offset>(
+                          begin: const Offset(0.1, 0),
+                          end: Offset.zero,
+                        ).animate(animation),
+                        child: child,
+                      ),
+                    );
+                  },
+                  child: _buildStepContent(
+                    context,
+                    currentStep.value,
+                    capturedImage,
+                    fillPercentage,
+                    hasIncident.value,
+                    selectedIncidentType,
+                    incidentPhoto,
+                    incidentDescription,
+                  ),
                 ),
 
                 // Modern footer with action buttons
@@ -112,7 +122,6 @@ class CheckInDialogV2 extends HookConsumerWidget {
                   ref,
                   currentStep,
                   capturedImage,
-                  afterImage,
                   fillPercentage,
                   isSubmitting,
                   hasIncident,
@@ -125,7 +134,6 @@ class CheckInDialogV2 extends HookConsumerWidget {
             ),
           ),
         ),
-        ),
       ),
     );
   }
@@ -135,60 +143,36 @@ class CheckInDialogV2 extends HookConsumerWidget {
     BuildContext context,
     int step,
     ValueNotifier<XFile?> capturedImage,
-    ValueNotifier<XFile?> afterImage,
     ValueNotifier<int> fillPercentage,
     bool hasIncident,
     ValueNotifier<String?> selectedIncidentType,
     ValueNotifier<XFile?> incidentPhoto,
     ValueNotifier<String> incidentDescription,
   ) {
-    // Each child MUST have a unique ValueKey for AnimatedSwitcher to work.
-    // Without keys, AnimatedSwitcher can't distinguish same-type widgets
-    // and may render zero-height content during transition.
-
-    // Step 1: Before photo
+    // Step 1: Always photo capture
     if (step == 1) {
-      return KeyedSubtree(
-        key: const ValueKey('step_before_photo'),
-        child: _buildModernPhotoCapture(context, capturedImage, label: 'Before — Bin contents'),
+      return _buildModernPhotoCapture(context, capturedImage);
+    }
+
+    // Step 2: Incident type selection OR fill level
+    if (step == 2) {
+      if (hasIncident) {
+        return IncidentTypeSelector(selectedIncidentType: selectedIncidentType);
+      } else {
+        return _buildModernFillLevel(context, bin, capturedImage.value, fillPercentage);
+      }
+    }
+
+    // Step 3: Incident details (only if hasIncident)
+    if (step == 3 && hasIncident) {
+      return IncidentDetailsForm(
+        incidentPhoto: incidentPhoto,
+        incidentDescription: incidentDescription,
+        incidentType: selectedIncidentType.value,
       );
     }
 
-    // Step 2: Fill slider (normal) or incident type (incident flow)
-    if (step == 2) {
-      if (hasIncident) {
-        return KeyedSubtree(
-          key: const ValueKey('step_incident_type'),
-          child: IncidentTypeSelector(selectedIncidentType: selectedIncidentType),
-        );
-      } else {
-        return KeyedSubtree(
-          key: const ValueKey('step_fill_level'),
-          child: _buildModernFillLevel(context, bin, capturedImage.value, fillPercentage),
-        );
-      }
-    }
-
-    // Step 3: After photo (normal) or incident details (incident flow)
-    if (step == 3) {
-      if (hasIncident) {
-        return KeyedSubtree(
-          key: const ValueKey('step_incident_details'),
-          child: IncidentDetailsForm(
-            incidentPhoto: incidentPhoto,
-            incidentDescription: incidentDescription,
-            incidentType: selectedIncidentType.value,
-          ),
-        );
-      } else {
-        return KeyedSubtree(
-          key: const ValueKey('step_after_photo'),
-          child: _buildModernPhotoCapture(context, afterImage, label: 'After — Empty bin'),
-        );
-      }
-    }
-
-    return const SizedBox.shrink();
+    return Container();
   }
 
   /// Build modern header with gradient and animated progress
@@ -202,21 +186,17 @@ class CheckInDialogV2 extends HookConsumerWidget {
     // Calculate dynamic subtitle based on current state
     String subtitle;
     if (step == 1) {
-      subtitle = 'Before photo';
+      subtitle = 'Take bin photo';
     } else if (step == 2 && hasIncident) {
       subtitle = 'Report an issue';
-    } else if (step == 2 && !hasIncident) {
-      subtitle = 'Set fill level';
-    } else if (step == 3 && !hasIncident) {
-      subtitle = 'After photo';
     } else if (step == 3 && hasIncident) {
-      subtitle = incidentType != null ? _formatIncidentType(incidentType) : 'Incident details';
+      subtitle = incidentType != null ? _formatIncidentType(incidentType) : 'Add incident details';
     } else {
-      subtitle = 'Complete';
+      subtitle = 'Update fill level';
     }
 
     // Calculate total steps dynamically
-    int totalSteps = hasIncident ? 3 : 3;
+    int totalSteps = hasIncident ? 3 : 2;
 
     return Container(
       padding: const EdgeInsets.fromLTRB(24, 24, 24, 20),
@@ -264,8 +244,7 @@ class CheckInDialogV2 extends HookConsumerWidget {
                     ),
                   ),
                   const SizedBox(width: 14),
-                  Expanded(
-                    child: Column(
+                  Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
@@ -280,8 +259,6 @@ class CheckInDialogV2 extends HookConsumerWidget {
                       const SizedBox(height: 2),
                       Text(
                         subtitle,
-                        overflow: TextOverflow.ellipsis,
-                        maxLines: 1,
                         style: TextStyle(
                           fontSize: 14,
                           color: Colors.grey.shade600,
@@ -289,7 +266,6 @@ class CheckInDialogV2 extends HookConsumerWidget {
                         ),
                       ),
                     ],
-                  ),
                   ),
                 ],
               ),
@@ -364,9 +340,8 @@ class CheckInDialogV2 extends HookConsumerWidget {
   /// Build modern photo capture UI with camera and gallery options
   Widget _buildModernPhotoCapture(
     BuildContext context,
-    ValueNotifier<XFile?> capturedImage, {
-    String label = 'Take a photo of the bin',
-  }) {
+    ValueNotifier<XFile?> capturedImage,
+  ) {
     final imagePicker = ImagePicker();
 
     Future<void> pickImageFromCamera() async {
@@ -501,7 +476,7 @@ class CheckInDialogV2 extends HookConsumerWidget {
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        label,
+                        'Take a clear photo of the bin',
                         style: TextStyle(
                           fontSize: 15,
                           color: Colors.grey.shade600,
@@ -638,176 +613,6 @@ class CheckInDialogV2 extends HookConsumerWidget {
   }
 
   /// Build modern fill level UI with gradient slider
-  /// Combined before photo + fill slider on one screen
-  Widget _buildBeforePhotoAndFill(
-    BuildContext context,
-    ValueNotifier<XFile?> capturedImage,
-    ValueNotifier<int> fillPercentage,
-  ) {
-    final imagePicker = ImagePicker();
-
-    Future<void> takePhoto() async {
-      try {
-        final image = await imagePicker.pickImage(
-          source: ImageSource.camera,
-          imageQuality: 85,
-          maxWidth: 1920,
-          maxHeight: 1080,
-        );
-        if (image != null) {
-          capturedImage.value = image;
-        }
-      } catch (e) {
-        // Silently fail
-      }
-    }
-
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Photo section — compact
-          GestureDetector(
-            onTap: takePhoto,
-            child: Container(
-              height: capturedImage.value != null ? 180 : 140,
-              width: double.infinity,
-              decoration: BoxDecoration(
-                color: capturedImage.value != null ? Colors.black : AppColors.primaryGreen.withValues(alpha: 0.06),
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(
-                  color: capturedImage.value != null
-                      ? Colors.green.shade300
-                      : AppColors.primaryGreen.withValues(alpha: 0.2),
-                  width: 2,
-                ),
-              ),
-              child: capturedImage.value != null
-                  ? Stack(
-                      children: [
-                        ClipRRect(
-                          borderRadius: BorderRadius.circular(14),
-                          child: Image.file(
-                            File(capturedImage.value!.path),
-                            width: double.infinity,
-                            height: 180,
-                            fit: BoxFit.cover,
-                          ),
-                        ),
-                        Positioned(
-                          top: 8,
-                          right: 8,
-                          child: GestureDetector(
-                            onTap: takePhoto,
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                              decoration: BoxDecoration(
-                                color: Colors.black54,
-                                borderRadius: BorderRadius.circular(20),
-                              ),
-                              child: const Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(Icons.camera_alt, color: Colors.white, size: 14),
-                                  SizedBox(width: 4),
-                                  Text('Retake', style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600)),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ),
-                        Positioned(
-                          bottom: 8,
-                          left: 8,
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                            decoration: BoxDecoration(
-                              color: Colors.green.shade600,
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: const Text('Before', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w700)),
-                          ),
-                        ),
-                      ],
-                    )
-                  : Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(Icons.camera_alt_rounded, size: 36, color: AppColors.primaryGreen),
-                          const SizedBox(height: 8),
-                          Text(
-                            'Tap to take before photo',
-                            style: TextStyle(
-                              fontSize: 15,
-                              fontWeight: FontWeight.w600,
-                              color: AppColors.primaryGreen,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-            ),
-          ),
-
-          const SizedBox(height: 20),
-
-          // Fill slider — simplified, no previous/updated comparison
-          Center(
-            child: Text(
-              '${fillPercentage.value}%',
-              style: TextStyle(
-                fontSize: 40,
-                fontWeight: FontWeight.bold,
-                color: _getSliderColor(fillPercentage.value),
-                letterSpacing: -1.5,
-                height: 1,
-              ),
-            ),
-          ),
-          const SizedBox(height: 4),
-          const Center(
-            child: Text(
-              'Fill Level',
-              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Colors.black45),
-            ),
-          ),
-          const SizedBox(height: 12),
-          SliderTheme(
-            data: SliderTheme.of(context).copyWith(
-              trackHeight: 10,
-              thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 14, elevation: 3),
-              overlayShape: const RoundSliderOverlayShape(overlayRadius: 24),
-              activeTrackColor: _getSliderColor(fillPercentage.value),
-              inactiveTrackColor: Colors.grey.shade200,
-              thumbColor: _getSliderColor(fillPercentage.value),
-              overlayColor: _getSliderColor(fillPercentage.value).withValues(alpha: 0.2),
-            ),
-            child: Slider(
-              value: fillPercentage.value.toDouble(),
-              min: 0,
-              max: 100,
-              divisions: 20,
-              onChanged: (value) => fillPercentage.value = value.round(),
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 4),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text('Empty', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.grey.shade500)),
-                Text('Full', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.grey.shade500)),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
   Widget _buildModernFillLevel(
     BuildContext context,
     RouteTask bin,
@@ -1024,7 +829,6 @@ class CheckInDialogV2 extends HookConsumerWidget {
     WidgetRef ref,
     ValueNotifier<int> currentStep,
     ValueNotifier<XFile?> capturedImage,
-    ValueNotifier<XFile?> afterImage,
     ValueNotifier<int> fillPercentage,
     ValueNotifier<bool> isSubmitting,
     ValueNotifier<bool> hasIncident,
@@ -1105,7 +909,6 @@ class CheckInDialogV2 extends HookConsumerWidget {
                   ref,
                   currentStep,
                   capturedImage,
-                  afterImage,
                   fillPercentage,
                   isSubmitting,
                   hasIncident,
@@ -1128,7 +931,6 @@ class CheckInDialogV2 extends HookConsumerWidget {
     WidgetRef ref,
     ValueNotifier<int> currentStep,
     ValueNotifier<XFile?> capturedImage,
-    ValueNotifier<XFile?> afterImage,
     ValueNotifier<int> fillPercentage,
     ValueNotifier<bool> isSubmitting,
     ValueNotifier<bool> hasIncident,
@@ -1147,15 +949,14 @@ class CheckInDialogV2 extends HookConsumerWidget {
     } else if (currentStep.value == 2 && hasIncident.value) {
       canProceed = selectedIncidentType.value != null;
       buttonText = 'Next';
-    } else if (currentStep.value == 2 && !hasIncident.value) {
-      canProceed = true;
-      buttonText = 'Take After Photo';
-    } else if (currentStep.value == 3 && !hasIncident.value) {
-      canProceed = afterImage.value != null;
-      buttonText = 'Complete Bin';
     } else if (currentStep.value == 3 && hasIncident.value) {
+      // Incident details - at least photo OR description required
       canProceed = incidentPhoto.value != null || incidentDescription.value.isNotEmpty;
       buttonText = 'Submit Report';
+    } else if (currentStep.value == 2 && !hasIncident.value) {
+      // Normal flow - fill level
+      canProceed = true;
+      buttonText = 'Complete Bin';
     }
 
     return Container(
@@ -1186,7 +987,6 @@ class CheckInDialogV2 extends HookConsumerWidget {
                   ref,
                   currentStep,
                   capturedImage,
-                  afterImage,
                   fillPercentage,
                   isSubmitting,
                   hasIncident,
@@ -1231,7 +1031,6 @@ class CheckInDialogV2 extends HookConsumerWidget {
     WidgetRef ref,
     ValueNotifier<int> currentStep,
     ValueNotifier<XFile?> capturedImage,
-    ValueNotifier<XFile?> afterImage,
     ValueNotifier<int> fillPercentage,
     ValueNotifier<bool> isSubmitting,
     ValueNotifier<bool> hasIncident,
@@ -1240,25 +1039,19 @@ class CheckInDialogV2 extends HookConsumerWidget {
     ValueNotifier<String> incidentDescription,
     VoidCallback? onCheckedIn,
   ) async {
-    // Step 1: Before photo → fill slider
+    // Step 1: Continue to next step
     if (currentStep.value == 1 && !hasIncident.value) {
       currentStep.value = 2;
       return;
     }
 
-    // Step 2 (normal): Fill slider → after photo
-    if (currentStep.value == 2 && !hasIncident.value) {
-      currentStep.value = 3;
-      return;
-    }
-
-    // Step 2 (incident): Incident type → details
+    // Step 2 (incident): Continue to details
     if (currentStep.value == 2 && hasIncident.value) {
       currentStep.value = 3;
       return;
     }
 
-    // Final submit (step 3 normal with after photo, or step 3 incident)
+    // Final submit (either step 2 normal or step 3 incident)
     isSubmitting.value = true;
 
     try {
@@ -1272,20 +1065,12 @@ class CheckInDialogV2 extends HookConsumerWidget {
         await cloudinaryService.initialize();
       }
 
-      // Upload before photo
+      // Upload bin photo
       String? binPhotoUrl;
       if (capturedImage.value != null) {
-        AppLogger.general('[DIAGNOSTIC] 🌥️ Uploading BEFORE photo...');
+        AppLogger.general('[DIAGNOSTIC] 🌥️ Uploading bin photo...');
         binPhotoUrl = await cloudinaryService.uploadImage(File(capturedImage.value!.path));
-        AppLogger.general('[DIAGNOSTIC]    Before photo URL: $binPhotoUrl');
-      }
-
-      // Upload after photo
-      String? afterPhotoUrl;
-      if (afterImage.value != null) {
-        AppLogger.general('[DIAGNOSTIC] 🌥️ Uploading AFTER photo...');
-        afterPhotoUrl = await cloudinaryService.uploadImage(File(afterImage.value!.path));
-        AppLogger.general('[DIAGNOSTIC]    After photo URL: $afterPhotoUrl');
+        AppLogger.general('[DIAGNOSTIC]    Bin photo URL: $binPhotoUrl');
       }
 
       // Upload incident photo if present
@@ -1296,14 +1081,13 @@ class CheckInDialogV2 extends HookConsumerWidget {
         AppLogger.general('[DIAGNOSTIC]    Incident photo URL: $incidentPhotoUrl');
       }
 
-      // Call completeBin with before/after photos + incident data
+      // Call completeBin with incident data
       AppLogger.general('[DIAGNOSTIC] 📡 Calling completeBin API...');
       await ref.read(shiftNotifierProvider.notifier).completeTask(
-            bin.id,
-            bin.safeBinId,
-            hasIncident.value ? null : fillPercentage.value,
+            bin.id, // NEW: shift_bin_id (properly identifies this specific waypoint)
+            bin.safeBinId, // DEPRECATED: kept for backward compatibility
+            hasIncident.value ? null : fillPercentage.value, // NULL if incident
             photoUrl: binPhotoUrl,
-            afterPhotoUrl: afterPhotoUrl,
             hasIncident: hasIncident.value,
             incidentType: selectedIncidentType.value,
             incidentPhotoUrl: incidentPhotoUrl,

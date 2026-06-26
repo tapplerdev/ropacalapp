@@ -48,6 +48,7 @@ class CheckInDialogV2 extends HookConsumerWidget {
         backgroundColor: Colors.transparent,
         insetPadding: const EdgeInsets.symmetric(horizontal: 16),
         child: Container(
+          width: MediaQuery.of(context).size.width - 32,
           constraints: const BoxConstraints(maxWidth: 500),
           decoration: BoxDecoration(
             gradient: LinearGradient(
@@ -91,16 +92,17 @@ class CheckInDialogV2 extends HookConsumerWidget {
                   selectedIncidentType.value,
                 ),
 
-                // DEBUG: Simple red box to test if content area renders
-                Container(
-                  height: 300,
-                  color: Colors.red,
-                  child: const Center(
-                    child: Text(
-                      'DEBUG: If you see this, the dialog renders fine',
-                      style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
-                    ),
-                  ),
+                // Step content
+                _buildStepContent(
+                  context,
+                  currentStep.value,
+                  capturedImage,
+                  afterImage,
+                  fillPercentage,
+                  hasIncident.value,
+                  selectedIncidentType,
+                  incidentPhoto,
+                  incidentDescription,
                 ),
 
                 // Modern footer with action buttons

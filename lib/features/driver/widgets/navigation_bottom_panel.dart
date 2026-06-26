@@ -555,14 +555,8 @@ class NavigationBottomPanel extends HookConsumerWidget {
         : null;
 
     // Check if within geofence (100m = ~328 feet)
-    final bool isWithinGeofence = driverLocation != null &&
-        GeofenceService.isWithinGeofence(
-          currentLocation: driverLocation,
-          targetLocation: LatLng(
-            latitude: task.latitude,
-            longitude: task.longitude,
-          ),
-        );
+    // TODO: Re-enable geofence after testing
+    final bool isWithinGeofence = true; // TEMPORARILY DISABLED FOR TESTING
 
     // Stop type badge color
     final Color badgeColor;
@@ -1248,14 +1242,8 @@ class NavigationBottomPanel extends HookConsumerWidget {
         : null;
 
     // Check if within geofence (100m = ~328 feet)
-    final bool isWithinGeofence = driverLocation != null &&
-        GeofenceService.isWithinGeofence(
-          currentLocation: driverLocation,
-          targetLocation: LatLng(
-            latitude: bin.latitude,
-            longitude: bin.longitude,
-          ),
-        );
+    // TODO: Re-enable geofence after testing
+    final bool isWithinGeofence = true; // TEMPORARILY DISABLED FOR TESTING
 
     // Stop type badge color
     final Color badgeColor;

@@ -42,14 +42,15 @@ class CheckInDialogV2 extends HookConsumerWidget {
     final incidentPhoto = useState<XFile?>(null);
     final incidentDescription = useState<String>('');
 
-    return BackdropFilter(
-      filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-      child: Dialog(
-        backgroundColor: Colors.transparent,
-        insetPadding: const EdgeInsets.symmetric(horizontal: 16),
-        child: Container(
-          width: MediaQuery.of(context).size.width - 32,
-          constraints: const BoxConstraints(maxWidth: 500),
+    final screenWidth = MediaQuery.of(context).size.width;
+    final dialogWidth = screenWidth - 32 > 500 ? 500.0 : screenWidth - 32;
+
+    return Material(
+      color: Colors.black54,
+      child: Center(
+        child: SizedBox(
+          width: dialogWidth,
+          child: Container(
           decoration: BoxDecoration(
             gradient: LinearGradient(
               begin: Alignment.topLeft,
@@ -123,6 +124,7 @@ class CheckInDialogV2 extends HookConsumerWidget {
               ],
             ),
           ),
+        ),
         ),
       ),
     );

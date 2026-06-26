@@ -154,34 +154,53 @@ class CheckInDialogV2 extends HookConsumerWidget {
     ValueNotifier<XFile?> incidentPhoto,
     ValueNotifier<String> incidentDescription,
   ) {
+    // Each child MUST have a unique ValueKey for AnimatedSwitcher to work.
+    // Without keys, AnimatedSwitcher can't distinguish same-type widgets
+    // and may render zero-height content during transition.
+
     // Step 1: Before photo
     if (step == 1) {
-      return _buildModernPhotoCapture(context, capturedImage, label: 'Before — Bin contents');
+      return KeyedSubtree(
+        key: const ValueKey('step_before_photo'),
+        child: _buildModernPhotoCapture(context, capturedImage, label: 'Before — Bin contents'),
+      );
     }
 
     // Step 2: Fill slider (normal) or incident type (incident flow)
     if (step == 2) {
       if (hasIncident) {
-        return IncidentTypeSelector(selectedIncidentType: selectedIncidentType);
+        return KeyedSubtree(
+          key: const ValueKey('step_incident_type'),
+          child: IncidentTypeSelector(selectedIncidentType: selectedIncidentType),
+        );
       } else {
-        return _buildModernFillLevel(context, bin, capturedImage.value, fillPercentage);
+        return KeyedSubtree(
+          key: const ValueKey('step_fill_level'),
+          child: _buildModernFillLevel(context, bin, capturedImage.value, fillPercentage),
+        );
       }
     }
 
     // Step 3: After photo (normal) or incident details (incident flow)
     if (step == 3) {
       if (hasIncident) {
-        return IncidentDetailsForm(
-          incidentPhoto: incidentPhoto,
-          incidentDescription: incidentDescription,
-          incidentType: selectedIncidentType.value,
+        return KeyedSubtree(
+          key: const ValueKey('step_incident_details'),
+          child: IncidentDetailsForm(
+            incidentPhoto: incidentPhoto,
+            incidentDescription: incidentDescription,
+            incidentType: selectedIncidentType.value,
+          ),
         );
       } else {
-        return _buildModernPhotoCapture(context, afterImage, label: 'After — Empty bin');
+        return KeyedSubtree(
+          key: const ValueKey('step_after_photo'),
+          child: _buildModernPhotoCapture(context, afterImage, label: 'After — Empty bin'),
+        );
       }
     }
 
-    return Container();
+    return const SizedBox.shrink();
   }
 
   /// Build modern header with gradient and animated progress

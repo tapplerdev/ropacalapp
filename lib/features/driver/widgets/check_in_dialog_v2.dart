@@ -204,13 +204,13 @@ class CheckInDialogV2 extends HookConsumerWidget {
     // Calculate dynamic subtitle based on current state
     String subtitle;
     if (step == 1) {
-      subtitle = 'Before — Take photo of bin contents';
+      subtitle = 'Before — Bin contents';
     } else if (step == 2 && hasIncident) {
       subtitle = 'Report an issue';
     } else if (step == 2 && !hasIncident) {
       subtitle = 'Set fill level';
     } else if (step == 3 && !hasIncident) {
-      subtitle = 'After — Take photo of empty bin';
+      subtitle = 'After — Empty bin';
     } else if (step == 3 && hasIncident) {
       subtitle = incidentType != null ? _formatIncidentType(incidentType) : 'Add incident details';
     } else {
@@ -266,7 +266,8 @@ class CheckInDialogV2 extends HookConsumerWidget {
                     ),
                   ),
                   const SizedBox(width: 14),
-                  Column(
+                  Expanded(
+                    child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
@@ -281,6 +282,8 @@ class CheckInDialogV2 extends HookConsumerWidget {
                       const SizedBox(height: 2),
                       Text(
                         subtitle,
+                        overflow: TextOverflow.ellipsis,
+                        maxLines: 1,
                         style: TextStyle(
                           fontSize: 14,
                           color: Colors.grey.shade600,
@@ -288,6 +291,7 @@ class CheckInDialogV2 extends HookConsumerWidget {
                         ),
                       ),
                     ],
+                  ),
                   ),
                 ],
               ),

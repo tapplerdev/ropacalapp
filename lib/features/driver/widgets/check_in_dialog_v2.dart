@@ -91,17 +91,16 @@ class CheckInDialogV2 extends HookConsumerWidget {
                   selectedIncidentType.value,
                 ),
 
-                // Step content — rendered directly (no AnimatedSwitcher)
-                _buildStepContent(
-                  context,
-                  currentStep.value,
-                  capturedImage,
-                  afterImage,
-                  fillPercentage,
-                  hasIncident.value,
-                  selectedIncidentType,
-                  incidentPhoto,
-                  incidentDescription,
+                // DEBUG: Simple red box to test if content area renders
+                Container(
+                  height: 300,
+                  color: Colors.red,
+                  child: const Center(
+                    child: Text(
+                      'DEBUG: If you see this, the dialog renders fine',
+                      style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+                    ),
+                  ),
                 ),
 
                 // Modern footer with action buttons

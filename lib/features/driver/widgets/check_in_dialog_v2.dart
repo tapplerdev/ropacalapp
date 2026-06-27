@@ -32,7 +32,7 @@ class CheckInDialogV2 extends HookConsumerWidget {
     final currentStep = useState(1); // 1=photo, 2=fill/incident_type, 3=after_photo/incident_details
     final capturedImage = useState<XFile?>(null);
     final afterImage = useState<XFile?>(null);
-    final fillPercentage = useState(bin.safeFillPercentage);
+    final fillPercentage = useState(0);
     final isSubmitting = useState(false);
 
     // Incident state
@@ -90,31 +90,20 @@ class CheckInDialogV2 extends HookConsumerWidget {
                   selectedIncidentType.value,
                 ),
 
-                // Animated content switcher
-                AnimatedSwitcher(
-                  duration: const Duration(milliseconds: 300),
-                  transitionBuilder: (child, animation) {
-                    return FadeTransition(
-                      opacity: animation,
-                      child: SlideTransition(
-                        position: Tween<Offset>(
-                          begin: const Offset(0.1, 0),
-                          end: Offset.zero,
-                        ).animate(animation),
-                        child: child,
-                      ),
-                    );
-                  },
-                  child: _buildStepContent(
-                    context,
-                    currentStep.value,
-                    capturedImage,
-                    afterImage,
-                    fillPercentage,
-                    hasIncident.value,
-                    selectedIncidentType,
-                    incidentPhoto,
-                    incidentDescription,
+                // Scrollable content area — Flexible ensures it fits screen
+                Flexible(
+                  child: SingleChildScrollView(
+                    child: _buildStepContent(
+                      context,
+                      currentStep.value,
+                      capturedImage,
+                      afterImage,
+                      fillPercentage,
+                      hasIncident.value,
+                      selectedIncidentType,
+                      incidentPhoto,
+                      incidentDescription,
+                    ),
                   ),
                 ),
 
@@ -153,24 +142,31 @@ class CheckInDialogV2 extends HookConsumerWidget {
     ValueNotifier<XFile?> incidentPhoto,
     ValueNotifier<String> incidentDescription,
   ) {
-    // Step 1: Always photo capture
-    if (step == 1) {
+    // Step 1: Before photo + fill slider combined (normal flow)
+    if (step == 1 && !hasIncident) {
+      return Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _buildModernPhotoCapture(context, capturedImage),
+          _buildModernFillLevel(context, bin, capturedImage.value, fillPercentage),
+        ],
+      );
+    }
+
+    // Step 1: Photo capture only (incident flow — will branch to incident type)
+    if (step == 1 && hasIncident) {
       return _buildModernPhotoCapture(context, capturedImage);
     }
 
-    // Step 2: Incident type selection OR fill level
-    if (step == 2) {
-      if (hasIncident) {
-        return IncidentTypeSelector(selectedIncidentType: selectedIncidentType);
-      } else {
-        return _buildModernFillLevel(context, bin, capturedImage.value, fillPercentage);
-      }
-    }
-
-    // Step 3: After photo (normal) or incident details
-    if (step == 3 && !hasIncident) {
+    // Step 2: After photo (normal) or incident type (incident flow)
+    if (step == 2 && !hasIncident) {
       return _buildModernPhotoCapture(context, afterImage);
     }
+    if (step == 2 && hasIncident) {
+      return IncidentTypeSelector(selectedIncidentType: selectedIncidentType);
+    }
+
+    // Step 3: Incident details (only if incident flow)
     if (step == 3 && hasIncident) {
       return IncidentDetailsForm(
         incidentPhoto: incidentPhoto,
@@ -193,19 +189,19 @@ class CheckInDialogV2 extends HookConsumerWidget {
     // Calculate dynamic subtitle based on current state
     String subtitle;
     if (step == 1) {
-      subtitle = 'Take bin photo';
+      subtitle = 'Photo & fill level';
+    } else if (step == 2 && !hasIncident) {
+      subtitle = 'After photo';
     } else if (step == 2 && hasIncident) {
       subtitle = 'Report an issue';
     } else if (step == 3 && hasIncident) {
       subtitle = incidentType != null ? _formatIncidentType(incidentType) : 'Add incident details';
-    } else if (step == 3 && !hasIncident) {
-      subtitle = 'After photo';
     } else {
-      subtitle = 'Update fill level';
+      subtitle = 'Complete';
     }
 
     // Calculate total steps dynamically
-    int totalSteps = hasIncident ? 3 : 3;
+    int totalSteps = hasIncident ? 3 : 2;
 
     return Container(
       padding: const EdgeInsets.fromLTRB(24, 24, 24, 20),
@@ -714,123 +710,12 @@ class CheckInDialogV2 extends HookConsumerWidget {
             ),
           ),
 
-          const SizedBox(height: 24),
-
-          // Modern before/after comparison cards
-          Row(
-            children: [
-              // Previous fill level card
-              Expanded(
-                child: Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: [
-                        _getSliderColor(bin.safeFillPercentage).withValues(alpha: 0.08),
-                        _getSliderColor(bin.safeFillPercentage).withValues(alpha: 0.04),
-                      ],
-                    ),
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(
-                      color: _getSliderColor(bin.safeFillPercentage).withValues(alpha: 0.2),
-                      width: 1.5,
-                    ),
-                  ),
-                  child: Column(
-                    children: [
-                      Text(
-                        'PREVIOUS',
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.grey.shade600,
-                          letterSpacing: 0.8,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        '${bin.safeFillPercentage}%',
-                        style: TextStyle(
-                          fontSize: 28,
-                          fontWeight: FontWeight.bold,
-                          color: _getSliderColor(bin.safeFillPercentage),
-                          letterSpacing: -1,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-
-              // Arrow indicator
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 12),
-                child: Icon(
-                  Icons.arrow_forward,
-                  size: 28,
-                  color: Colors.grey.shade400,
-                ),
-              ),
-
-              // New fill level card
-              Expanded(
-                child: Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: [
-                        _getSliderColor(fillPercentage.value).withValues(alpha: 0.12),
-                        _getSliderColor(fillPercentage.value).withValues(alpha: 0.06),
-                      ],
-                    ),
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(
-                      color: _getSliderColor(fillPercentage.value).withValues(alpha: 0.3),
-                      width: 2,
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: _getSliderColor(fillPercentage.value).withValues(alpha: 0.15),
-                        blurRadius: 12,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
-                  ),
-                  child: Column(
-                    children: [
-                      Text(
-                        'UPDATED',
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.bold,
-                          color: _getSliderColor(fillPercentage.value),
-                          letterSpacing: 0.8,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        '${fillPercentage.value}%',
-                        style: TextStyle(
-                          fontSize: 28,
-                          fontWeight: FontWeight.bold,
-                          color: _getSliderColor(fillPercentage.value),
-                          letterSpacing: -1,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          ),
+          // Comparison cards removed — driver just sets current fill level
         ],
       ),
     );
   }
+
 
   /// Build modern footer with gradient buttons
   Widget _buildModernFooter(
@@ -966,10 +851,6 @@ class CheckInDialogV2 extends HookConsumerWidget {
       canProceed = incidentPhoto.value != null || incidentDescription.value.isNotEmpty;
       buttonText = 'Submit Report';
     } else if (currentStep.value == 2 && !hasIncident.value) {
-      // Normal flow - fill level → go to after photo
-      canProceed = true;
-      buttonText = 'Take After Photo';
-    } else if (currentStep.value == 3 && !hasIncident.value) {
       // After photo taken → submit
       canProceed = afterImage.value != null;
       buttonText = 'Complete Bin';
@@ -1065,12 +946,6 @@ class CheckInDialogV2 extends HookConsumerWidget {
 
     // Step 2 (incident): Continue to details
     if (currentStep.value == 2 && hasIncident.value) {
-      currentStep.value = 3;
-      return;
-    }
-
-    // Step 2 (normal): Go to after photo step
-    if (currentStep.value == 2 && !hasIncident.value) {
       currentStep.value = 3;
       return;
     }

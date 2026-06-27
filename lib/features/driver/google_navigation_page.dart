@@ -1584,18 +1584,21 @@ class GoogleNavigationPage extends HookConsumerWidget {
       } else {
         // No remaining tasks - check if driver ACTUALLY completed all or just skipped
 
+        // Total visited = completed + skipped (driver went to all stops)
+        final totalVisited = actuallyCompletedCount + skippedCount;
+
         // ✅ SAFETY CHECK: Don't show modal if count is 0 (race condition/stale state)
-        if (actuallyCompletedCount == 0) {
-          AppLogger.general('⚠️  [MODAL SKIP] Not showing completion modal - 0 tasks counted (likely stale state from rapid updates)');
+        if (totalVisited == 0) {
+          AppLogger.general('⚠️  [MODAL SKIP] Not showing completion modal - 0 tasks visited (likely stale state from rapid updates)');
           AppLogger.general('   Total tasks: ${shift.bins.length}');
           AppLogger.general('   Logical total: ${shift.logicalTotalBins}');
           return;
         }
 
-        if (actuallyCompletedCount >= shift.logicalTotalBins) {
-          // Driver genuinely finished all tasks - auto-end with confirmation
-          AppLogger.general('🎉 All bins completed! Navigation finished.');
-          AppLogger.general('📊 Completion: $actuallyCompletedCount/${shift.logicalTotalBins}');
+        if (totalVisited >= shift.logicalTotalBins) {
+          // Driver visited all stops (completed or skipped) - offer to end shift
+          AppLogger.general('🎉 All stops visited! Navigation finished.');
+          AppLogger.general('📊 Completed: $actuallyCompletedCount, Skipped: $skippedCount, Total: $totalVisited/${shift.logicalTotalBins}');
 
           // Show confirmation dialog before auto-ending
           if (context.mounted) {
@@ -1605,8 +1608,9 @@ class GoogleNavigationPage extends HookConsumerWidget {
               builder: (context) => AlertDialog(
                 title: const Text('🎉 Route Complete!'),
                 content: Text(
-                  'You\'ve completed all $actuallyCompletedCount tasks!\n\n'
-                  'Would you like to end your shift now?',
+                  skippedCount > 0
+                      ? 'You\'ve completed $actuallyCompletedCount tasks and skipped $skippedCount.\n\nWould you like to end your shift now?'
+                      : 'You\'ve completed all $actuallyCompletedCount tasks!\n\nWould you like to end your shift now?',
                 ),
                 actions: [
                   TextButton(

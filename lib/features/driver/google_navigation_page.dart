@@ -1460,13 +1460,13 @@ class GoogleNavigationPage extends HookConsumerWidget {
 
     try {
       // Check if tasks are ACTUALLY completed (not just skipped)
-      // Note: Backend sets isCompleted=1 for both completed AND skipped tasks
-      // So we must also check skipped=false to get truly completed tasks
+      // isCompleted: 0 = pending, 1 = completed, 2 = skipped (optimistic update)
+      // After backend sync, skipped tasks may have isCompleted=1 + skipped=true
       final actuallyCompletedCount = shift.bins
-          .where((task) => task.isCompleted == 1 && !task.skipped)  // Only truly completed, not skipped
+          .where((task) => task.isCompleted == 1 && !task.skipped)
           .length;
       final skippedCount = shift.bins
-          .where((task) => task.skipped)  // Skipped tasks (isCompleted=1 + skipped=true)
+          .where((task) => task.isCompleted == 2 || task.skipped)
           .length;
 
       AppLogger.general('📊 Task Status:');

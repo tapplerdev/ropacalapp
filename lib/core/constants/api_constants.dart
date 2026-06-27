@@ -34,6 +34,9 @@ class ApiConstants {
   // Route optimization
   static const String routeEndpoint = '/api/route';
 
+  // Driver location (HTTP fallback when Centrifugo WebSocket is unavailable)
+  static const String driverLocationEndpoint = '/api/driver/location';
+
   // Centrifugo real-time messaging
   static const String centrifugoTokenEndpoint = '/api/centrifugo/token';
 

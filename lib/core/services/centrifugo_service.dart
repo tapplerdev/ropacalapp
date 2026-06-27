@@ -28,6 +28,11 @@ class CentrifugoService {
   /// Called on reconnect so consumers can refresh stale data.
   void Function()? onReconnected;
 
+  /// Called on EVERY successful connect (initial connect AND reconnects), so
+  /// consumers can immediately push current state — e.g. resend the driver's
+  /// latest GPS to fill the gap where the socket wasn't ready yet.
+  void Function()? onConnected;
+
   /// Track if we've connected at least once (to distinguish initial connect from reconnect).
   bool _hasConnectedOnce = false;
 
@@ -113,6 +118,9 @@ class CentrifugoService {
 
       _client!.connected.listen((event) {
         AppLogger.general('🟢 [Centrifugo] Connected! (client: ${event.client})');
+        // Fire on every connect (initial + reconnect) so consumers can push the
+        // latest GPS immediately instead of waiting for the next ~1s tick.
+        onConnected?.call();
         // SDK auto-resubscribes all client-side subscriptions on reconnect
         if (_hasConnectedOnce) {
           AppLogger.general('🔄 [Centrifugo] Reconnected — triggering refresh callback');

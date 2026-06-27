@@ -1,6 +1,8 @@
 import 'dart:async';
+import 'dart:math';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:ropacalapp/core/services/centrifugo_service.dart';
+import 'package:ropacalapp/core/services/location_tracking_service.dart';
 import 'package:ropacalapp/core/enums/user_role.dart';
 import 'package:ropacalapp/providers/auth_provider.dart';
 import 'package:ropacalapp/providers/notification_provider.dart';
@@ -28,7 +30,7 @@ class CentrifugoManager extends _$CentrifugoManager {
   StreamSubscription? _driverEventsSubscription;
   Timer? _retryTimer;
   int _retryAttempts = 0;
-  static const int _maxRetryAttempts = 10;
+  final Random _jitter = Random();
 
   /// Captured reference to CentrifugoService so _disconnect() can use it
   /// inside onDispose without calling ref.read() (which throws after invalidation).
@@ -125,6 +127,18 @@ class CentrifugoManager extends _$CentrifugoManager {
         }
       };
 
+      // On every (re)connect, immediately push the driver's latest known GPS so
+      // the dashboard snaps to the current position instead of waiting for the
+      // next GPS tick. Covers both the shift-start gap (tracking started before
+      // the socket was ready) and recovery after an outage / Railway restart.
+      centrifugoService.onConnected = () {
+        final authState = ref.read(authNotifierProvider);
+        final user = authState.valueOrNull;
+        if (user?.role == UserRole.driver) {
+          ref.read(locationTrackingServiceProvider).sendLastKnownLocation();
+        }
+      };
+
       await centrifugoService.connect();
 
       _retryAttempts = 0; // Reset on success
@@ -138,28 +152,29 @@ class CentrifugoManager extends _$CentrifugoManager {
     }
   }
 
-  /// Schedule a retry with exponential backoff (3s, 6s, 12s, ... capped at 30s)
+  /// Schedule a retry with exponential backoff (3s, 6s, 12s, 24s, capped at 30s).
+  ///
+  /// Retries FOREVER — never gives up. A long outage (e.g. a Railway redeploy of
+  /// the Centrifugo service, or a multi-minute cellular dead zone) must heal on
+  /// its own without forcing the driver to log out and back in. The backoff is
+  /// capped at 30s, with random jitter so a fleet of clients reconnecting after a
+  /// shared outage doesn't stampede the server at the same instant.
   void _scheduleRetry() {
-    if (_retryAttempts >= _maxRetryAttempts) {
-      AppLogger.general(
-        '❌ [CentrifugoManager] Max retry attempts ($_maxRetryAttempts) reached. '
-        'Centrifugo will reconnect on next auth state change.',
-      );
-      return;
-    }
-
     _retryTimer?.cancel();
     _retryAttempts++;
 
-    // Exponential backoff: 3s, 6s, 12s, 24s, 30s, 30s, ...
-    final delaySeconds = (3 * (1 << (_retryAttempts - 1))).clamp(3, 30);
+    // Cap the exponent so the bit-shift can't overflow on a long outage.
+    final exponent = (_retryAttempts - 1).clamp(0, 4);
+    final baseSeconds = (3 * (1 << exponent)).clamp(3, 30);
+    final jitterMs = _jitter.nextInt(1000);
+    final delay = Duration(seconds: baseSeconds, milliseconds: jitterMs);
 
     AppLogger.general(
       '🔄 [CentrifugoManager] Scheduling retry #$_retryAttempts '
-      'in ${delaySeconds}s...',
+      'in ${baseSeconds}s (+${jitterMs}ms jitter)...',
     );
 
-    _retryTimer = Timer(Duration(seconds: delaySeconds), () async {
+    _retryTimer = Timer(delay, () async {
       AppLogger.general('🔄 [CentrifugoManager] Retry #$_retryAttempts starting...');
       final connected = await _connect();
       if (connected) {

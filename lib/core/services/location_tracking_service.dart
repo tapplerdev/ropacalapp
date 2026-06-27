@@ -1,13 +1,13 @@
 import 'dart:async';
-import 'dart:io';
-import 'package:flutter/foundation.dart';
 import 'package:fused_location/fused_location.dart' as fused;
 import 'package:fused_location/fused_location_provider.dart';
 import 'package:fused_location/fused_location_options.dart';
 import 'package:geolocator/geolocator.dart' as geolocator;
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:ropacalapp/core/constants/api_constants.dart';
 import 'package:ropacalapp/core/utils/app_logger.dart';
 import 'package:ropacalapp/core/services/centrifugo_service.dart';
+import 'package:ropacalapp/providers/api_provider.dart';
 import 'package:ropacalapp/providers/auth_provider.dart';
 
 /// Location tracking service for drivers using fused_location with native
@@ -385,6 +385,26 @@ class LocationTrackingService {
     }
   }
 
+  /// Resend the last cached GPS location immediately.
+  ///
+  /// Called when the Centrifugo connection (re)establishes, so the dashboard
+  /// snaps to the driver's current position right away instead of waiting for
+  /// the next ~1s GPS tick. No-op if no location has been captured yet (e.g.
+  /// connected at login before a shift / tracking has started).
+  Future<void> sendLastKnownLocation() async {
+    final location = _lastLocation;
+    if (location == null) {
+      AppLogger.general(
+        '📍 [LocationTracking] sendLastKnownLocation: no cached location yet — skipping',
+      );
+      return;
+    }
+    AppLogger.general(
+      '📍 [LocationTracking] Resending last known location on (re)connect',
+    );
+    await _sendLocation(location);
+  }
+
   /// Stop location tracking
   void stopTracking() {
     if (!_isTracking) return;
@@ -464,38 +484,56 @@ class LocationTrackingService {
       // 2. Snap to roads via OSRM (if accuracy > 15m)
       // 3. Broadcast SNAPPED GPS to all managers watching this driver
 
-      // Check connection state before attempting publish
-      if (!centrifugoService.isConnected) {
+      // Fast path: publish over the Centrifugo WebSocket when connected.
+      if (centrifugoService.isConnected) {
+        try {
+          await centrifugoService.publish(
+            'driver:location:${user.id}',
+            locationData,
+          );
+          AppLogger.general(
+            '✅ [LocationTracking] Location published to Centrifugo successfully',
+          );
+          return;
+        } catch (e) {
+          AppLogger.general(
+            '⚠️  [LocationTracking] Centrifugo publish failed — '
+            'falling back to HTTP: $e',
+          );
+        }
+      } else {
         AppLogger.general(
-          '⚠️  [LocationTracking] Centrifugo not connected - skipping publish',
+          '⚠️  [LocationTracking] Centrifugo not connected — '
+          'sending location via HTTP fallback',
         );
-        AppLogger.general(
-          '   Location data cached locally (will retry when connected)',
-        );
-        return;
       }
 
-      await centrifugoService.publish(
-        'driver:location:${user.id}',
-        locationData,
-      );
-
+      // Fallback: POST to the backend, which saves to Redis + Postgres and
+      // re-publishes to Centrifugo server-side, so the dashboard stays live
+      // even while this device's WebSocket is down (e.g. a Railway restart).
+      await _sendLocationViaHttp(locationData);
+    } catch (e) {
       AppLogger.general(
-        '✅ [LocationTracking] Location published to Centrifugo successfully',
+        '❌ [LocationTracking] Failed to send location: $e',
+        level: AppLogger.error,
+      );
+    }
+  }
+
+  /// HTTP fallback for sending a location when Centrifugo is unavailable.
+  /// Hits POST /api/driver/location, the server-side equal of the publish proxy.
+  Future<void> _sendLocationViaHttp(Map<String, dynamic> locationData) async {
+    try {
+      final apiService = _ref.read(apiServiceProvider);
+      await apiService.post(ApiConstants.driverLocationEndpoint, locationData);
+      AppLogger.general(
+        '✅ [LocationTracking] Location sent via HTTP fallback',
       );
     } catch (e) {
-      // Check if it's a connection state error (expected when disconnected)
-      if (e.toString().contains('not connected')) {
-        AppLogger.general(
-          '⚠️  [LocationTracking] Centrifugo disconnected during publish - will retry',
-        );
-      } else {
-        // Unexpected error - log as error
-        AppLogger.general(
-          '❌ [LocationTracking] Failed to publish location: $e',
-          level: AppLogger.error,
-        );
-      }
+      AppLogger.general(
+        '❌ [LocationTracking] HTTP fallback failed (point dropped): $e',
+        level: AppLogger.error,
+      );
     }
   }
 

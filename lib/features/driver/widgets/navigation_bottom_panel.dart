@@ -1087,6 +1087,7 @@ class NavigationBottomPanel extends HookConsumerWidget {
                                 builder: (context) => WarehouseCheckinDialog(
                                   task: task,
                                   shiftBinId: task.id,
+                                  isLastTask: shift.remainingTasks.length <= 1,
                                 ),
                               );
                               break;
@@ -1189,7 +1190,7 @@ class NavigationBottomPanel extends HookConsumerWidget {
                     elevation: 0,
                   ),
                   child: Text(
-                    isWithinGeofence ? _getButtonText(task.taskType) : 'Too Far Away',
+                    isWithinGeofence ? _getButtonText(task.taskType, isLastTask: shift.remainingTasks.length <= 1) : 'Too Far Away',
                     style: const TextStyle(
                       fontSize: 17,
                       fontWeight: FontWeight.w600,
@@ -2016,10 +2017,10 @@ class NavigationBottomPanel extends HookConsumerWidget {
   }
 
   /// Returns appropriate button text based on task type
-  String _getButtonText(StopType taskType) {
+  String _getButtonText(StopType taskType, {bool isLastTask = false}) {
     switch (taskType) {
       case StopType.warehouseStop:
-        return 'Check In';
+        return isLastTask ? 'End Shift' : 'Check In';
       case StopType.placement:
         return 'Place Bin';
       case StopType.pickup:

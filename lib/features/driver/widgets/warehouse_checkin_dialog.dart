@@ -9,11 +9,13 @@ import 'package:ropacalapp/providers/shift_provider.dart';
 class WarehouseCheckinDialog extends HookConsumerWidget {
   final RouteTask task;
   final String shiftBinId;
+  final bool isLastTask;
 
   const WarehouseCheckinDialog({
     super.key,
     required this.task,
     required this.shiftBinId,
+    this.isLastTask = false,
   });
 
   @override
@@ -154,9 +156,9 @@ class WarehouseCheckinDialog extends HookConsumerWidget {
                         borderRadius: BorderRadius.circular(12),
                       ),
                     ),
-                    child: const Text(
-                      'Confirm Arrival',
-                      style: TextStyle(
+                    child: Text(
+                      isLastTask ? 'End Shift' : 'Confirm Arrival',
+                      style: const TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w600,
                       ),
@@ -203,14 +205,21 @@ class WarehouseCheckinDialog extends HookConsumerWidget {
       if (context.mounted) {
         Navigator.of(context).pop();
 
-        // Show success message
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('✅ Warehouse stop completed: ${_getActionText()}'),
-            backgroundColor: AppColors.primaryGreen,
-            duration: const Duration(seconds: 2),
-          ),
-        );
+        // Wait for dialog close animation before state listeners fire
+        // Prevents "Route Complete" dialog from stacking on top
+        await Future.delayed(const Duration(milliseconds: 500));
+
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(isLastTask
+                  ? '✅ Shift complete — heading to warehouse'
+                  : '✅ Warehouse stop completed: ${_getActionText()}'),
+              backgroundColor: AppColors.primaryGreen,
+              duration: const Duration(seconds: 2),
+            ),
+          );
+        }
       }
     } catch (e) {
       if (context.mounted) {

@@ -625,50 +625,52 @@ class CheckInDialogV2 extends HookConsumerWidget {
     ValueNotifier<int> fillPercentage,
   ) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(24, 20, 24, 24),
+      padding: const EdgeInsets.fromLTRB(20, 8, 20, 12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Fill level header with large percentage
+          // Fill level header — compact
           Center(
-            child: Column(
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.baseline,
+              textBaseline: TextBaseline.alphabetic,
               children: [
                 Text(
                   '${fillPercentage.value}%',
                   style: TextStyle(
-                    fontSize: 56,
+                    fontSize: 32,
                     fontWeight: FontWeight.bold,
                     color: _getSliderColor(fillPercentage.value),
-                    letterSpacing: -2,
+                    letterSpacing: -1,
                     height: 1,
                   ),
                 ),
-                const SizedBox(height: 8),
-                const Text(
+                const SizedBox(width: 8),
+                Text(
                   'Fill Level',
                   style: TextStyle(
-                    fontSize: 16,
+                    fontSize: 12,
                     fontWeight: FontWeight.w600,
-                    color: Colors.black54,
-                    letterSpacing: 0.5,
+                    color: Colors.grey.shade500,
                   ),
                 ),
               ],
             ),
           ),
 
-          const SizedBox(height: 28),
+          const SizedBox(height: 8),
 
-          // Modern gradient slider
+          // Compact slider
           SliderTheme(
             data: SliderTheme.of(context).copyWith(
-              trackHeight: 12,
+              trackHeight: 8,
               thumbShape: const RoundSliderThumbShape(
-                enabledThumbRadius: 16,
-                elevation: 4,
+                enabledThumbRadius: 12,
+                elevation: 3,
               ),
               overlayShape: const RoundSliderOverlayShape(
-                overlayRadius: 28,
+                overlayRadius: 20,
               ),
               activeTrackColor: _getSliderColor(fillPercentage.value),
               inactiveTrackColor: Colors.grey.shade200,
@@ -690,22 +692,8 @@ class CheckInDialogV2 extends HookConsumerWidget {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(
-                  'Empty',
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.grey.shade500,
-                  ),
-                ),
-                Text(
-                  'Full',
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.grey.shade500,
-                  ),
-                ),
+                Text('Empty', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w500, color: Colors.grey.shade400)),
+                Text('Full', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w500, color: Colors.grey.shade400)),
               ],
             ),
           ),

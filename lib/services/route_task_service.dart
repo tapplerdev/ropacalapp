@@ -89,60 +89,6 @@ class RouteTaskService {
     }
   }
 
-  /// Mark a task as completed
-  Future<void> completeTask({
-    required String taskId,
-    int? updatedFillPercentage,
-    String? photoUrl,
-    String? newBinId,
-    bool hasIncident = false,
-    String? incidentType,
-    String? incidentPhotoUrl,
-    String? incidentDescription,
-  }) async {
-    try {
-      print('📤 REQUEST: PUT /api/shifts/tasks/$taskId/complete');
-
-      final requestData = {
-        if (updatedFillPercentage != null)
-          'updated_fill_percentage': updatedFillPercentage,
-        if (photoUrl != null) 'photo_url': photoUrl,
-        if (newBinId != null) 'new_bin_id': newBinId,
-        if (hasIncident) 'has_incident': hasIncident,
-        if (incidentType != null) 'incident_type': incidentType,
-        if (incidentPhotoUrl != null) 'incident_photo_url': incidentPhotoUrl,
-        if (incidentDescription != null)
-          'incident_description': incidentDescription,
-      };
-
-      print('   Body: $requestData');
-
-      final response = await _apiService.put(
-        '/api/shifts/tasks/$taskId/complete',
-        requestData,
-      );
-
-      print('📥 RESPONSE: ${response.statusCode}');
-      print('   Data: ${response.data}');
-
-      if (response.data['success'] == true) {
-        if (hasIncident) {
-          print(
-            '   🚨 Task completed with incident report (type: $incidentType)',
-          );
-        } else {
-          print('   ✅ Task completed successfully');
-        }
-        return;
-      }
-
-      throw Exception(response.data['error'] ?? 'Failed to complete task');
-    } catch (e) {
-      print('   ❌ ERROR: $e');
-      rethrow;
-    }
-  }
-
   /// Get detailed tasks with JOINed data (bins, potential locations, etc.)
   Future<List<Map<String, dynamic>>> getShiftTasksDetailed(
     String shiftId,

@@ -156,9 +156,23 @@ class NavigationPageNotifier extends _$NavigationPageNotifier {
     state = state.copyWith(isBottomPanelExpanded: expanded);
   }
 
+  // ==================== Shift End Guard ====================
+
+  /// Flag to prevent Route Complete dialog when warehouse dialog
+  /// is already handling the end-of-shift flow.
+  /// Not in frozen state — doesn't need to trigger rebuilds.
+  bool _isEndingShift = false;
+
+  bool get isEndingShift => _isEndingShift;
+
+  void setEndingShift(bool value) {
+    _isEndingShift = value;
+  }
+
   // ==================== Reset ====================
 
   void reset() {
+    _isEndingShift = false;
     state = const NavigationPageState();
   }
 }

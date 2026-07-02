@@ -77,31 +77,8 @@ class GoogleNavigationPage extends HookConsumerWidget {
     final navNotifier = ref.read(navigationPageNotifierProvider.notifier);
     final shift = ref.watch(shiftNotifierProvider);
 
-    // Guard: Wait for tasks to be populated via WebSocket
-    // Show loading screen while waiting
-    if (shift.status == ShiftStatus.active && shift.bins.isEmpty) {
-      AppLogger.general('⏳ Navigation page: Waiting for tasks...');
-      AppLogger.general('   Status: ${shift.status}');
-      AppLogger.general('   Tasks length: ${shift.bins.length}');
-      AppLogger.general('   Total bins: ${shift.totalBins}');
-      AppLogger.general('   Route ID: ${shift.assignedRouteId}');
-
-      return Scaffold(
-        body: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const CircularProgressIndicator(),
-              const SizedBox(height: 16),
-              Text(
-                'Loading route...',
-                style: Theme.of(context).textTheme.titleMedium,
-              ),
-            ],
-          ),
-        ),
-      );
-    }
+    // Note: bins may be empty briefly after shift becomes active (WebSocket delay).
+    // The unified loading overlay in the Stack handles this — no early return needed.
 
     // Guard: If no active shift exists on mount, navigate back to home
     // This only runs once when the page is first created
@@ -651,29 +628,6 @@ class GoogleNavigationPage extends HookConsumerWidget {
                 ),
               ),
             )
-          else if (!navigationSessionInitialized.value)
-            // Show loading while initializing (permissions, GPS, session)
-            Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const CircularProgressIndicator(),
-                  SizedBox(height: Responsive.spacing(context, mobile: 16)),
-                  Text(
-                    'Initializing Navigation...',
-                    style: TextStyle(
-                      fontSize: Responsive.fontSize(context, mobile: 18),
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                  SizedBox(height: Responsive.spacing(context, mobile: 8)),
-                  Text(
-                    userLocation.value == null ? 'Getting GPS location...' : 'Setting up map...',
-                    style: const TextStyle(color: Colors.grey),
-                  ),
-                ],
-              ),
-            )
           else if (userLocation.value != null && navigationSessionInitialized.value)
             GoogleMapsNavigationView(
                 // CRITICAL iOS FIX: Always enable navigation UI for bin collection routes
@@ -760,10 +714,8 @@ class GoogleNavigationPage extends HookConsumerWidget {
               initialZoomControlsEnabled: false,
             )
           else
-            // Loading while initializing
-            const Center(
-              child: CircularProgressIndicator(),
-            ),
+            // White placeholder while map initializes
+            Container(color: Colors.white),
 
           // Turn-by-turn navigation card - within SafeArea
           if (navState.isNavigating && navState.currentStep != null)
@@ -869,6 +821,42 @@ class GoogleNavigationPage extends HookConsumerWidget {
             NavigationBottomPanel(
               shift: shift,
               currentIndex: navState.currentBinIndex,
+            ),
+
+          // Unified loading overlay — covers everything while
+          // GPS, SDK, or task data is still initializing.
+          // Replaces the old "Loading route...", "Initializing Navigation...",
+          // and bare spinner screens with a single frosted overlay.
+          if (!navigationSessionInitialized.value ||
+              shift.bins.isEmpty ||
+              initializationError.value != null)
+            Positioned.fill(
+              child: AnimatedOpacity(
+                opacity: (!navigationSessionInitialized.value ||
+                        shift.bins.isEmpty) &&
+                    initializationError.value == null
+                    ? 1.0
+                    : 0.0,
+                duration: const Duration(milliseconds: 400),
+                child: Container(
+                  color: Colors.white,
+                  child: Center(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        SizedBox(
+                          width: 36,
+                          height: 36,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 3,
+                            color: AppColors.primaryGreen,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
             ),
         ],
       ),
@@ -1599,6 +1587,12 @@ class GoogleNavigationPage extends HookConsumerWidget {
           // Driver visited all stops (completed or skipped) - offer to end shift
           AppLogger.general('🎉 All stops visited! Navigation finished.');
           AppLogger.general('📊 Completed: $actuallyCompletedCount, Skipped: $skippedCount, Total: $totalVisited/${shift.logicalTotalBins}');
+
+          // Guard: if warehouse dialog is already handling end-of-shift, skip Route Complete
+          if (navNotifier.isEndingShift) {
+            AppLogger.general('⏭️  Skipping Route Complete dialog — warehouse dialog is handling shift end');
+            return;
+          }
 
           // Show confirmation dialog before auto-ending
           if (context.mounted) {

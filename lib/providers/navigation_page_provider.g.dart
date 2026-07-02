@@ -7,7 +7,7 @@ part of 'navigation_page_provider.dart';
 // **************************************************************************
 
 String _$navigationPageNotifierHash() =>
-    r'd520488b6f8ca628caaff3f40e44234066986407';
+    r'a3ffeff743ab47cd5a3ee42939ad53fcbc1ac9fe';
 
 /// Provider for navigation page state
 /// Manages all navigation-related state for the google_navigation_page

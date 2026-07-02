@@ -7,7 +7,19 @@ Future<void> showShiftSummaryDialog(
   BuildContext context,
   ShiftState shift,
 ) async {
-  final isCompleted = shift.completedBins >= shift.totalBins;
+  // Compute task counts from actual task data, excluding warehouse/service
+  final binTasks = shift.bins.where(
+    (t) => t.taskType.name != 'warehouseStop' &&
+           t.taskType.name != 'service',
+  ).toList();
+  final completed = binTasks
+      .where((t) => t.isCompleted == 1 && !t.skipped)
+      .length;
+  final skipped = binTasks
+      .where((t) => t.isCompleted == 2 || t.skipped)
+      .length;
+  final total = binTasks.length;
+  final allDone = completed + skipped >= total && total > 0;
 
   await showDialog(
     context: context,
@@ -34,7 +46,7 @@ Future<void> showShiftSummaryDialog(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // Success icon with gradient background
+            // Success icon
             Container(
               width: 96,
               height: 96,
@@ -66,7 +78,7 @@ Future<void> showShiftSummaryDialog(
 
             // Title
             Text(
-              isCompleted ? 'Shift Completed!' : 'Shift Ended',
+              allDone ? 'Shift Completed!' : 'Shift Ended',
               style: TextStyle(
                 fontSize: 28,
                 fontWeight: FontWeight.bold,
@@ -76,12 +88,14 @@ Future<void> showShiftSummaryDialog(
             ),
             const SizedBox(height: 8),
 
-            // Congratulations message
-            if (shift.completedBins > 0)
+            // Subtitle
+            if (total > 0)
               Text(
-                isCompleted
-                    ? 'Great job! All bins collected!'
-                    : 'Good work today!',
+                skipped > 0
+                    ? '$completed completed, $skipped skipped'
+                    : allDone
+                        ? 'Great job! All tasks completed!'
+                        : 'Good work today!',
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   fontSize: 16,
@@ -111,9 +125,8 @@ Future<void> showShiftSummaryDialog(
               ),
               child: Column(
                 children: [
-                  // Bins completed label
                   Text(
-                    'Bins Completed',
+                    'Tasks Completed',
                     style: TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.w600,
@@ -123,14 +136,15 @@ Future<void> showShiftSummaryDialog(
                   ),
                   const SizedBox(height: 12),
 
-                  // Bins count
+                  // Count
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
-                    crossAxisAlignment: CrossAxisAlignment.baseline,
+                    crossAxisAlignment:
+                        CrossAxisAlignment.baseline,
                     textBaseline: TextBaseline.alphabetic,
                     children: [
                       Text(
-                        '${shift.completedBins}',
+                        '$completed',
                         style: TextStyle(
                           fontSize: 48,
                           fontWeight: FontWeight.bold,
@@ -140,7 +154,7 @@ Future<void> showShiftSummaryDialog(
                       ),
                       const SizedBox(width: 8),
                       Text(
-                        'of ${shift.totalBins}',
+                        'of $total',
                         style: TextStyle(
                           fontSize: 24,
                           fontWeight: FontWeight.w600,
@@ -152,12 +166,12 @@ Future<void> showShiftSummaryDialog(
                   ),
 
                   // Progress bar
-                  if (shift.totalBins > 0) ...[
+                  if (total > 0) ...[
                     const SizedBox(height: 16),
                     ClipRRect(
                       borderRadius: BorderRadius.circular(8),
                       child: LinearProgressIndicator(
-                        value: shift.completedBins / shift.totalBins,
+                        value: completed / total,
                         minHeight: 8,
                         backgroundColor: Colors.grey.shade200,
                         valueColor: AlwaysStoppedAnimation<Color>(
@@ -177,13 +191,12 @@ Future<void> showShiftSummaryDialog(
               child: ElevatedButton(
                 onPressed: () {
                   Navigator.of(dialogContext).pop();
-                  // DriverMapWrapper will automatically switch back to DriverMapPage
-                  // No manual navigation needed!
                 },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.green.shade600,
                   foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 18),
+                  padding:
+                      const EdgeInsets.symmetric(vertical: 18),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(16),
                   ),

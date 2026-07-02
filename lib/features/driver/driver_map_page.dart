@@ -9,7 +9,6 @@ import 'package:latlong2/latlong.dart' as latlong;
 import 'package:flutter_compass/flutter_compass.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:action_slider/action_slider.dart';
-import 'package:flutter_easyloading/flutter_easyloading.dart';
 import 'package:go_router/go_router.dart';
 import 'package:ropacalapp/core/constants/bin_constants.dart';
 import 'package:ropacalapp/core/enums/bin_status.dart';
@@ -692,21 +691,14 @@ double _calculateTotalDistance(List<dynamic> tasks) {
 
 /// Shift-aware overlay that shows shift acceptance modal when status is ready
 /// This widget watches shift state internally to prevent parent rebuilds
-class _ShiftReadyOverlay extends ConsumerWidget {
+class _ShiftReadyOverlay extends HookConsumerWidget {
   // Removed const to ensure fresh BuildContext for navigation
   _ShiftReadyOverlay();
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final shiftState = ref.watch(shiftNotifierProvider);
-
-    // LOGS COMMENTED OUT - too spammy
-    // if (shiftState.status == ShiftStatus.ready) {
-    //   AppLogger.general('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-    //   AppLogger.general('🎭 _ShiftReadyOverlay: Status is READY!');
-    //   AppLogger.general('   ✅ Showing ShiftAcceptanceBottomSheet!');
-    //   AppLogger.general('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-    // }
+    final isStarting = useState(false);
 
     // Only show when status is ready AND we have a valid shift ID
     if (shiftState.status != ShiftStatus.ready) {
@@ -752,19 +744,18 @@ class _ShiftReadyOverlay extends ConsumerWidget {
                 routeName: 'Route $shiftId',
                 isOptimized: false,
               ),
+              isLoading: isStarting.value,
               onAccept: () async {
+              if (isStarting.value) return;
+
               AppLogger.general('🚀 SHIFT ACCEPTED - Starting shift');
-              EasyLoading.show(
-                status: 'Starting shift...',
-                maskType: EasyLoadingMaskType.black,
-              );
+              isStarting.value = true;
 
               try {
                 AppLogger.general('📡 Calling startShift()...');
                 await ref.read(shiftNotifierProvider.notifier).startShift(
                   onNeedWarehouseBinsAnswer: (placementCount, redeploymentCount) async {
-                    // Hide loading temporarily to show dialog
-                    await EasyLoading.dismiss();
+                    isStarting.value = false;
 
                     if (!context.mounted) return null;
 
@@ -810,25 +801,15 @@ class _ShiftReadyOverlay extends ConsumerWidget {
                       ),
                     );
 
-                    // Show loading again after dialog
-                    EasyLoading.show(maskType: EasyLoadingMaskType.black);
-
+                    isStarting.value = true;
                     return result;
                   },
                 );
                 AppLogger.general('✅ Shift started successfully');
-
-                // Hide loading
-                await EasyLoading.dismiss();
-
-                // No manual navigation needed!
-                // DriverMapWrapper watches shiftNotifierProvider
-                // When status changes to 'active', it automatically switches to GoogleNavigationPage
                 AppLogger.general('✅ Shift active - DriverMapWrapper will auto-switch to navigation');
               } catch (e) {
                 AppLogger.general('❌ Error starting shift: $e');
-                AppLogger.general('   Error type: ${e.runtimeType}');
-                await EasyLoading.dismiss();
+                isStarting.value = false;
 
                 if (context.mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(

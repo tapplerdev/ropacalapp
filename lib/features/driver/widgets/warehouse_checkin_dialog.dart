@@ -3,7 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:ropacalapp/core/theme/app_colors.dart';
+import 'package:ropacalapp/core/utils/app_logger.dart';
 import 'package:ropacalapp/models/route_task.dart';
+import 'package:ropacalapp/providers/navigation_page_provider.dart';
 import 'package:ropacalapp/providers/shift_provider.dart';
 
 /// Modern warehouse check-in dialog — matches CheckInDialogV2 style
@@ -292,6 +294,15 @@ class WarehouseCheckinDialog extends HookConsumerWidget {
   ) async {
     isSubmitting.value = true;
     try {
+      if (isLastTask) {
+        // Set guard BEFORE completeTask so _advanceToNextBin skips
+        // the Route Complete dialog — we handle end-of-shift here.
+        ref.read(navigationPageNotifierProvider.notifier)
+            .setEndingShift(true);
+        AppLogger.general(
+            '🏁 Warehouse dialog: ending shift (last task)');
+      }
+
       await ref.read(shiftNotifierProvider.notifier).completeTask(
             shiftBinId,
             task.binId ?? '',
@@ -303,22 +314,32 @@ class WarehouseCheckinDialog extends HookConsumerWidget {
 
       if (context.mounted) {
         Navigator.of(context).pop();
-        await Future.delayed(const Duration(milliseconds: 500));
+      }
 
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(isLastTask
-                  ? '✅ Shift complete'
-                  : '✅ Warehouse stop completed: ${_getActionText()}'),
-              backgroundColor: AppColors.primaryGreen,
-              duration: const Duration(seconds: 2),
-            ),
-          );
-        }
+      if (isLastTask) {
+        // End shift directly — the state listener in
+        // google_navigation_page will handle cleanup + summary
+        // dialog via _handleShiftEnded when status → ended.
+        await ref.read(shiftNotifierProvider.notifier).endShift();
+        AppLogger.general(
+            '✅ Warehouse dialog: shift ended successfully');
+      } else if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+                '✅ Warehouse stop completed: ${_getActionText()}'),
+            backgroundColor: AppColors.primaryGreen,
+            duration: const Duration(seconds: 2),
+          ),
+        );
       }
     } catch (e) {
       isSubmitting.value = false;
+      if (isLastTask) {
+        // Reset the guard on failure
+        ref.read(navigationPageNotifierProvider.notifier)
+            .setEndingShift(false);
+      }
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(

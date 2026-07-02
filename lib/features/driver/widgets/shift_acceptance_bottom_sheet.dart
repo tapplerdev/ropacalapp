@@ -14,11 +14,13 @@ class ShiftAcceptanceBottomSheet extends StatelessWidget {
     required this.shiftOverview,
     required this.onAccept,
     required this.onDecline,
+    this.isLoading = false,
   });
 
   final ShiftOverview shiftOverview;
   final VoidCallback onAccept;
   final VoidCallback onDecline;
+  final bool isLoading;
 
   @override
   Widget build(BuildContext context) {
@@ -121,23 +123,35 @@ class ShiftAcceptanceBottomSheet extends StatelessWidget {
             child: SizedBox(
               width: double.infinity,
               child: ElevatedButton(
-                onPressed: onAccept,
+                onPressed: isLoading ? null : onAccept,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.successGreen,
+                  backgroundColor: isLoading
+                      ? Colors.grey.shade400
+                      : AppColors.successGreen,
+                  disabledBackgroundColor: Colors.grey.shade400,
                   padding: const EdgeInsets.symmetric(vertical: 16),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),
                   elevation: 0,
                 ),
-                child: const Text(
-                  'Start',
-                  style: TextStyle(
-                    fontSize: 17,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 0.5,
-                  ),
-                ),
+                child: isLoading
+                    ? const SizedBox(
+                        width: 22,
+                        height: 22,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2.5,
+                          color: Colors.white,
+                        ),
+                      )
+                    : const Text(
+                        'Start',
+                        style: TextStyle(
+                          fontSize: 17,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 0.5,
+                        ),
+                      ),
               ),
             ),
           ),

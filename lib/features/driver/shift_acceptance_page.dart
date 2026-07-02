@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_easyloading/flutter_easyloading.dart';
+import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:go_router/go_router.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
@@ -12,12 +13,13 @@ import 'package:ropacalapp/providers/shift_provider.dart';
 
 /// Full-page shift acceptance view shown when shift status is "ready"
 /// Displays map in background with acceptance card at bottom (Uber/Lyft pattern)
-class ShiftAcceptancePage extends ConsumerWidget {
+class ShiftAcceptancePage extends HookConsumerWidget {
   const ShiftAcceptancePage({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final shiftState = ref.watch(shiftNotifierProvider);
+    final isStarting = useState(false);
 
     // Dismiss keyboard when this page is shown (map behind may have focusable elements)
     FocusManager.instance.primaryFocus?.unfocus();
@@ -50,16 +52,16 @@ class ShiftAcceptancePage extends ConsumerWidget {
                 routeName: 'Route ${shiftState.assignedRouteId ?? ''}',
                 isOptimized: false,
               ),
+              isLoading: isStarting.value,
               onAccept: () async {
+                if (isStarting.value) return; // Prevent double tap
+
                 AppLogger.general('═══════════════════════════════════════════');
                 AppLogger.general('🚀 [SHIFT ACCEPTANCE] Driver pressed START button');
                 AppLogger.general('   Timestamp: ${DateTime.now().toIso8601String()}');
                 AppLogger.general('═══════════════════════════════════════════');
 
-                // Show loading overlay
-                EasyLoading.show(
-                  maskType: EasyLoadingMaskType.black,
-                );
+                isStarting.value = true;
 
                 try {
                   AppLogger.general('📞 [SHIFT ACCEPTANCE] Calling shiftNotifier.startShift()...');
@@ -67,8 +69,8 @@ class ShiftAcceptancePage extends ConsumerWidget {
                   // Start the shift via HTTP
                   await ref.read(shiftNotifierProvider.notifier).startShift(
                     onNeedWarehouseBinsAnswer: (placementCount, redeploymentCount) async {
-                      // Hide loading temporarily to show dialog
-                      await EasyLoading.dismiss();
+                      // Temporarily reset loading to show dialog
+                      isStarting.value = false;
 
                       if (!context.mounted) return null;
 
@@ -115,8 +117,8 @@ class ShiftAcceptancePage extends ConsumerWidget {
                         ),
                       );
 
-                      // Show loading again after dialog
-                      EasyLoading.show(maskType: EasyLoadingMaskType.black);
+                      // Resume loading after dialog
+                      isStarting.value = true;
 
                       return result;
                     },
@@ -124,17 +126,12 @@ class ShiftAcceptancePage extends ConsumerWidget {
 
                   AppLogger.general('✅ [SHIFT ACCEPTANCE] Shift started successfully via HTTP');
 
-                  // Hide loading
-                  await EasyLoading.dismiss();
-
                   // DriverMapWrapper will automatically switch to GoogleNavigationPage
                   // when shift status becomes 'active' - no manual navigation needed!
                   AppLogger.general('✅ Shift accepted - DriverMapWrapper will auto-switch to navigation');
                 } catch (e) {
                   AppLogger.general('❌ SHIFT START ERROR: $e');
-
-                  // Hide loading
-                  await EasyLoading.dismiss();
+                  isStarting.value = false;
 
                   // Check if error is GPS/location related
                   if (context.mounted) {
@@ -159,11 +156,6 @@ class ShiftAcceptancePage extends ConsumerWidget {
               },
               onDecline: () {
                 AppLogger.general('❌ SHIFT DECLINED');
-
-                // TODO: Implement backend API call to decline shift
-                // For now, just log the decline. The shift will timeout
-                // on the backend after a certain period, and the status
-                // will automatically change to inactive.
 
                 // Show confirmation message
                 if (context.mounted) {

@@ -569,12 +569,16 @@ class ApiService {
           final statusCode = error.response?.statusCode;
           final responseData = error.response?.data;
 
-          // Check if response data is a string (plain text error) or a map
+          // Check if response data is a string (plain text error) or a map.
+          // Backend JSON errors carry 'message' (human-readable, e.g. the
+          // one-open-move-per-bin 409) and/or 'error' (RespondError shape) —
+          // prefer 'message', fall back to 'error'.
           String? message;
           if (responseData is String) {
-            message = responseData;
+            message = responseData.trim().isEmpty ? null : responseData.trim();
           } else if (responseData is Map<String, dynamic>) {
-            message = responseData['message'] as String?;
+            message = (responseData['message'] ?? responseData['error'])
+                as String?;
           }
 
           if (statusCode == 401) {

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:ropacalapp/core/theme/app_colors.dart';
+import 'package:ropacalapp/core/widgets/check_in_photo_thumb.dart';
 import 'package:ropacalapp/models/route_task.dart';
 import 'package:ropacalapp/core/extensions/route_task_extensions.dart';
 import 'package:ropacalapp/models/shift_history.dart';
@@ -448,55 +449,82 @@ class _BinCard extends StatelessWidget {
               ],
             ),
 
-            // Check-in photo
+            // Check-in photos — before/after pair when the driver captured
+            // both; a lone photo (older app builds, incident flow) stays
+            // full-width.
             if (bin.photoUrl != null && bin.photoUrl!.isNotEmpty) ...[
               const SizedBox(height: 14),
-              GestureDetector(
-                onTap: () => _showFullPhoto(context, bin.photoUrl!),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(8),
-                  child: Image.network(
-                    bin.photoUrl!,
-                    height: 180,
-                    width: double.infinity,
-                    fit: BoxFit.cover,
-                    loadingBuilder: (context, child, loadingProgress) {
-                      if (loadingProgress == null) return child;
-                      return Container(
-                        height: 180,
-                        color: Colors.grey.shade200,
-                        child: const Center(
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        ),
-                      );
-                    },
-                    errorBuilder: (context, error, stack) {
-                      return Container(
-                        height: 60,
-                        decoration: BoxDecoration(
-                          color: Colors.grey.shade100,
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(Icons.broken_image_outlined,
-                                size: 18, color: Colors.grey.shade400),
-                            const SizedBox(width: 8),
-                            Text(
-                              'Photo unavailable',
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: Colors.grey.shade500,
+              if (bin.afterPhotoUrl != null &&
+                  bin.afterPhotoUrl!.isNotEmpty)
+                Row(
+                  children: [
+                    Expanded(
+                      child: CheckInPhotoThumb(
+                        url: bin.photoUrl!,
+                        label: 'Before',
+                        labelColor: Colors.black54,
+                        onTap: () => _showFullPhoto(context, bin.photoUrl!),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: CheckInPhotoThumb(
+                        url: bin.afterPhotoUrl!,
+                        label: 'After',
+                        labelColor: Colors.green.shade600,
+                        onTap: () =>
+                            _showFullPhoto(context, bin.afterPhotoUrl!),
+                      ),
+                    ),
+                  ],
+                )
+              else
+                GestureDetector(
+                  onTap: () => _showFullPhoto(context, bin.photoUrl!),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(8),
+                    child: Image.network(
+                      bin.photoUrl!,
+                      height: 180,
+                      width: double.infinity,
+                      fit: BoxFit.cover,
+                      loadingBuilder: (context, child, loadingProgress) {
+                        if (loadingProgress == null) return child;
+                        return Container(
+                          height: 180,
+                          color: Colors.grey.shade200,
+                          child: const Center(
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          ),
+                        );
+                      },
+                      errorBuilder: (context, error, stack) {
+                        return Container(
+                          height: 60,
+                          decoration: BoxDecoration(
+                            color: Colors.grey.shade100,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(Icons.broken_image_outlined,
+                                  size: 18, color: Colors.grey.shade400),
+                              const SizedBox(width: 8),
+                              Text(
+                                'Photo unavailable',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.grey.shade500,
+                                ),
                               ),
-                            ),
-                          ],
-                        ),
-                      );
-                    },
+                            ],
+                          ),
+                        );
+                      },
+                    ),
                   ),
                 ),
-              ),
               Padding(
                 padding: const EdgeInsets.only(top: 6),
                 child: Row(
@@ -505,7 +533,10 @@ class _BinCard extends StatelessWidget {
                         size: 13, color: Colors.grey.shade500),
                     const SizedBox(width: 4),
                     Text(
-                      'Check-in photo',
+                      bin.afterPhotoUrl != null &&
+                              bin.afterPhotoUrl!.isNotEmpty
+                          ? 'Before / after photos'
+                          : 'Check-in photo',
                       style: TextStyle(
                         fontSize: 11,
                         color: Colors.grey.shade500,

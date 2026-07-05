@@ -1007,6 +1007,56 @@ class _TaskCard extends StatelessWidget {
                   ),
                   const SizedBox(width: 8),
                 ],
+                // "After" photo thumbnail (emptied bin, check-in step 2)
+                if (isCompleted && task.afterPhotoUrl != null) ...[
+                  GestureDetector(
+                    onTap: () => _showFullPhoto(context, task.afterPhotoUrl!),
+                    child: Hero(
+                      tag: 'after_photo_${task.binId ?? task.hashCode}',
+                      child: Container(
+                        width: 40,
+                        height: 40,
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                            color: AppColors.primaryGreen,
+                            width: 1.5,
+                          ),
+                        ),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(7),
+                          child: Image.network(
+                            task.afterPhotoUrl!,
+                            fit: BoxFit.cover,
+                            loadingBuilder: (context, child, loadingProgress) {
+                              if (loadingProgress == null) return child;
+                              return Container(
+                                color: Colors.grey.shade100,
+                                child: const Center(
+                                  child: SizedBox(
+                                    width: 16,
+                                    height: 16,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color: AppColors.primaryGreen,
+                                    ),
+                                  ),
+                                ),
+                              );
+                            },
+                            errorBuilder: (context, error, stackTrace) {
+                              return Container(
+                                color: Colors.grey.shade100,
+                                child: Icon(Icons.image, size: 18, color: Colors.grey.shade400),
+                              );
+                            },
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                ],
                 // Status badge
                 _buildStatusBadge(isCompleted, isSkipped),
               ],

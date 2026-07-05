@@ -120,9 +120,14 @@ mixin _$RouteTask {
   @JsonKey(name: 'updated_fill_percentage')
   int? get updatedFillPercentage => throw _privateConstructorUsedError;
 
-  /// Photo URL taken during task completion
+  /// Photo URL taken during task completion (the "before" photo — the
+  /// full bin at check-in step 1)
   @JsonKey(name: 'photo_url')
-  String? get photoUrl => throw _privateConstructorUsedError; // ========== SERVICE TASK FIELDS ==========
+  String? get photoUrl => throw _privateConstructorUsedError;
+
+  /// "After" photo URL — the emptied bin, captured at check-in step 2
+  @JsonKey(name: 'after_photo_url')
+  String? get afterPhotoUrl => throw _privateConstructorUsedError; // ========== SERVICE TASK FIELDS ==========
   /// Display label for service tasks
   @JsonKey(name: 'task_label')
   String? get taskLabel => throw _privateConstructorUsedError;
@@ -207,6 +212,7 @@ abstract class $RouteTaskCopyWith<$Res> {
     bool skipped,
     @JsonKey(name: 'updated_fill_percentage') int? updatedFillPercentage,
     @JsonKey(name: 'photo_url') String? photoUrl,
+    @JsonKey(name: 'after_photo_url') String? afterPhotoUrl,
     @JsonKey(name: 'task_label') String? taskLabel,
     @JsonKey(name: 'task_description') String? taskDescription,
     @JsonKey(name: 'photo_required') bool photoRequired,
@@ -264,6 +270,7 @@ class _$RouteTaskCopyWithImpl<$Res, $Val extends RouteTask>
     Object? skipped = null,
     Object? updatedFillPercentage = freezed,
     Object? photoUrl = freezed,
+    Object? afterPhotoUrl = freezed,
     Object? taskLabel = freezed,
     Object? taskDescription = freezed,
     Object? photoRequired = null,
@@ -393,6 +400,10 @@ class _$RouteTaskCopyWithImpl<$Res, $Val extends RouteTask>
                 ? _value.photoUrl
                 : photoUrl // ignore: cast_nullable_to_non_nullable
                       as String?,
+            afterPhotoUrl: freezed == afterPhotoUrl
+                ? _value.afterPhotoUrl
+                : afterPhotoUrl // ignore: cast_nullable_to_non_nullable
+                      as String?,
             taskLabel: freezed == taskLabel
                 ? _value.taskLabel
                 : taskLabel // ignore: cast_nullable_to_non_nullable
@@ -478,6 +489,7 @@ abstract class _$$RouteTaskImplCopyWith<$Res>
     bool skipped,
     @JsonKey(name: 'updated_fill_percentage') int? updatedFillPercentage,
     @JsonKey(name: 'photo_url') String? photoUrl,
+    @JsonKey(name: 'after_photo_url') String? afterPhotoUrl,
     @JsonKey(name: 'task_label') String? taskLabel,
     @JsonKey(name: 'task_description') String? taskDescription,
     @JsonKey(name: 'photo_required') bool photoRequired,
@@ -534,6 +546,7 @@ class __$$RouteTaskImplCopyWithImpl<$Res>
     Object? skipped = null,
     Object? updatedFillPercentage = freezed,
     Object? photoUrl = freezed,
+    Object? afterPhotoUrl = freezed,
     Object? taskLabel = freezed,
     Object? taskDescription = freezed,
     Object? photoRequired = null,
@@ -663,6 +676,10 @@ class __$$RouteTaskImplCopyWithImpl<$Res>
             ? _value.photoUrl
             : photoUrl // ignore: cast_nullable_to_non_nullable
                   as String?,
+        afterPhotoUrl: freezed == afterPhotoUrl
+            ? _value.afterPhotoUrl
+            : afterPhotoUrl // ignore: cast_nullable_to_non_nullable
+                  as String?,
         taskLabel: freezed == taskLabel
             ? _value.taskLabel
             : taskLabel // ignore: cast_nullable_to_non_nullable
@@ -741,6 +758,7 @@ class _$RouteTaskImpl extends _RouteTask {
     this.skipped = false,
     @JsonKey(name: 'updated_fill_percentage') this.updatedFillPercentage,
     @JsonKey(name: 'photo_url') this.photoUrl,
+    @JsonKey(name: 'after_photo_url') this.afterPhotoUrl,
     @JsonKey(name: 'task_label') this.taskLabel,
     @JsonKey(name: 'task_description') this.taskDescription,
     @JsonKey(name: 'photo_required') this.photoRequired = false,
@@ -891,10 +909,16 @@ class _$RouteTaskImpl extends _RouteTask {
   @JsonKey(name: 'updated_fill_percentage')
   final int? updatedFillPercentage;
 
-  /// Photo URL taken during task completion
+  /// Photo URL taken during task completion (the "before" photo — the
+  /// full bin at check-in step 1)
   @override
   @JsonKey(name: 'photo_url')
   final String? photoUrl;
+
+  /// "After" photo URL — the emptied bin, captured at check-in step 2
+  @override
+  @JsonKey(name: 'after_photo_url')
+  final String? afterPhotoUrl;
   // ========== SERVICE TASK FIELDS ==========
   /// Display label for service tasks
   @override
@@ -957,7 +981,7 @@ class _$RouteTaskImpl extends _RouteTask {
 
   @override
   String toString() {
-    return 'RouteTask(id: $id, shiftId: $shiftId, sequenceOrder: $sequenceOrder, taskType: $taskType, latitude: $latitude, longitude: $longitude, address: $address, city: $city, zip: $zip, originalAddress: $originalAddress, newAddress: $newAddress, binId: $binId, binNumber: $binNumber, fillPercentage: $fillPercentage, potentialLocationId: $potentialLocationId, newBinNumber: $newBinNumber, moveRequestId: $moveRequestId, destinationLatitude: $destinationLatitude, destinationLongitude: $destinationLongitude, destinationAddress: $destinationAddress, moveType: $moveType, warehouseAction: $warehouseAction, binsToLoad: $binsToLoad, routeId: $routeId, isCompleted: $isCompleted, completedAt: $completedAt, skipped: $skipped, updatedFillPercentage: $updatedFillPercentage, photoUrl: $photoUrl, taskLabel: $taskLabel, taskDescription: $taskDescription, photoRequired: $photoRequired, completionNotes: $completionNotes, earliestArrival: $earliestArrival, latestArrival: $latestArrival, timeWindowType: $timeWindowType, serviceDurationSeconds: $serviceDurationSeconds, taskData: $taskData, createdAt: $createdAt)';
+    return 'RouteTask(id: $id, shiftId: $shiftId, sequenceOrder: $sequenceOrder, taskType: $taskType, latitude: $latitude, longitude: $longitude, address: $address, city: $city, zip: $zip, originalAddress: $originalAddress, newAddress: $newAddress, binId: $binId, binNumber: $binNumber, fillPercentage: $fillPercentage, potentialLocationId: $potentialLocationId, newBinNumber: $newBinNumber, moveRequestId: $moveRequestId, destinationLatitude: $destinationLatitude, destinationLongitude: $destinationLongitude, destinationAddress: $destinationAddress, moveType: $moveType, warehouseAction: $warehouseAction, binsToLoad: $binsToLoad, routeId: $routeId, isCompleted: $isCompleted, completedAt: $completedAt, skipped: $skipped, updatedFillPercentage: $updatedFillPercentage, photoUrl: $photoUrl, afterPhotoUrl: $afterPhotoUrl, taskLabel: $taskLabel, taskDescription: $taskDescription, photoRequired: $photoRequired, completionNotes: $completionNotes, earliestArrival: $earliestArrival, latestArrival: $latestArrival, timeWindowType: $timeWindowType, serviceDurationSeconds: $serviceDurationSeconds, taskData: $taskData, createdAt: $createdAt)';
   }
 
   @override
@@ -1015,6 +1039,8 @@ class _$RouteTaskImpl extends _RouteTask {
                 other.updatedFillPercentage == updatedFillPercentage) &&
             (identical(other.photoUrl, photoUrl) ||
                 other.photoUrl == photoUrl) &&
+            (identical(other.afterPhotoUrl, afterPhotoUrl) ||
+                other.afterPhotoUrl == afterPhotoUrl) &&
             (identical(other.taskLabel, taskLabel) ||
                 other.taskLabel == taskLabel) &&
             (identical(other.taskDescription, taskDescription) ||
@@ -1069,6 +1095,7 @@ class _$RouteTaskImpl extends _RouteTask {
     skipped,
     updatedFillPercentage,
     photoUrl,
+    afterPhotoUrl,
     taskLabel,
     taskDescription,
     photoRequired,
@@ -1126,6 +1153,7 @@ abstract class _RouteTask extends RouteTask {
     final bool skipped,
     @JsonKey(name: 'updated_fill_percentage') final int? updatedFillPercentage,
     @JsonKey(name: 'photo_url') final String? photoUrl,
+    @JsonKey(name: 'after_photo_url') final String? afterPhotoUrl,
     @JsonKey(name: 'task_label') final String? taskLabel,
     @JsonKey(name: 'task_description') final String? taskDescription,
     @JsonKey(name: 'photo_required') final bool photoRequired,
@@ -1270,10 +1298,16 @@ abstract class _RouteTask extends RouteTask {
   @JsonKey(name: 'updated_fill_percentage')
   int? get updatedFillPercentage;
 
-  /// Photo URL taken during task completion
+  /// Photo URL taken during task completion (the "before" photo — the
+  /// full bin at check-in step 1)
   @override
   @JsonKey(name: 'photo_url')
-  String? get photoUrl; // ========== SERVICE TASK FIELDS ==========
+  String? get photoUrl;
+
+  /// "After" photo URL — the emptied bin, captured at check-in step 2
+  @override
+  @JsonKey(name: 'after_photo_url')
+  String? get afterPhotoUrl; // ========== SERVICE TASK FIELDS ==========
   /// Display label for service tasks
   @override
   @JsonKey(name: 'task_label')

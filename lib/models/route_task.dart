@@ -100,8 +100,12 @@ class RouteTask with _$RouteTask {
     /// Updated fill percentage after collection (0-100)
     @JsonKey(name: 'updated_fill_percentage') int? updatedFillPercentage,
 
-    /// Photo URL taken during task completion
+    /// Photo URL taken during task completion (the "before" photo — the
+    /// full bin at check-in step 1)
     @JsonKey(name: 'photo_url') String? photoUrl,
+
+    /// "After" photo URL — the emptied bin, captured at check-in step 2
+    @JsonKey(name: 'after_photo_url') String? afterPhotoUrl,
 
     // ========== SERVICE TASK FIELDS ==========
     /// Display label for service tasks

@@ -45,57 +45,6 @@ class ShiftDemoPage extends ConsumerWidget {
                       ),
                     ),
                     const SizedBox(height: 16),
-                    ElevatedButton.icon(
-                      onPressed: () async {
-                        // Show loading
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('📤 Assigning route...'),
-                            duration: Duration(seconds: 2),
-                          ),
-                        );
-
-                        try {
-                          // Call backend API to assign route with 3 specific bins
-                          final apiService = ref.read(apiServiceProvider);
-                          await apiService.post(
-                            '/api/manager/assign-route',
-                            {
-                              'driver_id': '10d31b0e-1f4e-4b85-b312-47b458e6d823',
-                              'route_id': 'test_route_3bins',
-                              'bin_ids': [
-                                'c96c3c41-fdbd-4777-86eb-326edba84309', // Bin 1
-                                '14a67be5-9b31-4acf-bf48-4aacb39d3130', // Bin 2
-                                '8f4f7f05-c61f-4e20-9bc4-6db3f4defd59', // Bin 3
-                              ],
-                            },
-                          );
-
-                          if (context.mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('🎉 Route assigned! 3 bins'),
-                                backgroundColor: AppColors.successGreen,
-                              ),
-                            );
-                          }
-                        } catch (e) {
-                          if (context.mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text('❌ Error: $e'),
-                                backgroundColor: AppColors.alertRed,
-                              ),
-                            );
-                          }
-                        }
-                      },
-                      icon: const Icon(Icons.assignment),
-                      label: const Text('Assign Route (Manager)'),
-                      style: ElevatedButton.styleFrom(
-                      ),
-                    ),
-                    const SizedBox(height: 8),
                     OutlinedButton.icon(
                       onPressed: () async {
                         // Use dummy IDs for demo purposes

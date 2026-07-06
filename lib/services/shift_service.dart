@@ -419,41 +419,4 @@ class ShiftService {
     }
   }
 
-  /// Assign route to driver (manager only)
-  Future<Map<String, dynamic>> assignRoute({
-    required String driverID,
-    required String routeID,
-    required int totalBins,
-  }) async {
-    try {
-      print('📤 REQUEST: POST /api/manager/assign-route');
-      print('   Body: {');
-      print('     "driver_id": "$driverID",');
-      print('     "route_id": "$routeID",');
-      print('     "total_bins": $totalBins');
-      print('   }');
-
-      final response = await _apiService.post('/api/manager/assign-route', {
-        'driver_id': driverID,
-        'route_id': routeID,
-        'total_bins': totalBins,
-      });
-
-      print('📥 RESPONSE: ${response.statusCode}');
-      print('   Data: ${response.data}');
-
-      if (response.data['success'] == true) {
-        print('   ✅ Route assigned successfully!');
-        print('   Driver: $driverID');
-        print('   Route: $routeID');
-        print('   Bins: $totalBins');
-        return response.data['data'] as Map<String, dynamic>;
-      }
-
-      throw Exception(response.data['error'] ?? 'Failed to assign route');
-    } catch (e) {
-      print('   ❌ ERROR: $e');
-      rethrow;
-    }
-  }
 }

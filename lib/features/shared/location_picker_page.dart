@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:google_navigation_flutter/google_navigation_flutter.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:ropacalapp/core/constants/map_constants.dart';
 import 'package:ropacalapp/core/services/geocoding_service.dart';
 import 'package:ropacalapp/core/theme/app_colors.dart';
 import 'package:ropacalapp/core/utils/app_logger.dart';
@@ -34,10 +35,12 @@ class LocationPickerPage extends HookConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // Warehouse location as fallback (instead of hardcoded Dallas)
+    // Warehouse location as fallback (instead of hardcoded coords)
     final warehouseAsync = ref.watch(warehouseLocationNotifierProvider);
-    final warehouseLat = warehouseAsync.valueOrNull?.latitude ?? 32.886534;
-    final warehouseLng = warehouseAsync.valueOrNull?.longitude ?? -96.7642497;
+    final warehouseLat =
+        warehouseAsync.valueOrNull?.latitude ?? MapConstants.defaultLatitude;
+    final warehouseLng =
+        warehouseAsync.valueOrNull?.longitude ?? MapConstants.defaultLongitude;
 
     final mapController = useState<GoogleMapViewController?>(null);
     final isMapMoving = useState(false);

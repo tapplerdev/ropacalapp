@@ -14,6 +14,8 @@ import 'package:ropacalapp/providers/move_requests_list_provider.dart';
 import 'package:ropacalapp/models/active_driver.dart';
 import 'package:ropacalapp/models/potential_location.dart';
 import 'package:ropacalapp/models/bin.dart';
+import 'package:ropacalapp/core/constants/map_constants.dart';
+import 'package:ropacalapp/core/enums/bin_status.dart';
 import 'package:ropacalapp/core/utils/app_logger.dart';
 import 'package:ropacalapp/providers/location_provider.dart';
 import 'package:ropacalapp/features/driver/widgets/circular_map_button.dart';
@@ -1314,8 +1316,15 @@ class ManagerMapPage extends HookConsumerWidget {
               // Standard Google Maps View (no navigation)
               GoogleMapsMapView(
                 key: const ValueKey('fleet_map'),
-                initialCameraPosition: const CameraPosition(
-                  target: LatLng(latitude: 32.886534, longitude: -96.7642497), // Dallas
+                initialCameraPosition: CameraPosition(
+                  // Warehouse while the network frame below computes; the real
+                  // framing happens in onViewCreated (fit to active bins).
+                  target: LatLng(
+                    latitude: warehouseAsync.valueOrNull?.latitude ??
+                        MapConstants.defaultLatitude,
+                    longitude: warehouseAsync.valueOrNull?.longitude ??
+                        MapConstants.defaultLongitude,
+                  ),
                   zoom: 12,
                   tilt: 0.0, // Flat 2D view
                   bearing: 0.0, // North-up orientation
@@ -1325,6 +1334,45 @@ class ManagerMapPage extends HookConsumerWidget {
                 onViewCreated: (GoogleMapViewController controller) async {
                   mapController.value = controller;
                   AppLogger.map('✅ Manager fleet map created (standard Google Maps view)');
+
+                  // Frame the active bin network on load. Bins are guaranteed
+                  // loaded here — the page blocks rendering until binsAsync
+                  // has a value.
+                  final fieldBins = (binsAsync.valueOrNull ?? [])
+                      .where((b) =>
+                          b.status == BinStatus.active &&
+                          b.latitude != null &&
+                          b.longitude != null &&
+                          !(b.latitude == 0 && b.longitude == 0))
+                      .toList();
+                  if (fieldBins.length > 1) {
+                    var minLat = fieldBins.first.latitude!;
+                    var maxLat = minLat;
+                    var minLng = fieldBins.first.longitude!;
+                    var maxLng = minLng;
+                    for (final bin in fieldBins) {
+                      if (bin.latitude! < minLat) minLat = bin.latitude!;
+                      if (bin.latitude! > maxLat) maxLat = bin.latitude!;
+                      if (bin.longitude! < minLng) minLng = bin.longitude!;
+                      if (bin.longitude! > maxLng) maxLng = bin.longitude!;
+                    }
+                    await controller.moveCamera(CameraUpdate.newLatLngBounds(
+                      LatLngBounds(
+                        southwest: LatLng(latitude: minLat, longitude: minLng),
+                        northeast: LatLng(latitude: maxLat, longitude: maxLng),
+                      ),
+                      padding: 60,
+                    ));
+                    AppLogger.map('✅ Camera framed to ${fieldBins.length} active bins');
+                  } else if (fieldBins.length == 1) {
+                    await controller.moveCamera(CameraUpdate.newLatLngZoom(
+                      LatLng(
+                        latitude: fieldBins.first.latitude!,
+                        longitude: fieldBins.first.longitude!,
+                      ),
+                      13,
+                    ));
+                  }
 
                   // Enable MyLocation to show manager's current location (blue dot)
                   await controller.setMyLocationEnabled(true);

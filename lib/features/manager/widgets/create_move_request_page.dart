@@ -12,6 +12,7 @@ import 'package:ropacalapp/providers/drivers_provider.dart';
 import 'package:ropacalapp/providers/potential_locations_list_provider.dart';
 import 'package:ropacalapp/providers/move_requests_list_provider.dart';
 import 'package:ropacalapp/features/shared/location_picker_page.dart';
+import 'package:ropacalapp/core/constants/map_constants.dart';
 import 'package:ropacalapp/core/enums/bin_status.dart';
 
 /// Haversine distance in miles between two lat/lng points
@@ -1918,9 +1919,9 @@ class _PotentialLocationPickerSheetState
   Widget build(BuildContext context) {
     final locationsAsync = ref.watch(potentialLocationsListNotifierProvider);
 
-    // Camera center: selected bin location, or default Dallas
-    final centerLat = widget.selectedBin?.latitude ?? 32.886534;
-    final centerLng = widget.selectedBin?.longitude ?? -96.7642497;
+    // Camera center: selected bin location, or the house default center
+    final centerLat = widget.selectedBin?.latitude ?? MapConstants.defaultLatitude;
+    final centerLng = widget.selectedBin?.longitude ?? MapConstants.defaultLongitude;
 
     return Container(
       height: MediaQuery.of(context).size.height * 0.92,

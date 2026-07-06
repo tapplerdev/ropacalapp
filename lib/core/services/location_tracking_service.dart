@@ -31,6 +31,7 @@ class LocationTrackingService {
   String? _currentShiftId;
   bool _isTracking = false;
   fused.FusedLocation? _lastLocation; // Cache last received location
+  double? _lastCourse; // Last known direction of travel (held while stopped)
 
   // Callback for location updates (for UI integration)
   void Function(fused.FusedLocation)? _onLocationUpdate;
@@ -446,17 +447,30 @@ class LocationTrackingService {
       final lat = location.position.latitude;
       final lng = location.position.longitude;
 
-      // Use heading from fused_location (combines GPS + device sensors)
-      // This is more accurate than manual bearing calculation
-      final heading = location.heading.direction;
       final speed = location.speed.magnitude ?? 0.0;
       final accuracy = location.position.accuracy ?? -1.0;
 
-      // Prepare location data
+      // Marker orientation must be the direction of TRAVEL (course over
+      // ground), not the compass heading — heading is which way the PHONE
+      // points, so a phone mounted backwards renders the truck driving in
+      // reverse. Course is undefined while stopped, so hold the last known
+      // course at standstill instead of letting the marker twitch; before
+      // any movement at all, fall back to the compass as a best guess.
+      final course = location.course.direction;
+      if (course != null && speed >= 1.0) {
+        _lastCourse = course;
+      }
+      final travelDirection =
+          _lastCourse ?? course ?? location.heading.direction;
+
+      // Prepare location data. 'heading' carries the travel direction so
+      // every consumer (manager map, dashboard, Redis) is fixed by this one
+      // writer; the raw compass is kept alongside for diagnostics.
       final locationData = {
         'latitude': lat,
         'longitude': lng,
-        'heading': heading,
+        'heading': travelDirection,
+        'compass_heading': location.heading.direction,
         'speed': speed,
         'accuracy': accuracy,
         'shift_id': _currentShiftId,

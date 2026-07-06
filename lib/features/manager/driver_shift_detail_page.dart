@@ -97,8 +97,10 @@ class _DriverShiftDetailPageState
           final filteredTasks = _filterTasks(tasks);
 
           // Compute stats
+          // A skip also marks the task processed (isCompleted == 1), so
+          // completed must exclude skipped or remaining goes negative.
           final completed =
-              tasks.where((t) => t.isCompleted == 1).length;
+              tasks.where((t) => t.isCompleted == 1 && !t.skipped).length;
           final skipped = tasks.where((t) => t.skipped).length;
           final remaining = tasks.length - completed - skipped;
 
@@ -232,7 +234,15 @@ class _DriverShiftDetailPageState
                         const EdgeInsets.symmetric(horizontal: 16),
                     itemCount: filteredTasks.length,
                     itemBuilder: (context, index) {
-                      return _TaskCard(task: filteredTasks[index]);
+                      final task = filteredTasks[index];
+                      return _TaskCard(
+                        task: task,
+                        // OR-Tools always ends the route at the warehouse —
+                        // the last task is the final return, not a mid-route
+                        // load stop.
+                        isFinalStop:
+                            tasks.isNotEmpty && task.id == tasks.last.id,
+                      );
                     },
                   ),
 
@@ -636,33 +646,17 @@ class _DriverSummaryCard extends StatelessWidget {
                         color: AppColors.textPrimary,
                       ),
                     ),
-                    Row(
-                      children: [
-                        Text(
-                          driver.routeDisplayName,
-                          style: TextStyle(
-                            fontSize: 13,
-                            color: Colors.grey.shade600,
-                          ),
+                    // The route id is a UUID — meaningless to render (and it
+                    // overflowed the row). Show only the start time.
+                    if (driver.startTime != null)
+                      Text(
+                        'Started ${timeFormat.format(driver.startTime!)}',
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: Colors.grey.shade600,
                         ),
-                        if (driver.startTime != null) ...[
-                          Text(
-                            '  ·  ',
-                            style: TextStyle(
-                              fontSize: 13,
-                              color: Colors.grey.shade400,
-                            ),
-                          ),
-                          Text(
-                            timeFormat.format(driver.startTime!),
-                            style: TextStyle(
-                              fontSize: 13,
-                              color: Colors.grey.shade600,
-                            ),
-                          ),
-                        ],
-                      ],
-                    ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
                   ],
                 ),
               ),
@@ -674,7 +668,7 @@ class _DriverSummaryCard extends StatelessWidget {
             children: [
               _InlineStat(
                 icon: Icons.task_alt,
-                label: 'Tasks',
+                label: 'Bins',
                 value: '${driver.completedBins}/${driver.totalBins}',
                 color: AppColors.primaryGreen,
               ),
@@ -762,8 +756,9 @@ class _InlineStat extends StatelessWidget {
 
 class _TaskCard extends StatelessWidget {
   final RouteTask task;
+  final bool isFinalStop;
 
-  const _TaskCard({required this.task});
+  const _TaskCard({required this.task, this.isFinalStop = false});
 
   /// Move type color — distinct color per move request type
   Color get _moveTypeColor {
@@ -939,7 +934,9 @@ class _TaskCard extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        task.displayTitle,
+                        isFinalStop && task.isWarehouseStop
+                            ? 'Warehouse - End'
+                            : task.displayTitle,
                         style: const TextStyle(
                           fontSize: 15,
                           fontWeight: FontWeight.bold,
@@ -1270,11 +1267,13 @@ class _TaskCard extends StatelessWidget {
                 ),
                 child: Row(
                   children: [
-                    Icon(Icons.warehouse,
+                    Icon(isFinalStop ? Icons.flag : Icons.warehouse,
                         size: 16, color: Colors.teal.shade600),
                     const SizedBox(width: 8),
                     Text(
-                      '${task.warehouseAction?.toUpperCase() ?? 'STOP'}${task.binsToLoad != null ? ' — ${task.binsToLoad} bins' : ''}',
+                      isFinalStop
+                          ? 'END OF ROUTE — return to warehouse'
+                          : '${task.warehouseAction?.toUpperCase() ?? 'STOP'}${task.binsToLoad != null ? ' — ${task.binsToLoad} bins' : ''}',
                       style: TextStyle(
                         fontSize: 13,
                         color: Colors.teal.shade700,

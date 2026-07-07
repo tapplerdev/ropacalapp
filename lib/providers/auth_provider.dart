@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:google_navigation_flutter/google_navigation_flutter.dart';
@@ -10,6 +11,7 @@ import 'package:ropacalapp/providers/simulation_provider.dart';
 import 'package:ropacalapp/core/services/location_tracking_service.dart';
 import 'package:ropacalapp/core/utils/app_logger.dart';
 import 'package:ropacalapp/core/services/session_manager.dart';
+import 'package:ropacalapp/core/services/startup_cache.dart';
 import 'package:ropacalapp/providers/focused_driver_provider.dart';
 import 'package:ropacalapp/providers/route_polyline_provider.dart';
 
@@ -66,12 +68,29 @@ class AuthNotifier extends _$AuthNotifier {
     AppLogger.general('   💾 hasToken: ${apiService.hasToken}');
 
     if (apiService.hasToken) {
+      // OPTIMISTIC COLD START: with a locally-valid (non-expired) JWT and a
+      // cached user snapshot, navigate immediately and validate against the
+      // backend in the background — the network round-trip comes off the
+      // critical path. A rejected session bounces to login within seconds;
+      // a network error keeps the session (offline-tolerant).
+      if (!_jwtExpired(apiService.currentAuthToken)) {
+        final cachedUser = await _loadCachedUser();
+        if (cachedUser != null) {
+          AppLogger.general(
+              '   ⚡ OPTIMISTIC: cached user + valid JWT — validating in background');
+          _validateSessionInBackground();
+          _postLoginSetup(cachedUser); // driver tracking + FCM, off-path
+          return cachedUser;
+        }
+      }
+
       AppLogger.general('   ✅ Token found! Validating with backend...');
       try {
         final user = await apiService.getAuthStatus();
         if (user != null) {
           AppLogger.general('   ✅ User auto-logged in from saved token');
           AppLogger.general('   👤 User: ${user.email} (${user.role})');
+          await _cacheUser(user);
 
           // Start background location tracking for drivers on auto-login
           if (user.role == UserRole.driver) {
@@ -106,6 +125,84 @@ class AuthNotifier extends _$AuthNotifier {
     return null;
   }
 
+  // ─── Optimistic cold-start helpers ─────────────────────────────────
+
+  /// Local JWT expiry check — no signature verification (the backend does
+  /// that), just enough to avoid optimistically resuming a session that is
+  /// guaranteed to bounce.
+  bool _jwtExpired(String? token) {
+    if (token == null) return true;
+    try {
+      final parts = token.split('.');
+      if (parts.length != 3) return true;
+      final payload = jsonDecode(
+        utf8.decode(base64Url.decode(base64Url.normalize(parts[1]))),
+      ) as Map<String, dynamic>;
+      final exp = payload['exp'] as int?;
+      if (exp == null) return false; // no expiry claim — let the backend say
+      return DateTime.now().millisecondsSinceEpoch ~/ 1000 >= exp;
+    } catch (_) {
+      return true; // unparseable — take the safe validated path
+    }
+  }
+
+  Future<User?> _loadCachedUser() async {
+    final json = await StartupCache.load(StartupCache.userKey);
+    if (json is Map<String, dynamic>) {
+      try {
+        return User.fromJson(json);
+      } catch (_) {}
+    }
+    return null;
+  }
+
+  Future<void> _cacheUser(User user) =>
+      StartupCache.save(StartupCache.userKey, user.toJson());
+
+  /// Background session validation for the optimistic path. An explicit
+  /// auth rejection signs out; a network error keeps the session so the
+  /// app still works offline.
+  Future<void> _validateSessionInBackground() async {
+    try {
+      final user = await ref.read(apiServiceProvider).getAuthStatus();
+      if (user != null) {
+        await _cacheUser(user);
+        state = AsyncData(user); // pick up any profile changes
+        AppLogger.general('✅ Background session validation OK');
+      } else {
+        await _forceSignOut('session no longer valid');
+      }
+    } catch (e) {
+      if (e.toString().contains('Unauthorized')) {
+        await _forceSignOut('token rejected (401)');
+      } else {
+        AppLogger.general(
+            '⚠️ Background validation network error — keeping session: $e');
+      }
+    }
+  }
+
+  Future<void> _forceSignOut(String reason) async {
+    AppLogger.general('🚪 Signing out: $reason');
+    await ref.read(apiServiceProvider).clearAuthToken();
+    await StartupCache.clear(StartupCache.userKey);
+    state = const AsyncData(null); // router redirects to login
+  }
+
+  /// Post-login side effects (driver tracking + FCM registration) — fired
+  /// without awaiting on the optimistic path so they stay off the critical
+  /// render path.
+  Future<void> _postLoginSetup(User user) async {
+    if (user.role == UserRole.driver) {
+      try {
+        await ref.read(locationTrackingServiceProvider).startBackgroundTracking();
+      } catch (e) {
+        AppLogger.general('⚠️ Background tracking start failed: $e');
+      }
+    }
+    await _registerFCMToken();
+  }
+
   Future<void> login(String email, String password) async {
     state = const AsyncValue.loading();
 
@@ -132,7 +229,9 @@ class AuthNotifier extends _$AuthNotifier {
       // Extract user from response
       final userData = response['user'] as Map<String, dynamic>?;
       if (userData != null) {
-        return User.fromJson(userData);
+        final user = User.fromJson(userData);
+        await _cacheUser(user); // enables optimistic cold start next launch
+        return user;
       }
 
       throw 'Invalid login response';
@@ -184,6 +283,7 @@ class AuthNotifier extends _$AuthNotifier {
 
     final apiService = ref.read(apiServiceProvider);
     await apiService.clearAuthToken();
+    await StartupCache.clear(StartupCache.userKey);
 
     // Stop background location tracking
     ref.read(locationTrackingServiceProvider).stopTracking();

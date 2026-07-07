@@ -1,5 +1,6 @@
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:ropacalapp/core/data/mock_bins.dart';
+import 'package:ropacalapp/core/services/startup_cache.dart';
 import 'package:ropacalapp/core/utils/app_logger.dart';
 import 'package:ropacalapp/models/bin.dart';
 import 'package:ropacalapp/models/bin_check.dart';
@@ -12,15 +13,50 @@ part 'bins_provider.g.dart';
 class BinsList extends _$BinsList {
   @override
   Future<List<Bin>> build() async {
+    // Cache-first: render the last known bin set instantly and refresh in
+    // the background — a returning launch shouldn't block the map on the
+    // network.
+    final cached = await StartupCache.load(StartupCache.binsKey);
+    if (cached is List && cached.isNotEmpty) {
+      try {
+        final bins = cached
+            .map((j) => Bin.fromJson(j as Map<String, dynamic>))
+            .toList();
+        AppLogger.bins(
+            '📦 BinsList: ${bins.length} bins from cache — refreshing in background');
+        _refreshInBackground();
+        return bins;
+      } catch (_) {
+        // Corrupt cache (e.g. model changed between builds) — fall through.
+      }
+    }
+
     AppLogger.bins('📦 BinsList: Loading bins from Golang backend...');
-
-    final apiService = ref.read(apiServiceProvider);
-    final bins = await apiService.getBins();
-
+    final bins = await _fetchAndCache();
     AppLogger.bins(
       '📦 BinsList: Successfully loaded ${bins.length} bins from backend',
     );
     return bins;
+  }
+
+  Future<List<Bin>> _fetchAndCache() async {
+    final apiService = ref.read(apiServiceProvider);
+    final bins = await apiService.getBins();
+    await StartupCache.save(
+      StartupCache.binsKey,
+      bins.map((b) => b.toJson()).toList(),
+    );
+    return bins;
+  }
+
+  Future<void> _refreshInBackground() async {
+    try {
+      state = AsyncData(await _fetchAndCache());
+      AppLogger.bins('📦 BinsList: background refresh complete');
+    } catch (e) {
+      // Keep serving cached data — the cache is what makes us usable offline.
+      AppLogger.bins('⚠️ BinsList: background refresh failed: $e');
+    }
   }
 
   Future<void> refresh() async {

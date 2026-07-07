@@ -1,5 +1,6 @@
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:ropacalapp/core/exceptions/shift_ended_exception.dart';
+import 'package:ropacalapp/core/services/startup_cache.dart';
 import 'package:ropacalapp/core/utils/app_logger.dart';
 import 'package:ropacalapp/models/active_driver.dart';
 import 'package:ropacalapp/models/driver_location.dart';
@@ -23,7 +24,23 @@ ManagerService managerService(ManagerServiceRef ref) {
 class DriversNotifier extends _$DriversNotifier {
   @override
   Future<List<ActiveDriver>> build() async {
-    // Fetch initial list of drivers
+    // Cache-first: hydrate from the last known snapshot so the map renders
+    // instantly, then refresh in the background. Stale locations are fine —
+    // live fixes and the refetch correct them within seconds.
+    final cached = await StartupCache.load(StartupCache.driversKey);
+    if (cached is List && cached.isNotEmpty) {
+      try {
+        final drivers = cached
+            .map((j) => ActiveDriver.fromJson(j as Map<String, dynamic>))
+            .toList();
+        AppLogger.general(
+            '🚗 ${drivers.length} drivers from cache — refreshing in background');
+        Future.microtask(refresh);
+        return drivers;
+      } catch (_) {
+        // Corrupt cache (model changed between builds) — fall through.
+      }
+    }
     return _fetchDrivers();
   }
 
@@ -44,6 +61,11 @@ class DriversNotifier extends _$DriversNotifier {
         }).toList();
 
         AppLogger.general('✅ Loaded ${drivers.length} drivers');
+        // Snapshot for the cache-first cold start.
+        await StartupCache.save(
+          StartupCache.driversKey,
+          drivers.map((d) => d.toJson()).toList(),
+        );
         return drivers;
       }
 

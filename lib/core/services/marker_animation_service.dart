@@ -96,7 +96,17 @@ class MarkerAnimationService {
   /// degrees per millisecond (≈ a full U-turn in half a second).
   static const double _maxTurnDegPerMs = 0.36;
 
-  final Stopwatch _clock = Stopwatch()..start();
+  /// Wall-clock source in milliseconds. Injectable so tests can drive
+  /// virtual time; production uses a monotonic stopwatch.
+  MarkerAnimationService({double Function()? nowMs})
+      : _nowMs = nowMs ??
+            (() {
+              _defaultClock ??= Stopwatch()..start();
+              return _defaultClock!.elapsedMilliseconds.toDouble();
+            });
+
+  static Stopwatch? _defaultClock;
+  final double Function() _nowMs;
   double? _lastTickMs;
 
   /// Enqueue a GPS fix for playback. Name kept from the original one-shot
@@ -153,17 +163,30 @@ class MarkerAnimationService {
       }
     }
 
-    // Parked: GPS wander at a stop is noise, not motion. Coalesce into the
-    // previous fix (keep the settled position, advance its timestamp) so
-    // the marker holds still instead of creeping at render smoothness.
+    // Parked: GPS wander at a stop is noise, not motion. Anchor a
+    // zero-length "parked" segment at the settled position instead of
+    // animating the drift. IMPORTANT: never stretch a MOVING segment's end
+    // timestamp — that dilates its playback time and the marker oozes into
+    // the stop asymptotically instead of arriving crisply (caught by the
+    // red-light invariant test).
     if (playback.queue.isNotEmpty &&
         speed != null &&
         speed < _stationarySpeedMps) {
       final prev = playback.queue.last;
       final drift = _distanceMeters(prev.pos, newPosition);
       if (drift < max(accuracy ?? 8.0, 8.0)) {
-        playback.queue[playback.queue.length - 1] =
-            _TimedFix(pos: prev.pos, ts: ts, speed: speed);
+        if ((prev.speed ?? double.infinity) < _stationarySpeedMps) {
+          // Already parked: extend the zero-length parked segment.
+          playback.queue[playback.queue.length - 1] =
+              _TimedFix(pos: prev.pos, ts: ts, speed: speed);
+        } else {
+          // Moving → stopped: append the parked anchor so the final moving
+          // segment keeps its true duration and the playhead lands exactly.
+          playback.queue.add(_TimedFix(pos: prev.pos, ts: ts, speed: speed));
+        }
+        if (!animationStateNotifier.value && playback.hasRunway) {
+          animationStateNotifier.value = true;
+        }
         return;
       }
     }
@@ -213,7 +236,7 @@ class MarkerAnimationService {
   /// Called by the map's render loop; parked drivers report their last
   /// position so the caller has one consistent source.
   Map<String, LatLng> getInterpolatedPositions() {
-    final nowMs = _clock.elapsedMilliseconds.toDouble();
+    final nowMs = _nowMs();
     final dtMs = _lastTickMs == null ? 0.0 : nowMs - _lastTickMs!;
     _lastTickMs = nowMs;
 

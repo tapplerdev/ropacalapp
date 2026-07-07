@@ -48,6 +48,18 @@ class MarkerAnimationService {
   /// the planned route — fall back to straight-chord interpolation.
   static const double _maxGuideSnapM = 30.0;
 
+  /// Below this reported speed the driver is parked: positional wander is
+  /// GPS noise, so coalesce fixes instead of animating the drift.
+  static const double _stationarySpeedMps = 1.0;
+
+  /// Below this speed the heading is frozen — bearings derived from
+  /// creeping GPS noise spin the marker while the truck sits at a bin.
+  static const double _headingFreezeSpeedMps = 2.0;
+
+  /// Implied speed above this (~100 mph) is a bad fix or a tunnel exit,
+  /// not driving — teleport instead of gliding across it.
+  static const double _teleportSpeedMps = 45.0;
+
   /// Max marker rotation while smoothing toward the target bearing,
   /// degrees per millisecond (≈ a full U-turn in half a second).
   static const double _maxTurnDegPerMs = 0.36;
@@ -62,6 +74,7 @@ class MarkerAnimationService {
     required LatLng newPosition,
     double? heading,
     double? accuracy,
+    double? speed,
     int? timestampMs,
   }) {
     if ((accuracy ?? 0) > _accuracyRejectM) {
@@ -91,7 +104,38 @@ class MarkerAnimationService {
       playback.playheadTs = null;
     }
 
-    playback.queue.add(_TimedFix(pos: newPosition, ts: ts));
+    // Physically implausible jump (bad fix that self-reports good
+    // accuracy): teleport rather than render a 600 km/h glide.
+    if (playback.queue.isNotEmpty) {
+      final prev = playback.queue.last;
+      final impliedMps =
+          _distanceMeters(prev.pos, newPosition) / ((ts - prev.ts) / 1000.0);
+      if (impliedMps > _teleportSpeedMps) {
+        AppLogger.map(
+          '🛰️ Implied ${impliedMps.toStringAsFixed(0)} m/s for $driverId '
+          '— teleporting to the new fix',
+        );
+        playback.queue.clear();
+        playback.playheadTs = null;
+      }
+    }
+
+    // Parked: GPS wander at a stop is noise, not motion. Coalesce into the
+    // previous fix (keep the settled position, advance its timestamp) so
+    // the marker holds still instead of creeping at render smoothness.
+    if (playback.queue.isNotEmpty &&
+        speed != null &&
+        speed < _stationarySpeedMps) {
+      final prev = playback.queue.last;
+      final drift = _distanceMeters(prev.pos, newPosition);
+      if (drift < max(accuracy ?? 8.0, 8.0)) {
+        playback.queue[playback.queue.length - 1] =
+            _TimedFix(pos: prev.pos, ts: ts, speed: speed);
+        return;
+      }
+    }
+
+    playback.queue.add(_TimedFix(pos: newPosition, ts: ts, speed: speed));
     playback.playheadTs ??= ts; // first fix: park the marker on it
     if (heading != null && playback.displayedHeading == null) {
       playback.displayedHeading = heading; // seed before any movement
@@ -199,6 +243,10 @@ class MarkerAnimationService {
     final b = queue[1];
     final t = ((playhead - a.ts) / (b.ts - a.ts)).clamp(0.0, 1.0);
 
+    // Freeze heading at crawl speed: bearings derived from GPS creep spin
+    // the marker while the truck is actually sitting at a bin.
+    final slowFix = (b.speed ?? double.infinity) < _headingFreezeSpeedMps;
+
     // Road-following: when a guide path is attached and both endpoints of
     // the playing segment sit on it (in forward order), glide along the
     // path geometry instead of the straight chord.
@@ -208,7 +256,9 @@ class MarkerAnimationService {
       final sB = _projectedS(b, guide, p.guideVersion);
       if (sA != null && sB != null && sB > sA) {
         final s = sA + (sB - sA) * t;
-        _steerHeading(p, guide.bearingAt(s), dtMs);
+        if (!slowFix) {
+          _steerHeading(p, guide.bearingAt(s), dtMs);
+        }
         return guide.pointAt(s);
       }
     }
@@ -218,7 +268,7 @@ class MarkerAnimationService {
       latitude: a.pos.latitude + (b.pos.latitude - a.pos.latitude) * t,
       longitude: a.pos.longitude + (b.pos.longitude - a.pos.longitude) * t,
     );
-    if (_distanceMeters(a.pos, b.pos) >= _minBearingSegmentM) {
+    if (!slowFix && _distanceMeters(a.pos, b.pos) >= _minBearingSegmentM) {
       _steerHeading(p, _bearingDegrees(a.pos, b.pos), dtMs);
     }
     return pos;
@@ -301,18 +351,19 @@ class _DriverPlayback {
       queue.isNotEmpty && playheadTs != null && playheadTs! < queue.last.ts;
 }
 
-/// A GPS fix with its device-side timestamp (ms) and a cached projection
-/// onto the current guide path.
+/// A GPS fix with its device-side timestamp (ms), reported speed (m/s),
+/// and a cached projection onto the current guide path.
 class _TimedFix {
   final LatLng pos;
   final double ts;
+  final double? speed;
 
   /// Distance along the guide path at the nearest point, or null when the
   /// fix was too far from the path. Valid only for [cachedVersion].
   double? cachedS;
   int cachedVersion = -1;
 
-  _TimedFix({required this.pos, required this.ts});
+  _TimedFix({required this.pos, required this.ts, this.speed});
 }
 
 /// A polyline with precomputed cumulative lengths, supporting projection

@@ -133,11 +133,6 @@ class ManagerMapPage extends HookConsumerWidget {
     // Track current driver positions and headings for animation
     final currentDriverPositions = useState<Map<String, LatLng>>({});
     final currentDriverHeadings = useState<Map<String, double>>({});
-    // Last icon variant pushed to the native marker per driver (10° heading
-    // bucket + focus flag). The 60fps position loop only re-sends the icon
-    // when this changes — re-assigning the bitmap every frame gave iOS a
-    // window to render the marker half-uploaded.
-    final lastPushedIconKeys = useRef<Map<String, int>>({});
 
     // Guard to suppress gesture-exit during programmatic camera moves
     final isProgrammaticMove = useState<bool>(false);
@@ -290,6 +285,7 @@ class ManagerMapPage extends HookConsumerWidget {
                             newPosition: newPos,
                             heading: location.heading,
                             accuracy: location.accuracy,
+                            speed: location.speed,
                             timestampMs: location.timestamp,
                           );
 
@@ -841,17 +837,16 @@ class ManagerMapPage extends HookConsumerWidget {
                       final driver = activeDrivers.firstWhere((d) => d.driverId == driverId);
                       final location = driver.currentLocation!;
 
-                      // Create truck icon with heading rotation
+                      // North-up icon; orientation via the native rotation
+                      // property (world-aligned on flat markers).
                       final heading = currentDriverHeadings.value[driverId] ??
                           location.heading ?? 0.0;
-                      final icon = await GoogleNavigationMarkerService.createDriverTruckMarkerIcon(
-                        heading: heading,
-                        isFocused: false,
-                      );
+                      final icon = await GoogleNavigationMarkerService
+                          .createDriverTruckMarkerIcon();
 
                       // No InfoWindow: the floating follow card is the tap
                       // surface, and the native window renders half-drawn
-                      // when the marker is mutated at 60fps.
+                      // when the marker is mutated per-frame.
                       newMarkerOptions.add(
                         MarkerOptions(
                           position: LatLng(
@@ -861,6 +856,7 @@ class ManagerMapPage extends HookConsumerWidget {
                           icon: icon,
                           anchor: const MarkerAnchor(u: 0.5, v: 0.5),
                           flat: true,
+                          rotation: heading,
                           zIndex: 10000.0,
                         ),
                       );
@@ -944,38 +940,26 @@ class ManagerMapPage extends HookConsumerWidget {
                             : null);
                     if (position == null) continue;
 
-                    // Position-only update unless the icon variant actually
-                    // changed (10° heading bucket or focus state) — pushing
-                    // the bitmap every frame let iOS render it half-uploaded.
+                    // Position + native rotation every frame. The icon is a
+                    // single north-up bitmap; rotation is a plain property
+                    // set on both platforms (Android applies instantly —
+                    // this loop is the animator; iOS's implicit ~0.25s
+                    // CATransaction low-passes it for free). Continuous
+                    // rotation replaces the old 10° bitmap buckets that
+                    // stepped visibly through turns.
                     // Heading preference: motion-derived (playback) → live
                     // payload → polled API value.
                     final heading = interpolatedHeadings[driver.driverId] ??
                         currentDriverHeadings.value[driver.driverId] ??
                         driver.currentLocation?.heading ?? 0.0;
-                    final bucket = ((heading % 360) / 10).round() * 10 % 360;
-                    final iconKey = bucket + (isFocused ? 3600 : 0);
 
-                    final Marker updatedMarker;
-                    if (lastPushedIconKeys.value[driver.driverId] != iconKey) {
-                      lastPushedIconKeys.value[driver.driverId] = iconKey;
-                      final driverIcon = await GoogleNavigationMarkerService.createDriverTruckMarkerIcon(
-                        heading: heading,
-                        isFocused: isFocused,
-                      );
-                      updatedMarker = existingMarker.copyWith(
-                        options: existingMarker.options.copyWith(
-                          position: position,
-                          icon: driverIcon,
-                          zIndex: isFocused ? 10001.0 : 10000.0,
-                        ),
-                      );
-                    } else {
-                      updatedMarker = existingMarker.copyWith(
-                        options: existingMarker.options.copyWith(
-                          position: position,
-                        ),
-                      );
-                    }
+                    final updatedMarker = existingMarker.copyWith(
+                      options: existingMarker.options.copyWith(
+                        position: position,
+                        rotation: heading,
+                        zIndex: isFocused ? 10001.0 : 10000.0,
+                      ),
+                    );
                     updatedMarkers.add(updatedMarker);
                     updatedMap[driver.driverId] = updatedMarker;
                   }
@@ -1006,7 +990,10 @@ class ManagerMapPage extends HookConsumerWidget {
                 if (animating) {
                   AppLogger.map('🎬 Starting 60fps timer for driver position updates');
                   animationTimer = Timer.periodic(
-                    const Duration(milliseconds: 16), // ~60fps
+                    // ~30fps: a truck moves <0.5px per frame at city zoom,
+                    // so 60fps was pure platform-channel overhead (Android
+                    // re-sinks every marker property per update).
+                    const Duration(milliseconds: 32),
                     (_) {
                       if (!isUpdatingMarkers.value) {
                         updateDriverPositions();
@@ -1229,6 +1216,81 @@ class ManagerMapPage extends HookConsumerWidget {
               return null;
             },
             [focusedDriverId, polylineState.fullRoute],
+          );
+
+          // Guide paths for ALL routed drivers, not just the focused one:
+          // every 30s fetch each active driver's current-leg OSRM route and
+          // attach it to the playback, so the whole fleet follows real road
+          // geometry through corners instead of cutting ~39m chords. The
+          // focused driver is skipped — the effect above keeps it in sync
+          // with the drawn polyline.
+          useEffect(
+            () {
+              if (mapController.value == null) return null;
+              var cancelled = false;
+
+              Future<void> refreshGuides() async {
+                for (final d in activeDrivers) {
+                  if (cancelled) return;
+                  if (d.driverId == focusedDriverId) continue;
+                  if (d.shiftId.isEmpty) continue;
+                  try {
+                    final shiftData = await ref
+                        .read(driverShiftDetailProvider(d.driverId).future);
+                    final task = shiftData.bins
+                        .where((t) => t.isCompleted == 0 && !t.skipped)
+                        .firstOrNull;
+                    if (task == null) {
+                      animationService.setGuidePath(d.driverId, null);
+                      continue;
+                    }
+                    final live =
+                        ref.read(driverLivePositionsProvider)[d.driverId];
+                    final originLat =
+                        live?.latitude ?? d.currentLocation?.latitude;
+                    final originLng =
+                        live?.longitude ?? d.currentLocation?.longitude;
+                    if (originLat == null || originLng == null) continue;
+
+                    final coords =
+                        await ref.read(managerServiceProvider).getDirections(
+                              originLat: originLat,
+                              originLng: originLng,
+                              destLat: task.latitude,
+                              destLng: task.longitude,
+                            );
+                    if (cancelled) return;
+                    final pts = coords
+                        .map((c) => LatLng(
+                              latitude: (c['latitude'] as num).toDouble(),
+                              longitude: (c['longitude'] as num).toDouble(),
+                            ))
+                        .toList();
+                    if (pts.length >= 2) {
+                      animationService.setGuidePath(d.driverId, pts);
+                    }
+                  } catch (e) {
+                    AppLogger.map(
+                        '⚠️ Guide refresh failed for ${d.driverName}: $e');
+                  }
+                }
+              }
+
+              refreshGuides();
+              final guideTimer = Timer.periodic(
+                const Duration(seconds: 30),
+                (_) => refreshGuides(),
+              );
+              return () {
+                cancelled = true;
+                guideTimer.cancel();
+              };
+            },
+            [
+              mapController.value,
+              activeDrivers.map((d) => '${d.driverId}:${d.shiftId}').join('|'),
+              focusedDriverId,
+            ],
           );
 
           // Zoom-to-fit: smoothly animate camera to show driver + destination.

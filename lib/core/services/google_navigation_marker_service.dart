@@ -39,7 +39,7 @@ class GoogleNavigationMarkerService {
   /// Clear marker cache (call when memory needs to be freed)
   static void clearCache() {
     _markerCache.clear();
-    _truckMarkerCache.clear();
+    _truckNorthUpIcon = null;
     _warehouseMarkerCache = null;
     _placementMarkerCache = null;
     _destinationMarkerCache = null;
@@ -315,8 +315,11 @@ class GoogleNavigationMarkerService {
     }
   }
 
-  // Cache for truck marker icons (key: roundedHeading)
-  static final Map<int, ImageDescriptor> _truckMarkerCache = {};
+  // Single cached north-up truck icon. Rotation is applied via the native
+  // marker `rotation` property (degrees clockwise from north, world-aligned
+  // for flat markers) — NOT baked into the bitmap. The old per-10°-bucket
+  // bitmaps caused visible rotation stepping and per-turn icon churn.
+  static ImageDescriptor? _truckNorthUpIcon;
   // Cached decoded truck image (loaded once from assets)
   static ui.Image? _truckBaseImage;
 
@@ -331,19 +334,11 @@ class GoogleNavigationMarkerService {
     return _truckBaseImage!;
   }
 
-  /// Create truck marker icon from the Vecteezy top-down truck image
-  /// Loads the JPG, removes white background, rotates by heading, and scales
-  static Future<ImageDescriptor> createDriverTruckMarkerIcon({
-    required double heading,
-    bool isFocused = false,
-  }) async {
-    // Round heading to nearest 10 degrees for caching (36 possible values)
-    final roundedHeading = ((heading % 360) / 10).round() * 10 % 360;
-    final cacheKey = roundedHeading + (isFocused ? 3600 : 0);
-
-    if (_truckMarkerCache.containsKey(cacheKey)) {
-      return _truckMarkerCache[cacheKey]!;
-    }
+  /// Create the north-up truck marker icon (cab pointing up = heading 0).
+  /// Loads the JPG, removes the white background, normalizes orientation,
+  /// and scales. Rotate the MARKER (options.rotation), not the bitmap.
+  static Future<ImageDescriptor> createDriverTruckMarkerIcon() async {
+    if (_truckNorthUpIcon != null) return _truckNorthUpIcon!;
 
     // Load the source image
     final sourceImage = await _loadTruckImage();
@@ -379,18 +374,15 @@ class GoogleNavigationMarkerService {
     final transparentFrame = await codec.getNextFrame();
     final transparentImage = transparentFrame.image;
 
-    // Step 2: Draw on canvas with rotation
+    // Step 2: Draw north-up. The source artwork has the cab at the bottom
+    // pointing down; rotate 180° once so rotation 0 = cab up = due north.
     final recorder = ui.PictureRecorder();
     final canvas = Canvas(recorder);
     final center = Offset(canvasSize / 2, canvasSize / 2);
 
-    // The source image has cab at bottom pointing down.
-    // For heading 0 (north/up), we need cab at top, so rotate 180 degrees base.
-    final totalRotation = (roundedHeading + 180) * math.pi / 180;
-
     canvas.save();
     canvas.translate(center.dx, center.dy);
-    canvas.rotate(totalRotation);
+    canvas.rotate(math.pi);
     canvas.translate(-center.dx, -center.dy);
 
     // Scale the truck image to fit within the canvas with some padding
@@ -418,13 +410,11 @@ class GoogleNavigationMarkerService {
       throw Exception('Failed to create truck marker icon');
     }
 
-    final registeredImage = await registerBitmapImage(
+    _truckNorthUpIcon = await registerBitmapImage(
       bitmap: outputBytes,
       imagePixelRatio: renderScale,
     );
-
-    _truckMarkerCache[cacheKey] = registeredImage;
-    return registeredImage;
+    return _truckNorthUpIcon!;
   }
 
   /// Create custom potential location marker icon

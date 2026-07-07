@@ -1281,9 +1281,35 @@ class ManagerMapPage extends HookConsumerWidget {
                 const Duration(seconds: 30),
                 (_) => refreshGuides(),
               );
+
+              // Off-route latch → refetch the route NOW instead of waiting
+              // out the periodic timers (playback fires this once per latch).
+              animationService.onOffRoute = (driverId) {
+                if (cancelled) return;
+                if (driverId == focusedDriverId) {
+                  final pos = animationService.lastRenderedPosition(driverId) ??
+                      (() {
+                        final live =
+                            ref.read(driverLivePositionsProvider)[driverId];
+                        return live == null
+                            ? null
+                            : LatLng(
+                                latitude: live.latitude,
+                                longitude: live.longitude,
+                              );
+                      })();
+                  if (pos != null) {
+                    ref.read(routePolylineProvider.notifier).refreshRoute(pos);
+                  }
+                } else {
+                  refreshGuides();
+                }
+              };
+
               return () {
                 cancelled = true;
                 guideTimer.cancel();
+                animationService.onOffRoute = null;
               };
             },
             [

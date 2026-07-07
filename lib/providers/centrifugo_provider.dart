@@ -5,6 +5,7 @@ import 'package:ropacalapp/core/services/centrifugo_service.dart';
 import 'package:ropacalapp/core/services/location_tracking_service.dart';
 import 'package:ropacalapp/core/enums/user_role.dart';
 import 'package:ropacalapp/providers/auth_provider.dart';
+import 'package:ropacalapp/providers/drivers_provider.dart';
 import 'package:ropacalapp/providers/notification_provider.dart';
 import 'package:ropacalapp/core/notifications/notification_adapters.dart';
 import 'package:ropacalapp/core/utils/app_logger.dart';
@@ -188,6 +189,11 @@ class CentrifugoManager extends _$CentrifugoManager {
           final user = authState.value!;
           if (user.role == UserRole.admin) {
             await _subscribeToCompanyEvents();
+            // Catch up on company events missed while disconnected —
+            // Centrifugo does not replay publications, so a shift that
+            // started during the outage would otherwise stay invisible
+            // until a manual refresh.
+            ref.read(driversNotifierProvider.notifier).refresh();
           }
           if (user.role == UserRole.driver) {
             await _subscribeToDriverEvents(user.id);

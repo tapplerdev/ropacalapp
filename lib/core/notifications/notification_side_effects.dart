@@ -73,9 +73,15 @@ class NotificationSideEffects {
         final status = event.payload['status'] as String?;
         final shiftId = event.payload['shift_id'] as String?;
         if (driverId != null && status != null) {
+          // Instant status patch for snappy UI...
           ref
               .read(driversNotifierProvider.notifier)
               .updateDriverStatus(driverId, status, shiftId);
+          // ...then a full refresh: the truck marker needs the driver's
+          // location (Redis), which the status patch alone never carries —
+          // without this a newly started shift shows no truck until the
+          // first live fix happens to land.
+          ref.read(driversNotifierProvider.notifier).refresh();
         }
 
       // -- Shift broadcast (company channel) --

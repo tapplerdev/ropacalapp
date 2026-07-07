@@ -11,6 +11,7 @@ import 'package:ropacalapp/router/app_router.dart';
 import 'package:ropacalapp/services/fcm_service.dart';
 import 'package:ropacalapp/core/services/session_manager.dart';
 import 'package:ropacalapp/core/utils/app_logger.dart';
+import 'package:ropacalapp/providers/drivers_provider.dart';
 import 'package:ropacalapp/providers/shift_provider.dart';
 import 'package:ropacalapp/providers/auth_provider.dart';
 import 'package:ropacalapp/core/enums/user_role.dart';
@@ -129,7 +130,12 @@ class _RopacalAppState extends ConsumerState<RopacalApp>
         await ref.read(shiftNotifierProvider.notifier).fetchCurrentShift();
         AppLogger.general('[LIFECYCLE] ✅ Shift state restored from backend');
       } else {
-        AppLogger.general('[LIFECYCLE] 👔 Manager app resumed - skipping shift fetch (managers don\'t have shifts)');
+        // Managers: catch up on whatever happened while backgrounded —
+        // iOS suspends the socket, and Centrifugo does not replay missed
+        // publications, so a shift started in the meantime would stay
+        // invisible until a manual pull-to-refresh.
+        AppLogger.general('[LIFECYCLE] 👔 Manager app resumed - refreshing drivers...');
+        await ref.read(driversNotifierProvider.notifier).refresh();
       }
     } catch (e) {
       AppLogger.general('[LIFECYCLE] ⚠️  Error restoring shift: $e');

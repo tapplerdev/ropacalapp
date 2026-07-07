@@ -162,10 +162,32 @@ class DriversNotifier extends _$DriversNotifier {
     }
   }
 
-  /// Refresh the driver list
+  /// Refresh the driver list.
+  /// Keeps the previous data while refetching — flipping through
+  /// AsyncLoading unmounts every consumer's data branch (the manager map
+  /// tears down all markers and subscriptions on each pull-to-refresh).
   Future<void> refresh() async {
-    state = const AsyncLoading();
-    state = await AsyncValue.guard(() => _fetchDrivers());
+    final prev = state.valueOrNull;
+    try {
+      final fresh = await _fetchDrivers();
+      // Keep the last known location when the refetch has none (the
+      // driver's Redis entry TTLs after 10 min) — dropping it would
+      // remove their marker mid-session even though nothing changed.
+      final merged = fresh.map((d) {
+        if (d.currentLocation != null) return d;
+        final old = prev?.where((p) => p.driverId == d.driverId).firstOrNull;
+        if (old?.currentLocation != null) {
+          return d.copyWith(currentLocation: old!.currentLocation);
+        }
+        return d;
+      }).toList();
+      state = AsyncData(merged);
+    } catch (e, st) {
+      // A failed background refresh must not blank a working map.
+      if (prev == null) {
+        state = AsyncError(e, st);
+      }
+    }
   }
 }
 

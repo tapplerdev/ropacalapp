@@ -1067,20 +1067,29 @@ class ManagerMapPage extends HookConsumerWidget {
                 }
               });
 
-              // 2s timer: local trim (no API calls, just slices the cached route)
+              // 2s timer: local trim (no API calls, just slices the cached
+              // route). Trim by the RENDERED marker position — playback runs
+              // a few seconds behind the raw live fix, and trimming by live
+              // would let the line's start run ahead of the drawn truck.
               final trimTimer = Timer.periodic(
                 const Duration(seconds: 2),
                 (_) {
                   if (cancelled) return;
-                  final livePositions = ref.read(driverLivePositionsProvider);
-                  final driverLoc = livePositions[driverId];
-                  if (driverLoc != null) {
-                    ref.read(routePolylineProvider.notifier).updateDriverPosition(
-                      LatLng(
+                  var pos = animationService.lastRenderedPosition(driverId);
+                  if (pos == null) {
+                    final driverLoc =
+                        ref.read(driverLivePositionsProvider)[driverId];
+                    if (driverLoc != null) {
+                      pos = LatLng(
                         latitude: driverLoc.latitude,
                         longitude: driverLoc.longitude,
-                      ),
-                    );
+                      );
+                    }
+                  }
+                  if (pos != null) {
+                    ref
+                        .read(routePolylineProvider.notifier)
+                        .updateDriverPosition(pos);
                   }
                 },
               );
@@ -1192,6 +1201,21 @@ class ManagerMapPage extends HookConsumerWidget {
 
           // Read polyline state for the floating card
           final polylineState = ref.watch(routePolylineProvider);
+
+          // Feed the focused driver's road-snapped route into the playback
+          // service so the marker glides along the road geometry instead of
+          // cutting straight chords between 3-second fixes.
+          useEffect(
+            () {
+              final id = focusedDriverId;
+              if (id != null && polylineState.fullRoute.length >= 2) {
+                animationService.setGuidePath(id, polylineState.fullRoute);
+                return () => animationService.setGuidePath(id, null);
+              }
+              return null;
+            },
+            [focusedDriverId, polylineState.fullRoute],
+          );
 
           // Zoom-to-fit: smoothly animate camera to show driver + destination.
           // Inflates southern bound so route renders above the floating card.

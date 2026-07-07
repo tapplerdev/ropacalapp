@@ -155,6 +155,24 @@ class CentrifugoService {
   ///
   /// Channel: driver:location:{driverId}
   ///
+  /// Wait for the client to exist instead of throwing. Startup no longer
+  /// gates navigation on Centrifugo (CentrifugoManager auto-connects on
+  /// auth change in the background), so subscribe calls can legitimately
+  /// arrive before connect() has run — throwing here silently killed every
+  /// live subscription for the whole session.
+  Future<void> _ensureClient() async {
+    if (_client != null) return;
+    AppLogger.general('⏳ [Centrifugo] Client not ready — waiting to subscribe...');
+    final sw = Stopwatch()..start();
+    while (_client == null && sw.elapsed < const Duration(seconds: 30)) {
+      await Future.delayed(const Duration(milliseconds: 200));
+    }
+    if (_client == null) {
+      throw StateError('Centrifugo client not available after 30s');
+    }
+    AppLogger.general('✅ [Centrifugo] Client ready after ${sw.elapsedMilliseconds}ms');
+  }
+
   /// Authorization:
   /// - Driver can subscribe to their own location channel
   /// - Managers can subscribe to any driver's location channel
@@ -164,9 +182,7 @@ class CentrifugoService {
   ) async {
     final channel = 'driver:location:$driverId';
 
-    if (_client == null) {
-      throw StateError('Centrifugo client not connected. Call connect() first.');
-    }
+    await _ensureClient();
 
     // Check if already subscribed
     if (_subscriptions.containsKey(channel)) {
@@ -227,9 +243,7 @@ class CentrifugoService {
   ) async {
     final channel = 'shift:updates:$shiftId';
 
-    if (_client == null) {
-      throw StateError('Centrifugo client not connected. Call connect() first.');
-    }
+    await _ensureClient();
 
     if (_subscriptions.containsKey(channel)) {
       AppLogger.general('⚠️ [Centrifugo] Already subscribed to $channel');
@@ -278,9 +292,7 @@ class CentrifugoService {
   ) async {
     final channel = 'manager:notifications:$managerId';
 
-    if (_client == null) {
-      throw StateError('Centrifugo client not connected. Call connect() first.');
-    }
+    await _ensureClient();
 
     if (_subscriptions.containsKey(channel)) {
       AppLogger.general('⚠️ [Centrifugo] Already subscribed to $channel');
@@ -334,11 +346,7 @@ class CentrifugoService {
   ) async {
     const channel = 'company:events';
 
-    if (_client == null) {
-      throw StateError(
-        'Centrifugo client not connected. Call connect() first.',
-      );
-    }
+    await _ensureClient();
 
     if (_subscriptions.containsKey(channel)) {
       AppLogger.general('⚠️ [Centrifugo] Already subscribed to $channel');
@@ -395,11 +403,7 @@ class CentrifugoService {
   ) async {
     final channel = 'driver:events:$driverId';
 
-    if (_client == null) {
-      throw StateError(
-        'Centrifugo client not connected. Call connect() first.',
-      );
-    }
+    await _ensureClient();
 
     if (_subscriptions.containsKey(channel)) {
       AppLogger.general('⚠️ [Centrifugo] Already subscribed to $channel');

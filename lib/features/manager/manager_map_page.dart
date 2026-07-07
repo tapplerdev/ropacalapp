@@ -274,9 +274,9 @@ class ManagerMapPage extends HookConsumerWidget {
                           animationService.animateMarker(
                             driverId: driverId,
                             newPosition: newPos,
-                            currentPosition: currentPos,
                             heading: location.heading,
                             accuracy: location.accuracy,
+                            timestampMs: location.timestamp,
                           );
 
                           currentDriverPositions.value = {
@@ -902,8 +902,10 @@ class ManagerMapPage extends HookConsumerWidget {
                 try {
                   isUpdatingMarkers.value = true;
 
-                  // Get current positions (either animated or final)
+                  // Get current positions (either animated or final) and the
+                  // motion-derived headings the playback computes alongside.
                   final interpolatedPositions = animationService.getInterpolatedPositions();
+                  final interpolatedHeadings = animationService.getInterpolatedHeadings();
 
                   // Create updated markers for each driver
                   final updatedMarkers = <Marker>[];
@@ -931,7 +933,10 @@ class ManagerMapPage extends HookConsumerWidget {
                     // Position-only update unless the icon variant actually
                     // changed (10° heading bucket or focus state) — pushing
                     // the bitmap every frame let iOS render it half-uploaded.
-                    final heading = currentDriverHeadings.value[driver.driverId] ??
+                    // Heading preference: motion-derived (playback) → live
+                    // payload → polled API value.
+                    final heading = interpolatedHeadings[driver.driverId] ??
+                        currentDriverHeadings.value[driver.driverId] ??
                         driver.currentLocation?.heading ?? 0.0;
                     final bucket = ((heading % 360) / 10).round() * 10 % 360;
                     final iconKey = bucket + (isFocused ? 3600 : 0);

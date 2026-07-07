@@ -133,6 +133,11 @@ class ManagerMapPage extends HookConsumerWidget {
     // Track current driver positions and headings for animation
     final currentDriverPositions = useState<Map<String, LatLng>>({});
     final currentDriverHeadings = useState<Map<String, double>>({});
+    // Last icon variant pushed to the native marker per driver (10° heading
+    // bucket + focus flag). The 60fps position loop only re-sends the icon
+    // when this changes — re-assigning the bitmap every frame gave iOS a
+    // window to render the marker half-uploaded.
+    final lastPushedIconKeys = useRef<Map<String, int>>({});
 
     // Guard to suppress gesture-exit during programmatic camera moves
     final isProgrammaticMove = useState<bool>(false);
@@ -923,24 +928,35 @@ class ManagerMapPage extends HookConsumerWidget {
                             : null);
                     if (position == null) continue;
 
-                    // Create truck icon with current heading (cached by angle internally)
+                    // Position-only update unless the icon variant actually
+                    // changed (10° heading bucket or focus state) — pushing
+                    // the bitmap every frame let iOS render it half-uploaded.
                     final heading = currentDriverHeadings.value[driver.driverId] ??
                         driver.currentLocation?.heading ?? 0.0;
-                    final driverIcon = await GoogleNavigationMarkerService.createDriverTruckMarkerIcon(
-                      heading: heading,
-                      isFocused: isFocused,
-                    );
+                    final bucket = ((heading % 360) / 10).round() * 10 % 360;
+                    final iconKey = bucket + (isFocused ? 3600 : 0);
 
-                    // Create updated marker with new position/icon
-                    final updatedMarker = existingMarker.copyWith(
-                      options: MarkerOptions(
-                        position: position,
-                        icon: driverIcon,
-                        anchor: const MarkerAnchor(u: 0.5, v: 0.5),
-                        flat: true,
-                        zIndex: isFocused ? 10001.0 : 10000.0,
-                      ),
-                    );
+                    final Marker updatedMarker;
+                    if (lastPushedIconKeys.value[driver.driverId] != iconKey) {
+                      lastPushedIconKeys.value[driver.driverId] = iconKey;
+                      final driverIcon = await GoogleNavigationMarkerService.createDriverTruckMarkerIcon(
+                        heading: heading,
+                        isFocused: isFocused,
+                      );
+                      updatedMarker = existingMarker.copyWith(
+                        options: existingMarker.options.copyWith(
+                          position: position,
+                          icon: driverIcon,
+                          zIndex: isFocused ? 10001.0 : 10000.0,
+                        ),
+                      );
+                    } else {
+                      updatedMarker = existingMarker.copyWith(
+                        options: existingMarker.options.copyWith(
+                          position: position,
+                        ),
+                      );
+                    }
                     updatedMarkers.add(updatedMarker);
                     updatedMap[driver.driverId] = updatedMarker;
                   }

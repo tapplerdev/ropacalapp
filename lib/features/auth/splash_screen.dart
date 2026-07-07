@@ -11,7 +11,6 @@ import 'package:ropacalapp/providers/potential_locations_list_provider.dart';
 import 'package:ropacalapp/providers/move_requests_list_provider.dart';
 import 'package:ropacalapp/providers/route_update_notification_provider.dart';
 import 'package:ropacalapp/providers/bin_marker_cache_provider.dart';
-import 'package:ropacalapp/providers/centrifugo_provider.dart';
 import 'package:ropacalapp/core/utils/app_logger.dart';
 import 'package:ropacalapp/core/services/session_manager.dart';
 import 'package:ropacalapp/core/enums/user_role.dart';
@@ -79,21 +78,11 @@ class SplashScreen extends HookConsumerWidget {
       ref.invalidate(binMarkerCacheNotifierProvider);
       AppLogger.general('🗑️  SPLASH: Invalidated stale session-data providers');
 
-      // Wait for Centrifugo connection (CentrifugoManager auto-connects on auth change)
-      final centrifugoStopwatch = Stopwatch()..start();
-      const centrifugoTimeout = Duration(seconds: 5);
-      while (centrifugoStopwatch.elapsed < centrifugoTimeout) {
-        if (ref.read(centrifugoManagerProvider.notifier).isConnected) {
-          AppLogger.general('✅ SPLASH: Centrifugo connected in ${centrifugoStopwatch.elapsedMilliseconds}ms');
-          break;
-        }
-        await Future.delayed(const Duration(milliseconds: 100));
-      }
-      if (!ref.read(centrifugoManagerProvider.notifier).isConnected) {
-        AppLogger.general('⚠️ SPLASH: Centrifugo not connected after ${centrifugoTimeout.inSeconds}s, continuing anyway');
-      }
-
-      // Kick off all fetches by reading the providers
+      // Kick off all fetches immediately. Centrifugo is NOT gated on here:
+      // it powers live updates once the map is up, nothing on first paint
+      // needs it, and CentrifugoManager auto-connects on auth change in the
+      // background. Gating on it serialized the two slowest network waits
+      // and cost up to 5s whenever Centrifugo was slow to connect.
       ref.read(binsListProvider);
       ref.read(driversNotifierProvider);
       ref.read(potentialLocationsListNotifierProvider);

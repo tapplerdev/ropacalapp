@@ -11,7 +11,6 @@ import 'package:ropacalapp/providers/potential_locations_list_provider.dart';
 import 'package:ropacalapp/providers/move_requests_list_provider.dart';
 import 'package:ropacalapp/providers/route_update_notification_provider.dart';
 import 'package:ropacalapp/providers/bin_marker_cache_provider.dart';
-import 'package:ropacalapp/providers/centrifugo_provider.dart';
 import 'package:ropacalapp/core/services/location_tracking_service.dart';
 import 'package:ropacalapp/features/driver/widgets/dialogs/location_permission_dialog.dart';
 import 'package:ropacalapp/models/user.dart';
@@ -118,21 +117,10 @@ class LoginPage extends HookConsumerWidget {
         ref.invalidate(binMarkerCacheNotifierProvider);
         AppLogger.general('🗑️  Invalidated stale session-data providers');
 
-        // Wait for Centrifugo connection (CentrifugoManager auto-connects on auth change)
-        final centrifugoStopwatch = Stopwatch()..start();
-        const centrifugoTimeout = Duration(seconds: 5);
-        while (centrifugoStopwatch.elapsed < centrifugoTimeout) {
-          if (ref.read(centrifugoManagerProvider.notifier).isConnected) {
-            AppLogger.general('✅ Centrifugo connected in ${centrifugoStopwatch.elapsedMilliseconds}ms');
-            break;
-          }
-          await Future.delayed(const Duration(milliseconds: 100));
-        }
-        if (!ref.read(centrifugoManagerProvider.notifier).isConnected) {
-          AppLogger.general('⚠️ Centrifugo not connected after ${centrifugoTimeout.inSeconds}s, continuing anyway');
-        }
-
-        // Kick off all fetches
+        // Kick off all fetches immediately. Centrifugo is NOT gated on here:
+        // it powers live updates once the map is up, nothing on first paint
+        // needs it, and CentrifugoManager auto-connects on auth change in
+        // the background.
         ref.read(binsListProvider);
         ref.read(driversNotifierProvider);
         ref.read(potentialLocationsListNotifierProvider);

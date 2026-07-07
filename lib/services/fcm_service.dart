@@ -163,8 +163,15 @@ class FCMService {
   /// Get the current FCM token
   static String? get token => _fcmToken;
 
-  /// Initialize FCM and request permissions
-  static Future<void> initialize() async {
+  static Future<void>? _initFuture;
+
+  /// Initialize FCM and request permissions.
+  /// Idempotent: concurrent and repeat callers join the same in-flight init.
+  /// Init is deferred until after the first frame (see main.dart), so code
+  /// that needs the token must await this rather than assume it's set.
+  static Future<void> initialize() => _initFuture ??= _doInitialize();
+
+  static Future<void> _doInitialize() async {
     try {
       _remoteLog('[FCM-INIT] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
       _remoteLog('[FCM-INIT] Starting FCM initialization');

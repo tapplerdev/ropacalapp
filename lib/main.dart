@@ -43,19 +43,20 @@ void main() async {
   // Initialize Firebase
   await Firebase.initializeApp();
 
-  // Initialize FCM (Firebase Cloud Messaging)
-  await FCMService.initialize();
-
-  // Initialize awesome_notifications
-  await NotificationService().initialize();
-
-  // Pre-cache common marker icons for better performance
-  await GoogleNavigationMarkerService.preCacheCommonMarkers();
-
   runApp(const ProviderScope(child: RopacalApp()));
 
   // Configure EasyLoading
   configLoading();
+
+  // Heavy service init runs AFTER the first frame — none of it is needed to
+  // render the splash, and each await before runApp delays first paint.
+  // FCMService.initialize() is idempotent; anything that needs the token
+  // (auth's _registerFCMToken) awaits it and joins this in-flight init.
+  WidgetsBinding.instance.addPostFrameCallback((_) async {
+    await FCMService.initialize();
+    await NotificationService().initialize();
+    await GoogleNavigationMarkerService.preCacheCommonMarkers();
+  });
 }
 
 void configLoading() {

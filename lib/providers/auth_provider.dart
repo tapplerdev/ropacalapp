@@ -140,6 +140,9 @@ class AuthNotifier extends _$AuthNotifier {
   }
 
   Future<void> _registerFCMToken() async {
+    // FCM init is deferred past the first frame — join it so the token is
+    // ready instead of silently skipping registration.
+    await FCMService.initialize();
     final fcmToken = FCMService.token;
     if (fcmToken == null) {
       AppLogger.general('No FCM token available', level: AppLogger.warning);

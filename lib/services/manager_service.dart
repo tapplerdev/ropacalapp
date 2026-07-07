@@ -455,6 +455,7 @@ class ManagerService {
     required String warehouseAddress,
     required bool lockRouteOrder,
     required List<Map<String, dynamic>> tasks,
+    String? routeId,
   }) async {
     try {
       print('📤 REQUEST: POST /api/manager/shifts/create-with-tasks');
@@ -472,6 +473,9 @@ class ManagerService {
           'warehouse_address': warehouseAddress,
           'lock_route_order': lockRouteOrder,
           'tasks': tasks,
+          // Template lineage — makes the shift count toward the template's
+          // performance stats.
+          if (routeId != null) 'route_id': routeId,
         },
       );
 

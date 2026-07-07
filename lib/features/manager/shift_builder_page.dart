@@ -6,6 +6,9 @@ import 'package:ropacalapp/core/enums/stop_type.dart';
 import 'package:ropacalapp/models/route.dart';
 import 'package:ropacalapp/models/route_task.dart';
 import 'package:ropacalapp/core/utils/warehouse_stop_calculator.dart';
+import 'package:ropacalapp/core/enums/bin_status.dart';
+import 'package:ropacalapp/models/bin.dart';
+import 'package:ropacalapp/providers/bins_provider.dart';
 import 'package:ropacalapp/providers/drivers_provider.dart';
 import 'package:ropacalapp/providers/warehouse_provider.dart';
 import 'package:ropacalapp/models/potential_location.dart';
@@ -14,7 +17,6 @@ import 'package:ropacalapp/features/manager/widgets/route_picker_sheet.dart';
 import 'package:ropacalapp/features/manager/widgets/potential_location_picker_sheet.dart';
 import 'package:ropacalapp/features/manager/widgets/move_request_picker_sheet.dart';
 import 'package:ropacalapp/features/manager/widgets/bin_collection_picker_sheet.dart';
-import 'package:ropacalapp/models/bin.dart';
 
 /// Manager interface for building agnostic shifts with tasks
 class ShiftBuilderPage extends HookConsumerWidget {
@@ -33,6 +35,29 @@ class ShiftBuilderPage extends HookConsumerWidget {
     // Watch warehouse location from backend
     final warehouseAsync = ref.watch(warehouseLocationNotifierProvider);
 
+    // Inactive-bin gate: tasks whose bin can't be routed (retired, missing,
+    // or in the warehouse). The backend silently skips these at creation —
+    // surface and resolve them BEFORE submit instead.
+    final binsAsync = ref.watch(binsListProvider);
+    final inactiveEntries = useMemoized(
+      () {
+        const inactive = {
+          BinStatus.retired,
+          BinStatus.missing,
+          BinStatus.inStorage,
+        };
+        final statusById = <String, BinStatus>{
+          for (final b in binsAsync.valueOrNull ?? <Bin>[]) b.id: b.status,
+        };
+        return tasks.value
+            .where((t) =>
+                t.binId != null && inactive.contains(statusById[t.binId]))
+            .map((t) => (task: t, status: statusById[t.binId]!))
+            .toList();
+      },
+      [tasks.value, binsAsync.valueOrNull],
+    );
+
     // Calculate warehouse stop analysis
     final analysis = useMemoized(
       () => WarehouseStopCalculator.analyzeWarehouseStops(
@@ -46,6 +71,7 @@ class ShiftBuilderPage extends HookConsumerWidget {
     final canCreate = selectedDriverId.value != null &&
         tasks.value.length >= 2 &&
         truckCapacity.value > 0 &&
+        inactiveEntries.isEmpty &&
         !isSaving.value;
 
     return GestureDetector(
@@ -424,6 +450,71 @@ class ShiftBuilderPage extends HookConsumerWidget {
             ),
           ),
 
+          // Inactive bins must be resolved before submit — the backend
+          // would silently skip them and the driver would get fewer stops
+          // than the manager thinks they assigned.
+          if (inactiveEntries.isNotEmpty)
+            Container(
+              width: double.infinity,
+              color: Colors.amber.shade50,
+              padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '${inactiveEntries.length} stop'
+                    '${inactiveEntries.length == 1 ? '' : 's'} can\'t be '
+                    'routed — the bin is not in the field',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.amber.shade900,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  ...inactiveEntries.map((e) => Padding(
+                        padding: const EdgeInsets.only(bottom: 4),
+                        child: Row(
+                          children: [
+                            Text(
+                              e.task.binNumber != null
+                                  ? 'Bin #${e.task.binNumber}'
+                                  : (e.task.address ?? 'Unknown stop'),
+                              style: const TextStyle(fontSize: 13),
+                            ),
+                            const SizedBox(width: 8),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: e.status == BinStatus.inStorage
+                                    ? Colors.blue.shade100
+                                    : Colors.red.shade100,
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: Text(
+                                e.status == BinStatus.inStorage
+                                    ? 'in warehouse'
+                                    : e.status.name,
+                                style: const TextStyle(fontSize: 11),
+                              ),
+                            ),
+                            const Spacer(),
+                            TextButton(
+                              onPressed: () {
+                                tasks.value = tasks.value
+                                    .where((t) => t.id != e.task.id)
+                                    .toList();
+                              },
+                              child: const Text('Remove'),
+                            ),
+                          ],
+                        ),
+                      )),
+                ],
+              ),
+            ),
+
           // Bottom: Create Shift Button
           Container(
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
@@ -716,7 +807,19 @@ class ShiftBuilderPage extends HookConsumerWidget {
         return taskMap;
       }).toList();
 
-      await managerService.createShiftWithTasks(
+      // Shift-level route_id: when every task came from the same template,
+      // pass it so the shift counts toward that template's performance
+      // stats (the backend also derives this, belt and braces).
+      String? shiftRouteId;
+      final taskRouteIds = tasks.value
+          .map((t) => t.routeId)
+          .whereType<String>()
+          .toSet();
+      if (taskRouteIds.length == 1) {
+        shiftRouteId = taskRouteIds.first;
+      }
+
+      final data = await managerService.createShiftWithTasks(
         driverId: driverId!,
         truckBinCapacity: truckCapacity,
         warehouseLatitude: warehouse.latitude,
@@ -724,15 +827,28 @@ class ShiftBuilderPage extends HookConsumerWidget {
         warehouseAddress: warehouse.address,
         lockRouteOrder: lockRouteOrder,
         tasks: taskPayload,
+        routeId: shiftRouteId,
       );
 
       if (context.mounted) {
+        // Honest count: report what the backend actually created, and call
+        // out anything it skipped (races past the pre-submit gate).
+        final createdCount = data['task_count'] as int? ?? taskPayload.length;
+        final skipped = data['skipped_bins'] as List<dynamic>? ?? const [];
+        var message =
+            'Shift created for $driverName with $createdCount tasks';
+        if (skipped.isNotEmpty) {
+          final nums = skipped
+              .map((s) => '#${(s as Map)['bin_number']}')
+              .join(', ');
+          message += ' — ${skipped.length} bin'
+              '${skipped.length == 1 ? '' : 's'} skipped ($nums)';
+        }
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(
-              'Shift created for $driverName with ${taskPayload.length} tasks',
-            ),
-            backgroundColor: AppColors.primaryGreen,
+            content: Text(message),
+            backgroundColor:
+                skipped.isEmpty ? AppColors.primaryGreen : Colors.orange,
           ),
         );
         Navigator.of(context).pop();

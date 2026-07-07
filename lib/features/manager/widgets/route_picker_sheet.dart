@@ -266,6 +266,28 @@ class _RouteCard extends StatelessWidget {
                             color: Colors.grey.shade600,
                           ),
                         ),
+                        // Flag templates holding unroutable bins BEFORE
+                        // import, not after hitting the builder gate.
+                        if (route.bins
+                            .any((b) => b.status != 'active')) ...[
+                          const SizedBox(width: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 6, vertical: 1),
+                            decoration: BoxDecoration(
+                              color: Colors.amber.shade100,
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Text(
+                              '${route.bins.where((b) => b.status != 'active').length} inactive',
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                                color: Colors.amber.shade900,
+                              ),
+                            ),
+                          ),
+                        ],
                         if (route.estimatedDurationHours != null) ...[
                           const SizedBox(width: 10),
                           Icon(Icons.access_time,

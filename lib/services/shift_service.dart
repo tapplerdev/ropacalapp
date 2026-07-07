@@ -377,8 +377,9 @@ class ShiftService {
 
       if (response.data['success'] == true) {
         final shiftDetails = response.data['data'] as Map<String, dynamic>;
-        final binsCount = (shiftDetails['bins'] as List).length;
-        print('   ✅ Shift details loaded with $binsCount bins');
+        // The response carries the task list under 'tasks', not 'bins'.
+        final tasksCount = (shiftDetails['tasks'] as List?)?.length ?? 0;
+        print('   ✅ Shift details loaded with $tasksCount tasks');
         return shiftDetails;
       }
 

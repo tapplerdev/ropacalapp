@@ -94,7 +94,9 @@ class ShiftDetail extends _$ShiftDetail {
     final data = await shiftService.getShiftDetails(shiftId);
 
     final shiftHistory = ShiftHistory.fromJson(data);
-    final bins = (data['tasks'] as List)
+    // A shift with zero remaining tasks serializes as "tasks": null
+    // (nil slice on the backend), not [].
+    final bins = (data['tasks'] as List? ?? [])
         .map((json) => RouteTask.fromJson(json as Map<String, dynamic>))
         .toList();
 

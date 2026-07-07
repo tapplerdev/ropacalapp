@@ -12,12 +12,12 @@ _$BinImpl _$$BinImplFromJson(Map<String, dynamic> json) => _$BinImpl(
   currentStreet: json['current_street'] as String,
   city: json['city'] as String,
   zip: json['zip'] as String,
-  lastMoved: json['last_moved'] == null
+  lastMoved: json['lastMovedIso'] == null
       ? null
-      : DateTime.parse(json['last_moved'] as String),
-  lastChecked: json['last_checked'] == null
+      : DateTime.parse(json['lastMovedIso'] as String),
+  lastChecked: json['lastCheckedIso'] == null
       ? null
-      : DateTime.parse(json['last_checked'] as String),
+      : DateTime.parse(json['lastCheckedIso'] as String),
   status: $enumDecode(_$BinStatusEnumMap, json['status']),
   fillPercentage: (json['fill_percentage'] as num?)?.toInt(),
   checked: json['checked'] as bool? ?? false,
@@ -33,8 +33,8 @@ Map<String, dynamic> _$$BinImplToJson(_$BinImpl instance) => <String, dynamic>{
   'current_street': instance.currentStreet,
   'city': instance.city,
   'zip': instance.zip,
-  'last_moved': instance.lastMoved?.toIso8601String(),
-  'last_checked': instance.lastChecked?.toIso8601String(),
+  'lastMovedIso': instance.lastMoved?.toIso8601String(),
+  'lastCheckedIso': instance.lastChecked?.toIso8601String(),
   'status': _$BinStatusEnumMap[instance.status]!,
   'fill_percentage': instance.fillPercentage,
   'checked': instance.checked,

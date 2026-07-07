@@ -27,10 +27,13 @@ mixin _$Bin {
   @JsonKey(name: 'current_street')
   String get currentStreet => throw _privateConstructorUsedError;
   String get city => throw _privateConstructorUsedError;
-  String get zip => throw _privateConstructorUsedError;
-  @JsonKey(name: 'last_moved')
+  String get zip =>
+      throw _privateConstructorUsedError; // The backend's BinResponse serializes these as ISO strings under
+  // camelCase Iso keys — last_moved/last_checked never appear in the
+  // payload, so reading the snake_case keys left these always null.
+  @JsonKey(name: 'lastMovedIso')
   DateTime? get lastMoved => throw _privateConstructorUsedError;
-  @JsonKey(name: 'last_checked')
+  @JsonKey(name: 'lastCheckedIso')
   DateTime? get lastChecked => throw _privateConstructorUsedError;
   BinStatus get status => throw _privateConstructorUsedError;
   @JsonKey(name: 'fill_percentage')
@@ -63,8 +66,8 @@ abstract class $BinCopyWith<$Res> {
     @JsonKey(name: 'current_street') String currentStreet,
     String city,
     String zip,
-    @JsonKey(name: 'last_moved') DateTime? lastMoved,
-    @JsonKey(name: 'last_checked') DateTime? lastChecked,
+    @JsonKey(name: 'lastMovedIso') DateTime? lastMoved,
+    @JsonKey(name: 'lastCheckedIso') DateTime? lastChecked,
     BinStatus status,
     @JsonKey(name: 'fill_percentage') int? fillPercentage,
     bool checked,
@@ -180,8 +183,8 @@ abstract class _$$BinImplCopyWith<$Res> implements $BinCopyWith<$Res> {
     @JsonKey(name: 'current_street') String currentStreet,
     String city,
     String zip,
-    @JsonKey(name: 'last_moved') DateTime? lastMoved,
-    @JsonKey(name: 'last_checked') DateTime? lastChecked,
+    @JsonKey(name: 'lastMovedIso') DateTime? lastMoved,
+    @JsonKey(name: 'lastCheckedIso') DateTime? lastChecked,
     BinStatus status,
     @JsonKey(name: 'fill_percentage') int? fillPercentage,
     bool checked,
@@ -290,8 +293,8 @@ class _$BinImpl extends _Bin {
     @JsonKey(name: 'current_street') required this.currentStreet,
     required this.city,
     required this.zip,
-    @JsonKey(name: 'last_moved') this.lastMoved,
-    @JsonKey(name: 'last_checked') this.lastChecked,
+    @JsonKey(name: 'lastMovedIso') this.lastMoved,
+    @JsonKey(name: 'lastCheckedIso') this.lastChecked,
     required this.status,
     @JsonKey(name: 'fill_percentage') this.fillPercentage,
     this.checked = false,
@@ -316,11 +319,14 @@ class _$BinImpl extends _Bin {
   final String city;
   @override
   final String zip;
+  // The backend's BinResponse serializes these as ISO strings under
+  // camelCase Iso keys — last_moved/last_checked never appear in the
+  // payload, so reading the snake_case keys left these always null.
   @override
-  @JsonKey(name: 'last_moved')
+  @JsonKey(name: 'lastMovedIso')
   final DateTime? lastMoved;
   @override
-  @JsonKey(name: 'last_checked')
+  @JsonKey(name: 'lastCheckedIso')
   final DateTime? lastChecked;
   @override
   final BinStatus status;
@@ -417,8 +423,8 @@ abstract class _Bin extends Bin {
     @JsonKey(name: 'current_street') required final String currentStreet,
     required final String city,
     required final String zip,
-    @JsonKey(name: 'last_moved') final DateTime? lastMoved,
-    @JsonKey(name: 'last_checked') final DateTime? lastChecked,
+    @JsonKey(name: 'lastMovedIso') final DateTime? lastMoved,
+    @JsonKey(name: 'lastCheckedIso') final DateTime? lastChecked,
     required final BinStatus status,
     @JsonKey(name: 'fill_percentage') final int? fillPercentage,
     final bool checked,
@@ -442,12 +448,14 @@ abstract class _Bin extends Bin {
   @override
   String get city;
   @override
-  String get zip;
+  String get zip; // The backend's BinResponse serializes these as ISO strings under
+  // camelCase Iso keys — last_moved/last_checked never appear in the
+  // payload, so reading the snake_case keys left these always null.
   @override
-  @JsonKey(name: 'last_moved')
+  @JsonKey(name: 'lastMovedIso')
   DateTime? get lastMoved;
   @override
-  @JsonKey(name: 'last_checked')
+  @JsonKey(name: 'lastCheckedIso')
   DateTime? get lastChecked;
   @override
   BinStatus get status;

@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:intl/intl.dart';
@@ -829,44 +828,17 @@ class _TaskCard extends StatelessWidget {
     return null;
   }
 
-  /// Parse skip reason from taskData
-  String? get _skipReason {
-    if (!task.skipped || task.taskData == null) return null;
-    final data = task.taskData!;
-
-    // Try direct map keys first
-    if (data.containsKey('skip_reason')) {
-      return data['skip_reason'] as String?;
-    }
-    if (data.containsKey('reason')) {
-      return data['reason'] as String?;
-    }
-
-    // Try base64-encoded JSON (some backend responses use this)
-    for (final key in data.keys) {
-      final value = data[key];
-      if (value is String && value.length > 10) {
-        try {
-          final decoded = utf8.decode(base64.decode(value));
-          final parsed = json.decode(decoded) as Map<String, dynamic>;
-          return parsed['skip_reason'] as String? ??
-              parsed['reason'] as String?;
-        } catch (_) {
-          // Not base64 JSON, skip
-        }
-      }
-    }
-
-    return null;
-  }
 
   @override
   Widget build(BuildContext context) {
     final timeFormat = DateFormat('h:mm a');
-    final isCompleted = task.isCompleted == 1;
+    // A skip is also marked processed (is_completed == 1), so a genuine
+    // completion requires the skipped flag to be false — otherwise the
+    // green branches shadow every skip style below.
     final isSkipped = task.skipped;
+    final isCompleted = task.isCompleted == 1 && !isSkipped;
     final config = _taskConfig;
-    final skipReason = _skipReason;
+    final skipReason = task.skipReason;
     final photoUrl = _effectivePhotoUrl;
 
     // Determine status color for the left border

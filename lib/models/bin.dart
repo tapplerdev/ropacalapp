@@ -12,8 +12,11 @@ class Bin with _$Bin {
     @JsonKey(name: 'current_street') required String currentStreet,
     required String city,
     required String zip,
-    @JsonKey(name: 'last_moved') DateTime? lastMoved,
-    @JsonKey(name: 'last_checked') DateTime? lastChecked,
+    // The backend's BinResponse serializes these as ISO strings under
+    // camelCase Iso keys — last_moved/last_checked never appear in the
+    // payload, so reading the snake_case keys left these always null.
+    @JsonKey(name: 'lastMovedIso') DateTime? lastMoved,
+    @JsonKey(name: 'lastCheckedIso') DateTime? lastChecked,
     required BinStatus status,
     @JsonKey(name: 'fill_percentage') int? fillPercentage,
     @Default(false) bool checked,

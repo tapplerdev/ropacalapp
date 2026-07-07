@@ -36,7 +36,12 @@ class RouteDetailPage extends ConsumerWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 // Shift summary card
-                _ShiftSummaryCard(shift: shiftDetail.shift),
+                _ShiftSummaryCard(
+                  shift: shiftDetail.shift,
+                  skippedCount: shiftDetail.bins
+                      .where((t) => t.skipped)
+                      .length,
+                ),
 
                 // Tasks list
                 Padding(
@@ -123,7 +128,11 @@ class RouteDetailPage extends ConsumerWidget {
 class _ShiftSummaryCard extends StatelessWidget {
   final ShiftHistory shift;
 
-  const _ShiftSummaryCard({required this.shift});
+  /// Number of skipped tasks — the stored bin counts treat skips as
+  /// processed, so without this a shift full of skips reads as a clean run.
+  final int skippedCount;
+
+  const _ShiftSummaryCard({required this.shift, required this.skippedCount});
 
   @override
   Widget build(BuildContext context) {
@@ -223,6 +232,34 @@ class _ShiftSummaryCard extends StatelessWidget {
               ),
             ],
           ),
+
+          if (skippedCount > 0) ...[
+            const SizedBox(height: 14),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(
+                  horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.skip_next, size: 18, color: Colors.white),
+                  const SizedBox(width: 8),
+                  Text(
+                    '$skippedCount ${skippedCount == 1 ? 'stop' : 'stops'} skipped',
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.white,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ],
       ),
     );
@@ -295,17 +332,34 @@ class _BinCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final timeFormat = DateFormat('h:mm a');
-    final isCompleted = bin.isCompleted == 1;
+    // A skip is also marked processed (is_completed == 1), so a genuine
+    // completion requires the skipped flag to be false.
+    final isSkipped = bin.skipped;
+    final isCompleted = bin.isCompleted == 1 && !isSkipped;
+    final skipReason = bin.skipReason;
+
+    final Color accentColor;
+    if (isCompleted) {
+      accentColor = AppColors.successGreen;
+    } else if (isSkipped) {
+      accentColor = AppColors.warningOrange;
+    } else {
+      accentColor = Colors.grey.shade400;
+    }
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: isCompleted ? Colors.green.shade50 : Colors.grey.shade50,
+        color: isCompleted
+            ? Colors.green.shade50
+            : isSkipped
+                ? Colors.orange.shade50
+                : Colors.grey.shade50,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: isCompleted
-              ? AppColors.successGreen.withValues(alpha: 0.3)
+          color: isCompleted || isSkipped
+              ? accentColor.withValues(alpha: 0.3)
               : Colors.grey.shade200,
         ),
         boxShadow: [
@@ -331,9 +385,7 @@ class _BinCard extends StatelessWidget {
                         width: 32,
                         height: 32,
                         decoration: BoxDecoration(
-                          color: isCompleted
-                              ? AppColors.successGreen
-                              : Colors.grey.shade400,
+                          color: accentColor,
                           shape: BoxShape.circle,
                         ),
                         child: Center(
@@ -364,14 +416,40 @@ class _BinCard extends StatelessWidget {
                   ),
                 ),
 
-                // Status icon
-                Icon(
-                  isCompleted ? Icons.check_circle : Icons.radio_button_unchecked,
-                  color: isCompleted
-                      ? AppColors.successGreen
-                      : Colors.grey.shade400,
-                  size: 24,
-                ),
+                // Status: orange "Skipped" pill for skips so they are never
+                // mistaken for completions; icon otherwise.
+                if (isSkipped)
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: AppColors.warningOrange,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.skip_next, size: 14, color: Colors.white),
+                        SizedBox(width: 4),
+                        Text(
+                          'Skipped',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ],
+                    ),
+                  )
+                else
+                  Icon(
+                    isCompleted
+                        ? Icons.check_circle
+                        : Icons.radio_button_unchecked,
+                    color: accentColor,
+                    size: 24,
+                  ),
               ],
             ),
 
@@ -398,8 +476,8 @@ class _BinCard extends StatelessWidget {
               ],
             ),
 
-            // Completion time
-            if (isCompleted && bin.completedAt != null) ...[
+            // Completion / skip time
+            if ((isCompleted || isSkipped) && bin.completedAt != null) ...[
               const SizedBox(height: 8),
               Row(
                 children: [
@@ -410,44 +488,88 @@ class _BinCard extends StatelessWidget {
                   ),
                   const SizedBox(width: 8),
                   Text(
-                    timeFormat.format(
+                    '${isSkipped ? 'Skipped at ' : ''}${timeFormat.format(
                       DateTime.fromMillisecondsSinceEpoch(
                         bin.completedAt! * 1000,
                       ),
-                    ),
+                    )}',
                     style: TextStyle(
                       fontSize: 14,
-                      color: Colors.grey.shade700,
+                      color: isSkipped
+                          ? AppColors.warningOrange
+                          : Colors.grey.shade700,
+                      fontWeight:
+                          isSkipped ? FontWeight.w500 : FontWeight.normal,
                     ),
                   ),
                 ],
               ),
             ],
 
+            // Skip reason
+            if (isSkipped && skipReason != null) ...[
+              const SizedBox(height: 10),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: Colors.amber.shade50,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.amber.shade200),
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Icon(Icons.warning_amber_rounded,
+                        size: 16, color: Colors.amber.shade700),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        skipReason,
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: Colors.amber.shade900,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+
             const SizedBox(height: 16),
 
-            // Fill percentage bars
-            Row(
-              children: [
-                // Before
-                Expanded(
-                  child: _FillBar(
-                    label: 'Before',
-                    percentage: bin.safeFillPercentage,
+            // Fill percentage bars. A skipped bin was never collected, so
+            // there is no honest "After" value — show the last known fill
+            // level only instead of faking After == Before.
+            if (isSkipped)
+              _FillBar(
+                label: 'Fill Level',
+                percentage: bin.safeFillPercentage,
+              )
+            else
+              Row(
+                children: [
+                  // Before
+                  Expanded(
+                    child: _FillBar(
+                      label: 'Before',
+                      percentage: bin.safeFillPercentage,
+                    ),
                   ),
-                ),
-                const SizedBox(width: 16),
+                  const SizedBox(width: 16),
 
-                // After
-                Expanded(
-                  child: _FillBar(
-                    label: 'After',
-                    percentage: bin.updatedFillPercentage ?? bin.safeFillPercentage,
-                    isAfter: true,
+                  // After
+                  Expanded(
+                    child: _FillBar(
+                      label: 'After',
+                      percentage:
+                          bin.updatedFillPercentage ?? bin.safeFillPercentage,
+                      isAfter: true,
+                    ),
                   ),
-                ),
-              ],
-            ),
+                ],
+              ),
 
             // Check-in photos — before/after pair when the driver captured
             // both; a lone photo (older app builds, incident flow) stays

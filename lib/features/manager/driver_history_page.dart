@@ -132,6 +132,17 @@ class ShiftHistoryRow extends StatelessWidget {
                       color: Colors.grey.shade600,
                     ),
                   ),
+                  // completed_bins counts skips as processed — surface them
+                  // so a 29/29 shift with skips is visibly not a clean run.
+                  if (shift.totalSkipped > 0)
+                    Text(
+                      '  ·  ${shift.totalSkipped} skipped',
+                      style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.warningOrange,
+                      ),
+                    ),
                   if (shift.incidentsReported > 0) ...[
                     const SizedBox(width: 6),
                     Icon(Icons.warning_amber_rounded,

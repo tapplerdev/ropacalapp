@@ -524,7 +524,8 @@ class ManagerService {
       print('📥 RESPONSE: ${response.statusCode}');
 
       if (response.data['success'] == true) {
-        return response.data['data'] as List<dynamic>;
+        // Zero tasks serializes as "data": null (nil slice), not [].
+        return response.data['data'] as List<dynamic>? ?? [];
       }
 
       throw Exception(

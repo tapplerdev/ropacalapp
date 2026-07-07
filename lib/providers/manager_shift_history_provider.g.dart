@@ -7,7 +7,7 @@ part of 'manager_shift_history_provider.dart';
 // **************************************************************************
 
 String _$driverShiftHistoryHash() =>
-    r'17af8d585061f4b14fdde95e9c67659ded758497';
+    r'02930192fc429e77f207759031c49512802467b1';
 
 /// Copied from Dart SDK
 class _SystemHash {

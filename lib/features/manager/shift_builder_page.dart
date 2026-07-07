@@ -20,15 +20,24 @@ import 'package:ropacalapp/features/manager/widgets/bin_collection_picker_sheet.
 
 /// Manager interface for building agnostic shifts with tasks
 class ShiftBuilderPage extends HookConsumerWidget {
-  const ShiftBuilderPage({super.key});
+  /// Optional pre-selected driver (e.g. arriving from Driver Details →
+  /// "Assign New Route").
+  final String? initialDriverId;
+  final String? initialDriverName;
+
+  const ShiftBuilderPage({
+    super.key,
+    this.initialDriverId,
+    this.initialDriverName,
+  });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final tasks = useState<List<RouteTask>>([]);
     final truckCapacity = useState<int>(0);
     final truckCapacityController = useTextEditingController(text: '0');
-    final selectedDriverId = useState<String?>(null);
-    final selectedDriverName = useState<String?>(null);
+    final selectedDriverId = useState<String?>(initialDriverId);
+    final selectedDriverName = useState<String?>(initialDriverName);
     final lockRouteOrder = useState<bool>(false);
     final isSaving = useState<bool>(false);
 

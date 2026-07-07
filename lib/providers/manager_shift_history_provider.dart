@@ -41,3 +41,23 @@ class ManagerShiftHistoryNotifier extends _$ManagerShiftHistoryNotifier {
     state = await AsyncValue.guard(() => _fetch(daysBack));
   }
 }
+
+/// Per-driver shift history (newest first, up to 100 shifts). Powers the
+/// Driver Details recent-shifts card, its 30-day stats, and the full
+/// per-driver history page.
+@riverpod
+Future<List<ManagerShiftHistory>> driverShiftHistory(
+  DriverShiftHistoryRef ref,
+  String driverId,
+) async {
+  final managerService = ref.read(managerServiceProvider);
+  final data = await managerService.getShiftHistory(
+    driverId: driverId,
+    limit: 100,
+  );
+  final shiftsJson = data['shifts'] as List<dynamic>? ?? [];
+  return shiftsJson
+      .map((json) =>
+          ManagerShiftHistory.fromJson(json as Map<String, dynamic>))
+      .toList();
+}

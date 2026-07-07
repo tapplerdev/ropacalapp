@@ -44,7 +44,7 @@ final authEventListenerProvider =
     );
 
 typedef _$AuthEventListener = Notifier<bool>;
-String _$authNotifierHash() => r'67d8917ad2d299b5b89879a4a59a891321a140fc';
+String _$authNotifierHash() => r'f900f6e7b9fcb6883a5613a37203c215d45ac212';
 
 /// See also [AuthNotifier].
 @ProviderFor(AuthNotifier)

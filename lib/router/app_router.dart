@@ -227,7 +227,10 @@ final goRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/manager/shift-builder',
         name: 'shift-builder',
-        builder: (context, state) => const ShiftBuilderPage(),
+        builder: (context, state) => ShiftBuilderPage(
+          initialDriverId: state.uri.queryParameters['driverId'],
+          initialDriverName: state.uri.queryParameters['driverName'],
+        ),
       ),
       GoRoute(
         path: '/operations/shifts',

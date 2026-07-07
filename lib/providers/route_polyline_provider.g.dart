@@ -6,7 +6,7 @@ part of 'route_polyline_provider.dart';
 // RiverpodGenerator
 // **************************************************************************
 
-String _$routePolylineHash() => r'ef43a8b4484ef7fd6650189ab19218a4d8285156';
+String _$routePolylineHash() => r'30aa34d14135bdf44d49240a30fd155bc4312415';
 
 /// See also [RoutePolyline].
 @ProviderFor(RoutePolyline)

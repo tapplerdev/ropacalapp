@@ -6,8 +6,11 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:ropacalapp/core/theme/app_colors.dart';
 import 'package:ropacalapp/models/active_driver.dart';
 import 'package:ropacalapp/models/shift_state.dart';
+import 'package:ropacalapp/features/manager/driver_history_page.dart';
+import 'package:ropacalapp/models/manager_shift_history.dart';
 import 'package:ropacalapp/providers/drivers_provider.dart';
 import 'package:ropacalapp/providers/focused_driver_provider.dart';
+import 'package:ropacalapp/providers/manager_shift_history_provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class DriverDetailPage extends HookConsumerWidget {
@@ -18,6 +21,8 @@ class DriverDetailPage extends HookConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final allDriversAsync = ref.watch(driversNotifierProvider);
+    final historyAsync = ref.watch(driverShiftHistoryProvider(driverId));
+    final history = historyAsync.valueOrNull ?? const <ManagerShiftHistory>[];
 
     return Scaffold(
       backgroundColor: Colors.grey.shade50,
@@ -42,6 +47,7 @@ class DriverDetailPage extends HookConsumerWidget {
           return RefreshIndicator(
             onRefresh: () async {
               await ref.read(driversNotifierProvider.notifier).refresh();
+              ref.invalidate(driverShiftHistoryProvider(driverId));
             },
             child: SingleChildScrollView(
               physics: const AlwaysScrollableScrollPhysics(),
@@ -49,11 +55,28 @@ class DriverDetailPage extends HookConsumerWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _HeroSection(driver: driver, ref: ref),
+                  _HeroSection(driver: driver, ref: ref, history: history),
                   const SizedBox(height: 16),
 
                   if (hasActiveShift) ...[
                     _ActiveShiftBanner(driver: driver),
+                    const SizedBox(height: 16),
+                  ],
+
+                  if (history.isNotEmpty) ...[
+                    _StatsStrip(history: history),
+                    const SizedBox(height: 16),
+                    _RecentShiftsCard(
+                      history: history,
+                      onViewAll: () => Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => DriverHistoryPage(
+                            driverId: driver.driverId,
+                            driverName: driver.driverName,
+                          ),
+                        ),
+                      ),
+                    ),
                     const SizedBox(height: 16),
                   ],
 
@@ -95,8 +118,13 @@ class DriverDetailPage extends HookConsumerWidget {
 class _HeroSection extends StatelessWidget {
   final ActiveDriver driver;
   final WidgetRef ref;
+  final List<ManagerShiftHistory> history;
 
-  const _HeroSection({required this.driver, required this.ref});
+  const _HeroSection({
+    required this.driver,
+    required this.ref,
+    required this.history,
+  });
 
   bool get isIdle => driver.shiftId.isEmpty;
 
@@ -141,7 +169,7 @@ class _HeroSection extends StatelessWidget {
                       children: [
                         _StatusChip(driver: driver, isIdle: isIdle),
                         const SizedBox(width: 8),
-                        _ScoreBadge(driver: driver),
+                        _ScoreBadge(history: history),
                       ],
                     ),
                   ],
@@ -171,17 +199,21 @@ class _HeroSection extends StatelessWidget {
                 child: _ActionButton(
                   icon: Icons.map,
                   label: 'View on Map',
-                  color: AppColors.brandGreen,
-                  onTap: () {
-                    if (driver.currentLocation == null) {
-                      _showDriverOfflineDialog(context);
-                      return;
-                    }
-                    ref
-                        .read(focusedDriverProvider.notifier)
-                        .setFocusedDriver(driver.driverId);
-                    context.go('/home');
-                  },
+                  // Greyed with an "offline" hint instead of tap-then-dialog
+                  // when the driver has no location to show.
+                  color: driver.currentLocation != null
+                      ? AppColors.brandGreen
+                      : Colors.grey.shade400,
+                  subtitle:
+                      driver.currentLocation == null ? 'offline' : null,
+                  onTap: driver.currentLocation == null
+                      ? null
+                      : () {
+                          ref
+                              .read(focusedDriverProvider.notifier)
+                              .setFocusedDriver(driver.driverId);
+                          context.go('/home');
+                        },
                 ),
               ),
             ],
@@ -459,15 +491,27 @@ class _StatusChip extends StatelessWidget {
 }
 
 class _ScoreBadge extends StatelessWidget {
-  final ActiveDriver driver;
+  final List<ManagerShiftHistory> history;
 
-  const _ScoreBadge({required this.driver});
+  const _ScoreBadge({required this.history});
 
   @override
   Widget build(BuildContext context) {
-    final score = driver.totalBins == 0
-        ? 0
-        : (driver.completionPercentage * 100).toInt();
+    // A real performance stat: average completion rate over the last 30
+    // days of archived shifts. The old badge showed the CURRENT shift's
+    // completion, so every idle driver wore an alarming red "0 Score".
+    final cutoff = DateTime.now().subtract(const Duration(days: 30));
+    final recent = history
+        .where((s) =>
+            s.totalBins > 0 &&
+            s.startTime != null &&
+            s.startTime!.isAfter(cutoff))
+        .toList();
+    if (recent.isEmpty) return const SizedBox.shrink();
+
+    final avg = recent.map((s) => s.completionRate).reduce((a, b) => a + b) /
+        recent.length;
+    final score = avg.round();
     final scoreColor = score >= 80
         ? AppColors.successGreen
         : score >= 60
@@ -486,7 +530,7 @@ class _ScoreBadge extends StatelessWidget {
           const Icon(Icons.star, size: 14, color: Colors.white),
           const SizedBox(width: 6),
           Text(
-            '$score Score',
+            '$score% avg (30d)',
             style: const TextStyle(
               fontSize: 13,
               fontWeight: FontWeight.w600,
@@ -503,13 +547,15 @@ class _ActionButton extends StatelessWidget {
   final IconData icon;
   final String label;
   final Color color;
-  final VoidCallback onTap;
+  final VoidCallback? onTap; // null = disabled
+  final String? subtitle;
 
   const _ActionButton({
     required this.icon,
     required this.label,
     required this.color,
     required this.onTap,
+    this.subtitle,
   });
 
   @override
@@ -522,22 +568,157 @@ class _ActionButton extends StatelessWidget {
         borderRadius: BorderRadius.circular(12),
         child: Padding(
           padding: const EdgeInsets.symmetric(vertical: 14),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(icon, color: Colors.white, size: 20),
-              const SizedBox(width: 8),
-              Text(
-                label,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 15,
-                  fontWeight: FontWeight.bold,
-                ),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(icon, color: Colors.white, size: 20),
+                  const SizedBox(width: 8),
+                  Text(
+                    label,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 15,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
               ),
+              if (subtitle != null)
+                Text(
+                  subtitle!,
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.85),
+                    fontSize: 11,
+                  ),
+                ),
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// History stats + recent shifts
+// ═══════════════════════════════════════════════════════════════
+
+class _StatsStrip extends StatelessWidget {
+  final List<ManagerShiftHistory> history;
+
+  const _StatsStrip({required this.history});
+
+  @override
+  Widget build(BuildContext context) {
+    final now = DateTime.now();
+    final weekAgo = now.subtract(const Duration(days: 7));
+    final monthAgo = now.subtract(const Duration(days: 30));
+
+    final shiftsThisWeek = history
+        .where((s) => s.startTime != null && s.startTime!.isAfter(weekAgo))
+        .length;
+    final bins30d = history
+        .where((s) => s.startTime != null && s.startTime!.isAfter(monthAgo))
+        .fold<int>(0, (sum, s) => sum + s.completedBins);
+    final durations = history
+        .where((s) => s.startTime != null && s.endTime != null)
+        .map((s) =>
+            s.endTime!.difference(s.startTime!).inSeconds -
+            s.totalPauseSeconds)
+        .where((sec) => sec > 0)
+        .toList();
+    final avgDuration = durations.isEmpty
+        ? '—'
+        : () {
+            final sec = durations.reduce((a, b) => a + b) ~/ durations.length;
+            final h = sec ~/ 3600;
+            final m = (sec % 3600) ~/ 60;
+            return h > 0 ? '${h}h ${m}m' : '${m}m';
+          }();
+
+    Widget stat(String value, String label) => Expanded(
+          child: Column(
+            children: [
+              Text(
+                value,
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                label,
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
+              ),
+            ],
+          ),
+        );
+
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Row(
+        children: [
+          stat('$shiftsThisWeek', 'shifts this week'),
+          Container(width: 1, height: 32, color: Colors.grey.shade200),
+          stat('$bins30d', 'bins collected (30d)'),
+          Container(width: 1, height: 32, color: Colors.grey.shade200),
+          stat(avgDuration, 'avg duration'),
+        ],
+      ),
+    );
+  }
+}
+
+class _RecentShiftsCard extends StatelessWidget {
+  final List<ManagerShiftHistory> history;
+  final VoidCallback onViewAll;
+
+  const _RecentShiftsCard({required this.history, required this.onViewAll});
+
+  @override
+  Widget build(BuildContext context) {
+    final recent = history.take(5).toList();
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.history, size: 18),
+              const SizedBox(width: 8),
+              const Text(
+                'Recent Shifts',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+              ),
+              const Spacer(),
+              if (history.length > recent.length)
+                TextButton(
+                  onPressed: onViewAll,
+                  child: const Text('View all'),
+                ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          for (var i = 0; i < recent.length; i++) ...[
+            if (i > 0) Divider(height: 16, color: Colors.grey.shade100),
+            ShiftHistoryRow(shift: recent[i]),
+          ],
+        ],
       ),
     );
   }
@@ -588,7 +769,13 @@ class _QuickActionsCard extends StatelessWidget {
             icon: Icons.assignment,
             label: 'Assign New Route',
             onTap: () {
-              // TODO: Navigate to route assignment
+              // The shift builder is the single creation door (and has the
+              // inactive-bin gate); arrive with this driver pre-selected.
+              context.push(
+                '/manager/shift-builder'
+                '?driverId=${driver.driverId}'
+                '&driverName=${Uri.encodeComponent(driver.driverName)}',
+              );
             },
           ),
           const Divider(height: 24),
@@ -596,7 +783,14 @@ class _QuickActionsCard extends StatelessWidget {
             icon: Icons.history,
             label: 'View Full History',
             onTap: () {
-              // TODO: Link to web dashboard
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => DriverHistoryPage(
+                    driverId: driver.driverId,
+                    driverName: driver.driverName,
+                  ),
+                ),
+              );
             },
           ),
         ],
@@ -642,94 +836,4 @@ class _ActionRow extends StatelessWidget {
       ),
     );
   }
-}
-
-// ═══════════════════════════════════════════════════════════════
-// Dialogs
-// ═══════════════════════════════════════════════════════════════
-
-void _showDriverOfflineDialog(BuildContext context) {
-  showDialog(
-    context: context,
-    builder: (context) => Dialog(
-      backgroundColor: Colors.transparent,
-      elevation: 0,
-      child: Container(
-        padding: const EdgeInsets.all(28),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(24),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.15),
-              offset: const Offset(0, 8),
-              blurRadius: 24,
-            ),
-          ],
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 72,
-              height: 72,
-              decoration: BoxDecoration(
-                color: Colors.grey.shade100,
-                shape: BoxShape.circle,
-              ),
-              child: Icon(
-                Icons.signal_wifi_off_rounded,
-                size: 36,
-                color: Colors.grey.shade600,
-              ),
-            ),
-            const SizedBox(height: 20),
-            const Text(
-              'Driver Not Online',
-              style: TextStyle(
-                fontSize: 22,
-                fontWeight: FontWeight.bold,
-                color: Colors.black87,
-              ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 12),
-            Text(
-              'This driver is currently offline. Please try again later.',
-              style: TextStyle(
-                fontSize: 15,
-                color: Colors.grey.shade700,
-                height: 1.4,
-              ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 24),
-            SizedBox(
-              width: double.infinity,
-              child: Material(
-                color: AppColors.brandGreen,
-                borderRadius: BorderRadius.circular(12),
-                child: InkWell(
-                  onTap: () => Navigator.of(context).pop(),
-                  borderRadius: BorderRadius.circular(12),
-                  child: const Padding(
-                    padding: EdgeInsets.symmetric(vertical: 14),
-                    child: Text(
-                      'Got It',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    ),
-  );
 }

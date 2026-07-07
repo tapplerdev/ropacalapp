@@ -288,6 +288,15 @@ class RoutePolyline extends _$RoutePolyline {
               ))
           .toList();
 
+      // OSRM snaps the destination to the nearest road, so the geometry
+      // ends at the curb — append the true destination (bin in a parking
+      // lot, building setback) so the line reaches the pin. Skip when the
+      // snap already landed on it.
+      if (route.isNotEmpty &&
+          _haversineDistance(route.last, destination) > 5) {
+        route.add(destination);
+      }
+
       state = state.copyWith(
         fullRoute: route,
         visibleRoute: route,

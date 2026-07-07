@@ -830,15 +830,14 @@ class ManagerMapPage extends HookConsumerWidget {
                         isFocused: false,
                       );
 
+                      // No InfoWindow: the floating follow card is the tap
+                      // surface, and the native window renders half-drawn
+                      // when the marker is mutated at 60fps.
                       newMarkerOptions.add(
                         MarkerOptions(
                           position: LatLng(
                             latitude: location.latitude,
                             longitude: location.longitude,
-                          ),
-                          infoWindow: InfoWindow(
-                            title: driver.driverName,
-                            snippet: '${driver.completedBins ?? 0}/${driver.totalBins ?? 0} bins completed',
                           ),
                           icon: icon,
                           anchor: const MarkerAnchor(u: 0.5, v: 0.5),
@@ -936,10 +935,6 @@ class ManagerMapPage extends HookConsumerWidget {
                     final updatedMarker = existingMarker.copyWith(
                       options: MarkerOptions(
                         position: position,
-                        infoWindow: InfoWindow(
-                          title: driver.driverName,
-                          snippet: '${driver.completedBins ?? 0}/${driver.totalBins ?? 0} bins completed',
-                        ),
                         icon: driverIcon,
                         anchor: const MarkerAnchor(u: 0.5, v: 0.5),
                         flat: true,

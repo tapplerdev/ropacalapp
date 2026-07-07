@@ -242,9 +242,21 @@ class ShiftNotifier extends _$ShiftNotifier {
         // Stop polling since we found a shift
         _stopPolling();
 
-        // Start background tracking if shift is ready/active
-        if (currentShift.status == ShiftStatus.ready ||
-            currentShift.status == ShiftStatus.active ||
+        // An ACTIVE shift must always have the full per-second publisher
+        // running. startTracking was only invoked from the start-shift and
+        // resume-from-pause flows, so an app relaunch mid-shift (OS kill,
+        // APK update, reboot) came back with GPS silently off — the driver
+        // saw a normal shift while the manager map showed nothing.
+        // Idempotent: re-entry with the same shift is a no-op, and it
+        // replaces background mode cleanly (stopTracking-first).
+        if (currentShift.status == ShiftStatus.active &&
+            currentShift.shiftId != null) {
+          AppLogger.general(
+              '[DIAGNOSTIC] 📍 Active shift found — ensuring full location tracking');
+          await ref
+              .read(locationTrackingServiceProvider)
+              .startTracking(currentShift.shiftId!);
+        } else if (currentShift.status == ShiftStatus.ready ||
             currentShift.status == ShiftStatus.paused) {
           AppLogger.general('[DIAGNOSTIC] 📍 Starting background location tracking');
           ref.read(currentLocationProvider.notifier).startBackgroundTracking();

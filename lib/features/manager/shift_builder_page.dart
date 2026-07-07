@@ -711,8 +711,30 @@ class ShiftBuilderPage extends HookConsumerWidget {
 
     if (route == null) return;
 
+    // Exclude unroutable members up front, using the statuses the template
+    // itself carries — the cached bins list can be stale, and the backend
+    // would only drop these silently at create time.
+    const unroutable = {'retired', 'missing', 'in_storage'};
+    final excluded =
+        route.bins.where((b) => unroutable.contains(b.status)).toList();
+    final routable =
+        route.bins.where((b) => !unroutable.contains(b.status)).toList();
+
+    if (excluded.isNotEmpty && context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          backgroundColor: Colors.orange.shade700,
+          content: Text(
+            '${excluded.length} bin${excluded.length == 1 ? '' : 's'} excluded '
+            '(${excluded.map((b) => '#${b.binNumber}').join(', ')}) — '
+            'retired, missing, or in the warehouse',
+          ),
+        ),
+      );
+    }
+
     // Convert route bins to collection tasks
-    final newTasks = route.bins.map((bin) {
+    final newTasks = routable.map((bin) {
       return RouteTask(
         id: 'temp_${bin.id}',
         shiftId: 'temp',

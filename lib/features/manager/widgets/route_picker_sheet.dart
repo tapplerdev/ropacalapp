@@ -267,9 +267,15 @@ class _RouteCard extends StatelessWidget {
                           ),
                         ),
                         // Flag templates holding unroutable bins BEFORE
-                        // import, not after hitting the builder gate.
-                        if (route.bins
-                            .any((b) => b.status != 'active')) ...[
+                        // import. Counts only statuses the import actually
+                        // excludes — pending_move bins are routable, so
+                        // counting them made the badge disagree with what
+                        // import/create then did.
+                        if (route.bins.any((b) => const {
+                              'retired',
+                              'missing',
+                              'in_storage',
+                            }.contains(b.status))) ...[
                           const SizedBox(width: 8),
                           Container(
                             padding: const EdgeInsets.symmetric(
@@ -279,7 +285,11 @@ class _RouteCard extends StatelessWidget {
                               borderRadius: BorderRadius.circular(8),
                             ),
                             child: Text(
-                              '${route.bins.where((b) => b.status != 'active').length} inactive',
+                              '${route.bins.where((b) => const {
+                                    'retired',
+                                    'missing',
+                                    'in_storage',
+                                  }.contains(b.status)).length} excluded on import',
                               style: TextStyle(
                                 fontSize: 11,
                                 fontWeight: FontWeight.w600,

@@ -109,12 +109,37 @@ class RoutePolyline extends _$RoutePolyline {
         longitude: currentTask.longitude,
       );
 
-      // 3. Get driver's current GPS position
+      // 3. Get driver's current GPS position — live stream first, REST
+      // snapshot (the same data the follow card renders) as fallback, so a
+      // missing/late WebSocket fix doesn't leave the route permanently
+      // undrawn.
       final livePositions = ref.read(driverLivePositionsProvider);
       final driverLoc = livePositions[driverId];
+      LatLng? origin;
+      if (driverLoc != null) {
+        origin = LatLng(
+          latitude: driverLoc.latitude,
+          longitude: driverLoc.longitude,
+        );
+      } else {
+        final restDriver = ref
+            .read(driversNotifierProvider)
+            .valueOrNull
+            ?.where((d) => d.driverId == driverId)
+            .firstOrNull;
+        final restLoc = restDriver?.currentLocation;
+        if (restLoc != null) {
+          origin = LatLng(
+            latitude: restLoc.latitude,
+            longitude: restLoc.longitude,
+          );
+          AppLogger.general(
+              '🛤️ Polyline origin from REST snapshot (no live fix yet)');
+        }
+      }
 
-      if (driverLoc == null) {
-        // No GPS position yet — store task info but no route
+      if (origin == null) {
+        // No position from either source — store task info but no route
         state = RoutePolylineState(
           destination: dest,
           activeTaskId: currentTask.id,
@@ -124,11 +149,6 @@ class RoutePolyline extends _$RoutePolyline {
         );
         return;
       }
-
-      final origin = LatLng(
-        latitude: driverLoc.latitude,
-        longitude: driverLoc.longitude,
-      );
 
       // 4. Fetch OSRM directions
       await _fetchRoute(origin, dest);
@@ -229,8 +249,9 @@ class RoutePolyline extends _$RoutePolyline {
         currentTask: currentTask,
       );
 
-      // If task changed, re-fetch route
-      if (currentTask.id != state.activeTaskId) {
+      // Re-fetch when the task changed — or when a route was never drawn
+      // (init ran before any position was available).
+      if (currentTask.id != state.activeTaskId || state.fullRoute.isEmpty) {
         AppLogger.general(
           '🔄 Task changed: ${state.activeTaskId} → ${currentTask.id}',
         );
@@ -240,14 +261,31 @@ class RoutePolyline extends _$RoutePolyline {
           longitude: currentTask.longitude,
         );
 
+        // Live stream first, REST snapshot as fallback (same policy as
+        // initializeForDriver).
         final livePositions = ref.read(driverLivePositionsProvider);
         final driverLoc = livePositions[driverId];
-        if (driverLoc == null) return;
-
-        final origin = LatLng(
-          latitude: driverLoc.latitude,
-          longitude: driverLoc.longitude,
-        );
+        LatLng? origin;
+        if (driverLoc != null) {
+          origin = LatLng(
+            latitude: driverLoc.latitude,
+            longitude: driverLoc.longitude,
+          );
+        } else {
+          final restLoc = ref
+              .read(driversNotifierProvider)
+              .valueOrNull
+              ?.where((d) => d.driverId == driverId)
+              .firstOrNull
+              ?.currentLocation;
+          if (restLoc != null) {
+            origin = LatLng(
+              latitude: restLoc.latitude,
+              longitude: restLoc.longitude,
+            );
+          }
+        }
+        if (origin == null) return;
 
         state = state.copyWith(
           activeTaskId: currentTask.id,

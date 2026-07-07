@@ -446,12 +446,16 @@ class CentrifugoService {
     });
   }
 
-  /// Unsubscribe from a channel
+  /// Unsubscribe from a channel.
+  /// MUST evict from the centrifuge client's internal registry too
+  /// (removeSubscription) — subscription.unsubscribe() alone leaves the
+  /// channel registered, and the next newSubscription for it throws
+  /// "already exists", permanently killing that channel's live feed.
   void unsubscribe(String channel) {
     final subscription = _subscriptions[channel];
     if (subscription != null) {
       AppLogger.general('🔄 [Centrifugo] Unsubscribing from $channel...');
-      subscription.unsubscribe();
+      _client?.removeSubscription(subscription);
       _subscriptions.remove(channel);
     } else {
       AppLogger.general('⚠️ [Centrifugo] No subscription found for $channel');
@@ -462,7 +466,7 @@ class CentrifugoService {
   void unsubscribeAll() {
     AppLogger.general('🔄 [Centrifugo] Unsubscribing from all channels...');
     for (final subscription in _subscriptions.values) {
-      subscription.unsubscribe();
+      _client?.removeSubscription(subscription);
     }
     _subscriptions.clear();
     AppLogger.general('✅ [Centrifugo] Unsubscribed from all channels');

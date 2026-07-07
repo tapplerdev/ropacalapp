@@ -240,10 +240,24 @@ class ManagerMapPage extends HookConsumerWidget {
                     driver.driverId,
                     (locationData) {
                       try {
+                        // Tolerant coordinate parse: a contract drift on the
+                        // publish payload must drop ONE fix with a log, not
+                        // throw into the blanket catch and silently freeze
+                        // the truck for the whole session.
+                        final rawLat = (locationData['latitude'] ??
+                            locationData['lat']) as num?;
+                        final rawLng = (locationData['longitude'] ??
+                            locationData['lng']) as num?;
+                        if (rawLat == null || rawLng == null) {
+                          AppLogger.map(
+                              '⚠️ Location payload missing coordinates: '
+                              '${locationData.keys.toList()}');
+                          return;
+                        }
                         final location = DriverLocation(
                           driverId: locationData['driver_id'] ?? driver.driverId,
-                          latitude: (locationData['latitude'] as num).toDouble(),
-                          longitude: (locationData['longitude'] as num).toDouble(),
+                          latitude: rawLat.toDouble(),
+                          longitude: rawLng.toDouble(),
                           heading: (locationData['heading'] as num?)?.toDouble(),
                           speed: (locationData['speed'] as num?)?.toDouble(),
                           accuracy: (locationData['accuracy'] as num?)?.toDouble(),
@@ -1333,7 +1347,16 @@ class ManagerMapPage extends HookConsumerWidget {
                       zIndex: 600,
                     ),
                   ]);
-                  if (destMarkerGeneration.value != currentGen) return;
+                  if (destMarkerGeneration.value != currentGen) {
+                    // Stale run: the pin was already added natively — take
+                    // it off the map instead of orphaning an untracked red
+                    // pin nothing can ever remove.
+                    final added = markers.whereType<Marker>().toList();
+                    if (added.isNotEmpty) {
+                      await controller.removeMarkers(added);
+                    }
+                    return;
+                  }
                   if (markers.isNotEmpty) {
                     destinationMarker.value = markers.first;
                   }

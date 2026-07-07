@@ -4,13 +4,17 @@ import 'package:http/http.dart' as http;
 import 'package:flutter/foundation.dart';
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:package_info_plus/package_info_plus.dart';
+import 'package:ropacalapp/core/constants/api_constants.dart';
 
 /// Service for logging app errors to the backend for diagnostics
 /// Handles navigation errors, GPS issues, and other critical failures
 class AppErrorLoggingService {
+  // Follows the app-wide backend by default; --dart-define=API_URL overrides
+  // for local testing. (The old localhost default meant release builds sent
+  // error reports to the device's own loopback — i.e. nowhere.)
   static const String _baseUrl = String.fromEnvironment(
     'API_URL',
-    defaultValue: 'http://localhost:8080',
+    defaultValue: ApiConstants.baseUrl,
   );
 
   /// Log an error to the backend

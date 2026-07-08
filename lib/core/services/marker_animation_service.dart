@@ -96,6 +96,29 @@ class MarkerAnimationService {
   /// degrees per millisecond (≈ a full U-turn in half a second).
   static const double _maxTurnDegPerMs = 0.36;
 
+  /// Adaptive playhead lag: hold at least 2× the measured inter-arrival of
+  /// distinct fixes (the Valve Source rule: interp delay ≥ 2× update
+  /// interval), clamped so we never feel dead nor over-buffer. A clean ~1s
+  /// stream keeps this at [_targetLagMs]; a publisher that quantizes to
+  /// multi-second steps widens the buffer to absorb them instead of
+  /// lurching. See the compounding-quantization root cause.
+  static const double _maxTargetLagMs = 6000;
+
+  /// On buffer underrun (playhead caught the newest fix) with an active
+  /// guide, dead-reckon forward along the road at the last speed for up to
+  /// this long before holding — a late fix reads as continued motion, not a
+  /// freeze. Mirrors Mapbox RouteControllerDeadReckoningTimeInterval (1.0s).
+  /// Only ever advances ALONG the guide geometry — never free heading-based
+  /// extrapolation (a documented pitfall).
+  static const double _deadReckonMaxMs = 1000;
+
+  /// When a fresh guide arrives, the rendered marker is re-projected onto it
+  /// (continuity-preserving swap). A projection this close along-track behind
+  /// the new path's start still counts as on-route — the expected geometry
+  /// when a just-fetched guide is anchored a beat ahead of the delayed
+  /// playhead, not a real divergence.
+  static const double _guideResnapM = 60.0;
+
   /// Wall-clock source in milliseconds. Injectable so tests can drive
   /// virtual time; production uses a monotonic stopwatch.
   MarkerAnimationService({double Function()? nowMs})
@@ -145,6 +168,11 @@ class MarkerAnimationService {
       );
       playback.queue.clear();
       playback.playheadTs = null;
+      // Position jumped: re-anchor guide projection + forward-only clamp so a
+      // backward teleport isn't held ahead and the window re-finds the fix.
+      playback.lastConfirmedS = null;
+      playback.renderedGuideS = null;
+      playback.underrunMs = 0;
     }
 
     // Physically implausible jump (bad fix that self-reports good
@@ -191,6 +219,18 @@ class MarkerAnimationService {
       }
     }
 
+    // Track the inter-arrival of distinct fixes (device-time gap) as an EMA,
+    // so the playhead lag can widen to absorb a quantized publisher instead
+    // of lurching. Ignore teleport-sized gaps (connection drops, not cadence).
+    if (playback.queue.isNotEmpty) {
+      final gap = ts - playback.queue.last.ts;
+      if (gap > 0 && gap < _teleportGapMs) {
+        playback.avgFixIntervalMs = playback.avgFixIntervalMs == null
+            ? gap
+            : playback.avgFixIntervalMs! * 0.7 + gap * 0.3;
+      }
+    }
+
     playback.queue.add(_TimedFix(pos: newPosition, ts: ts, speed: speed));
     playback.playheadTs ??= ts; // first fix: park the marker on it
     if (heading != null && playback.displayedHeading == null) {
@@ -215,15 +255,59 @@ class MarkerAnimationService {
     // first live fix arrives.
     final playback =
         _playbacks.putIfAbsent(driverId, () => _DriverPlayback(driverId));
-    playback.guide =
-        (path != null && path.length >= 2) ? _GuidePath(path) : null;
+    final newGuide = (path != null && path.length >= 2) ? _GuidePath(path) : null;
+    playback.guide = newGuide;
     playback.guideVersion++;
-    // Fresh geometry: forget projection state and start trusting it again.
-    playback.lastConfirmedS = null;
+    // New geometry → the forward-only render clamp must not carry an old s.
+    playback.renderedGuideS = null;
+
+    // Continuity-preserving swap: instead of blanking projection state (which
+    // made EVERY refresh re-run the off-route hysteresis from zero and latch
+    // whenever the delayed playhead sat behind the fresh path's start), carry
+    // the currently rendered marker onto the new geometry. If it still sits on
+    // the new route, seed the confirmed progress from it and stay engaged — no
+    // spurious latch, no visible snap. Only a genuine divergence (rendered
+    // marker truly off the new path) falls back to re-confirming via hysteresis.
     playback.onGuideStreak = 0;
     playback.offGuideStreak = 0;
-    playback.guideActive = playback.guide != null;
+    if (newGuide == null) {
+      playback.lastConfirmedS = null;
+      playback.guideActive = false;
+      return;
+    }
+    final rendered = playback.lastRendered;
+    if (rendered == null) {
+      // Cold start — no marker to carry. Trust the fresh geometry (original
+      // behavior); the first fixes confirm the window.
+      playback.lastConfirmedS = null;
+      playback.guideActive = true;
+      return;
+    }
+    final proj = newGuide.project(rendered);
+    // On-route if within the perpendicular snap gate, OR clamped just behind
+    // the start within the resnap band AND colinear with the road (the
+    // just-fetched-ahead-of-playhead case) — the perp guard keeps a marker
+    // that's 50m to the SIDE of the start from being falsely kept on-route.
+    if (proj.distM <= _maxGuideSnapM ||
+        (proj.s <= 1.0 &&
+            proj.distM <= _guideResnapM &&
+            newGuide.startPerpDist(rendered) <= _maxGuideSnapM)) {
+      playback.lastConfirmedS = proj.s;
+      playback.guideActive = true;
+      return;
+    }
+    // The marker is genuinely off the new path (a real reroute/divergence):
+    // start inactive so the on-route hysteresis must re-earn the guide with
+    // real fixes, rather than silently claiming a wrong geometry.
+    playback.lastConfirmedS = null;
+    playback.guideActive = false;
   }
+
+  /// Whether [driverId]'s marker is currently gliding on its guide (not
+  /// latched off-route). Lets the map skip geometry refetches for drivers
+  /// that are already tracking cleanly.
+  bool guideActiveFor(String driverId) =>
+      _playbacks[driverId]?.guideActive ?? false;
 
   /// The last position playback rendered for [driverId] (the delayed,
   /// on-screen position — a few seconds behind the raw live fix). Use this
@@ -251,11 +335,16 @@ class MarkerAnimationService {
       final lag = newestTs - p.playheadTs!;
 
       if (lag > 0 && dtMs > 0) {
-        // Self-tuning rate: 1.0 at target lag, faster when backlogged,
-        // slower as the buffer drains — the marker eases instead of
-        // hard-stopping when a fix is late.
-        final rate = (lag / _targetLagMs).clamp(_minRate, _maxRate);
+        // Self-tuning rate: 1.0 at the (adaptive) target lag, faster when
+        // backlogged, slower as the buffer drains — the marker eases instead
+        // of hard-stopping when a fix is late.
+        final rate = (lag / p.targetLagMs).clamp(_minRate, _maxRate);
         p.playheadTs = min(p.playheadTs! + dtMs * rate, newestTs);
+        p.underrunMs = 0;
+      } else if (dtMs > 0) {
+        // Caught up to the newest fix: accumulate underrun time so the render
+        // path can dead-reckon along the guide (capped) instead of freezing.
+        p.underrunMs = min(p.underrunMs + dtMs, _deadReckonMaxMs);
       }
 
       final rendered = _renderAt(p, dtMs);
@@ -304,7 +393,31 @@ class MarkerAnimationService {
       i++;
     }
     if (i + 1 >= queue.length) {
-      return queue.last.pos; // parked at the newest fix
+      // Underrun: the playhead reached the newest fix. If we're gliding on a
+      // guide and the truck was moving, dead-reckon forward ALONG the road at
+      // the last speed for up to _deadReckonMaxMs — a late fix then reads as
+      // continued motion instead of a freeze — then hold. Never extrapolate
+      // off the geometry, and never while parked.
+      final last = queue.last;
+      final guide = p.guide;
+      final overshoot = p.underrunMs; // wall-time parked at newest, capped
+      final speed = last.speed ?? 0.0;
+      if (guide != null &&
+          p.guideActive &&
+          overshoot > 0 &&
+          speed >= _stationarySpeedMps &&
+          p.lastConfirmedS != null) {
+        final s = min(p.lastConfirmedS! + speed * overshoot / 1000.0,
+            guide.length);
+        // Record how far we dead-reckoned so the on-guide render holds here
+        // (forward-only) instead of snapping back when the delayed fix lands.
+        p.renderedGuideS = s;
+        _steerHeading(
+            p, guide.bearingAt(min(s + _bearingLookaheadM, guide.length)),
+            dtMs, last.ts);
+        return guide.pointAt(s);
+      }
+      return last.pos; // parked at the newest fix
     }
 
     final a = queue[i];
@@ -321,7 +434,15 @@ class MarkerAnimationService {
       final sA = _projectedS(a, p);
       final sB = _projectedS(b, p);
       if (p.guideActive && sA != null && sB != null && sB > sA) {
-        final s = sA + (sB - sA) * t;
+        var s = sA + (sB - sA) * t;
+        // Forward-only: never render behind where we've already drawn on this
+        // guide (dead-reckon may have nudged us slightly ahead of the last
+        // real fix — hold there rather than snap backward when it arrives).
+        if (p.renderedGuideS != null && s < p.renderedGuideS!) {
+          s = p.renderedGuideS!;
+        } else {
+          p.renderedGuideS = s;
+        }
         if (!slowFix) {
           // Sample slightly ahead so the nose leads into turns.
           final lookS = min(s + _bearingLookaheadM, guide.length);
@@ -380,7 +501,17 @@ class MarkerAnimationService {
       final proj = guide.project(fix.pos, windowStartS: from, windowEndS: to);
       fix.cachedVersion = p.guideVersion;
 
-      if (proj.distM <= _maxGuideSnapM) {
+      // On-route within the perpendicular gate, OR clamped just behind the
+      // path start within the resnap band AND colinear with the road — the
+      // latter is a fix bracketing a playhead a beat behind a freshly-fetched
+      // guide's origin, not a divergence. The perp guard rejects a fix off to
+      // the SIDE near the start. Without this, every guide refresh at speed
+      // latched.
+      final onRoute = proj.distM <= _maxGuideSnapM ||
+          (proj.s <= 1.0 &&
+              proj.distM <= _guideResnapM &&
+              guide.startPerpDist(fix.pos) <= _maxGuideSnapM);
+      if (onRoute) {
         fix.cachedS = proj.s;
         p.onGuideStreak++;
         p.offGuideStreak = 0;
@@ -560,6 +691,30 @@ class _DriverPlayback {
   /// projection window.
   double? lastConfirmedS;
 
+  /// EMA of the device-time gap between distinct fixes (ms). Null until two
+  /// fixes have arrived. Drives the adaptive playhead lag.
+  double? avgFixIntervalMs;
+
+  /// Playhead lag target for this driver: ~1.25× the measured fix interval
+  /// (reliable WS transport spaces fixes rather than dropping them, so the
+  /// buffer only needs to cover the interval plus jitter — not the 2× a
+  /// lossy channel demands), clamped to [_targetLagMs, _maxTargetLagMs].
+  /// A clean ~1s or steady ~3s stream stays at the floor; only a genuinely
+  /// slow/quantized feed widens the buffer to absorb its multi-second steps.
+  double get targetLagMs {
+    final avg = avgFixIntervalMs;
+    // The floor already covers a clean ≤~3s stream with runway to spare;
+    // only a genuinely slow/quantized feed (interval above the floor) needs
+    // a wider buffer, so normal cadences render exactly as before.
+    if (avg == null || avg <= MarkerAnimationService._targetLagMs) {
+      return MarkerAnimationService._targetLagMs;
+    }
+    return (avg * 1.25)
+        .clamp(MarkerAnimationService._targetLagMs,
+            MarkerAnimationService._maxTargetLagMs)
+        .toDouble();
+  }
+
   /// Off-route hysteresis state.
   bool guideActive = false;
   int onGuideStreak = 0;
@@ -569,8 +724,23 @@ class _DriverPlayback {
   double? reversalSeenAtTs;
   bool reversalCommitted = false;
 
+  /// Wall-time (ms) the playhead has been parked at the newest fix, capped
+  /// at [_deadReckonMaxMs]. Keeps the render loop alive while dead-reckoning
+  /// forward on the guide, then lets it idle.
+  double underrunMs = 0;
+
+  /// Furthest guide distance the marker has actually been RENDERED at (this
+  /// guide version). Dead-reckoning can push the marker a little past the
+  /// last real fix; when a delayed fix then lands behind that (driver was
+  /// decelerating), the on-guide render is clamped forward to here so the
+  /// marker HOLDS instead of rewinding. Reset on guide swap / teleport.
+  double? renderedGuideS;
+
   bool get hasRunway =>
-      queue.isNotEmpty && playheadTs != null && playheadTs! < queue.last.ts;
+      queue.isNotEmpty &&
+      playheadTs != null &&
+      (playheadTs! < queue.last.ts ||
+          (underrunMs > 0 && underrunMs < MarkerAnimationService._deadReckonMaxMs));
 }
 
 /// A GPS fix with its device-side timestamp (ms), reported speed (m/s),
@@ -664,6 +834,27 @@ class _GuidePath {
       longitude: points[i].longitude +
           (points[i + 1].longitude - points[i].longitude) * t,
     );
+  }
+
+  /// Perpendicular distance (m) from [pt] to the INFINITE line through the
+  /// first segment. Distinguishes a point behind the start but ON the road
+  /// (small — the resnap band should keep it) from one off to the SIDE near
+  /// the start (large — a real divergence the band must not swallow).
+  double startPerpDist(LatLng pt) {
+    if (points.length < 2) return double.infinity;
+    final cosLat = cos(pt.latitude * pi / 180);
+    const mPerDegLat = 110540.0;
+    final mPerDegLng = 111320.0 * cosLat;
+    final ax = (points[0].longitude - pt.longitude) * mPerDegLng;
+    final ay = (points[0].latitude - pt.latitude) * mPerDegLat;
+    final bx = (points[1].longitude - pt.longitude) * mPerDegLng;
+    final by = (points[1].latitude - pt.latitude) * mPerDegLat;
+    final dx = bx - ax, dy = by - ay;
+    final segLenSq = dx * dx + dy * dy;
+    if (segLenSq == 0) return sqrt(ax * ax + ay * ay);
+    final t = -(ax * dx + ay * dy) / segLenSq; // unclamped: line, not segment
+    final px = ax + dx * t, py = ay + dy * t;
+    return sqrt(px * px + py * py);
   }
 
   /// Bearing of the path segment containing [s].

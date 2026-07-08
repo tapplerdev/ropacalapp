@@ -258,6 +258,96 @@ void main() {
     });
   });
 
+  group('guide refresh at speed (degradation-cycle regression)', () {
+    // Highway: ~29 m/s, fixes every 3s ≈ 87m apart, along a straight road.
+    List<LatLng> highwayRoad() =>
+        [for (var i = 0; i <= 40; i++) at(i * 100.0, 0)];
+
+    test('swapping the guide mid-drive does NOT latch off-route', () {
+      final h = Harness();
+      h.svc.setGuidePath(Harness.driver, highwayRoad());
+      var refetches = 0;
+      h.svc.onOffRoute = (_) => refetches++;
+
+      // Drive the highway at speed, buffer warmed.
+      for (var i = 0; i < 6; i++) {
+        h.driveStep(at(i * 87.0, 0), speed: 29.0);
+      }
+      refetches = 0;
+
+      // Simulate the manager's refresh: re-fetch a guide anchored at the
+      // RENDERED marker position (item 1), i.e. a fresh road starting where
+      // the marker actually is. This must NOT relatch.
+      for (var round = 0; round < 4; round++) {
+        final rendered = h.svc.lastRenderedPosition(Harness.driver)!;
+        final rx = (rendered.longitude - _baseLng) * _mPerDegLng;
+        h.svc.setGuidePath(
+            Harness.driver, [for (var i = 0; i <= 30; i++) at(rx + i * 100.0, 0)]);
+        expect(h.svc.guideActiveFor(Harness.driver), isTrue,
+            reason: 'round $round: latched off-route after guide swap');
+        h.driveStep(at((6 + round) * 87.0, 0), speed: 29.0);
+      }
+      expect(refetches, 0,
+          reason: 'continuity-preserving swap should never fire onOffRoute');
+    });
+
+    test('guide anchored a beat AHEAD of the playhead still counts on-route',
+        () {
+      final h = Harness();
+      for (var i = 0; i < 6; i++) {
+        h.driveStep(at(i * 87.0, 0), speed: 29.0);
+      }
+      final rendered = h.svc.lastRenderedPosition(Harness.driver)!;
+      final rx = (rendered.longitude - _baseLng) * _mPerDegLng;
+      // New guide starts ~40m ahead of the rendered marker (fetch latency at
+      // speed) — within the resnap band, must stay engaged, not latch.
+      h.svc.setGuidePath(
+          Harness.driver, [for (var i = 0; i <= 30; i++) at(rx + 40 + i * 100.0, 0)]);
+      expect(h.svc.guideActiveFor(Harness.driver), isTrue);
+    });
+
+    test('a genuinely divergent new guide DOES re-confirm via hysteresis', () {
+      final h = Harness();
+      final road = highwayRoad();
+      h.svc.setGuidePath(Harness.driver, road);
+      for (var i = 0; i < 6; i++) {
+        h.driveStep(at(i * 87.0, 0), speed: 29.0);
+      }
+      // A new guide 500m NORTH of the driver — truly off it. The swap must
+      // not blindly claim on-route; hysteresis has to re-earn it.
+      h.svc.setGuidePath(
+          Harness.driver, [for (var i = 0; i <= 20; i++) at(i * 100.0, 500)]);
+      expect(h.svc.guideActiveFor(Harness.driver), isFalse,
+          reason: 'must not claim on-route for a divergent guide');
+    });
+
+    test('underrun on a slow feed dead-reckons forward, not frozen/backward',
+        () {
+      final h = Harness();
+      h.svc.setGuidePath(Harness.driver, highwayRoad());
+      // Warm up at 3s cadence.
+      for (var i = 0; i < 5; i++) {
+        h.driveStep(at(i * 87.0, 0), speed: 29.0);
+      }
+      // A slow ~7s gap (the measured quantization). Feed the fix, then play
+      // past the buffer so the playhead underruns.
+      h.fix(at(5 * 87.0, 0), speed: 29.0, gapMs: 7000);
+      h.frames.clear();
+      h.run(6000);
+      // Frames must keep advancing east (dead-reckon along guide), never jump
+      // backward, and stay glued to the road.
+      for (var i = 1; i < h.frames.length; i++) {
+        final xPrev =
+            (h.frames[i - 1].pos.longitude - _baseLng) * _mPerDegLng;
+        final xCur = (h.frames[i].pos.longitude - _baseLng) * _mPerDegLng;
+        expect(xCur, greaterThanOrEqualTo(xPrev - 0.5),
+            reason: 'frame $i jumped backward during underrun');
+        expect(distToPath(h.frames[i].pos, highwayRoad()), lessThan(5.0),
+            reason: 'frame $i drifted off the road during dead-reckon');
+      }
+    });
+  });
+
   group('teleports', () {
     test('>15s gap: jumps, never glides across the void', () {
       final h = Harness();

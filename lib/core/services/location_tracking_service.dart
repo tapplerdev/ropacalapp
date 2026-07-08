@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math';
 import 'package:fused_location/fused_location.dart' as fused;
 import 'package:fused_location/fused_location_provider.dart';
 import 'package:fused_location/fused_location_options.dart';
@@ -32,6 +33,15 @@ class LocationTrackingService {
   bool _isTracking = false;
   fused.FusedLocation? _lastLocation; // Cache last received location
   double? _lastCourse; // Last known direction of travel (held while stopped)
+
+  // Last DISTINCT position we published, to (a) suppress compass-event
+  // re-emissions of the same fix (the plugin re-fires on heading change,
+  // which spammed identical coordinates with fresh timestamps and a creeping
+  // compass heading — corrupting the manager's playback clock and pointing
+  // the truck off-road) and (b) derive course-over-ground from real movement.
+  double? _lastPubLat;
+  double? _lastPubLng;
+  DateTime? _lastPublishSentAt; // for the parked-driver keepalive below
 
   // Callback for location updates (for UI integration)
   void Function(fused.FusedLocation)? _onLocationUpdate;
@@ -420,9 +430,36 @@ class LocationTrackingService {
     _currentShiftId = null;
     _isTracking = false;
     _lastLocation = null; // Clear cached location
+    _lastPubLat = null; // Fresh dedup/bearing anchor for the next shift
+    _lastPubLng = null;
+    _lastPublishSentAt = null;
+    _lastCourse = null;
     _onLocationUpdate = null; // Clear callback
 
     AppLogger.general('✅ Location tracking stopped');
+  }
+
+  /// Great-circle distance in meters (equirectangular approx — fine at the
+  /// few-meters scale these checks operate on).
+  static double _metersBetween(
+      double lat1, double lng1, double lat2, double lng2) {
+    const mPerDegLat = 110540.0;
+    final mPerDegLng = 111320.0 * cos(lat1 * pi / 180);
+    final dy = (lat2 - lat1) * mPerDegLat;
+    final dx = (lng2 - lng1) * mPerDegLng;
+    return sqrt(dx * dx + dy * dy);
+  }
+
+  /// Compass bearing (degrees clockwise from north) from point 1 to point 2.
+  static double _bearingDegrees(
+      double lat1, double lng1, double lat2, double lng2) {
+    final phi1 = lat1 * pi / 180;
+    final phi2 = lat2 * pi / 180;
+    final dLng = (lng2 - lng1) * pi / 180;
+    final y = sin(dLng) * cos(phi2);
+    final x = cos(phi1) * sin(phi2) - sin(phi1) * cos(phi2) * cos(dLng);
+    final deg = atan2(y, x) * 180 / pi;
+    return (deg + 360) % 360;
   }
 
   /// Send location to Centrifugo via WebSocket publish
@@ -450,18 +487,53 @@ class LocationTrackingService {
       final speed = location.speed.magnitude ?? 0.0;
       final accuracy = location.position.accuracy ?? -1.0;
 
-      // Marker orientation must be the direction of TRAVEL (course over
-      // ground), not the compass heading — heading is which way the PHONE
-      // points, so a phone mounted backwards renders the truck driving in
-      // reverse. Course is undefined while stopped, so hold the last known
-      // course at standstill instead of letting the marker twitch; before
-      // any movement at all, fall back to the compass as a best guess.
-      final course = location.course.direction;
+      // Suppress compass-event re-emissions: the plugin re-fires the SAME
+      // fix whenever the phone's heading changes, so a stationary/slow phone
+      // spammed byte-identical coordinates with fresh timestamps and a
+      // creeping compass heading. Those polluted the manager's playback
+      // clock (phantom "new fixes" at the same spot) and — being sourced
+      // from the compass — pointed the truck off-road. Only publish when the
+      // coordinate actually moved (or on the very first fix).
+      final nowTs = DateTime.now();
+      if (_lastPubLat != null && _lastPubLng != null) {
+        final moved = _metersBetween(_lastPubLat!, _lastPubLng!, lat, lng);
+        // Keepalive: a genuinely parked driver (loading/servicing a bin)
+        // produces only compass re-emits, which we drop — but the backend
+        // Redis key has a 10-min TTL, so if we NEVER publish while parked the
+        // driver drops off the manager map. Let one identical publish through
+        // every 4 min to refresh the TTL.
+        final keepaliveDue = _lastPublishSentAt == null ||
+            nowTs.difference(_lastPublishSentAt!) >= const Duration(minutes: 4);
+        if (moved < 0.5 && !keepaliveDue) {
+          return; // same position, recent publish — drop the compass re-emit
+        }
+      }
+
+      // Marker orientation must be the direction of TRAVEL, not the compass
+      // heading (which way the PHONE points — a backwards-mounted phone would
+      // render the truck driving in reverse). Prefer a bearing computed from
+      // real movement between successive published fixes (the probe proved
+      // the device's own course/heading field was compass-like, ~110° off the
+      // road); fall back to the plugin course, then the held course.
+      double? movementBearing;
+      if (_lastPubLat != null && _lastPubLng != null && speed >= 1.0) {
+        final moved = _metersBetween(_lastPubLat!, _lastPubLng!, lat, lng);
+        if (moved >= 4.0) {
+          movementBearing = _bearingDegrees(_lastPubLat!, _lastPubLng!, lat, lng);
+        }
+      }
+      final course = movementBearing ?? location.course.direction;
       if (course != null && speed >= 1.0) {
         _lastCourse = course;
       }
       final travelDirection =
           _lastCourse ?? course ?? location.heading.direction;
+
+      // Past the dedup gate — this fix is being published; record it as the
+      // anchor for the next movement-bearing + dedup + keepalive check.
+      _lastPubLat = lat;
+      _lastPubLng = lng;
+      _lastPublishSentAt = nowTs;
 
       // Prepare location data. 'heading' carries the travel direction so
       // every consumer (manager map, dashboard, Redis) is fixed by this one

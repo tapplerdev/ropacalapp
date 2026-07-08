@@ -1228,58 +1228,94 @@ class ManagerMapPage extends HookConsumerWidget {
             () {
               if (mapController.value == null) return null;
               var cancelled = false;
+              // Per-driver in-flight guard: an off-route latch fires while a
+              // refetch for that driver may still be in flight; without this
+              // the onOffRoute→refreshGuides path re-entered and stacked
+              // fetches, re-poisoning the guide each round.
+              final fetching = <String>{};
 
-              Future<void> refreshGuides() async {
-                for (final d in activeDrivers) {
-                  if (cancelled) return;
-                  if (d.driverId == focusedDriverId) continue;
-                  if (d.shiftId.isEmpty) continue;
-                  try {
-                    final shiftData = await ref
-                        .read(driverShiftDetailProvider(d.driverId).future);
-                    final task = shiftData.bins
-                        .where((t) => t.isCompleted == 0 && !t.skipped)
-                        .firstOrNull;
-                    if (task == null) {
-                      animationService.setGuidePath(d.driverId, null);
-                      continue;
-                    }
-                    final live =
-                        ref.read(driverLivePositionsProvider)[d.driverId];
-                    final originLat =
-                        live?.latitude ?? d.currentLocation?.latitude;
-                    final originLng =
-                        live?.longitude ?? d.currentLocation?.longitude;
-                    if (originLat == null || originLng == null) continue;
-
-                    final coords =
-                        await ref.read(managerServiceProvider).getDirections(
-                              originLat: originLat,
-                              originLng: originLng,
-                              destLat: task.latitude,
-                              destLng: task.longitude,
-                            );
-                    if (cancelled) return;
-                    final pts = coords
-                        .map((c) => LatLng(
-                              latitude: (c['latitude'] as num).toDouble(),
-                              longitude: (c['longitude'] as num).toDouble(),
-                            ))
-                        .toList();
-                    if (pts.length >= 2) {
-                      animationService.setGuidePath(d.driverId, pts);
-                    }
-                  } catch (e) {
-                    AppLogger.map(
-                        '⚠️ Guide refresh failed for ${d.driverName}: $e');
+              Future<void> refreshDriver(ActiveDriver d) async {
+                if (cancelled ||
+                    d.driverId == focusedDriverId ||
+                    d.shiftId.isEmpty ||
+                    fetching.contains(d.driverId)) {
+                  return;
+                }
+                fetching.add(d.driverId);
+                try {
+                  final shiftData = await ref
+                      .read(driverShiftDetailProvider(d.driverId).future);
+                  final task = shiftData.bins
+                      .where((t) => t.isCompleted == 0 && !t.skipped)
+                      .firstOrNull;
+                  if (task == null) {
+                    animationService.setGuidePath(d.driverId, null);
+                    return;
                   }
+                  // Anchor the route at the RENDERED marker position, not the
+                  // live fix: the marker plays ~lag behind live, so a live-fix
+                  // origin puts the new path's start ahead of the marker and
+                  // instantly latches it off-route. Rendered position is where
+                  // the marker actually is. (Mapbox/Google reroute from the
+                  // matched puck, never a raw newer fix.)
+                  final rendered =
+                      animationService.lastRenderedPosition(d.driverId);
+                  final live =
+                      ref.read(driverLivePositionsProvider)[d.driverId];
+                  final originLat = rendered?.latitude ??
+                      live?.latitude ??
+                      d.currentLocation?.latitude;
+                  final originLng = rendered?.longitude ??
+                      live?.longitude ??
+                      d.currentLocation?.longitude;
+                  if (originLat == null || originLng == null) return;
+
+                  final coords =
+                      await ref.read(managerServiceProvider).getDirections(
+                            originLat: originLat,
+                            originLng: originLng,
+                            destLat: task.latitude,
+                            destLng: task.longitude,
+                          );
+                  if (cancelled) return;
+                  final pts = coords
+                      .map((c) => LatLng(
+                            latitude: (c['latitude'] as num).toDouble(),
+                            longitude: (c['longitude'] as num).toDouble(),
+                          ))
+                      .toList();
+                  if (pts.length >= 2) {
+                    animationService.setGuidePath(d.driverId, pts);
+                  }
+                } catch (e) {
+                  AppLogger.map(
+                      '⚠️ Guide refresh failed for ${d.driverName}: $e');
+                } finally {
+                  fetching.remove(d.driverId);
                 }
               }
 
+              // [skipHealthy] true = safety-net sweep: leave drivers that are
+              // already gliding on their guide untouched (the event-driven
+              // onOffRoute path handles divergence promptly). This replaces
+              // the old blanket 30s refetch of every driver.
+              Future<void> refreshGuides({bool skipHealthy = false}) async {
+                for (final d in activeDrivers) {
+                  if (cancelled) return;
+                  if (skipHealthy && animationService.guideActiveFor(d.driverId)) {
+                    continue;
+                  }
+                  await refreshDriver(d);
+                }
+              }
+
+              // Prime every driver once, then only re-fetch on off-route
+              // latch (below) or task change. The timer is a slow safety net
+              // that skips healthy drivers — not the primary refresh path.
               refreshGuides();
               final guideTimer = Timer.periodic(
-                const Duration(seconds: 30),
-                (_) => refreshGuides(),
+                const Duration(seconds: 60),
+                (_) => refreshGuides(skipHealthy: true),
               );
 
               // Off-route latch → refetch the route NOW instead of waiting
@@ -1302,7 +1338,13 @@ class ManagerMapPage extends HookConsumerWidget {
                     ref.read(routePolylineProvider.notifier).refreshRoute(pos);
                   }
                 } else {
-                  refreshGuides();
+                  // Refetch only the driver that actually latched — the
+                  // in-flight guard makes repeat latches during a pending
+                  // fetch no-ops, breaking the old re-poisoning sweep loop.
+                  final d = activeDrivers
+                      .where((x) => x.driverId == driverId)
+                      .firstOrNull;
+                  if (d != null) refreshDriver(d);
                 }
               };
 

@@ -190,7 +190,7 @@ class PlacementCheckinDialog extends HookConsumerWidget {
                 ),
                 child: Row(
                   children: [
-                    Icon(Icons.tag, color: Colors.teal.shade700),
+                    Icon(Icons.tag, size: 20, color: Colors.teal.shade700),
                     const SizedBox(width: 10),
                     Expanded(
                       child: Column(
@@ -201,14 +201,14 @@ class PlacementCheckinDialog extends HookConsumerWidget {
                                 ? 'Bin #${task.binNumber}'
                                 : 'Warehouse bin',
                             style: const TextStyle(
-                              fontSize: 18,
+                              fontSize: 14,
                               fontWeight: FontWeight.bold,
                             ),
                           ),
                           Text(
                             'From warehouse — place this bin here',
                             style: TextStyle(
-                              fontSize: 12,
+                              fontSize: 10.5,
                               color: Colors.teal.shade700,
                             ),
                           ),

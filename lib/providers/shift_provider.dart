@@ -777,6 +777,39 @@ class ShiftNotifier extends _$ShiftNotifier {
     }
   }
 
+  /// Complete a whole warehouse reload run (all N warehouse_stop rows of a
+  /// "Load N bins" card) in one gesture. Marks every row complete optimistically
+  /// and confirms with the batch endpoint. completedBins is NOT bumped —
+  /// warehouse stops are excluded from the bins progress semantic — the rows
+  /// just leave remainingTasks so navigation advances past the whole run.
+  Future<void> completeWarehouseRun(List<String> taskIds) async {
+    if (state.status != ShiftStatus.active) {
+      AppLogger.general('⚠️ Cannot complete warehouse run - shift not active');
+      return;
+    }
+    if (taskIds.isEmpty) return;
+
+    final previousState = state;
+    try {
+      AppLogger.general('⚡ Optimistic: completing warehouse run of ${taskIds.length}');
+      final idSet = taskIds.toSet();
+      final updated = state.bins
+          .map((bin) => idSet.contains(bin.id) ? bin.copyWith(isCompleted: 1) : bin)
+          .toList();
+      // No completedBins change — warehouse stops aren't deliverables.
+      state = state.copyWith(bins: updated);
+
+      final shiftService = ref.read(shiftServiceProvider);
+      await shiftService.completeWarehouseRun(taskIds);
+      AppLogger.general('✅ Warehouse run confirmed by server');
+    } catch (e) {
+      AppLogger.general('❌ Error completing warehouse run - rolling back: $e',
+          level: AppLogger.error);
+      state = previousState;
+      rethrow;
+    }
+  }
+
   /// Skip a task with a required reason
   /// If skipping a pickup, the paired dropoff will also be skipped automatically
   /// Uses optimistic updates for instant UI feedback

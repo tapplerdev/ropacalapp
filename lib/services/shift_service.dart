@@ -295,6 +295,34 @@ class ShiftService {
     }
   }
 
+  /// Batch-complete a whole warehouse reload run (e.g. "Load 6 bins") in one
+  /// call instead of one dialog per bin loaded. Server scopes it to
+  /// warehouse_stop rows of the active shift. Returns the (unwrapped)
+  /// CompleteBinResponse — completed/total bins are unchanged (warehouse stops
+  /// are excluded from the bins progress).
+  Future<Map<String, dynamic>> completeWarehouseRun(
+    List<String> taskIds,
+  ) async {
+    try {
+      print('📤 REQUEST: POST /api/driver/shift/complete-warehouse-run (${taskIds.length} loads)');
+      final response = await _apiService.post(
+        '/api/driver/shift/complete-warehouse-run',
+        {'task_ids': taskIds},
+      );
+      print('📥 RESPONSE: ${response.statusCode}');
+      if (response.statusCode == 200 && response.data is Map) {
+        return Map<String, dynamic>.from(response.data as Map);
+      }
+      throw Exception(
+        (response.data is Map ? response.data['error'] : null) ??
+            'Failed to complete warehouse run',
+      );
+    } catch (e) {
+      print('   ❌ ERROR: $e');
+      rethrow;
+    }
+  }
+
   /// Skip a task with a required reason
   Future<Map<String, dynamic>> skipTask(
     String taskId,

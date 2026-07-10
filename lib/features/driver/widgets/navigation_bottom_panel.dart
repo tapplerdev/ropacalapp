@@ -1755,6 +1755,23 @@ class NavigationBottomPanel extends HookConsumerWidget {
                       // Show different dialog based on stop type
                       switch (bin.taskType) {
                         case StopType.warehouseStop:
+                          // Collapse the whole reload RUN into one action — the
+                          // driver makes ONE physical stop to load N bins, not N.
+                          // Gather the current warehouse stop + the consecutive
+                          // warehouse stops that follow it in the route; one tap
+                          // completes them all via the batch endpoint.
+                          final warehouseRun = <RouteTask>[];
+                          for (var i = currentIndex;
+                              i < shift.remainingTasks.length &&
+                                  shift.remainingTasks[i].taskType ==
+                                      StopType.warehouseStop;
+                              i++) {
+                            warehouseRun.add(shift.remainingTasks[i]);
+                          }
+                          final runIds = warehouseRun.isEmpty
+                              ? [bin.id]
+                              : warehouseRun.map((t) => t.id).toList();
+                          final runCount = runIds.length;
                           // Show warehouse check-in confirmation dialog
                           showDialog(
                             context: context,
@@ -1799,15 +1816,28 @@ class NavigationBottomPanel extends HookConsumerWidget {
                                     ),
                                     const SizedBox(height: 20),
 
-                                    // Title
-                                    const Text(
-                                      'Warehouse Check-In',
-                                      style: TextStyle(
+                                    // Title — names the whole load run
+                                    Text(
+                                      runCount > 1
+                                          ? 'Load $runCount bins'
+                                          : 'Warehouse Check-In',
+                                      textAlign: TextAlign.center,
+                                      style: const TextStyle(
                                         fontSize: 24,
                                         fontWeight: FontWeight.bold,
                                         color: Colors.black87,
                                       ),
                                     ),
+                                    if (runCount > 1) ...[
+                                      const SizedBox(height: 6),
+                                      Text(
+                                        'One stop at the warehouse',
+                                        style: TextStyle(
+                                          fontSize: 14,
+                                          color: Colors.grey[600],
+                                        ),
+                                      ),
+                                    ],
                                     const SizedBox(height: 12),
 
                                     // Address
@@ -1854,24 +1884,36 @@ class NavigationBottomPanel extends HookConsumerWidget {
                                             onPressed: () async {
                                               Navigator.of(context).pop();
 
-                                              AppLogger.general('✅ Warehouse check-in confirmed');
+                                              AppLogger.general(
+                                                  '✅ Warehouse run confirmed ($runCount load(s))');
 
-                                              // Mark warehouse stop as complete (no fill % or photo needed)
-                                              await ref.read(shiftNotifierProvider.notifier).completeTask(
-                                                bin.id, // shiftBinId
-                                                bin.binId ?? '', // binId (deprecated)
-                                                null, // No fill percentage for warehouse
-                                              );
-
-                                              // Show success message
-                                              if (context.mounted) {
-                                                ScaffoldMessenger.of(context).showSnackBar(
-                                                  const SnackBar(
-                                                    content: Text('✅ Checked in at warehouse'),
-                                                    duration: Duration(seconds: 2),
-                                                    backgroundColor: AppColors.primaryGreen,
-                                                  ),
-                                                );
+                                              // One call completes every load in the run
+                                              // (no fill % or photo needed for warehouse).
+                                              try {
+                                                await ref
+                                                    .read(shiftNotifierProvider.notifier)
+                                                    .completeWarehouseRun(runIds);
+                                                if (context.mounted) {
+                                                  ScaffoldMessenger.of(context).showSnackBar(
+                                                    SnackBar(
+                                                      content: Text(runCount > 1
+                                                          ? '✅ Loaded $runCount bins'
+                                                          : '✅ Checked in at warehouse'),
+                                                      duration: const Duration(seconds: 2),
+                                                      backgroundColor: AppColors.primaryGreen,
+                                                    ),
+                                                  );
+                                                }
+                                              } catch (e) {
+                                                if (context.mounted) {
+                                                  ScaffoldMessenger.of(context).showSnackBar(
+                                                    SnackBar(
+                                                      content: Text('Failed to complete: $e'),
+                                                      duration: const Duration(seconds: 3),
+                                                      backgroundColor: Colors.red,
+                                                    ),
+                                                  );
+                                                }
                                               }
                                             },
                                             style: ElevatedButton.styleFrom(

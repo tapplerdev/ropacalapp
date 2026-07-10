@@ -75,7 +75,13 @@ mixin _$RouteTask {
 
   /// New bin number to place (for placement tasks)
   @JsonKey(name: 'new_bin_number')
-  int? get newBinNumber => throw _privateConstructorUsedError; // ========== MOVE REQUEST TASK FIELDS ==========
+  int? get newBinNumber => throw _privateConstructorUsedError;
+
+  /// Where the placed bin comes from: 'potential_location' (install a
+  /// brand-new bin) or 'redeployment' (place a specific existing bin from
+  /// the warehouse — Phase 2 single-task redeployments)
+  @JsonKey(name: 'placement_source')
+  String? get placementSource => throw _privateConstructorUsedError; // ========== MOVE REQUEST TASK FIELDS ==========
   /// Move request ID (for pickup/dropoff tasks)
   @JsonKey(name: 'move_request_id')
   String? get moveRequestId => throw _privateConstructorUsedError;
@@ -199,6 +205,7 @@ abstract class $RouteTaskCopyWith<$Res> {
     @JsonKey(name: 'fill_percentage') int? fillPercentage,
     @JsonKey(name: 'potential_location_id') String? potentialLocationId,
     @JsonKey(name: 'new_bin_number') int? newBinNumber,
+    @JsonKey(name: 'placement_source') String? placementSource,
     @JsonKey(name: 'move_request_id') String? moveRequestId,
     @JsonKey(name: 'destination_latitude') double? destinationLatitude,
     @JsonKey(name: 'destination_longitude') double? destinationLongitude,
@@ -257,6 +264,7 @@ class _$RouteTaskCopyWithImpl<$Res, $Val extends RouteTask>
     Object? fillPercentage = freezed,
     Object? potentialLocationId = freezed,
     Object? newBinNumber = freezed,
+    Object? placementSource = freezed,
     Object? moveRequestId = freezed,
     Object? destinationLatitude = freezed,
     Object? destinationLongitude = freezed,
@@ -348,6 +356,10 @@ class _$RouteTaskCopyWithImpl<$Res, $Val extends RouteTask>
                 ? _value.newBinNumber
                 : newBinNumber // ignore: cast_nullable_to_non_nullable
                       as int?,
+            placementSource: freezed == placementSource
+                ? _value.placementSource
+                : placementSource // ignore: cast_nullable_to_non_nullable
+                      as String?,
             moveRequestId: freezed == moveRequestId
                 ? _value.moveRequestId
                 : moveRequestId // ignore: cast_nullable_to_non_nullable
@@ -476,6 +488,7 @@ abstract class _$$RouteTaskImplCopyWith<$Res>
     @JsonKey(name: 'fill_percentage') int? fillPercentage,
     @JsonKey(name: 'potential_location_id') String? potentialLocationId,
     @JsonKey(name: 'new_bin_number') int? newBinNumber,
+    @JsonKey(name: 'placement_source') String? placementSource,
     @JsonKey(name: 'move_request_id') String? moveRequestId,
     @JsonKey(name: 'destination_latitude') double? destinationLatitude,
     @JsonKey(name: 'destination_longitude') double? destinationLongitude,
@@ -533,6 +546,7 @@ class __$$RouteTaskImplCopyWithImpl<$Res>
     Object? fillPercentage = freezed,
     Object? potentialLocationId = freezed,
     Object? newBinNumber = freezed,
+    Object? placementSource = freezed,
     Object? moveRequestId = freezed,
     Object? destinationLatitude = freezed,
     Object? destinationLongitude = freezed,
@@ -624,6 +638,10 @@ class __$$RouteTaskImplCopyWithImpl<$Res>
             ? _value.newBinNumber
             : newBinNumber // ignore: cast_nullable_to_non_nullable
                   as int?,
+        placementSource: freezed == placementSource
+            ? _value.placementSource
+            : placementSource // ignore: cast_nullable_to_non_nullable
+                  as String?,
         moveRequestId: freezed == moveRequestId
             ? _value.moveRequestId
             : moveRequestId // ignore: cast_nullable_to_non_nullable
@@ -745,6 +763,7 @@ class _$RouteTaskImpl extends _RouteTask {
     @JsonKey(name: 'fill_percentage') this.fillPercentage,
     @JsonKey(name: 'potential_location_id') this.potentialLocationId,
     @JsonKey(name: 'new_bin_number') this.newBinNumber,
+    @JsonKey(name: 'placement_source') this.placementSource,
     @JsonKey(name: 'move_request_id') this.moveRequestId,
     @JsonKey(name: 'destination_latitude') this.destinationLatitude,
     @JsonKey(name: 'destination_longitude') this.destinationLongitude,
@@ -848,6 +867,13 @@ class _$RouteTaskImpl extends _RouteTask {
   @override
   @JsonKey(name: 'new_bin_number')
   final int? newBinNumber;
+
+  /// Where the placed bin comes from: 'potential_location' (install a
+  /// brand-new bin) or 'redeployment' (place a specific existing bin from
+  /// the warehouse — Phase 2 single-task redeployments)
+  @override
+  @JsonKey(name: 'placement_source')
+  final String? placementSource;
   // ========== MOVE REQUEST TASK FIELDS ==========
   /// Move request ID (for pickup/dropoff tasks)
   @override
@@ -981,7 +1007,7 @@ class _$RouteTaskImpl extends _RouteTask {
 
   @override
   String toString() {
-    return 'RouteTask(id: $id, shiftId: $shiftId, sequenceOrder: $sequenceOrder, taskType: $taskType, latitude: $latitude, longitude: $longitude, address: $address, city: $city, zip: $zip, originalAddress: $originalAddress, newAddress: $newAddress, binId: $binId, binNumber: $binNumber, fillPercentage: $fillPercentage, potentialLocationId: $potentialLocationId, newBinNumber: $newBinNumber, moveRequestId: $moveRequestId, destinationLatitude: $destinationLatitude, destinationLongitude: $destinationLongitude, destinationAddress: $destinationAddress, moveType: $moveType, warehouseAction: $warehouseAction, binsToLoad: $binsToLoad, routeId: $routeId, isCompleted: $isCompleted, completedAt: $completedAt, skipped: $skipped, updatedFillPercentage: $updatedFillPercentage, photoUrl: $photoUrl, afterPhotoUrl: $afterPhotoUrl, taskLabel: $taskLabel, taskDescription: $taskDescription, photoRequired: $photoRequired, completionNotes: $completionNotes, earliestArrival: $earliestArrival, latestArrival: $latestArrival, timeWindowType: $timeWindowType, serviceDurationSeconds: $serviceDurationSeconds, taskData: $taskData, createdAt: $createdAt)';
+    return 'RouteTask(id: $id, shiftId: $shiftId, sequenceOrder: $sequenceOrder, taskType: $taskType, latitude: $latitude, longitude: $longitude, address: $address, city: $city, zip: $zip, originalAddress: $originalAddress, newAddress: $newAddress, binId: $binId, binNumber: $binNumber, fillPercentage: $fillPercentage, potentialLocationId: $potentialLocationId, newBinNumber: $newBinNumber, placementSource: $placementSource, moveRequestId: $moveRequestId, destinationLatitude: $destinationLatitude, destinationLongitude: $destinationLongitude, destinationAddress: $destinationAddress, moveType: $moveType, warehouseAction: $warehouseAction, binsToLoad: $binsToLoad, routeId: $routeId, isCompleted: $isCompleted, completedAt: $completedAt, skipped: $skipped, updatedFillPercentage: $updatedFillPercentage, photoUrl: $photoUrl, afterPhotoUrl: $afterPhotoUrl, taskLabel: $taskLabel, taskDescription: $taskDescription, photoRequired: $photoRequired, completionNotes: $completionNotes, earliestArrival: $earliestArrival, latestArrival: $latestArrival, timeWindowType: $timeWindowType, serviceDurationSeconds: $serviceDurationSeconds, taskData: $taskData, createdAt: $createdAt)';
   }
 
   @override
@@ -1015,6 +1041,8 @@ class _$RouteTaskImpl extends _RouteTask {
                 other.potentialLocationId == potentialLocationId) &&
             (identical(other.newBinNumber, newBinNumber) ||
                 other.newBinNumber == newBinNumber) &&
+            (identical(other.placementSource, placementSource) ||
+                other.placementSource == placementSource) &&
             (identical(other.moveRequestId, moveRequestId) ||
                 other.moveRequestId == moveRequestId) &&
             (identical(other.destinationLatitude, destinationLatitude) ||
@@ -1082,6 +1110,7 @@ class _$RouteTaskImpl extends _RouteTask {
     fillPercentage,
     potentialLocationId,
     newBinNumber,
+    placementSource,
     moveRequestId,
     destinationLatitude,
     destinationLongitude,
@@ -1140,6 +1169,7 @@ abstract class _RouteTask extends RouteTask {
     @JsonKey(name: 'fill_percentage') final int? fillPercentage,
     @JsonKey(name: 'potential_location_id') final String? potentialLocationId,
     @JsonKey(name: 'new_bin_number') final int? newBinNumber,
+    @JsonKey(name: 'placement_source') final String? placementSource,
     @JsonKey(name: 'move_request_id') final String? moveRequestId,
     @JsonKey(name: 'destination_latitude') final double? destinationLatitude,
     @JsonKey(name: 'destination_longitude') final double? destinationLongitude,
@@ -1241,7 +1271,14 @@ abstract class _RouteTask extends RouteTask {
   /// New bin number to place (for placement tasks)
   @override
   @JsonKey(name: 'new_bin_number')
-  int? get newBinNumber; // ========== MOVE REQUEST TASK FIELDS ==========
+  int? get newBinNumber;
+
+  /// Where the placed bin comes from: 'potential_location' (install a
+  /// brand-new bin) or 'redeployment' (place a specific existing bin from
+  /// the warehouse — Phase 2 single-task redeployments)
+  @override
+  @JsonKey(name: 'placement_source')
+  String? get placementSource; // ========== MOVE REQUEST TASK FIELDS ==========
   /// Move request ID (for pickup/dropoff tasks)
   @override
   @JsonKey(name: 'move_request_id')

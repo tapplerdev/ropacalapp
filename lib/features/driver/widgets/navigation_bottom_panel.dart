@@ -606,8 +606,11 @@ class NavigationBottomPanel extends HookConsumerWidget {
         stopTypeLabel = '🏭 WAREHOUSE';
         break;
       case StopType.placement:
-        badgeColor = Colors.orange.shade600;
-        stopTypeLabel = '📍 PLACEMENT';
+        badgeColor = task.isRedeployPlacement
+            ? Colors.teal.shade600
+            : Colors.orange.shade600;
+        stopTypeLabel =
+            task.isRedeployPlacement ? '🚚 REDEPLOY' : '📍 PLACEMENT';
         break;
       case StopType.collection:
       default:
@@ -1316,8 +1319,11 @@ class NavigationBottomPanel extends HookConsumerWidget {
         stopTypeLabel = '🏭 WAREHOUSE';
         break;
       case StopType.placement:
-        badgeColor = Colors.orange.shade600;
-        stopTypeLabel = '📍 PLACEMENT';
+        badgeColor = bin.isRedeployPlacement
+            ? Colors.teal.shade600
+            : Colors.orange.shade600;
+        stopTypeLabel =
+            bin.isRedeployPlacement ? '🚚 REDEPLOY' : '📍 PLACEMENT';
         break;
       case StopType.collection:
       default:
@@ -1996,24 +2002,14 @@ class NavigationBottomPanel extends HookConsumerWidget {
                           break;
 
                         case StopType.placement:
-                          // Convert RouteTask to RouteTask for placement dialog
-                          final placementTask = RouteTask(
-                            id: bin.id,
-                            shiftId: bin.shiftId ?? '',
-                            sequenceOrder: bin.sequenceOrder ?? 0,
-                            taskType: StopType.placement,
-                            latitude: bin.latitude ?? 0,
-                            longitude: bin.longitude ?? 0,
-                            address: bin.safeAddress,
-                            isCompleted: 0,
-                            createdAt: DateTime.now().millisecondsSinceEpoch ~/ 1000,
-                          );
-
+                          // Pass the task through untouched — rebuilding it
+                          // here used to strip binId/binNumber/moveRequestId,
+                          // which a redeployment placement needs.
                           showDialog(
                             context: context,
                             barrierDismissible: false,
                             builder: (context) => PlacementCheckinDialog(
-                              task: placementTask,
+                              task: bin,
                               shiftBinId: bin.id,
                             ),
                           );

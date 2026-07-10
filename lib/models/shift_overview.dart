@@ -71,7 +71,16 @@ class ShiftOverview {
         case StopType.collection:
           bump(JobKind.collection);
         case StopType.placement:
-          bump(JobKind.placement);
+          // Phase 2: a redeployment is ONE placement task carrying its move —
+          // badge it as a Redeployment, not a Placement.
+          if (task.isRedeployPlacement) {
+            final moveId = task.moveRequestId;
+            if (moveId == null || countedMoves.add(moveId)) {
+              bump(JobKind.redeployment);
+            }
+          } else {
+            bump(JobKind.placement);
+          }
         case StopType.warehouseStop:
           bump(JobKind.warehouse);
         case StopType.service:

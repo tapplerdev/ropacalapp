@@ -10,7 +10,9 @@ import 'package:ropacalapp/core/services/cloudinary_service.dart';
 import 'package:ropacalapp/providers/shift_provider.dart';
 import 'package:ropacalapp/core/theme/app_colors.dart';
 
-/// Compact dialog for placing a new bin
+/// Compact dialog for placing a bin: either a brand-new bin (potential
+/// location — the driver enters its number) or a specific existing bin from
+/// the warehouse (redeployment — the number is known and shown read-only).
 class PlacementCheckinDialog extends HookConsumerWidget {
   final RouteTask task;
   final String shiftBinId;
@@ -28,6 +30,7 @@ class PlacementCheckinDialog extends HookConsumerWidget {
     final photoFile = useState<File?>(null);
     final binNumberController = useTextEditingController();
     final isSubmitting = useState(false);
+    final isRedeploy = task.isRedeployPlacement;
 
     Future<void> takePhoto() async {
       try {
@@ -49,16 +52,20 @@ class PlacementCheckinDialog extends HookConsumerWidget {
     }
 
     Future<void> handlePlacement() async {
-      // Validate bin number
-      if (binNumberController.text.trim().isEmpty) {
-        EasyLoading.showError('Please enter a bin number');
-        return;
-      }
+      // Redeployments place a specific known bin — its number rides on the
+      // task. New-bin placements require the driver to enter the number.
+      int? binNumber = task.binNumber;
+      if (!isRedeploy) {
+        if (binNumberController.text.trim().isEmpty) {
+          EasyLoading.showError('Please enter a bin number');
+          return;
+        }
 
-      final binNumber = int.tryParse(binNumberController.text.trim());
-      if (binNumber == null || binNumber <= 0) {
-        EasyLoading.showError('Please enter a valid bin number');
-        return;
+        binNumber = int.tryParse(binNumberController.text.trim());
+        if (binNumber == null || binNumber <= 0) {
+          EasyLoading.showError('Please enter a valid bin number');
+          return;
+        }
       }
 
       if (photoFile.value == null) {
@@ -85,7 +92,7 @@ class PlacementCheckinDialog extends HookConsumerWidget {
               hasIncident: false,
               incidentType: null,
               incidentDescription: null,
-              moveRequestId: null,
+              moveRequestId: isRedeploy ? task.moveRequestId : null,
             );
 
         EasyLoading.dismiss();
@@ -96,7 +103,9 @@ class PlacementCheckinDialog extends HookConsumerWidget {
 
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('✅ Bin #$binNumber placed successfully'),
+              content: Text(binNumber != null
+                  ? '✅ Bin #$binNumber placed successfully'
+                  : '✅ Bin placed successfully'),
               backgroundColor: AppColors.primaryGreen,
               duration: const Duration(seconds: 2),
             ),
@@ -127,26 +136,35 @@ class PlacementCheckinDialog extends HookConsumerWidget {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // Header
+            // Header — teal truck for a redeployment (placing a specific
+            // warehouse bin), orange pin for installing a brand-new bin.
             Row(
               children: [
                 Container(
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
-                    color: Colors.orange.shade100,
+                    color: isRedeploy
+                        ? Colors.teal.shade100
+                        : Colors.orange.shade100,
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Icon(
-                    Icons.add_location,
+                    isRedeploy ? Icons.local_shipping : Icons.add_location,
                     size: 28,
-                    color: Colors.orange.shade700,
+                    color: isRedeploy
+                        ? Colors.teal.shade700
+                        : Colors.orange.shade700,
                   ),
                 ),
                 const SizedBox(width: 12),
-                const Expanded(
+                Expanded(
                   child: Text(
-                    'Place New Bin',
-                    style: TextStyle(
+                    isRedeploy
+                        ? (task.binNumber != null
+                            ? 'Place Bin #${task.binNumber}'
+                            : 'Place Bin')
+                        : 'Place New Bin',
+                    style: const TextStyle(
                       fontSize: 20,
                       fontWeight: FontWeight.bold,
                     ),
@@ -157,39 +175,82 @@ class PlacementCheckinDialog extends HookConsumerWidget {
 
             const SizedBox(height: 20),
 
-            // Bin number input
-            TextField(
-              controller: binNumberController,
-              enabled: !isSubmitting.value,
-              keyboardType: TextInputType.number,
-              autofocus: true,
-              style: const TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-              ),
-              decoration: InputDecoration(
-                labelText: 'Bin Number *',
-                hintText: 'Enter bin number',
-                prefixIcon: Icon(Icons.tag, color: AppColors.primaryGreen),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide(color: Colors.grey.shade300),
+            // Bin number: known for redeployments (read-only card), entered
+            // by the driver for new-bin placements.
+            if (isRedeploy)
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 14,
                 ),
-                enabledBorder: OutlineInputBorder(
+                decoration: BoxDecoration(
+                  color: Colors.teal.shade50,
                   borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide(color: Colors.grey.shade300),
+                  border: Border.all(color: Colors.teal.shade200),
                 ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide(
-                    color: AppColors.primaryGreen,
-                    width: 2,
+                child: Row(
+                  children: [
+                    Icon(Icons.tag, color: Colors.teal.shade700),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            task.binNumber != null
+                                ? 'Bin #${task.binNumber}'
+                                : 'Warehouse bin',
+                            style: const TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          Text(
+                            'From warehouse — place this bin here',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.teal.shade700,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              )
+            else
+              TextField(
+                controller: binNumberController,
+                enabled: !isSubmitting.value,
+                keyboardType: TextInputType.number,
+                autofocus: true,
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+                decoration: InputDecoration(
+                  labelText: 'Bin Number *',
+                  hintText: 'Enter bin number',
+                  prefixIcon: Icon(Icons.tag, color: AppColors.primaryGreen),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(color: Colors.grey.shade300),
                   ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(color: Colors.grey.shade300),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(
+                      color: AppColors.primaryGreen,
+                      width: 2,
+                    ),
+                  ),
+                  filled: true,
+                  fillColor: Colors.white,
                 ),
-                filled: true,
-                fillColor: Colors.white,
               ),
-            ),
 
             const SizedBox(height: 16),
 

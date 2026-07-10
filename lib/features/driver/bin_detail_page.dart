@@ -584,7 +584,7 @@ class BinDetailPage extends HookConsumerWidget {
             _buildInfoChip(
                 Icons.local_shipping,
                 'Type',
-                moveType == 'pickup_only' ? 'Pickup Only' : 'Relocation'),
+                _moveTypeLabel(moveType)),
             const SizedBox(height: 12),
             const Text('What would you like to do?'),
           ],
@@ -646,7 +646,7 @@ class BinDetailPage extends HookConsumerWidget {
               return Padding(
                 padding: const EdgeInsets.only(bottom: 8),
                 child: Text(
-                  '• $driverName - ${moveType == 'pickup_only' ? 'Pickup Only' : 'Relocation'}',
+                  '• $driverName - ${_moveTypeLabel(moveType)}',
                 ),
               );
             }),
@@ -716,7 +716,7 @@ class BinDetailPage extends HookConsumerWidget {
             _buildInfoChip(
                 Icons.local_shipping,
                 'Type',
-                moveType == 'pickup_only' ? 'Pickup Only' : 'Relocation'),
+                _moveTypeLabel(moveType)),
             if (scheduledDateIso != null) ...[
               const SizedBox(height: 8),
               _buildInfoChip(Icons.calendar_today, 'Scheduled',
@@ -789,7 +789,7 @@ class BinDetailPage extends HookConsumerWidget {
               return Padding(
                 padding: const EdgeInsets.only(bottom: 4),
                 child: Text(
-                  '• ${moveType == 'pickup_only' ? 'Pickup Only' : 'Relocation'} - ${scheduledDateIso != null ? _formatDateTime(scheduledDateIso) : 'Unknown'}',
+                  '• ${_moveTypeLabel(moveType)} - ${scheduledDateIso != null ? _formatDateTime(scheduledDateIso) : 'Unknown'}',
                   style: const TextStyle(fontSize: 14),
                 ),
               );
@@ -1540,6 +1540,7 @@ class _MoveHistoryModalContent extends HookConsumerWidget {
     final moveRequestId = moveRequest['id'] as String;
     final urgency = moveRequest['urgency'] as String? ?? 'scheduled';
     final moveType = moveRequest['move_type'] as String? ?? 'relocation';
+    final typeBadge = _moveTypeBadge(moveType);
     final scheduledDateIso = moveRequest['scheduled_date_iso'] as String?;
     final requestedByName = moveRequest['requested_by_name'] as String?;
     final driverName = moveRequest['driver_name'] as String?;
@@ -1658,25 +1659,19 @@ class _MoveHistoryModalContent extends HookConsumerWidget {
                   vertical: 4,
                 ),
                 decoration: BoxDecoration(
-                  color: moveType == 'pickup_only'
-                      ? Colors.purple.shade50
-                      : Colors.blue.shade50,
+                  color: typeBadge.bg,
                   borderRadius: BorderRadius.circular(6),
                   border: Border.all(
-                    color: moveType == 'pickup_only'
-                        ? Colors.purple.shade300
-                        : Colors.blue.shade300,
+                    color: typeBadge.border,
                     width: 1,
                   ),
                 ),
                 child: Text(
-                  moveType == 'pickup_only' ? 'PICKUP' : 'RELOCATION',
+                  typeBadge.label,
                   style: TextStyle(
                     fontSize: 11,
                     fontWeight: FontWeight.bold,
-                    color: moveType == 'pickup_only'
-                        ? Colors.purple.shade700
-                        : Colors.blue.shade700,
+                    color: typeBadge.fg,
                   ),
                 ),
               ),
@@ -1751,8 +1746,9 @@ class _MoveHistoryModalContent extends HookConsumerWidget {
             ],
           ),
           const SizedBox(height: 12),
-          // Relocation details (from → to)
-          if (moveType == 'relocation' &&
+          // From → to details (relocations AND redeployments both carry an
+          // origin and a destination)
+          if ((moveType == 'relocation' || moveType == 'redeployment') &&
               originalStreet != null &&
               newStreet != null) ...[
             Container(
@@ -3064,5 +3060,58 @@ class _FullScreenImageViewer extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+/// Human label for a move request's move_type. The backend set is
+/// relocation / redeployment / store / pickup_only; unknown values read as
+/// Relocation (the historical fallback).
+String _moveTypeLabel(String? moveType) {
+  switch (moveType) {
+    case 'pickup_only':
+      return 'Pickup Only';
+    case 'store':
+      return 'Storage Return';
+    case 'redeployment':
+      return 'Redeployment';
+    default:
+      return 'Relocation';
+  }
+}
+
+/// Badge styling per move_type, mirroring the shift-acceptance badge palette
+/// (redeployment teal, storage indigo, pickup purple, relocation blue).
+({Color bg, Color border, Color fg, String label}) _moveTypeBadge(
+  String? moveType,
+) {
+  switch (moveType) {
+    case 'pickup_only':
+      return (
+        bg: Colors.purple.shade50,
+        border: Colors.purple.shade300,
+        fg: Colors.purple.shade700,
+        label: 'PICKUP',
+      );
+    case 'store':
+      return (
+        bg: Colors.indigo.shade50,
+        border: Colors.indigo.shade300,
+        fg: Colors.indigo.shade700,
+        label: 'STORAGE RETURN',
+      );
+    case 'redeployment':
+      return (
+        bg: Colors.teal.shade50,
+        border: Colors.teal.shade300,
+        fg: Colors.teal.shade700,
+        label: 'REDEPLOYMENT',
+      );
+    default:
+      return (
+        bg: Colors.blue.shade50,
+        border: Colors.blue.shade300,
+        fg: Colors.blue.shade700,
+        label: 'RELOCATION',
+      );
   }
 }

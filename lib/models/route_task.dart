@@ -60,6 +60,11 @@ class RouteTask with _$RouteTask {
     /// New bin number to place (for placement tasks)
     @JsonKey(name: 'new_bin_number') int? newBinNumber,
 
+    /// Where the placed bin comes from: 'potential_location' (install a
+    /// brand-new bin) or 'redeployment' (place a specific existing bin from
+    /// the warehouse — Phase 2 single-task redeployments)
+    @JsonKey(name: 'placement_source') String? placementSource,
+
     // ========== MOVE REQUEST TASK FIELDS ==========
     /// Move request ID (for pickup/dropoff tasks)
     @JsonKey(name: 'move_request_id') String? moveRequestId,
@@ -152,6 +157,13 @@ class RouteTask with _$RouteTask {
   /// Check if this is a placement task
   bool get isPlacement => taskType == StopType.placement;
 
+  /// Check if this placement redeploys a specific existing bin from the
+  /// warehouse (Phase 2: one placement task carrying the move). Falls back
+  /// to move_request_id — only redeploy placements carry a move.
+  bool get isRedeployPlacement =>
+      isPlacement &&
+      (placementSource == 'redeployment' || moveRequestId != null);
+
   /// Check if this is a warehouse stop
   bool get isWarehouseStop => taskType == StopType.warehouseStop;
 
@@ -174,6 +186,9 @@ class RouteTask with _$RouteTask {
       case StopType.collection:
         return binNumber != null ? 'Bin #$binNumber' : 'Collection';
       case StopType.placement:
+        if (isRedeployPlacement && binNumber != null) {
+          return 'Place Bin #$binNumber';
+        }
         return 'Place Bin';
       case StopType.pickup:
         return binNumber != null ? 'Pickup Bin #$binNumber' : 'Pickup Bin';

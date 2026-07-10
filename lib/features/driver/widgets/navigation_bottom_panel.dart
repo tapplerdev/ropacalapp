@@ -2198,6 +2198,27 @@ class NavigationBottomPanel extends HookConsumerWidget {
     final formKey = GlobalKey<FormState>();
     final isSubmitting = ValueNotifier<bool>(false);
 
+    // A warehouse stop is one bin-row of a possibly larger reload run — ONE
+    // physical stop, N rows. Skipping must clear the WHOLE run (mirroring the
+    // one-tap check-in); skipping row-by-row just surfaces the next identical
+    // warehouse card and the task looks frozen.
+    var warehouseRunIds = <String>[task.id];
+    if (task.taskType == StopType.warehouseStop) {
+      final remaining = ref.read(shiftNotifierProvider).remainingTasks;
+      final startIdx = remaining.indexWhere((t) => t.id == task.id);
+      if (startIdx != -1) {
+        warehouseRunIds = <String>[];
+        for (var i = startIdx;
+            i < remaining.length &&
+                remaining[i].taskType == StopType.warehouseStop;
+            i++) {
+          warehouseRunIds.add(remaining[i].id);
+        }
+      }
+    }
+    final isWarehouseRun =
+        task.taskType == StopType.warehouseStop && warehouseRunIds.length > 1;
+
     showDialog(
       context: context,
       builder: (context) => Dialog(
@@ -2330,6 +2351,49 @@ class NavigationBottomPanel extends HookConsumerWidget {
                             ),
                           ),
 
+                        // Info banner for warehouse runs — one physical stop,
+                        // N load rows; skipping clears the whole stop.
+                        if (isWarehouseRun)
+                          Container(
+                            padding: const EdgeInsets.all(14),
+                            margin: const EdgeInsets.only(bottom: 20),
+                            decoration: BoxDecoration(
+                              color: Colors.blue.shade50,
+                              borderRadius: BorderRadius.circular(14),
+                              border: Border.all(
+                                color: Colors.blue.shade100,
+                                width: 1,
+                              ),
+                            ),
+                            child: Row(
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.all(8),
+                                  decoration: BoxDecoration(
+                                    color: Colors.blue.shade600,
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                  child: const Icon(
+                                    Icons.warehouse_rounded,
+                                    color: Colors.white,
+                                    size: 18,
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Text(
+                                    'This warehouse stop loads ${warehouseRunIds.length} bins — skipping will skip the entire stop',
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w500,
+                                      color: Colors.blue.shade900,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+
                         // Reason label
                         Padding(
                           padding: const EdgeInsets.only(left: 4, bottom: 8),
@@ -2443,14 +2507,29 @@ class NavigationBottomPanel extends HookConsumerWidget {
                                       isSubmitting.value = true;
 
                                       try {
-                                        await ref
-                                            .read(
-                                              shiftNotifierProvider.notifier,
-                                            )
-                                            .skipTask(
-                                              task.id,
-                                              reasonController.text.trim(),
-                                            );
+                                        // Warehouse stop → skip the WHOLE run
+                                        // (the skip twin of the one-tap
+                                        // check-in); anything else → per-task.
+                                        if (task.taskType ==
+                                            StopType.warehouseStop) {
+                                          await ref
+                                              .read(
+                                                shiftNotifierProvider.notifier,
+                                              )
+                                              .skipWarehouseRun(
+                                                warehouseRunIds,
+                                                reasonController.text.trim(),
+                                              );
+                                        } else {
+                                          await ref
+                                              .read(
+                                                shiftNotifierProvider.notifier,
+                                              )
+                                              .skipTask(
+                                                task.id,
+                                                reasonController.text.trim(),
+                                              );
+                                        }
 
                                         if (context.mounted) {
                                           Navigator.pop(context);

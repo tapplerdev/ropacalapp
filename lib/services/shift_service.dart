@@ -323,6 +323,34 @@ class ShiftService {
     }
   }
 
+  /// Batch-skip a whole warehouse reload run — the skip twin of
+  /// completeWarehouseRun. A reload run is one physical stop rendered from N
+  /// warehouse_stop rows (one per bin); one gesture skips them all, with the
+  /// driver's reason recorded on every row.
+  Future<Map<String, dynamic>> skipWarehouseRun(
+    List<String> taskIds,
+    String reason,
+  ) async {
+    try {
+      print('📤 REQUEST: POST /api/driver/shift/skip-warehouse-run (${taskIds.length} loads)');
+      final response = await _apiService.post(
+        '/api/driver/shift/skip-warehouse-run',
+        {'task_ids': taskIds, 'reason': reason},
+      );
+      print('📥 RESPONSE: ${response.statusCode}');
+      if (response.statusCode == 200 && response.data is Map) {
+        return Map<String, dynamic>.from(response.data as Map);
+      }
+      throw Exception(
+        (response.data is Map ? response.data['error'] : null) ??
+            'Failed to skip warehouse run',
+      );
+    } catch (e) {
+      print('   ❌ ERROR: $e');
+      rethrow;
+    }
+  }
+
   /// Skip a task with a required reason
   Future<Map<String, dynamic>> skipTask(
     String taskId,

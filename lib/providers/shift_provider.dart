@@ -816,6 +816,41 @@ class ShiftNotifier extends _$ShiftNotifier {
     }
   }
 
+  /// Skip a whole warehouse reload run (all N warehouse_stop rows of a
+  /// "Load N bins" card) in one gesture — the skip twin of completeWarehouseRun.
+  /// Without this, Skip burned one bin-row per tap and re-surfaced an identical
+  /// warehouse card, reading as a frozen task. Skips are isCompleted=2 and never
+  /// count toward completion.
+  Future<void> skipWarehouseRun(List<String> taskIds, String reason) async {
+    if (state.status != ShiftStatus.active) {
+      AppLogger.general('⚠️ Cannot skip warehouse run - shift not active');
+      return;
+    }
+    if (taskIds.isEmpty) return;
+
+    final previousState = state;
+    try {
+      AppLogger.general('⚡ Optimistic: skipping warehouse run of ${taskIds.length}');
+      final idSet = taskIds.toSet();
+      final updated = state.bins
+          .map((bin) => idSet.contains(bin.id) ? bin.copyWith(isCompleted: 2) : bin)
+          .toList();
+      // No completedBins change — skips don't count toward completion, and
+      // warehouse stops aren't deliverables anyway. The rows just leave
+      // remainingTasks so navigation advances past the whole run.
+      state = state.copyWith(bins: updated);
+
+      final shiftService = ref.read(shiftServiceProvider);
+      await shiftService.skipWarehouseRun(taskIds, reason);
+      AppLogger.general('✅ Warehouse run skip confirmed by server (reason: $reason)');
+    } catch (e) {
+      AppLogger.general('❌ Error skipping warehouse run - rolling back: $e',
+          level: AppLogger.error);
+      state = previousState;
+      rethrow;
+    }
+  }
+
   /// Skip a task with a required reason
   /// If skipping a pickup, the paired dropoff will also be skipped automatically
   /// Uses optimistic updates for instant UI feedback

@@ -92,6 +92,28 @@ lib/
 5. Complete task → backend updates, advances to next
 6. End shift → archived to shift_history
 
+## Redeployments vs Placements (REQUIRED domain rule for task UI)
+
+A **redeployment** (existing bin leaving the warehouse for a field spot) is executed
+as ONE task with `task_type='placement'` — but it is a **move request** on the
+backend (audit trail, urgency, one-open-move-per-bin). The internal task_type must
+NEVER leak to the driver:
+
+- **Discriminate** with `RouteTask.isRedeployPlacement`
+  (`lib/models/route_task.dart`): `placement_source == 'redeployment'`, with
+  `moveRequestId != null` as structural fallback — among placements, only
+  redeployments carry a move.
+- **Redeployment** = teal + truck (🚚 REDEPLOY badge), title "Place Bin #N"
+  (`binNumber` — the bin already exists). `PlacementCheckinDialog` shows a
+  read-only bin card (NO number entry) and sends `move_request_id` on completion;
+  the backend finalizes the move atomically.
+- **Plain placement** (new bin from a potential location) = orange 📍, "Place New
+  Bin" — driver TYPES the bin number; completion creates the bin.
+- Badge counting: `ShiftOverview.jobCounts` buckets redeploy placements as
+  `JobKind.redeployment` (deduped by moveRequestId) — a redeploy-only shift shows
+  "3 Redeployments", never "3 Placements". Keep this rule in any new counter.
+- The warehouse load prompt counts both flavors (both consume truck capacity).
+
 ## Key Conventions
 - Write concise, technical Dart code with accurate examples.
 - Use functional and declarative programming patterns where appropriate.

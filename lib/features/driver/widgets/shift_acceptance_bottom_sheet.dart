@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:ropacalapp/core/theme/app_colors.dart';
 import 'package:ropacalapp/models/shift_overview.dart';
 import 'package:ropacalapp/models/route_task.dart';
-import 'package:ropacalapp/core/enums/stop_type.dart';
 import 'package:ropacalapp/core/extensions/route_task_extensions.dart';
 
 /// Timeline-based bottom sheet for shift acceptance
@@ -160,10 +159,25 @@ class ShiftAcceptanceBottomSheet extends StatelessWidget {
     );
   }
 
-  /// Build task summary with badges showing task types and counts
+  /// Badge display order: deliverable jobs first, structural stops last.
+  static const _jobKindOrder = [
+    JobKind.collection,
+    JobKind.placement,
+    JobKind.redeployment,
+    JobKind.relocation,
+    JobKind.storageReturn,
+    JobKind.movePickup,
+    JobKind.moveDropoff,
+    JobKind.service,
+    JobKind.warehouse,
+  ];
+
+  /// Build task summary with badges showing LOGICAL jobs and counts —
+  /// paired move legs collapse into one badge by move_type ("3 Redeployments",
+  /// not "3 Pickups + 3 Dropoffs").
   Widget _buildTaskSummary() {
-    final taskCounts = shiftOverview.taskCounts;
-    if (taskCounts.isEmpty) {
+    final jobCounts = shiftOverview.jobCounts;
+    if (jobCounts.isEmpty) {
       return const SizedBox.shrink();
     }
 
@@ -200,21 +214,23 @@ class ShiftAcceptanceBottomSheet extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 20),
-        // Task type badges
+        // Job badges (fixed display order)
         Wrap(
           spacing: 12,
           runSpacing: 12,
-          children: taskCounts.entries.map((entry) {
-            return _buildTaskTypeBadge(entry.key, entry.value);
-          }).toList(),
+          children: [
+            for (final kind in _jobKindOrder)
+              if (jobCounts.containsKey(kind))
+                _buildJobBadge(kind, jobCounts[kind]!),
+          ],
         ),
       ],
     );
   }
 
-  /// Build individual task type badge
-  Widget _buildTaskTypeBadge(StopType taskType, int count) {
-    final config = _getTaskTypeConfig(taskType);
+  /// Build individual job badge
+  Widget _buildJobBadge(JobKind kind, int count) {
+    final config = _getJobKindConfig(kind, count);
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -259,46 +275,66 @@ class ShiftAcceptanceBottomSheet extends StatelessWidget {
     );
   }
 
-  /// Get configuration for task type (color, icon, label)
-  ({Color color, String emoji, String label}) _getTaskTypeConfig(
-    StopType taskType,
+  /// Get configuration for a job kind (color, icon, label)
+  ({Color color, String emoji, String label}) _getJobKindConfig(
+    JobKind kind,
+    int count,
   ) {
-    switch (taskType) {
-      case StopType.collection:
+    final s = count > 1 ? 's' : '';
+    switch (kind) {
+      case JobKind.collection:
         return (
           color: AppColors.primaryGreen,
           emoji: '🗑️',
-          label: 'Collection${shiftOverview.taskCounts[taskType]! > 1 ? 's' : ''}',
+          label: 'Collection$s',
         );
-      case StopType.placement:
+      case JobKind.placement:
         return (
           color: Colors.orange.shade600,
           emoji: '📍',
-          label: 'Placement${shiftOverview.taskCounts[taskType]! > 1 ? 's' : ''}',
+          label: 'Placement$s',
         );
-      case StopType.pickup:
+      case JobKind.redeployment:
+        return (
+          color: Colors.teal.shade600,
+          emoji: '🚚',
+          label: 'Redeployment$s',
+        );
+      case JobKind.relocation:
+        return (
+          color: Colors.purple.shade600,
+          emoji: '🔄',
+          label: 'Relocation$s',
+        );
+      case JobKind.storageReturn:
+        return (
+          color: Colors.indigo.shade600,
+          emoji: '📦',
+          label: 'Storage Return$s',
+        );
+      case JobKind.movePickup:
         return (
           color: Colors.purple.shade600,
           emoji: '⬆️',
-          label: 'Pickup${shiftOverview.taskCounts[taskType]! > 1 ? 's' : ''}',
+          label: 'Pickup$s',
         );
-      case StopType.dropoff:
+      case JobKind.moveDropoff:
         return (
           color: Colors.purple.shade600,
           emoji: '⬇️',
-          label: 'Dropoff${shiftOverview.taskCounts[taskType]! > 1 ? 's' : ''}',
+          label: 'Dropoff$s',
         );
-      case StopType.warehouseStop:
+      case JobKind.warehouse:
         return (
           color: Colors.grey.shade700,
           emoji: '🏭',
           label: 'Warehouse',
         );
-      case StopType.service:
+      case JobKind.service:
         return (
           color: Colors.blue.shade600,
           emoji: '📋',
-          label: 'Service${shiftOverview.taskCounts[taskType] != null && shiftOverview.taskCounts[taskType]! > 1 ? ' Stops' : ' Stop'}',
+          label: 'Service Stop$s',
         );
     }
   }

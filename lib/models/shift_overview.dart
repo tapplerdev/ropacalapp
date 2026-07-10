@@ -2,6 +2,23 @@ import 'package:ropacalapp/models/route_task.dart';
 import 'package:ropacalapp/core/services/geofence_service.dart';
 import 'package:ropacalapp/core/enums/stop_type.dart';
 
+/// Logical job kinds for driver-facing shift summaries. Move legs are grouped
+/// by their move request + move_type — a redeployment is ONE job, not
+/// "1 pickup + 1 dropoff" — matching how the work is actually assigned.
+/// movePickup/moveDropoff remain only as a fallback for legs whose move_type
+/// is unknown (older data), rendering exactly as before.
+enum JobKind {
+  collection,
+  placement,
+  redeployment,
+  relocation,
+  storageReturn,
+  movePickup,
+  moveDropoff,
+  service,
+  warehouse,
+}
+
 /// Data model for shift overview before starting
 class ShiftOverview {
   final String shiftId;
@@ -34,6 +51,50 @@ class ShiftOverview {
     final counts = <StopType, int>{};
     for (final task in tasks) {
       counts[task.taskType] = (counts[task.taskType] ?? 0) + 1;
+    }
+    return counts;
+  }
+
+  /// Logical JOB counts for summary badges. Unlike [taskCounts] (raw rows),
+  /// paired move legs collapse into one job by move_type: a redeployment shows
+  /// as "1 Redeployment", not "1 Pickup + 1 Dropoff". Legs without a known
+  /// move_type fall back to raw pickup/dropoff counts (renders as before).
+  Map<JobKind, int> get jobCounts {
+    if (!isTaskBased) return {};
+
+    final counts = <JobKind, int>{};
+    final countedMoves = <String>{};
+    void bump(JobKind k) => counts[k] = (counts[k] ?? 0) + 1;
+
+    for (final task in tasks) {
+      switch (task.taskType) {
+        case StopType.collection:
+          bump(JobKind.collection);
+        case StopType.placement:
+          bump(JobKind.placement);
+        case StopType.warehouseStop:
+          bump(JobKind.warehouse);
+        case StopType.service:
+          bump(JobKind.service);
+        case StopType.pickup:
+        case StopType.dropoff:
+          final moveId = task.moveRequestId;
+          final kind = switch (task.moveType) {
+            'redeployment' => JobKind.redeployment,
+            'relocation' => JobKind.relocation,
+            'store' || 'pickup_only' => JobKind.storageReturn,
+            _ => null,
+          };
+          if (kind != null && moveId != null) {
+            // Count each move request once, whichever leg we see first.
+            if (countedMoves.add(moveId)) bump(kind);
+          } else {
+            // Unknown move_type — keep the raw leg badge as a fallback.
+            bump(task.taskType == StopType.pickup
+                ? JobKind.movePickup
+                : JobKind.moveDropoff);
+          }
+      }
     }
     return counts;
   }

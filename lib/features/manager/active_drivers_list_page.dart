@@ -140,12 +140,17 @@ class _DriverCard extends ConsumerWidget {
         .where((t) => t.isCompleted == 0 && !t.skipped)
         .firstOrNull;
 
-    // Calculate current task number (completed + 1)
-    final completedTasks =
-        shiftDetail?.bins.where((t) => t.isCompleted == 1).length ??
-            driver.completedBins;
-    final totalTasks = shiftDetail?.bins.length ?? driver.totalBins;
-    final currentTaskNumber = completedTasks + 1;
+    // Progress is tracked in the BINS semantic (warehouse reload runs +
+    // service stops are logistics, not deliverables — the route carries one
+    // warehouse_stop row per bin loaded, which would inflate an 11-bin shift
+    // to 23 raw tasks). These mirror the backend's recomputed
+    // completed_bins/total_bins so the "Task X of Y" line agrees with the
+    // "N/M bins" stat and the progress bar below.
+    final completedTasks = driver.completedBins;
+    final totalTasks = driver.totalBins;
+    final currentTaskNumber = totalTasks > 0
+        ? (completedTasks + 1).clamp(1, totalTasks)
+        : completedTasks + 1;
 
     // Calculate ETA based on pace
     final etaString = _calculateETA(driver, completedTasks, totalTasks);

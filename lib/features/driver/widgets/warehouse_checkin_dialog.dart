@@ -14,12 +14,22 @@ class WarehouseCheckinDialog extends HookConsumerWidget {
   final String shiftBinId;
   final bool isLastTask;
 
+  /// The route_task IDs of this whole warehouse reload run. The optimizer
+  /// writes one warehouse_stop row per bin loaded, so a "Load 6 bins" stop is
+  /// 6 rows — completing them all in one tap (via the batch endpoint) instead
+  /// of six dialogs. Defaults to just this task.
+  final List<String>? warehouseRunIds;
+
   const WarehouseCheckinDialog({
     super.key,
     required this.task,
     required this.shiftBinId,
     this.isLastTask = false,
+    this.warehouseRunIds,
   });
+
+  bool get _isRun => (warehouseRunIds?.length ?? 0) > 1;
+  int get _runCount => warehouseRunIds?.length ?? 1;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -105,7 +115,9 @@ class WarehouseCheckinDialog extends HookConsumerWidget {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              isLastTask ? 'End Shift' : 'Warehouse Stop',
+                              isLastTask
+                                  ? 'End Shift'
+                                  : (_isRun ? 'Load $_runCount bins' : 'Warehouse Stop'),
                               style: const TextStyle(
                                 fontSize: 20,
                                 fontWeight: FontWeight.bold,
@@ -117,7 +129,9 @@ class WarehouseCheckinDialog extends HookConsumerWidget {
                             Text(
                               isLastTask
                                   ? 'Return bins and end your shift'
-                                  : _getActionText(),
+                                  : (_isRun
+                                      ? 'One stop at the warehouse'
+                                      : _getActionText()),
                               style: TextStyle(
                                 fontSize: 13,
                                 color: Colors.grey.shade600,
@@ -303,14 +317,22 @@ class WarehouseCheckinDialog extends HookConsumerWidget {
             '🏁 Warehouse dialog: ending shift (last task)');
       }
 
-      await ref.read(shiftNotifierProvider.notifier).completeTask(
-            shiftBinId,
-            task.binId ?? '',
-            null,
-            photoUrl: null,
-            hasIncident: false,
-            moveRequestId: null,
-          );
+      if (_isRun) {
+        // Whole reload run → one batch call completes every warehouse_stop
+        // in it (each row still stamped individually server-side).
+        await ref
+            .read(shiftNotifierProvider.notifier)
+            .completeWarehouseRun(warehouseRunIds!);
+      } else {
+        await ref.read(shiftNotifierProvider.notifier).completeTask(
+              shiftBinId,
+              task.binId ?? '',
+              null,
+              photoUrl: null,
+              hasIncident: false,
+              moveRequestId: null,
+            );
+      }
 
       if (context.mounted) {
         Navigator.of(context).pop();
@@ -326,8 +348,9 @@ class WarehouseCheckinDialog extends HookConsumerWidget {
       } else if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(
-                '✅ Warehouse stop completed: ${_getActionText()}'),
+            content: Text(_isRun
+                ? '✅ Loaded $_runCount bins'
+                : '✅ Warehouse stop completed: ${_getActionText()}'),
             backgroundColor: AppColors.primaryGreen,
             duration: const Duration(seconds: 2),
           ),

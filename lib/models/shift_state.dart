@@ -75,7 +75,14 @@ class ShiftState with _$ShiftState {
     int count = 0;
 
     for (final task in bins) {
-      if (task.taskType == StopType.pickup && task.moveRequestId != null) {
+      // Warehouse loads + service stops are logistics, not deliverables — the
+      // route carries one warehouse_stop row PER BIN loaded, so counting them
+      // inflates an 11-bin shift to 23. Exclude, matching the backend's bins
+      // semantic (completed_bins/total_bins).
+      if (task.taskType == StopType.warehouseStop ||
+          task.taskType == StopType.service) {
+        continue;
+      } else if (task.taskType == StopType.pickup && task.moveRequestId != null) {
         // Only count pickup once per move request
         if (!moveRequestIds.contains(task.moveRequestId)) {
           moveRequestIds.add(task.moveRequestId!);
@@ -86,7 +93,7 @@ class ShiftState with _$ShiftState {
         // Skip dropoff in count (already counted with pickup)
         continue;
       } else {
-        // Regular collection task, warehouse, or placement
+        // Regular collection task or placement
         count++;
       }
     }
@@ -102,7 +109,12 @@ class ShiftState with _$ShiftState {
     int count = 0;
 
     for (final task in bins) {
-      if (task.taskType == StopType.pickup && task.moveRequestId != null) {
+      // Warehouse + service excluded (see logicalTotalBins) so the fraction
+      // has the same denominator/numerator basis — the bins semantic.
+      if (task.taskType == StopType.warehouseStop ||
+          task.taskType == StopType.service) {
+        continue;
+      } else if (task.taskType == StopType.pickup && task.moveRequestId != null) {
         // Check if corresponding dropoff is also completed
         final dropoff = bins.firstWhere(
           (t) =>
@@ -123,7 +135,7 @@ class ShiftState with _$ShiftState {
         // Skip dropoff - already handled in pickup branch
         continue;
       } else if (task.isCompleted == 1) {
-        // Regular completed task (collection, warehouse, placement)
+        // Regular completed task (collection or placement)
         count++;
       }
     }

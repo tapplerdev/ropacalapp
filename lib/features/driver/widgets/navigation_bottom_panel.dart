@@ -525,17 +525,47 @@ class NavigationBottomPanel extends HookConsumerWidget {
     //   AppLogger.general('   [$i] Bin #${t.binNumber ?? "N/A"} - ${t.taskType.name} - ${t.address}');
     // }
 
-    final upcomingTasks = shift.remainingTasks.skip(currentIndex + 1).where((upcomingTask) {
+    // Build "UP NEXT" (max 3), collapsing warehouse reload runs. The
+    // optimizer emits one warehouse_stop row per bin, so a "Load N bins"
+    // reload is N consecutive rows — we show it as ONE entry, and if the
+    // current stop IS a warehouse run we skip its remaining rows entirely
+    // (they're part of the current one-tap action).
+    final upcomingTasks = <RouteTask>[];
+    final remainingForUpNext = shift.remainingTasks;
+    var upNextIdx = currentIndex + 1;
+
+    if (task.taskType == StopType.warehouseStop) {
+      while (upNextIdx < remainingForUpNext.length &&
+          remainingForUpNext[upNextIdx].taskType == StopType.warehouseStop) {
+        upNextIdx++;
+      }
+    }
+
+    while (upNextIdx < remainingForUpNext.length && upcomingTasks.length < 3) {
+      final upcomingTask = remainingForUpNext[upNextIdx];
+
       // Filter out dropoff if current task is its corresponding pickup
+      // (it's part of the current action, not a separate upcoming stop).
       if (task.taskType == StopType.pickup &&
           upcomingTask.taskType == StopType.dropoff &&
           task.moveRequestId != null &&
           task.moveRequestId == upcomingTask.moveRequestId) {
-        // AppLogger.general('   🚫 Filtering out dropoff for pickup: ${upcomingTask.binNumber}');
-        return false; // Skip dropoff from "UP NEXT" (it's part of current action)
+        upNextIdx++;
+        continue;
       }
-      return true;
-    }).take(3).toList();
+
+      upcomingTasks.add(upcomingTask);
+      upNextIdx++;
+
+      // Collapse the rest of a consecutive warehouse run into that one entry.
+      if (upcomingTask.taskType == StopType.warehouseStop) {
+        while (upNextIdx < remainingForUpNext.length &&
+            remainingForUpNext[upNextIdx].taskType ==
+                StopType.warehouseStop) {
+          upNextIdx++;
+        }
+      }
+    }
 
     // AppLogger.general('   📋 UP NEXT tasks count: ${upcomingTasks.length}');
     // for (var i = 0; i < upcomingTasks.length; i++) {
@@ -1081,6 +1111,26 @@ class NavigationBottomPanel extends HookConsumerWidget {
                           // Current dialogs expect RouteTask which has more fields than RouteTask
                           switch (task.taskType) {
                             case StopType.warehouseStop:
+                              // The optimizer emits one warehouse_stop row per
+                              // bin loaded, so a "Load N bins" reload is N
+                              // consecutive rows. Gather the whole contiguous
+                              // run starting at this task so the driver clears
+                              // it in ONE tap instead of N dialogs.
+                              final warehouseRun = <RouteTask>[];
+                              final remaining = shift.remainingTasks;
+                              final startIdx =
+                                  remaining.indexWhere((t) => t.id == task.id);
+                              if (startIdx != -1) {
+                                for (var i = startIdx;
+                                    i < remaining.length &&
+                                        remaining[i].taskType ==
+                                            StopType.warehouseStop;
+                                    i++) {
+                                  warehouseRun.add(remaining[i]);
+                                }
+                              }
+                              final runIds =
+                                  warehouseRun.map((t) => t.id).toList();
                               showDialog(
                                 context: context,
                                 barrierDismissible: false,
@@ -1088,6 +1138,8 @@ class NavigationBottomPanel extends HookConsumerWidget {
                                   task: task,
                                   shiftBinId: task.id,
                                   isLastTask: shift.remainingTasks.length <= 1,
+                                  warehouseRunIds:
+                                      runIds.isEmpty ? [task.id] : runIds,
                                 ),
                               );
                               break;

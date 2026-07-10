@@ -1077,7 +1077,12 @@ class _HistoryShiftCard extends StatelessWidget {
                       ),
                     ),
                   ),
-                  _EndReasonBadge(endReason: shift.endReason),
+                  // Show "completed" for a finished run even if it ended via
+                  // disconnect — same rule as the history rows (isCompletedRun).
+                  _EndReasonBadge(
+                    endReason:
+                        shift.isCompletedRun ? 'completed' : shift.endReason,
+                  ),
                 ],
               ),
               const SizedBox(height: 6),

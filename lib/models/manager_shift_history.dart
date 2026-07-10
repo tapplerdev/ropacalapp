@@ -60,6 +60,19 @@ class ManagerShiftHistory with _$ManagerShiftHistory {
     return (completedBins / totalBins).clamp(0.0, 1.0);
   }
 
+  /// Whether this shift's work actually finished — every bin done. Used so the
+  /// status pill reads "completed" even when the shift technically ended via a
+  /// driver disconnect/timeout at the tail end (the common case). A shift that
+  /// ended before finishing its bins is NOT a completed run, regardless of the
+  /// end reason, so an aborted 0/11 disconnect still shows its reason.
+  bool get isCompletedRun =>
+      endReason == 'completed' || (totalBins > 0 && completedBins >= totalBins);
+
+  /// User-facing status pill text: "completed" for a finished run, otherwise
+  /// the humanized end reason (e.g. "driver disconnected", "manager cancelled").
+  String get displayStatus =>
+      isCompletedRun ? 'completed' : endReason.replaceAll('_', ' ');
+
   /// Formatted date when the shift ended
   String get endedDateFormatted {
     if (endedAt == null) return '';

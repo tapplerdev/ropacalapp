@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:ropacalapp/core/theme/app_colors.dart';
+import 'package:ropacalapp/features/manager/driver_shift_detail_page.dart';
 import 'package:ropacalapp/models/manager_shift_history.dart';
 import 'package:ropacalapp/providers/manager_shift_history_provider.dart';
 
@@ -99,9 +100,9 @@ class ShiftHistoryRow extends StatelessWidget {
     final date = shift.startTime != null
         ? DateFormat('EEE, MMM d').format(shift.startTime!)
         : 'Unknown date';
-    final completed = shift.endReason == 'completed';
+    final completed = shift.isCompletedRun;
 
-    return Row(
+    final row = Row(
       children: [
         Expanded(
           child: Column(
@@ -115,51 +116,61 @@ class ShiftHistoryRow extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 3),
-              Row(
-                children: [
-                  Text(
-                    '${shift.completedBins}/${shift.totalBins} bins',
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      color: _completionColor,
-                    ),
-                  ),
-                  Text(
-                    '  ·  $_duration',
-                    style: TextStyle(
-                      fontSize: 13,
-                      color: Colors.grey.shade600,
-                    ),
-                  ),
-                  // completed_bins counts skips as processed — surface them
-                  // so a 29/29 shift with skips is visibly not a clean run.
-                  if (shift.totalSkipped > 0)
-                    Text(
-                      '  ·  ${shift.totalSkipped} skipped',
-                      style: const TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.warningOrange,
-                      ),
-                    ),
-                  if (shift.incidentsReported > 0) ...[
-                    const SizedBox(width: 6),
-                    Icon(Icons.warning_amber_rounded,
-                        size: 14, color: Colors.orange.shade700),
-                    Text(
-                      ' ${shift.incidentsReported}',
+              // Single rich line so the stats ellipsize as a unit instead of
+              // creeping under the status pill on narrow screens.
+              // completed_bins counts skips as processed — surface skips so a
+              // 29/29 shift with skips is visibly not a clean run.
+              Text.rich(
+                TextSpan(
+                  children: [
+                    TextSpan(
+                      text: '${shift.completedBins}/${shift.totalBins} bins',
                       style: TextStyle(
                         fontSize: 13,
-                        color: Colors.orange.shade700,
+                        fontWeight: FontWeight.w600,
+                        color: _completionColor,
                       ),
                     ),
+                    TextSpan(
+                      text: '  ·  $_duration',
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: Colors.grey.shade600,
+                      ),
+                    ),
+                    if (shift.totalSkipped > 0)
+                      TextSpan(
+                        text: '  ·  ${shift.totalSkipped} skipped',
+                        style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.warningOrange,
+                        ),
+                      ),
+                    if (shift.incidentsReported > 0) ...[
+                      WidgetSpan(child: const SizedBox(width: 6)),
+                      WidgetSpan(
+                        alignment: PlaceholderAlignment.middle,
+                        child: Icon(Icons.warning_amber_rounded,
+                            size: 14, color: Colors.orange.shade700),
+                      ),
+                      TextSpan(
+                        text: ' ${shift.incidentsReported}',
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: Colors.orange.shade700,
+                        ),
+                      ),
+                    ],
                   ],
-                ],
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
               ),
             ],
           ),
         ),
+        const SizedBox(width: 8),
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
           decoration: BoxDecoration(
@@ -167,7 +178,7 @@ class ShiftHistoryRow extends StatelessWidget {
             borderRadius: BorderRadius.circular(10),
           ),
           child: Text(
-            completed ? 'completed' : shift.endReason.replaceAll('_', ' '),
+            shift.displayStatus,
             style: TextStyle(
               fontSize: 11,
               fontWeight: FontWeight.w600,
@@ -178,6 +189,19 @@ class ShiftHistoryRow extends StatelessWidget {
           ),
         ),
       ],
+    );
+
+    // Tap any history row to open its full read-only breakdown (every stop,
+    // completed/skipped, photos). Shared by the full-history page and the
+    // Driver Details recent-shifts card.
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: () => Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => HistoricalShiftDetailPage(shift: shift),
+        ),
+      ),
+      child: row,
     );
   }
 }

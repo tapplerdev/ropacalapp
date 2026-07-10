@@ -8,10 +8,12 @@ import 'package:ropacalapp/core/theme/app_colors.dart';
 import 'package:ropacalapp/core/utils/app_logger.dart';
 import 'package:ropacalapp/core/utils/warehouse_run_grouping.dart';
 import 'package:ropacalapp/models/active_driver.dart';
+import 'package:ropacalapp/models/manager_shift_history.dart';
 import 'package:ropacalapp/models/route_task.dart';
 import 'package:ropacalapp/core/extensions/route_task_extensions.dart';
 import 'package:ropacalapp/models/shift_state.dart';
 import 'package:ropacalapp/providers/drivers_provider.dart';
+import 'package:ropacalapp/providers/manager_shift_tasks_provider.dart';
 
 /// Driver Shift Detail Page - Shows detailed information about a driver's active shift
 class DriverShiftDetailPage extends ConsumerStatefulWidget {
@@ -1590,5 +1592,291 @@ class _FillBar extends StatelessWidget {
     if (percentage >= 50) return Colors.orange.shade600;
     if (percentage >= 30) return Colors.amber.shade700;
     return AppColors.successGreen;
+  }
+}
+
+// =============================================================================
+// Historical (ended/cancelled) shift — read-only detail
+// =============================================================================
+
+/// Read-only breakdown of an archived shift, opened by tapping a row in the
+/// driver shift-history list. Reuses the live-shift task cards but drops every
+/// live/action affordance (no refresh timer, no buttons) — history is
+/// immutable. Fetches the archived task list by shiftId.
+class HistoricalShiftDetailPage extends ConsumerWidget {
+  final ManagerShiftHistory shift;
+
+  const HistoricalShiftDetailPage({required this.shift, super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final tasksAsync = ref.watch(managerShiftTasksProvider(shift.shiftId));
+
+    return Scaffold(
+      backgroundColor: Colors.grey.shade50,
+      appBar: AppBar(
+        title: Text('${shift.driverName} — Shift'),
+        backgroundColor: Colors.white,
+        surfaceTintColor: Colors.transparent,
+        scrolledUnderElevation: 0,
+      ),
+      body: tasksAsync.when(
+        data: (tasks) {
+          // Bins semantic — the raw task list carries one warehouse_stop row
+          // per bin loaded, so counting rows inflates the totals.
+          final binTasks = binSemanticTasks(tasks);
+          final completed =
+              binTasks.where((t) => t.isCompleted == 1 && !t.skipped).length;
+          final skipped = binTasks.where((t) => t.skipped).length;
+          final remaining = binTasks.length - completed - skipped;
+          // Consecutive warehouse loads collapse into one "Load N bins" card —
+          // one physical stop per reload run, not one per bin.
+          final groups = groupWarehouseRuns(tasks);
+
+          return SingleChildScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _HistoricalSummaryCard(shift: shift),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: Row(
+                    children: [
+                      _StatPill(
+                        label: 'Completed',
+                        count: completed,
+                        color: AppColors.successGreen,
+                      ),
+                      const SizedBox(width: 8),
+                      _StatPill(
+                        label: 'Skipped',
+                        count: skipped,
+                        color: AppColors.warningOrange,
+                      ),
+                      const SizedBox(width: 8),
+                      _StatPill(
+                        label: 'Remaining',
+                        count: remaining < 0 ? 0 : remaining,
+                        color: Colors.grey,
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: Text(
+                    'Tasks (${groups.length})',
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.textPrimary,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                if (groups.isEmpty)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 24, 16, 24),
+                    child: Text(
+                      'No tasks recorded for this shift.',
+                      style: TextStyle(color: Colors.grey.shade500),
+                    ),
+                  )
+                else
+                  ListView.builder(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    itemCount: groups.length,
+                    itemBuilder: (context, index) {
+                      final group = groups[index];
+                      if (group.isWarehouseRun) {
+                        return _WarehouseRunCard(
+                          run: group.run!,
+                          isReturn: group.isReturn,
+                        );
+                      }
+                      return _TaskCard(task: group.task!, isFinalStop: false);
+                    },
+                  ),
+                const SizedBox(height: 24),
+              ],
+            ),
+          );
+        },
+        loading: () => const Center(
+          child: CircularProgressIndicator(color: AppColors.primaryGreen),
+        ),
+        error: (error, _) => Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.error_outline, size: 56, color: Colors.red.shade400),
+                const SizedBox(height: 12),
+                Text(
+                  'Failed to load shift tasks',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.red.shade700,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  '$error',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
+                ),
+                const SizedBox(height: 16),
+                ElevatedButton.icon(
+                  onPressed: () =>
+                      ref.invalidate(managerShiftTasksProvider(shift.shiftId)),
+                  icon: const Icon(Icons.refresh),
+                  label: const Text('Retry'),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Compact header for a historical shift: driver, date, duration, bins, and
+/// the same "completed vs end-reason" status pill used in the history list.
+class _HistoricalSummaryCard extends StatelessWidget {
+  final ManagerShiftHistory shift;
+
+  const _HistoricalSummaryCard({required this.shift});
+
+  @override
+  Widget build(BuildContext context) {
+    final dateStr = shift.startTime != null
+        ? DateFormat('EEE, MMM d · h:mm a').format(shift.startTime!)
+        : 'Archived shift';
+    final completed = shift.isCompletedRun;
+
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border:
+            Border.all(color: AppColors.primaryGreen.withValues(alpha: 0.2)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.05),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(
+                  color: AppColors.primaryGreen,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Center(
+                  child: Text(
+                    shift.driverName.isNotEmpty
+                        ? shift.driverName[0].toUpperCase()
+                        : '?',
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      shift.driverName,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.textPrimary,
+                      ),
+                    ),
+                    Text(
+                      dateStr,
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: Colors.grey.shade600,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color:
+                      completed ? Colors.green.shade50 : Colors.grey.shade100,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Text(
+                  shift.displayStatus,
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: completed
+                        ? Colors.green.shade700
+                        : Colors.grey.shade600,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              _InlineStat(
+                icon: Icons.task_alt,
+                label: 'Bins',
+                value: '${shift.completedBins}/${shift.totalBins}',
+                color: AppColors.primaryGreen,
+              ),
+              _InlineStat(
+                icon: Icons.timer_outlined,
+                label: 'Duration',
+                value: shift.durationFormatted,
+                color: Colors.blueGrey,
+              ),
+              if (shift.totalSkipped > 0)
+                _InlineStat(
+                  icon: Icons.skip_next,
+                  label: 'Skipped',
+                  value: '${shift.totalSkipped}',
+                  color: AppColors.warningOrange,
+                ),
+            ],
+          ),
+        ],
+      ),
+    );
   }
 }

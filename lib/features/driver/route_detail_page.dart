@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:ropacalapp/core/theme/app_colors.dart';
+import 'package:ropacalapp/core/utils/warehouse_run_grouping.dart';
 import 'package:ropacalapp/core/widgets/check_in_photo_thumb.dart';
 import 'package:ropacalapp/models/route_task.dart';
 import 'package:ropacalapp/core/extensions/route_task_extensions.dart';
@@ -43,30 +44,50 @@ class RouteDetailPage extends ConsumerWidget {
                       .length,
                 ),
 
-                // Tasks list
-                Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Text(
-                    'Tasks (${shiftDetail.bins.length})',
-                    style: const TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: AppColors.textPrimary,
-                    ),
-                  ),
-                ),
-
-                // Task cards
-                ListView.builder(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  itemCount: shiftDetail.bins.length,
-                  itemBuilder: (context, index) {
-                    final bin = shiftDetail.bins[index];
-                    return _BinCard(
-                      bin: bin,
-                      index: index,
+                // Tasks list. Consecutive warehouse loads collapse into one
+                // "Load N bins" tile — the driver makes one physical stop per
+                // reload run, not one per bin (raw rows carry one
+                // warehouse_stop per bin loaded, inflating 11 bins to 23
+                // "tasks").
+                Builder(
+                  builder: (context) {
+                    final groups = groupWarehouseRuns(shiftDetail.bins);
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.all(16),
+                          child: Text(
+                            'Stops (${groups.length})',
+                            style: const TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              color: AppColors.textPrimary,
+                            ),
+                          ),
+                        ),
+                        ListView.builder(
+                          shrinkWrap: true,
+                          physics: const NeverScrollableScrollPhysics(),
+                          padding:
+                              const EdgeInsets.symmetric(horizontal: 16),
+                          itemCount: groups.length,
+                          itemBuilder: (context, index) {
+                            final group = groups[index];
+                            if (group.isWarehouseRun) {
+                              return _WarehouseRunTile(
+                                run: group.run!,
+                                isReturn: group.isReturn,
+                                index: index,
+                              );
+                            }
+                            return _BinCard(
+                              bin: group.task!,
+                              index: index,
+                            );
+                          },
+                        ),
+                      ],
                     );
                   },
                 ),
@@ -320,6 +341,109 @@ class _SummaryStatColumn extends StatelessWidget {
 }
 
 /// Individual bin card showing before/after fill
+/// One tile for a whole warehouse reload run (N warehouse_stop rows) or the
+/// final return leg — mirrors _BinCard's visual language.
+class _WarehouseRunTile extends StatelessWidget {
+  final List<RouteTask> run;
+  final bool isReturn;
+  final int index;
+
+  const _WarehouseRunTile({
+    required this.run,
+    required this.isReturn,
+    required this.index,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final total = run.length;
+    final done = run.where((t) => t.isCompleted == 1).length;
+    final allDone = done == total;
+    final label = isReturn
+        ? 'Return to warehouse'
+        : 'Load $total ${total == 1 ? 'bin' : 'bins'} at warehouse';
+    final address = run.first.address ?? '';
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: allDone ? Colors.green.shade50 : Colors.grey.shade50,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: allDone
+              ? AppColors.successGreen.withValues(alpha: 0.3)
+              : Colors.grey.shade200,
+        ),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 32,
+            height: 32,
+            decoration: BoxDecoration(
+              color: Colors.teal.shade600.withValues(alpha: 0.12),
+              shape: BoxShape.circle,
+            ),
+            child: Center(
+              child: Text(
+                '${index + 1}',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.teal.shade700,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Icon(Icons.warehouse, color: Colors.teal.shade600, size: 20),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: const TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.textPrimary,
+                  ),
+                ),
+                if (address.isNotEmpty) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    address,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: Colors.grey.shade600,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          if (allDone)
+            const Icon(Icons.check_circle,
+                color: AppColors.successGreen, size: 22)
+          else if (done > 0)
+            Text(
+              '$done/$total',
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: Colors.teal.shade700,
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
 class _BinCard extends StatelessWidget {
   final RouteTask bin;
   final int index;

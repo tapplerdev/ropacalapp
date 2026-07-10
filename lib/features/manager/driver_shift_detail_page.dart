@@ -6,6 +6,7 @@ import 'package:ropacalapp/core/enums/stop_type.dart';
 import 'package:ropacalapp/core/exceptions/shift_ended_exception.dart';
 import 'package:ropacalapp/core/theme/app_colors.dart';
 import 'package:ropacalapp/core/utils/app_logger.dart';
+import 'package:ropacalapp/core/utils/warehouse_run_grouping.dart';
 import 'package:ropacalapp/models/active_driver.dart';
 import 'package:ropacalapp/models/route_task.dart';
 import 'package:ropacalapp/core/extensions/route_task_extensions.dart';
@@ -95,13 +96,19 @@ class _DriverShiftDetailPageState
           final tasks = shiftDetail.bins;
           final filteredTasks = _filterTasks(tasks);
 
+          // Bins semantic for every count: warehouse loads + service stops are
+          // logistics, not deliverables — the raw task list carries one
+          // warehouse_stop ROW PER BIN LOADED, so counting rows inflates an
+          // 11-bin shift to 23 "tasks". Mirrors backend completed/total_bins.
+          final binTasks = binSemanticTasks(tasks);
+
           // Compute stats
           // A skip also marks the task processed (isCompleted == 1), so
           // completed must exclude skipped or remaining goes negative.
           final completed =
-              tasks.where((t) => t.isCompleted == 1 && !t.skipped).length;
-          final skipped = tasks.where((t) => t.skipped).length;
-          final remaining = tasks.length - completed - skipped;
+              binTasks.where((t) => t.isCompleted == 1 && !t.skipped).length;
+          final skipped = binTasks.where((t) => t.skipped).length;
+          final remaining = binTasks.length - completed - skipped;
 
           return RefreshIndicator(
             color: AppColors.primaryGreen,
@@ -152,10 +159,14 @@ class _DriverShiftDetailPageState
                         orElse: () => null,
                       );
                       if (currentTask == null) return const SizedBox.shrink();
-                      final doneCount = tasks.where((t) => t.isCompleted == 1 || t.skipped).length;
+                      // Bins semantic — raw rows would show e.g. 0/23 for an
+                      // 11-bin shift (one warehouse row per bin loaded).
+                      final doneCount = binTasks
+                          .where((t) => t.isCompleted == 1 || t.skipped)
+                          .length;
                       return _CurrentTaskBanner(
                         task: currentTask,
-                        progress: '$doneCount/${tasks.length}',
+                        progress: '$doneCount/${binTasks.length}',
                       );
                     },
                   ),
@@ -170,7 +181,9 @@ class _DriverShiftDetailPageState
                     child: Row(
                       children: [
                         _TaskFilterChip(
-                          label: 'All (${tasks.length})',
+                          // Bins semantic — the raw row count includes one
+                          // warehouse row per bin loaded.
+                          label: 'All (${binTasks.length})',
                           isSelected: _taskFilter == 'all',
                           onTap: () =>
                               setState(() => _taskFilter = 'all'),
@@ -209,38 +222,50 @@ class _DriverShiftDetailPageState
 
                   const SizedBox(height: 12),
 
-                  // Tasks header
-                  Padding(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 16),
-                    child: Text(
-                      'Tasks (${filteredTasks.length})',
-                      style: const TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.textPrimary,
-                      ),
-                    ),
-                  ),
-
-                  const SizedBox(height: 8),
-
-                  // Task cards
-                  ListView.builder(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 16),
-                    itemCount: filteredTasks.length,
-                    itemBuilder: (context, index) {
-                      final task = filteredTasks[index];
-                      return _TaskCard(
-                        task: task,
-                        // OR-Tools always ends the route at the warehouse —
-                        // the last task is the final return, not a mid-route
-                        // load stop.
-                        isFinalStop:
-                            tasks.isNotEmpty && task.id == tasks.last.id,
+                  // Tasks header + cards. Consecutive warehouse loads are
+                  // collapsed into one "Load N bins" card — the driver makes
+                  // one physical stop per reload run, not one per bin.
+                  Builder(
+                    builder: (context) {
+                      final groups = groupWarehouseRuns(filteredTasks);
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Padding(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 16),
+                            child: Text(
+                              'Tasks (${groups.length})',
+                              style: const TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                                color: AppColors.textPrimary,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          ListView.builder(
+                            shrinkWrap: true,
+                            physics:
+                                const NeverScrollableScrollPhysics(),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 16),
+                            itemCount: groups.length,
+                            itemBuilder: (context, index) {
+                              final group = groups[index];
+                              if (group.isWarehouseRun) {
+                                return _WarehouseRunCard(
+                                  run: group.run!,
+                                  isReturn: group.isReturn,
+                                );
+                              }
+                              return _TaskCard(
+                                task: group.task!,
+                                isFinalStop: false,
+                              );
+                            },
+                          ),
+                        ],
                       );
                     },
                   ),
@@ -752,6 +777,104 @@ class _InlineStat extends StatelessWidget {
 // =============================================================================
 // Enhanced task card with type icons, skip status, and skip reasons
 // =============================================================================
+
+// =============================================================================
+// Warehouse run card — one card for a whole reload run (N warehouse_stop rows)
+// =============================================================================
+
+class _WarehouseRunCard extends StatelessWidget {
+  final List<RouteTask> run;
+  final bool isReturn;
+
+  const _WarehouseRunCard({required this.run, required this.isReturn});
+
+  @override
+  Widget build(BuildContext context) {
+    final total = run.length;
+    final done = run.where((t) => t.isCompleted == 1).length;
+    final allDone = done == total;
+    final label = isReturn
+        ? 'Return to warehouse'
+        : 'Load $total ${total == 1 ? 'bin' : 'bins'}';
+    final address = run.first.address ?? '';
+    final color = allDone ? AppColors.successGreen : Colors.teal.shade600;
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: allDone ? Colors.green.shade50 : Colors.grey.shade50,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: allDone
+              ? AppColors.successGreen.withValues(alpha: 0.3)
+              : Colors.grey.shade200,
+        ),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(Icons.warehouse, color: color, size: 22),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: const TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.textPrimary,
+                  ),
+                ),
+                if (address.isNotEmpty) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    address,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: Colors.grey.shade600,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          if (allDone)
+            const Icon(Icons.check_circle,
+                color: AppColors.successGreen, size: 22)
+          else if (done > 0)
+            Container(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: Colors.teal.shade50,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Text(
+                '$done/$total',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.teal.shade700,
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
 
 class _TaskCard extends StatelessWidget {
   final RouteTask task;

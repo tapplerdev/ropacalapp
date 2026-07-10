@@ -17,6 +17,7 @@ import 'package:ropacalapp/models/bin.dart';
 import 'package:ropacalapp/core/constants/map_constants.dart';
 import 'package:ropacalapp/core/enums/bin_status.dart';
 import 'package:ropacalapp/core/utils/app_logger.dart';
+import 'package:ropacalapp/core/utils/warehouse_run_grouping.dart';
 import 'package:ropacalapp/providers/location_provider.dart';
 import 'package:ropacalapp/features/driver/widgets/circular_map_button.dart';
 import 'package:ropacalapp/features/driver/widgets/map_notification_button.dart';
@@ -1916,9 +1917,15 @@ class ManagerMapPage extends HookConsumerWidget {
                       final cardCurrentTask = shiftDetail?.bins
                           .where((t) => t.isCompleted == 0 && !t.skipped)
                           .firstOrNull;
-                      final cardTotalTasks = shiftDetail?.bins.length ?? 0;
-                      final cardCompletedTasks = shiftDetail?.bins
-                          .where((t) => t.isCompleted == 1).length ?? 0;
+                      // Bins semantic — raw rows include one warehouse row
+                      // per bin loaded (an 11-bin shift has 23 rows), which
+                      // made this card disagree with the drivers list.
+                      final cardBinTasks =
+                          binSemanticTasks(shiftDetail?.bins ?? []);
+                      final cardTotalTasks = cardBinTasks.length;
+                      final cardCompletedTasks = cardBinTasks
+                          .where((t) => t.isCompleted == 1)
+                          .length;
 
                       return DriverFloatingCard(
                         driver: focusedDriver,

@@ -50,6 +50,7 @@ import 'package:ropacalapp/models/shift_overview.dart';
 // DEPRECATED: NavigationPage uses old google_maps_flutter - replaced by GoogleNavigationPage
 // import 'package:ropacalapp/features/driver/navigation_page.dart';
 import 'package:ropacalapp/core/utils/navigation_arrow_marker_painter.dart';
+import 'package:ropacalapp/features/driver/widgets/warehouse_load_dialog.dart';
 
 class DriverMapPage extends HookConsumerWidget {
   const DriverMapPage({super.key});
@@ -754,50 +755,17 @@ class _ShiftReadyOverlay extends HookConsumerWidget {
               try {
                 AppLogger.general('📡 Calling startShift()...');
                 await ref.read(shiftNotifierProvider.notifier).startShift(
-                  onNeedWarehouseBinsAnswer: (placementCount, redeploymentCount) async {
+                  onNeedWarehouseBinsAnswer: (binsNeeded, capacity) async {
                     isStarting.value = false;
 
                     if (!context.mounted) return null;
 
-                    // Show warehouse bins dialog
-                    final result = await showDialog<bool>(
+                    final result = await showDialog<int>(
                       context: context,
                       barrierDismissible: false,
-                      builder: (context) => AlertDialog(
-                        title: const Text('Warehouse Bins'),
-                        content: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text(
-                              'This shift requires bins from the warehouse:',
-                              style: TextStyle(fontWeight: FontWeight.w600),
-                            ),
-                            const SizedBox(height: 12),
-                            if (placementCount > 0)
-                              Text('• $placementCount placement${placementCount > 1 ? 's' : ''}'),
-                            if (redeploymentCount > 0)
-                              Text('• $redeploymentCount redeployment${redeploymentCount > 1 ? 's' : ''}'),
-                            const SizedBox(height: 16),
-                            const Text(
-                              'Are the bins already loaded on your truck?',
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ],
-                        ),
-                        actions: [
-                          TextButton(
-                            onPressed: () => Navigator.of(context).pop(false),
-                            child: const Text('No - Need to Load'),
-                          ),
-                          FilledButton(
-                            onPressed: () => Navigator.of(context).pop(true),
-                            child: const Text('Yes - Already Loaded'),
-                          ),
-                        ],
+                      builder: (context) => WarehouseLoadDialog(
+                        binsNeeded: binsNeeded,
+                        capacity: capacity,
                       ),
                     );
 

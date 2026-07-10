@@ -82,17 +82,17 @@ class ShiftService {
   }
 
   /// Start shift
-  /// [binsPreloaded] - whether bins are already loaded on the truck (optional)
-  /// If true, route optimization will skip warehouse as first stop
-  /// If false or null, route will include warehouse pickup
-  Future<ShiftState> startShift({bool? binsPreloaded}) async {
+  /// [binsOnTruck] - how many bins are already loaded on the truck (0..capacity).
+  /// The optimizer uses this as the vehicle's initial load; 0 (or null) means
+  /// the route will include warehouse pickups.
+  Future<ShiftState> startShift({int? binsOnTruck}) async {
     try {
       print('📤 REQUEST: POST /api/driver/shift/start');
 
       final requestData = <String, dynamic>{};
-      if (binsPreloaded != null) {
-        requestData['bins_preloaded'] = binsPreloaded;
-        print('   🚚 Bins preloaded: $binsPreloaded');
+      if (binsOnTruck != null) {
+        requestData['bins_on_truck'] = binsOnTruck;
+        print('   🚚 Bins on truck: $binsOnTruck');
       }
 
       final response = await _apiService.post(

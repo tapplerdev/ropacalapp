@@ -419,10 +419,11 @@ class ShiftNotifier extends _$ShiftNotifier {
   }
 
   /// Start the shift (slide to confirm)
-  /// [onNeedWarehouseBinsAnswer] - Optional callback to show UI dialog and get user answer
-  /// Returns Future<bool?> where true = bins loaded, false = bins NOT loaded, null = cancelled
+  /// [onNeedWarehouseBinsAnswer] - Optional callback to prompt the driver for how
+  /// many bins are already on the truck. Given (binsNeeded, capacity); returns
+  /// the on-truck count (0..capacity), or null if cancelled.
   Future<void> startShift({
-    Future<bool?> Function(int placementCount, int redeploymentCount)? onNeedWarehouseBinsAnswer,
+    Future<int?> Function(int binsNeeded, int capacity)? onNeedWarehouseBinsAnswer,
   }) async {
     if (state.status != ShiftStatus.ready) {
       AppLogger.general('⚠️ Cannot start shift - status: ${state.status}');
@@ -461,6 +462,7 @@ class ShiftNotifier extends _$ShiftNotifier {
       bool? needsWarehouseBinsPrompt;
       int? placementCount;
       int? redeploymentCount;
+      int? truckBinCapacity;
 
       while (!preflightReady && attempt < maxAttempts) {
         attempt++;
@@ -475,6 +477,7 @@ class ShiftNotifier extends _$ShiftNotifier {
           needsWarehouseBinsPrompt = preflightResult['needs_warehouse_bins_prompt'] as bool? ?? false;
           placementCount = preflightResult['placement_count'] as int? ?? 0;
           redeploymentCount = preflightResult['redeployment_count'] as int? ?? 0;
+          truckBinCapacity = preflightResult['truck_bin_capacity'] as int? ?? 0;
 
           if (preflightReady) {
             AppLogger.general('   ✅ Preflight passed: $preflightMessage');
@@ -511,26 +514,29 @@ class ShiftNotifier extends _$ShiftNotifier {
 
       AppLogger.general('✅ Preflight checks completed in ${preflightDuration}ms');
 
-      // STEP 2.5: Check if we need to show warehouse bins prompt
-      bool? binsPreloaded;
+      // STEP 2.5: Ask the driver how many bins are already on the truck.
+      int? binsOnTruck;
       if (needsWarehouseBinsPrompt == true && onNeedWarehouseBinsAnswer != null) {
+        final binsNeeded = (placementCount ?? 0) + (redeploymentCount ?? 0);
+        // Capacity caps the input; if the backend didn't send one, fall back
+        // to binsNeeded so the driver can at least report a full load.
+        final capacity =
+            (truckBinCapacity != null && truckBinCapacity! > 0)
+                ? truckBinCapacity!
+                : binsNeeded;
+
         AppLogger.general('');
-        AppLogger.general('🏭 Warehouse bins prompt required...');
-        AppLogger.general('   Placements: $placementCount');
-        AppLogger.general('   Redeployments: $redeploymentCount');
+        AppLogger.general('🏭 Warehouse load prompt: needs $binsNeeded bins, capacity $capacity');
 
-        binsPreloaded = await onNeedWarehouseBinsAnswer(
-          placementCount ?? 0,
-          redeploymentCount ?? 0,
-        );
+        binsOnTruck = await onNeedWarehouseBinsAnswer(binsNeeded, capacity);
 
-        if (binsPreloaded == null) {
+        if (binsOnTruck == null) {
           // User cancelled the dialog
-          AppLogger.general('   ❌ User cancelled warehouse bins prompt');
+          AppLogger.general('   ❌ User cancelled warehouse load prompt');
           throw Exception('Shift start cancelled');
         }
 
-        AppLogger.general('   ✅ User answered: ${binsPreloaded ? "Bins ARE loaded" : "Bins NOT loaded"}');
+        AppLogger.general('   ✅ Driver reported $binsOnTruck bins on truck');
       }
 
       // STEP 3: Start shift (instant - already validated)
@@ -538,7 +544,7 @@ class ShiftNotifier extends _$ShiftNotifier {
       AppLogger.general('📡 STEP 3: Starting shift...');
       final apiStartTime = DateTime.now();
       final updatedShift = await shiftService.startShift(
-        binsPreloaded: binsPreloaded,
+        binsOnTruck: binsOnTruck,
       );
       final apiEndTime = DateTime.now();
       final apiDuration = apiEndTime.difference(apiStartTime).inMilliseconds;

@@ -159,7 +159,10 @@ class ShiftAcceptanceBottomSheet extends StatelessWidget {
     );
   }
 
-  /// Badge display order: deliverable jobs first, structural stops last.
+  /// Badge display order — DELIVERABLE jobs only. JobKind.warehouse is
+  /// deliberately absent: pre-start warehouse rows are structural artifacts
+  /// (the optimizer purges and regenerates all warehouse stops at Start, so
+  /// the real visit count doesn't exist yet — "route will be optimized").
   static const _jobKindOrder = [
     JobKind.collection,
     JobKind.placement,
@@ -169,7 +172,6 @@ class ShiftAcceptanceBottomSheet extends StatelessWidget {
     JobKind.movePickup,
     JobKind.moveDropoff,
     JobKind.service,
-    JobKind.warehouse,
   ];
 
   /// Build task summary with badges showing LOGICAL jobs and counts —

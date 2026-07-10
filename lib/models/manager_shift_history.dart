@@ -68,10 +68,17 @@ class ManagerShiftHistory with _$ManagerShiftHistory {
   bool get isCompletedRun =>
       endReason == 'completed' || (totalBins > 0 && completedBins >= totalBins);
 
-  /// User-facing status pill text: "completed" for a finished run, otherwise
-  /// the humanized end reason (e.g. "driver disconnected", "manager cancelled").
-  String get displayStatus =>
-      isCompletedRun ? 'completed' : endReason.replaceAll('_', ' ');
+  /// User-facing status pill text, title-cased: "Completed" for a finished
+  /// run, otherwise the humanized end reason (e.g. "Driver Disconnected",
+  /// "Manager Cancelled").
+  String get displayStatus {
+    final raw = isCompletedRun ? 'completed' : endReason.replaceAll('_', ' ');
+    return raw
+        .split(' ')
+        .map((w) =>
+            w.isEmpty ? w : '${w[0].toUpperCase()}${w.substring(1)}')
+        .join(' ');
+  }
 
   /// Formatted date when the shift ended
   String get endedDateFormatted {

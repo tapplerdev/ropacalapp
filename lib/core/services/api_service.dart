@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:ropacalapp/core/constants/api_constants.dart';
+import 'package:ropacalapp/core/services/auth_token_store.dart';
 import 'package:ropacalapp/core/utils/app_logger.dart';
 import 'package:ropacalapp/models/bin.dart';
 import 'package:ropacalapp/models/bin_check.dart';
@@ -111,6 +112,7 @@ class ApiService {
 
       if (token != null) {
         _authToken = token;
+        AuthTokenStore.token = token;
         AppLogger.api('   ✅ Auth token loaded from secure storage');
         AppLogger.api('   📏 Token length: ${token.length}');
         AppLogger.api('   🔍 Token preview: ${token.substring(0, 20)}...');
@@ -136,6 +138,7 @@ class ApiService {
     AppLogger.api('   🔍 Token preview: ${token.substring(0, 20)}...');
 
     _authToken = token;
+    AuthTokenStore.token = token;
     AppLogger.api('   ✅ Token stored in memory');
 
     try {
@@ -161,6 +164,7 @@ class ApiService {
     AppLogger.api('🗑️  CLEARING TOKEN FROM SECURE STORAGE');
 
     _authToken = null;
+    AuthTokenStore.token = null;
     AppLogger.api('   ✅ Token cleared from memory');
 
     try {

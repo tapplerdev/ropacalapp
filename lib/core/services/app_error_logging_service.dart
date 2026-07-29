@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:ropacalapp/core/constants/api_constants.dart';
+import 'package:ropacalapp/core/services/auth_token_store.dart';
 
 /// Service for logging app errors to the backend for diagnostics
 /// Handles navigation errors, GPS issues, and other critical failures
@@ -74,7 +75,10 @@ class AppErrorLoggingService {
       // Send to backend
       final response = await http.post(
         Uri.parse('$_baseUrl/api/logs/app-error'),
-        headers: {'Content-Type': 'application/json'},
+        headers: {
+          'Content-Type': 'application/json',
+          ...AuthTokenStore.authHeaders,
+        },
         body: json.encode(requestBody),
       );
 

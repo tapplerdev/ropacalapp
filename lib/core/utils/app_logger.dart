@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
+import 'package:ropacalapp/core/services/auth_token_store.dart';
 
 /// Application-wide logging utility
 ///
@@ -130,7 +131,10 @@ class AppLogger {
     // Fire and forget - don't await
     http.post(
       Uri.parse('$_backendUrl/api/logs/diagnostic'),
-      headers: {'Content-Type': 'application/json'},
+      headers: {
+        'Content-Type': 'application/json',
+        ...AuthTokenStore.authHeaders,
+      },
       body: jsonEncode({
         'timestamp': DateTime.now().toIso8601String(),
         'context': 'FLUTTER_APP',

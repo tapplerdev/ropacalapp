@@ -5,6 +5,7 @@ import 'package:flutter/widgets.dart';
 import 'package:awesome_notifications/awesome_notifications.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:ropacalapp/core/services/auth_token_store.dart';
 import 'package:ropacalapp/core/utils/app_logger.dart';
 import 'package:ropacalapp/core/notifications/notification_service.dart';
 import 'package:ropacalapp/core/notifications/notification_router.dart';
@@ -14,6 +15,10 @@ import 'package:ropacalapp/core/notifications/notification_registry.dart';
 
 /// Send a log line to Railway via /api/logs/diagnostic (fire-and-forget).
 /// Works in both main isolate and background isolate.
+///
+/// NOTE: AuthTokenStore is per-isolate — in the background isolate the
+/// token is null, so those posts go out unauthenticated and will be
+/// rejected once the backend requires auth on /api/logs/diagnostic.
 void _remoteLog(String message, {String level = 'INFO', String context = 'FCM'}) {
   // Also print locally for Xcode/logcat
   print(message);
@@ -22,7 +27,10 @@ void _remoteLog(String message, {String level = 'INFO', String context = 'FCM'})
   try {
     http.post(
       Uri.parse(url),
-      headers: {'Content-Type': 'application/json'},
+      headers: {
+        'Content-Type': 'application/json',
+        ...AuthTokenStore.authHeaders,
+      },
       body: jsonEncode({
         'timestamp': DateTime.now().toIso8601String(),
         'context': context,

@@ -191,18 +191,34 @@ class ApiService {
   String? get authToken => _authToken;
 
   // Auth endpoints
+  /// [organization] is the tenant's SLUG (e.g. "ropacal"), matched
+  /// case-insensitively by the backend.
+  ///
+  /// Optional because the backend applies a "single-org grace": while exactly
+  /// one organization exists it infers the tenant and the field may be omitted.
+  /// As soon as a SECOND organization is provisioned that grace disappears and
+  /// omitting the slug returns 400 — which is why this ships before then.
+  ///
+  /// An empty/blank slug is OMITTED from the body rather than sent as "", so a
+  /// user who leaves the field alone still gets the grace path.
   Future<Map<String, dynamic>> login({
     required String email,
     required String password,
+    String? organization,
   }) async {
     try {
       AppLogger.api('🔐 LOGIN: Starting login request...');
       AppLogger.api('   📍 Endpoint: ${ApiConstants.loginEndpoint}');
       AppLogger.api('   ⏰ Current time: ${DateTime.now()}');
 
+      final slug = organization?.trim().toLowerCase();
       final response = await _dio.post(
         ApiConstants.loginEndpoint,
-        data: {'email': email, 'password': password},
+        data: {
+          'email': email,
+          'password': password,
+          if (slug != null && slug.isNotEmpty) 'organization': slug,
+        },
       );
 
       AppLogger.api('🔐 LOGIN: Response received at ${DateTime.now()}');

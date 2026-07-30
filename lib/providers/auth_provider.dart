@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:google_navigation_flutter/google_navigation_flutter.dart';
 import 'package:ropacalapp/core/services/api_service.dart';
@@ -203,13 +204,43 @@ class AuthNotifier extends _$AuthNotifier {
     await _registerFCMToken();
   }
 
-  Future<void> login(String email, String password) async {
+  /// Named parameters are deliberate. This used to take (email, password)
+  /// POSITIONALLY, so adding an optional `organization` would have compiled at
+  /// every existing call site while silently sending no slug — and there are
+  /// three call sites in login_page.dart alone. Named parameters force each one
+  /// to be visited.
+  Future<void> login({
+    required String email,
+    required String password,
+    String? organization,
+  }) async {
     state = const AsyncValue.loading();
 
     final apiService = ref.read(apiServiceProvider);
 
     state = await AsyncValue.guard(() async {
-      final response = await apiService.login(email: email, password: password);
+      final response = await apiService.login(
+        email: email,
+        password: password,
+        organization: organization,
+      );
+
+      // Persist the slug the SERVER resolved, not what the user typed. Under
+      // the single-org grace the field can be left blank and the backend still
+      // returns the organization, so this records the correct slug and the
+      // login form is pre-filled and right from the next launch on — before a
+      // second tenant makes the field mandatory.
+      final orgData = response['organization'] as Map<String, dynamic>?;
+      final resolvedSlug = orgData?['slug'] as String?;
+      if (resolvedSlug != null && resolvedSlug.isNotEmpty) {
+        try {
+          await const FlutterSecureStorage()
+              .write(key: 'remembered_organization', value: resolvedSlug);
+        } catch (e) {
+          // Never block a successful login on a storage failure.
+          AppLogger.general('⚠️  Could not persist organization slug: $e');
+        }
+      }
 
       // Extract token from response
       final token = response['token'] as String?;

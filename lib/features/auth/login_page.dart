@@ -24,15 +24,16 @@ class LoginPage extends HookConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final emailController = useTextEditingController();
     final passwordController = useTextEditingController();
+    final organizationController = useTextEditingController();
     final isObscured = useState(true);
     final rememberMe = useState(false);
     final authState = ref.watch(authNotifierProvider);
     final isPreloading = useState(false);
     final hasStartedPreload = useState(false); // Prevent duplicate runs
 
-    // Load saved email on first build
+    // Load saved email + organization on first build
     useEffect(() {
-      Future<void> loadSavedEmail() async {
+      Future<void> loadSaved() async {
         try {
           final storage = const FlutterSecureStorage();
           final savedEmail = await storage.read(key: 'remembered_email');
@@ -40,11 +41,20 @@ class LoginPage extends HookConsumerWidget {
             emailController.text = savedEmail;
             rememberMe.value = true;
           }
+          // The organization slug is remembered INDEPENDENTLY of Remember Me:
+          // it is not a credential, and a driver re-typing it at the start of
+          // every shift is exactly the friction that produces typos and a
+          // confusing 401 (the backend returns the same opaque 401 for an
+          // unknown slug as for a wrong password).
+          final savedOrg = await storage.read(key: 'remembered_organization');
+          if (savedOrg != null && savedOrg.isNotEmpty) {
+            organizationController.text = savedOrg;
+          }
         } catch (e) {
-          AppLogger.general('Error loading saved email: $e');
+          AppLogger.general('Error loading saved login details: $e');
         }
       }
-      loadSavedEmail();
+      loadSaved();
       return null;
     }, []);
 
@@ -177,6 +187,24 @@ class LoginPage extends HookConsumerWidget {
                     ),
                   ),
                   const SizedBox(height: 40),
+                  // Organization slug. Optional while a single organization
+                  // exists (the backend infers it); required the moment a
+                  // second one is provisioned.
+                  TextField(
+                    controller: organizationController,
+                    decoration: const InputDecoration(
+                      labelText: 'Organization (optional)',
+                      border: OutlineInputBorder(),
+                      prefixIcon: Icon(Icons.business_outlined),
+                    ),
+                    keyboardType: TextInputType.text,
+                    textInputAction: TextInputAction.next,
+                    autocorrect: false,
+                    enableSuggestions: false,
+                    textCapitalization: TextCapitalization.none,
+                    autofillHints: const [AutofillHints.organizationName],
+                  ),
+                  const SizedBox(height: 16),
                   TextField(
                     controller: emailController,
                     decoration: const InputDecoration(
@@ -215,8 +243,9 @@ class LoginPage extends HookConsumerWidget {
                         await ref
                             .read(authNotifierProvider.notifier)
                             .login(
-                              emailController.text,
-                              passwordController.text,
+                              email: emailController.text,
+                              password: passwordController.text,
+                              organization: organizationController.text,
                             );
                         await handleRememberMe();
                       }
@@ -325,8 +354,9 @@ class LoginPage extends HookConsumerWidget {
                               await ref
                                   .read(authNotifierProvider.notifier)
                                   .login(
-                                    emailController.text,
-                                    passwordController.text,
+                                    email: emailController.text,
+                                    password: passwordController.text,
+                                    organization: organizationController.text,
                                   );
                               await handleRememberMe();
                             },
@@ -445,8 +475,9 @@ class LoginPage extends HookConsumerWidget {
                                 await ref
                                     .read(authNotifierProvider.notifier)
                                     .login(
-                                      emailController.text,
-                                      passwordController.text,
+                                      email: emailController.text,
+                                      password: passwordController.text,
+                                      organization: organizationController.text,
                                     );
                                 await handleRememberMe();
                               },

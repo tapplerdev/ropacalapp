@@ -211,10 +211,18 @@ class CentrifugoManager extends _$CentrifugoManager {
     }
 
     try {
-      AppLogger.general('🔄 [CentrifugoManager] Subscribing to company:events...');
+      // The org UUID scopes the channel to this tenant. Null means we never
+      // learned it (a session predating the org being persisted), in which case
+      // the service falls back to the legacy shared channel — which still works
+      // during the migration and stops working at backend Deploy 3a.
+      final orgId = await AuthNotifier.currentOrganizationId();
+      AppLogger.general(
+          '🔄 [CentrifugoManager] Subscribing to company events (org=${orgId ?? "legacy"})...');
       final centrifugoService = ref.read(centrifugoServiceProvider);
       _companyEventsSubscription =
-          await centrifugoService.subscribeToCompanyEvents((event) {
+          await centrifugoService.subscribeToCompanyEvents(
+              orgId: orgId,
+              onEvent: (event) {
         final type = event['type'] as String?;
         AppLogger.general('📢 [CentrifugoManager] Company event: $type');
 
@@ -223,7 +231,7 @@ class CentrifugoManager extends _$CentrifugoManager {
             NotificationAdapters.fromCentrifugoCompanyEvent(event);
         ref.read(notificationRouterProvider).receive(notifEvent);
       });
-      AppLogger.general('✅ [CentrifugoManager] Subscribed to company:events');
+      AppLogger.general('✅ [CentrifugoManager] Subscribed to company events');
     } catch (e) {
       AppLogger.general('❌ [CentrifugoManager] Failed to subscribe to company:events: $e');
     }

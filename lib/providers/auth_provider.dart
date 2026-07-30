@@ -307,6 +307,21 @@ class AuthNotifier extends _$AuthNotifier {
   }
 
   static const _organizationKey = 'remembered_organization';
+  /// The org UUID. Persisted separately from the slug because the per-tenant
+  /// Centrifugo channel `company:{orgID}:events` keys on the ID, while the
+  /// login form needs the human-typeable slug. Both come from the same server
+  /// response.
+  static const _organizationIdKey = 'remembered_organization_id';
+
+  /// Reads the remembered organization UUID, or null if unknown.
+  static Future<String?> currentOrganizationId() async {
+    try {
+      return await const FlutterSecureStorage().read(key: _organizationIdKey);
+    } catch (e) {
+      AppLogger.general('⚠️  Could not read organization id: $e');
+      return null;
+    }
+  }
 
   /// Persists the org SLUG the SERVER resolved (never what the user typed) so
   /// the login form can pre-fill it.
@@ -322,9 +337,15 @@ class AuthNotifier extends _$AuthNotifier {
       final orgData = response['organization'];
       if (orgData is! Map) return;
       final slug = orgData['slug'];
-      if (slug is! String || slug.isEmpty) return;
-      await const FlutterSecureStorage()
-          .write(key: _organizationKey, value: slug);
+      if (slug is String && slug.isNotEmpty) {
+        await const FlutterSecureStorage()
+            .write(key: _organizationKey, value: slug);
+      }
+      final id = orgData['id'];
+      if (id is String && id.isNotEmpty) {
+        await const FlutterSecureStorage()
+            .write(key: _organizationIdKey, value: id);
+      }
     } catch (e) {
       AppLogger.general('⚠️  Could not persist organization slug: $e');
     }
@@ -334,7 +355,9 @@ class AuthNotifier extends _$AuthNotifier {
   /// leaving it behind is actively harmful on a shared device.
   Future<void> _forgetOrganization() async {
     try {
-      await const FlutterSecureStorage().delete(key: _organizationKey);
+      const storage = FlutterSecureStorage();
+      await storage.delete(key: _organizationKey);
+      await storage.delete(key: _organizationIdKey);
     } catch (e) {
       AppLogger.general('⚠️  Could not clear organization slug: $e');
     }

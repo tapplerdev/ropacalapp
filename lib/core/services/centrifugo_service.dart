@@ -329,22 +329,33 @@ class CentrifugoService {
     });
   }
 
-  /// Subscribe to company-wide broadcast events (managers/admins only)
+  /// Subscribe to this organization's operational feed (managers/admins only).
   ///
-  /// Channel: company:events
+  /// Channel: `company:{orgId}:events`, or the legacy shared `company:events`
+  /// when [orgId] is null.
+  ///
+  /// [orgId] is a REQUIRED named parameter even though it is nullable — the
+  /// legacy channel carries every tenant's events and is authorized on role
+  /// alone, so an admin of any organization receives all of them. Making the
+  /// caller pass it explicitly means the fallback is a decision rather than an
+  /// omission. The backend still accepts the legacy name during the migration;
+  /// its Deploy 3a removes that and this fallback stops working, by design.
   ///
   /// Authorization:
   /// - Only admins and managers can subscribe (enforced by backend proxy)
+  /// - The scoped channel additionally requires the org to match the caller's
   ///
   /// Event shape from backend: { "type": "...", "data": {...} }
   /// Event types:
   ///   - potential_location_created
   ///   - potential_location_converted
   ///   - potential_location_deleted
-  Future<StreamSubscription> subscribeToCompanyEvents(
-    void Function(Map<String, dynamic> event) onEvent,
-  ) async {
-    const channel = 'company:events';
+  Future<StreamSubscription> subscribeToCompanyEvents({
+    required String? orgId,
+    required void Function(Map<String, dynamic> event) onEvent,
+  }) async {
+    final channel =
+        (orgId != null && orgId.isNotEmpty) ? 'company:$orgId:events' : 'company:events';
 
     await _ensureClient();
 

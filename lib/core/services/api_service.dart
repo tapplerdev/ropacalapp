@@ -231,16 +231,23 @@ class ApiService {
     }
   }
 
-  Future<User?> getAuthStatus() async {
+  /// Returns the raw auth-status body so callers can read the organization
+  /// alongside the user. [getAuthStatus] remains the User-only convenience.
+  Future<Map<String, dynamic>?> getAuthStatusRaw() async {
     try {
       final response = await _dio.get(ApiConstants.authStatusEndpoint);
-      if (response.data != null && response.data['user'] != null) {
-        return User.fromJson(response.data['user'] as Map<String, dynamic>);
-      }
-      return null;
+      return response.data as Map<String, dynamic>?;
     } catch (e) {
       throw _handleError(e);
     }
+  }
+
+  Future<User?> getAuthStatus() async {
+    final data = await getAuthStatusRaw();
+    if (data != null && data['user'] != null) {
+      return User.fromJson(data['user'] as Map<String, dynamic>);
+    }
+    return null;
   }
 
   // Bin endpoints

@@ -87,11 +87,21 @@ class AuthNotifier extends _$AuthNotifier {
 
       AppLogger.general('   ✅ Token found! Validating with backend...');
       try {
-        final user = await apiService.getAuthStatus();
+        final status = await apiService.getAuthStatusRaw();
+        final user = (status != null && status['user'] != null)
+            ? User.fromJson(status['user'] as Map<String, dynamic>)
+            : null;
         if (user != null) {
           AppLogger.general('   ✅ User auto-logged in from saved token');
           AppLogger.general('   👤 User: ${user.email} (${user.role})');
           await _cacheUser(user);
+
+          // Backfill the org slug for users who were ALREADY signed in when
+          // this shipped. The slug is otherwise only learned at login, so
+          // anyone holding a valid 7-day token when a second organization is
+          // provisioned would land on an empty, now-mandatory field with no way
+          // to know what to type. This is the path every signed-in launch takes.
+          await _rememberOrganization(status!);
 
           // Start background location tracking for drivers on auto-login
           if (user.role == UserRole.driver) {
@@ -225,23 +235,6 @@ class AuthNotifier extends _$AuthNotifier {
         organization: organization,
       );
 
-      // Persist the slug the SERVER resolved, not what the user typed. Under
-      // the single-org grace the field can be left blank and the backend still
-      // returns the organization, so this records the correct slug and the
-      // login form is pre-filled and right from the next launch on — before a
-      // second tenant makes the field mandatory.
-      final orgData = response['organization'] as Map<String, dynamic>?;
-      final resolvedSlug = orgData?['slug'] as String?;
-      if (resolvedSlug != null && resolvedSlug.isNotEmpty) {
-        try {
-          await const FlutterSecureStorage()
-              .write(key: 'remembered_organization', value: resolvedSlug);
-        } catch (e) {
-          // Never block a successful login on a storage failure.
-          AppLogger.general('⚠️  Could not persist organization slug: $e');
-        }
-      }
-
       // Extract token from response
       final token = response['token'] as String?;
       if (token != null) {
@@ -262,6 +255,10 @@ class AuthNotifier extends _$AuthNotifier {
       if (userData != null) {
         final user = User.fromJson(userData);
         await _cacheUser(user); // enables optimistic cold start next launch
+        // Remember the org AFTER the session is established. It is a
+        // convenience, and must never be able to turn a server-side success
+        // into an app-side failure.
+        await _rememberOrganization(response);
         return user;
       }
 
@@ -309,12 +306,56 @@ class AuthNotifier extends _$AuthNotifier {
     AppLogger.general('❌ FCM token registration failed after 3 attempts', level: AppLogger.warning);
   }
 
+  static const _organizationKey = 'remembered_organization';
+
+  /// Persists the org SLUG the SERVER resolved (never what the user typed) so
+  /// the login form can pre-fill it.
+  ///
+  /// Wholly defensive. The casts are inside the try, not just the storage
+  /// write: this used to run BEFORE the token was stored, with unguarded casts,
+  /// so an unexpected `organization` shape would have thrown past
+  /// AsyncValue.guard and turned an HTTP 200 that minted a real session into a
+  /// login failure showing a raw Dart type error. A convenience must not be
+  /// able to do that.
+  Future<void> _rememberOrganization(Map<String, dynamic> response) async {
+    try {
+      final orgData = response['organization'];
+      if (orgData is! Map) return;
+      final slug = orgData['slug'];
+      if (slug is! String || slug.isEmpty) return;
+      await const FlutterSecureStorage()
+          .write(key: _organizationKey, value: slug);
+    } catch (e) {
+      AppLogger.general('⚠️  Could not persist organization slug: $e');
+    }
+  }
+
+  /// Clears the remembered org slug. Called on logout — see logout() for why
+  /// leaving it behind is actively harmful on a shared device.
+  Future<void> _forgetOrganization() async {
+    try {
+      await const FlutterSecureStorage().delete(key: _organizationKey);
+    } catch (e) {
+      AppLogger.general('⚠️  Could not clear organization slug: $e');
+    }
+  }
+
   Future<void> logout() async {
     state = const AsyncValue.loading();
 
     final apiService = ref.read(apiServiceProvider);
     await apiService.clearAuthToken();
     await StartupCache.clear(StartupCache.userKey);
+
+    // Clear the remembered organization. Leaving it strands the NEXT person on
+    // this device — a real scenario on a shared work phone. They would get the
+    // previous driver's slug pre-filled, the backend resolves that tenant,
+    // their email is not in it, and the response is the same opaque 401 it
+    // returns for a wrong password. Correct credentials, "Unauthorized. Please
+    // log in again.", and no way to discover the cause. The slug is a
+    // convenience, not a credential, so re-typing it once after a logout is the
+    // cheap side of this trade.
+    await _forgetOrganization();
 
     // Stop background location tracking
     ref.read(locationTrackingServiceProvider).stopTracking();

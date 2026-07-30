@@ -47,7 +47,14 @@ class LoginPage extends HookConsumerWidget {
           // confusing 401 (the backend returns the same opaque 401 for an
           // unknown slug as for a wrong password).
           final savedOrg = await storage.read(key: 'remembered_organization');
-          if (savedOrg != null && savedOrg.isNotEmpty) {
+          // Only fill an EMPTY field. This read is async and Keystore-backed
+          // reads take 100-300ms on a cold start, while this is now the topmost
+          // field and therefore the first one tapped — an unconditional
+          // assignment would silently replace what the driver had already typed
+          // with the previous user's value.
+          if (savedOrg != null &&
+              savedOrg.isNotEmpty &&
+              organizationController.text.isEmpty) {
             organizationController.text = savedOrg;
           }
         } catch (e) {
@@ -202,7 +209,13 @@ class LoginPage extends HookConsumerWidget {
                     autocorrect: false,
                     enableSuggestions: false,
                     textCapitalization: TextCapitalization.none,
-                    autofillHints: const [AutofillHints.organizationName],
+                    // Deliberately NO autofillHints. organizationName maps to
+                    // iOS UITextContentType.organizationName, which offers
+                    // Contacts COMPANY NAMES — "Ropacal Inc", capitalized and
+                    // in display form. That is precisely what disabling
+                    // autocorrect/suggestions/capitalization above is meant to
+                    // keep out of a slug field, and lowercasing it server-side
+                    // turns "Ropacal Inc" into "ropacal inc", which 401s.
                   ),
                   const SizedBox(height: 16),
                   TextField(

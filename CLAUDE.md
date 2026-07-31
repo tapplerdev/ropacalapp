@@ -12,7 +12,8 @@ Flutter/Dart mobile app for the Ropacal/Binly bin management and logistics platf
 - **Real-time:** Centrifugo WebSocket client
 - **Location:** fused_location + geolocator
 - **Code Gen:** Freezed, Riverpod, json_serializable, build_runner
-- **Backend:** `https://ropacal-backend-production.up.railway.app` (Go/Railway)
+- **Backend:** `https://ropacal-backend-production.up.railway.app` (Go/Railway) — **see `ropacal-backend/CLAUDE.md` → "Service topology" for the full multi-service map; it is not duplicated here.**
+- **Multi-tenancy:** the backend is multi-tenant (RLS per organization). The JWT carries `org_id`. Login takes an optional **Organization ID** (`login_page.dart`) — leave it BLANK: since 2026-07-30 the server resolves the organization from the email address, and only prompts when one address belongs to two organizations.
 - **Centrifugo WS:** `wss://binly-centrifugo-service-production.up.railway.app/connection/websocket`
 
 ## Project Structure
@@ -70,7 +71,7 @@ lib/
 **Route optimization is BACKEND-DRIVEN — the app does NOT call Mapbox or OSRM directly.**
 
 1. Manager creates shift on backend (`POST /api/manager/shifts/create-with-tasks`)
-2. Driver starts shift (`POST /api/driver/shift/start`) → backend runs Mapbox Optimization v2
+2. Driver starts shift (`POST /api/driver/shift/start`) → backend runs **OR-Tools** (via its `ortools-service` microservice, using an OSRM distance matrix). **NOT Mapbox** — Mapbox/Google/HERE optimizers exist in the backend for side-by-side comparison only and are never on the live path.
 3. Backend returns optimized task order with sequence numbers
 4. App fetches tasks (`GET /shifts/{shiftId}/tasks/detailed`) — pre-ordered by backend
 5. App uses **Google Navigation SDK** for native turn-by-turn to each stop
@@ -79,7 +80,7 @@ lib/
 ## Real-time Location Flow
 
 1. **GPS source:** fused_location (Android FusedLocationClient, iOS CoreLocation) — 1s intervals
-2. **Publishing:** HTTP POST to backend, which saves to Redis + publishes to Centrifugo
+2. **Publishing:** the FAST PATH is a direct **Centrifugo WebSocket publish** to `driver:location:{userId}` (`location_tracking_service.dart:573`). `POST /api/driver/location` is only the **fallback** when the socket is down (`:598`). The backend intercepts the Centrifugo publish via its proxy, saves to Redis, and snaps to road.
 3. **Channels:** `driver:location:{driverId}`, `shift:updates:{shiftId}`, `manager:notifications:{id}`
 4. **Token:** `GET /api/centrifugo/token` → JWT for WebSocket auth, auto-refreshed
 
@@ -145,7 +146,7 @@ NEVER leak to the driver:
 - Use const widgets where possible to optimize rebuilds.
 - Implement list view optimizations (e.g., ListView.builder).
 - Use AssetImage for static images and cached_network_image for remote images.
-- Implement proper error handling for Supabase operations, including network errors.
+- Implement proper error handling for API and WebSocket operations, including network errors.
 
 ## Key Conventions
 1. Use GoRouter or auto_route for navigation and deep linking.
@@ -183,4 +184,4 @@ NEVER leak to the driver:
 
 ## Documentation
 - Document complex logic and non-obvious code decisions.
-- Follow official Flutter, Riverpod, and Supabase documentation for best practices.
+- Follow official Flutter, Riverpod, and Dio documentation for best practices. (This app has NO Supabase and no local database — all state comes from the Go backend over REST + Centrifugo.)

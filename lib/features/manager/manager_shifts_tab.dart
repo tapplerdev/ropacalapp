@@ -150,6 +150,10 @@ class _TodayView extends ConsumerWidget {
         final shiftDrivers = allDrivers
             .where((d) =>
                 d.status == ShiftStatus.active ||
+                // A driver who has tapped Start has a shift. Without this they
+                // disappeared from the manager's Today list entirely for the
+                // length of the solve.
+                d.status == ShiftStatus.optimizing ||
                 d.status == ShiftStatus.paused ||
                 d.status == ShiftStatus.ready)
             .toList();
@@ -407,8 +411,13 @@ class _ShiftSummaryStats extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final activeCount =
-        allDrivers.where((d) => d.status == ShiftStatus.active).length;
+    // Counted WITH active, not separately: four buckets that do not sum to the
+    // list length is worse than a bucket that is slightly broad.
+    final activeCount = allDrivers
+        .where((d) =>
+            d.status == ShiftStatus.active ||
+            d.status == ShiftStatus.optimizing)
+        .length;
     final pausedCount =
         allDrivers.where((d) => d.status == ShiftStatus.paused).length;
     final readyCount =

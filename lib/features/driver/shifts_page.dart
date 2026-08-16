@@ -105,7 +105,10 @@ class _ActiveNowSection extends StatelessWidget {
         const SizedBox(height: 12),
 
         // Active shift card or empty state
+        // The driver's OWN screen: without optimizing they were shown
+        // _NoActiveShiftCard — "you have no shift" — seconds after tapping Start.
         if (currentShift.status == ShiftStatus.active ||
+            currentShift.status == ShiftStatus.optimizing ||
             currentShift.status == ShiftStatus.ready ||
             currentShift.status == ShiftStatus.paused)
           _ActiveShiftCard(shift: currentShift)
@@ -184,9 +187,11 @@ class _ActiveShiftCard extends StatelessWidget {
                     Text(
                       shift.status == ShiftStatus.active
                           ? 'SHIFT IN PROGRESS'
-                          : shift.status == ShiftStatus.paused
-                              ? 'SHIFT PAUSED'
-                              : 'SHIFT READY',
+                          : shift.status == ShiftStatus.optimizing
+                              ? 'BUILDING YOUR ROUTE'
+                              : shift.status == ShiftStatus.paused
+                                  ? 'SHIFT PAUSED'
+                                  : 'SHIFT READY',
                       style: const TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.bold,

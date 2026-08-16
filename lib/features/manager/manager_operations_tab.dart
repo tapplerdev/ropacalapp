@@ -117,9 +117,13 @@ class _DriversTab extends HookConsumerWidget {
             .toList();
 
         // Counts for filter badges
+        // MUST MATCH `_matchesFilter` ABOVE, which already counts optimizing as
+        // active. It did not, so the chip read "Active (2)" over a 3-row list
+        // and All != Active + Ready + Inactive.
         final activeCount = drivers
             .where((d) =>
                 d.status == ShiftStatus.active ||
+                d.status == ShiftStatus.optimizing ||
                 d.status == ShiftStatus.paused)
             .length;
         final readyCount =

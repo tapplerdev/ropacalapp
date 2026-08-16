@@ -179,6 +179,12 @@ class DriversNotifier extends _$DriversNotifier {
         return ShiftStatus.paused;
       case 'ended':
         return ShiftStatus.ended;
+      // WITHOUT THIS the default returned `inactive`, and the caller then NULLS
+      // `currentLocation` for an inactive driver — erasing a just-started
+      // driver's marker from the manager's map. Same fall-through the dashboard
+      // had in its own statusMap.
+      case 'optimizing':
+        return ShiftStatus.optimizing;
       default:
         return ShiftStatus.inactive;
     }
@@ -222,6 +228,7 @@ Future<List<ActiveDriver>> activeDrivers(ActiveDriversRef ref) async {
   // Filter for only active drivers (not idle/inactive)
   return allDrivers.where((driver) {
     return driver.status == ShiftStatus.active ||
+           driver.status == ShiftStatus.optimizing ||
            driver.status == ShiftStatus.paused ||
            driver.status == ShiftStatus.ready;
   }).toList();

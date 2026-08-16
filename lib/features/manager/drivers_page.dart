@@ -57,6 +57,7 @@ class DriversPage extends HookConsumerWidget {
         case DriverFilter.active:
           filtered = filtered
               .where((d) => d.status == ShiftStatus.active ||
+                  d.status == ShiftStatus.optimizing ||
                   d.status == ShiftStatus.paused ||
                   d.status == ShiftStatus.ready)
               .toList();

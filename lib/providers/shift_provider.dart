@@ -85,6 +85,21 @@ class ShiftNotifier extends _$ShiftNotifier {
 
   /// Poll until the shift leaves `optimizing`, then stop. Never throws.
   ///
+  /// **THE `try` IS WHAT MAKES THAT SENTENCE TRUE, and the first version of this
+  /// method did not have one.** `fetchCurrentShift` RETHROWS (`:349`) and its
+  /// catch sets `state = ShiftState(status: inactive)` on the way out. So a
+  /// single network blip anywhere in the wait — a driver pulling out of a
+  /// parking garage is the obvious case — propagated up through `startShift` to
+  /// a red "Failed to start shift" SnackBar, for a shift the server had ALREADY
+  /// started and whose clock was running. The app then showed "no shift
+  /// assigned" and offered Start again: the exact double-start this status
+  /// exists to prevent.
+  ///
+  /// The old code had ONE call that could throw. This loop makes up to 38, so
+  /// swallowing per-iteration is not defensive noise — it is the difference
+  /// between a transient blip costing 2 seconds and costing the driver their
+  /// shift screen.
+  ///
   /// **THE REGULAR POLLING TIMER DOES NOT COVER THIS.** `_startPolling` only
   /// re-fetches while the status is `inactive` — it exists to notice a NEW
   /// assignment — and it stops the moment a shift appears. So without this loop
@@ -98,11 +113,22 @@ class ShiftNotifier extends _$ShiftNotifier {
   Future<void> _awaitOptimizedRoute() async {
     final deadline = DateTime.now().add(_optimizingMaxWait);
 
-    await fetchCurrentShift();
+    // A failed poll leaves `state` reset to inactive by fetchCurrentShift's own
+    // catch, so the loop condition goes false and we fall out to the check
+    // below rather than spinning on a dead connection.
+    Future<void> pollOnce() async {
+      try {
+        await fetchCurrentShift();
+      } catch (e) {
+        AppLogger.general('⚠️ Poll failed while waiting for the route: $e');
+      }
+    }
+
+    await pollOnce();
     while (state.status == ShiftStatus.optimizing &&
         DateTime.now().isBefore(deadline)) {
       await Future.delayed(_optimizingPollInterval);
-      await fetchCurrentShift();
+      await pollOnce();
     }
 
     if (state.status == ShiftStatus.optimizing) {

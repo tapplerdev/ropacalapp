@@ -111,7 +111,11 @@ class DriverPickerSheet extends HookConsumerWidget {
                       separatorBuilder: (_, __) => const SizedBox(height: 8),
                       itemBuilder: (context, index) {
                         final driver = filtered[index];
+                        // FUNCTIONAL, NOT COSMETIC: `isOnShift` also gates
+                        // `onTap`, so omitting optimizing left a driver who had
+                        // already started both listed as free and tappable.
                         final isOnShift = driver.status == ShiftStatus.active ||
+                            driver.status == ShiftStatus.optimizing ||
                             driver.status == ShiftStatus.paused;
 
                         return _DriverCard(

@@ -113,22 +113,36 @@ class ShiftNotifier extends _$ShiftNotifier {
   Future<void> _awaitOptimizedRoute() async {
     final deadline = DateTime.now().add(_optimizingMaxWait);
 
-    // A failed poll leaves `state` reset to inactive by fetchCurrentShift's own
-    // catch, so the loop condition goes false and we fall out to the check
-    // below rather than spinning on a dead connection.
-    Future<void> pollOnce() async {
+    // **THE RESULT MATTERS, NOT JUST THE EXCEPTION.** Swallowing the throw was
+    // only half the fix, and the first version of this loop still keyed on
+    // `state.status` afterwards — which `fetchCurrentShift`'s own catch has
+    // already reset to `inactive`. So one blip ended the wait, and then:
+    //
+    //   * the 30s background poller re-fetches (state IS inactive, so it runs)
+    //   * it gets `optimizing` back and writes it to state
+    //   * its NEXT tick sees a non-inactive status and calls `_stopPolling()`
+    //   * nothing polls again — and `_self_heal_stale_optimizing` only fires on
+    //     a READ of `/shift/current`, so the 45s rescue never happens either
+    //
+    // The shift then sits in `optimizing` on both sides until the driver
+    // manually refreshes. Trading a wrong error message for a stuck shift.
+    //
+    // So a FAILED poll does not end the loop; only a SUCCESSFUL one that shows
+    // a settled status does.
+    Future<bool> pollOnce() async {
       try {
         await fetchCurrentShift();
+        return true;
       } catch (e) {
         AppLogger.general('⚠️ Poll failed while waiting for the route: $e');
+        return false;
       }
     }
 
-    await pollOnce();
-    while (state.status == ShiftStatus.optimizing &&
-        DateTime.now().isBefore(deadline)) {
+    while (DateTime.now().isBefore(deadline)) {
+      final ok = await pollOnce();
+      if (ok && state.status != ShiftStatus.optimizing) break;
       await Future.delayed(_optimizingPollInterval);
-      await pollOnce();
     }
 
     if (state.status == ShiftStatus.optimizing) {

@@ -10,7 +10,11 @@ _$DriverStatusImpl _$$DriverStatusImplFromJson(Map<String, dynamic> json) =>
     _$DriverStatusImpl(
       driverId: json['driver_id'] as String,
       name: json['driver_name'] as String? ?? 'Unknown Driver',
-      status: $enumDecode(_$ShiftStatusEnumMap, json['status']),
+      status: $enumDecode(
+        _$ShiftStatusEnumMap,
+        json['status'],
+        unknownValue: ShiftStatus.inactive,
+      ),
       shiftId: json['shift_id'] as String?,
       currentBin: (json['current_bin'] as num?)?.toInt() ?? 0,
       totalBins: (json['total_bins'] as num?)?.toInt() ?? 0,
@@ -34,6 +38,7 @@ Map<String, dynamic> _$$DriverStatusImplToJson(_$DriverStatusImpl instance) =>
 
 const _$ShiftStatusEnumMap = {
   ShiftStatus.inactive: 'inactive',
+  ShiftStatus.optimizing: 'optimizing',
   ShiftStatus.ready: 'ready',
   ShiftStatus.active: 'active',
   ShiftStatus.paused: 'paused',

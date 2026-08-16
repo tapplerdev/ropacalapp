@@ -8,7 +8,11 @@ part of 'shift_state.dart';
 
 _$ShiftStateImpl _$$ShiftStateImplFromJson(Map<String, dynamic> json) =>
     _$ShiftStateImpl(
-      status: $enumDecode(_$ShiftStatusEnumMap, json['status']),
+      status: $enumDecode(
+        _$ShiftStatusEnumMap,
+        json['status'],
+        unknownValue: ShiftStatus.inactive,
+      ),
       shiftId: json['id'] as String?,
       startTime: const UnixTimestampConverter().fromJson(
         (json['start_time'] as num?)?.toInt(),
@@ -52,6 +56,7 @@ Map<String, dynamic> _$$ShiftStateImplToJson(_$ShiftStateImpl instance) =>
 
 const _$ShiftStatusEnumMap = {
   ShiftStatus.inactive: 'inactive',
+  ShiftStatus.optimizing: 'optimizing',
   ShiftStatus.ready: 'ready',
   ShiftStatus.active: 'active',
   ShiftStatus.paused: 'paused',

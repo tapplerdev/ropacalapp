@@ -91,6 +91,7 @@ class _DriversTab extends HookConsumerWidget {
           return true;
         case _DriverFilter.active:
           return driver.status == ShiftStatus.active ||
+              driver.status == ShiftStatus.optimizing ||
               driver.status == ShiftStatus.paused;
         case _DriverFilter.ready:
           return driver.status == ShiftStatus.ready;
@@ -240,6 +241,8 @@ class _DriverCard extends StatelessWidget {
 
   Color _statusColor(ShiftStatus status) {
     switch (status) {
+      case ShiftStatus.optimizing:
+        return AppColors.primaryGreen;
       case ShiftStatus.active:
         return AppColors.primaryGreen;
       case ShiftStatus.paused:
@@ -255,6 +258,10 @@ class _DriverCard extends StatelessWidget {
 
   String _statusLabel(ShiftStatus status) {
     switch (status) {
+      // Distinct from 'Ready': ready means a manager built the route,
+      // optimizing means the driver has already tapped Start.
+      case ShiftStatus.optimizing:
+        return 'Starting…';
       case ShiftStatus.active:
         return 'Active';
       case ShiftStatus.paused:

@@ -11,6 +11,18 @@ part 'shift_state.g.dart';
 class ShiftState with _$ShiftState {
   const factory ShiftState({
     /// Current shift status
+    /// UNKNOWN STATUSES MUST NOT THROW. Without `unknownValue`, `$enumDecode`
+    /// raises an `ArgumentError` on any status this build has never heard of,
+    /// and it raises inside `fromJson` — so the whole object fails to parse.
+    /// For a shift that means the provider's catch falls back to `inactive`,
+    /// the driver is shown "no shift assigned", and Start is offered again to
+    /// someone who has ALREADY started: the exact double-start the backend's
+    /// `optimizing` status exists to prevent, arriving through another door.
+    ///
+    /// Not hypothetical — that is what `optimizing` did to this app before it
+    /// was added to the enum. The backend can ship a new status without an app
+    /// release, so degrading beats crashing.
+    @JsonKey(unknownEnumValue: ShiftStatus.inactive)
     required ShiftStatus status,
 
     /// Shift ID (unique identifier for this shift instance)
@@ -145,10 +157,27 @@ class ShiftState with _$ShiftState {
 }
 
 /// Shift status enum
+///
+/// Every field decoding this MUST carry
+/// `@JsonKey(unknownEnumValue: ShiftStatus.inactive)` — see the four models that
+/// do. `unknownValue` is a `JsonKey` parameter, not a `JsonEnum` one, so
+/// putting it on the enum silently generates nothing.
 enum ShiftStatus {
   /// No route assigned, cannot start shift (deprecated - use ended/cancelled)
+  ///
+  /// Doubles as the fallback for any status this build does not recognise.
   @JsonValue('inactive')
   inactive,
+
+  /// The driver has tapped Start and the server is building their route.
+  ///
+  /// Their clock is ALREADY RUNNING — `start_time` is stamped at the tap, not
+  /// when the route arrives. Treat this as "started, route pending": show the
+  /// shift, do not offer Start again, and keep polling `/shift/current`. The
+  /// server flips it to `active` on its own, either when the solve lands or
+  /// after ~45s on the route the manager built.
+  @JsonValue('optimizing')
+  optimizing,
 
   /// Route assigned, ready to start shift
   @JsonValue('ready')

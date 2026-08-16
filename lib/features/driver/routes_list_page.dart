@@ -324,6 +324,12 @@ class _StatusBadge extends StatelessWidget {
           color: Colors.orange.shade700,
           icon: Icons.cancel,
         );
+      case ShiftStatus.optimizing:
+        return _StatusInfo(
+          label: 'Starting…',
+          color: AppColors.primaryGreen,
+          icon: Icons.route,
+        );
       case ShiftStatus.active:
         return _StatusInfo(
           label: 'Active',

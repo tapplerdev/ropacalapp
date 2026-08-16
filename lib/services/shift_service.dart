@@ -104,7 +104,16 @@ class ShiftService {
       print('   Data: ${response.data}');
 
       if (response.data['success'] == true) {
-        final shiftData = response.data['data'] as Map<String, dynamic>;
+        // NULL-CHECKED BEFORE THE CAST, the way getCurrentShift above does it.
+        // `null as Map<String, dynamic>` is a `_TypeError` under sound null
+        // safety, so a body without `data` surfaced as an unhandled type crash
+        // rather than as an error the flow could report. The backend's envelope
+        // makes `data` required, so this should not fire — which is exactly why
+        // it should not be a crash if it ever does.
+        final shiftData = response.data['data'] as Map<String, dynamic>?;
+        if (shiftData == null) {
+          throw Exception('Shift start returned no shift data');
+        }
         print('   ✅ Shift started!');
         print('   Start time: ${shiftData['start_time']}');
         print('   Status: ${shiftData['status']}');

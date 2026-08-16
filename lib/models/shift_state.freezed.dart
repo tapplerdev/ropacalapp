@@ -22,6 +22,18 @@ ShiftState _$ShiftStateFromJson(Map<String, dynamic> json) {
 /// @nodoc
 mixin _$ShiftState {
   /// Current shift status
+  /// UNKNOWN STATUSES MUST NOT THROW. Without `unknownValue`, `$enumDecode`
+  /// raises an `ArgumentError` on any status this build has never heard of,
+  /// and it raises inside `fromJson` — so the whole object fails to parse.
+  /// For a shift that means the provider's catch falls back to `inactive`,
+  /// the driver is shown "no shift assigned", and Start is offered again to
+  /// someone who has ALREADY started: the exact double-start the backend's
+  /// `optimizing` status exists to prevent, arriving through another door.
+  ///
+  /// Not hypothetical — that is what `optimizing` did to this app before it
+  /// was added to the enum. The backend can ship a new status without an app
+  /// release, so degrading beats crashing.
+  @JsonKey(unknownEnumValue: ShiftStatus.inactive)
   ShiftStatus get status => throw _privateConstructorUsedError;
 
   /// Shift ID (unique identifier for this shift instance)
@@ -92,7 +104,7 @@ abstract class $ShiftStateCopyWith<$Res> {
   ) = _$ShiftStateCopyWithImpl<$Res, ShiftState>;
   @useResult
   $Res call({
-    ShiftStatus status,
+    @JsonKey(unknownEnumValue: ShiftStatus.inactive) ShiftStatus status,
     @JsonKey(name: 'id') String? shiftId,
     @JsonKey(name: 'start_time') @UnixTimestampConverter() DateTime? startTime,
     @JsonKey(name: 'total_pause_seconds') int totalPauseSeconds,
@@ -209,7 +221,7 @@ abstract class _$$ShiftStateImplCopyWith<$Res>
   @override
   @useResult
   $Res call({
-    ShiftStatus status,
+    @JsonKey(unknownEnumValue: ShiftStatus.inactive) ShiftStatus status,
     @JsonKey(name: 'id') String? shiftId,
     @JsonKey(name: 'start_time') @UnixTimestampConverter() DateTime? startTime,
     @JsonKey(name: 'total_pause_seconds') int totalPauseSeconds,
@@ -318,7 +330,7 @@ class __$$ShiftStateImplCopyWithImpl<$Res>
 @JsonSerializable()
 class _$ShiftStateImpl extends _ShiftState {
   const _$ShiftStateImpl({
-    required this.status,
+    @JsonKey(unknownEnumValue: ShiftStatus.inactive) required this.status,
     @JsonKey(name: 'id') this.shiftId,
     @JsonKey(name: 'start_time') @UnixTimestampConverter() this.startTime,
     @JsonKey(name: 'total_pause_seconds') this.totalPauseSeconds = 0,
@@ -340,7 +352,19 @@ class _$ShiftStateImpl extends _ShiftState {
       _$$ShiftStateImplFromJson(json);
 
   /// Current shift status
+  /// UNKNOWN STATUSES MUST NOT THROW. Without `unknownValue`, `$enumDecode`
+  /// raises an `ArgumentError` on any status this build has never heard of,
+  /// and it raises inside `fromJson` — so the whole object fails to parse.
+  /// For a shift that means the provider's catch falls back to `inactive`,
+  /// the driver is shown "no shift assigned", and Start is offered again to
+  /// someone who has ALREADY started: the exact double-start the backend's
+  /// `optimizing` status exists to prevent, arriving through another door.
+  ///
+  /// Not hypothetical — that is what `optimizing` did to this app before it
+  /// was added to the enum. The backend can ship a new status without an app
+  /// release, so degrading beats crashing.
   @override
+  @JsonKey(unknownEnumValue: ShiftStatus.inactive)
   final ShiftStatus status;
 
   /// Shift ID (unique identifier for this shift instance)
@@ -482,6 +506,7 @@ class _$ShiftStateImpl extends _ShiftState {
 
 abstract class _ShiftState extends ShiftState {
   const factory _ShiftState({
+    @JsonKey(unknownEnumValue: ShiftStatus.inactive)
     required final ShiftStatus status,
     @JsonKey(name: 'id') final String? shiftId,
     @JsonKey(name: 'start_time')
@@ -506,7 +531,19 @@ abstract class _ShiftState extends ShiftState {
       _$ShiftStateImpl.fromJson;
 
   /// Current shift status
+  /// UNKNOWN STATUSES MUST NOT THROW. Without `unknownValue`, `$enumDecode`
+  /// raises an `ArgumentError` on any status this build has never heard of,
+  /// and it raises inside `fromJson` — so the whole object fails to parse.
+  /// For a shift that means the provider's catch falls back to `inactive`,
+  /// the driver is shown "no shift assigned", and Start is offered again to
+  /// someone who has ALREADY started: the exact double-start the backend's
+  /// `optimizing` status exists to prevent, arriving through another door.
+  ///
+  /// Not hypothetical — that is what `optimizing` did to this app before it
+  /// was added to the enum. The backend can ship a new status without an app
+  /// release, so degrading beats crashing.
   @override
+  @JsonKey(unknownEnumValue: ShiftStatus.inactive)
   ShiftStatus get status;
 
   /// Shift ID (unique identifier for this shift instance)

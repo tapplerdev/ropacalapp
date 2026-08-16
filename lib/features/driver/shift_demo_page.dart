@@ -185,6 +185,14 @@ class _StatusCard extends StatelessWidget {
         statusColor = AppColors.successGreen;
         statusIcon = Icons.check_circle;
         break;
+      // DELIBERATELY NOT 'Ready to start' — the driver has already tapped and
+      // their clock is running. Offering Start again is the double-start the
+      // status exists to prevent.
+      case ShiftStatus.optimizing:
+        statusText = 'Building your route…';
+        statusColor = AppColors.successGreen;
+        statusIcon = Icons.route;
+        break;
       case ShiftStatus.active:
         statusText = 'On shift - Working';
         statusColor = AppColors.successGreen;

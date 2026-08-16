@@ -11,7 +11,11 @@ _$ShiftHistoryImpl _$$ShiftHistoryImplFromJson(Map<String, dynamic> json) =>
       shiftId: json['id'] as String,
       driverId: json['driver_id'] as String,
       routeId: json['route_id'] as String?,
-      status: $enumDecode(_$ShiftStatusEnumMap, json['status']),
+      status: $enumDecode(
+        _$ShiftStatusEnumMap,
+        json['status'],
+        unknownValue: ShiftStatus.inactive,
+      ),
       startTime: const UnixTimestampConverter().fromJson(
         (json['start_time'] as num?)?.toInt(),
       ),
@@ -42,6 +46,7 @@ Map<String, dynamic> _$$ShiftHistoryImplToJson(_$ShiftHistoryImpl instance) =>
 
 const _$ShiftStatusEnumMap = {
   ShiftStatus.inactive: 'inactive',
+  ShiftStatus.optimizing: 'optimizing',
   ShiftStatus.ready: 'ready',
   ShiftStatus.active: 'active',
   ShiftStatus.paused: 'paused',

@@ -38,6 +38,18 @@ mixin _$ActiveDriver {
   String? get routeId => throw _privateConstructorUsedError;
 
   /// Shift status
+  /// UNKNOWN STATUSES MUST NOT THROW. Without `unknownValue`, `$enumDecode`
+  /// raises an `ArgumentError` on any status this build has never heard of,
+  /// and it raises inside `fromJson` — so the whole object fails to parse.
+  /// For a shift that means the provider's catch falls back to `inactive`,
+  /// the driver is shown "no shift assigned", and Start is offered again to
+  /// someone who has ALREADY started: the exact double-start the backend's
+  /// `optimizing` status exists to prevent, arriving through another door.
+  ///
+  /// Not hypothetical — that is what `optimizing` did to this app before it
+  /// was added to the enum. The backend can ship a new status without an app
+  /// release, so degrading beats crashing.
+  @JsonKey(unknownEnumValue: ShiftStatus.inactive)
   ShiftStatus get status => throw _privateConstructorUsedError;
 
   /// When the shift started
@@ -83,7 +95,7 @@ abstract class $ActiveDriverCopyWith<$Res> {
     @JsonKey(name: 'driver_name') String driverName,
     @JsonKey(name: 'shift_id') String shiftId,
     @JsonKey(name: 'route_id') String? routeId,
-    ShiftStatus status,
+    @JsonKey(unknownEnumValue: ShiftStatus.inactive) ShiftStatus status,
     @JsonKey(name: 'start_time') @UnixTimestampConverter() DateTime? startTime,
     @JsonKey(name: 'total_bins') int totalBins,
     @JsonKey(name: 'completed_bins') int completedBins,
@@ -196,7 +208,7 @@ abstract class _$$ActiveDriverImplCopyWith<$Res>
     @JsonKey(name: 'driver_name') String driverName,
     @JsonKey(name: 'shift_id') String shiftId,
     @JsonKey(name: 'route_id') String? routeId,
-    ShiftStatus status,
+    @JsonKey(unknownEnumValue: ShiftStatus.inactive) ShiftStatus status,
     @JsonKey(name: 'start_time') @UnixTimestampConverter() DateTime? startTime,
     @JsonKey(name: 'total_bins') int totalBins,
     @JsonKey(name: 'completed_bins') int completedBins,
@@ -288,7 +300,7 @@ class _$ActiveDriverImpl extends _ActiveDriver {
     @JsonKey(name: 'driver_name') this.driverName = 'Unknown Driver',
     @JsonKey(name: 'shift_id') this.shiftId = '',
     @JsonKey(name: 'route_id') this.routeId,
-    required this.status,
+    @JsonKey(unknownEnumValue: ShiftStatus.inactive) required this.status,
     @JsonKey(name: 'start_time') @UnixTimestampConverter() this.startTime,
     @JsonKey(name: 'total_bins') this.totalBins = 0,
     @JsonKey(name: 'completed_bins') this.completedBins = 0,
@@ -320,7 +332,19 @@ class _$ActiveDriverImpl extends _ActiveDriver {
   final String? routeId;
 
   /// Shift status
+  /// UNKNOWN STATUSES MUST NOT THROW. Without `unknownValue`, `$enumDecode`
+  /// raises an `ArgumentError` on any status this build has never heard of,
+  /// and it raises inside `fromJson` — so the whole object fails to parse.
+  /// For a shift that means the provider's catch falls back to `inactive`,
+  /// the driver is shown "no shift assigned", and Start is offered again to
+  /// someone who has ALREADY started: the exact double-start the backend's
+  /// `optimizing` status exists to prevent, arriving through another door.
+  ///
+  /// Not hypothetical — that is what `optimizing` did to this app before it
+  /// was added to the enum. The backend can ship a new status without an app
+  /// release, so degrading beats crashing.
   @override
+  @JsonKey(unknownEnumValue: ShiftStatus.inactive)
   final ShiftStatus status;
 
   /// When the shift started
@@ -414,6 +438,7 @@ abstract class _ActiveDriver extends ActiveDriver {
     @JsonKey(name: 'driver_name') final String driverName,
     @JsonKey(name: 'shift_id') final String shiftId,
     @JsonKey(name: 'route_id') final String? routeId,
+    @JsonKey(unknownEnumValue: ShiftStatus.inactive)
     required final ShiftStatus status,
     @JsonKey(name: 'start_time')
     @UnixTimestampConverter()
@@ -449,7 +474,19 @@ abstract class _ActiveDriver extends ActiveDriver {
   String? get routeId;
 
   /// Shift status
+  /// UNKNOWN STATUSES MUST NOT THROW. Without `unknownValue`, `$enumDecode`
+  /// raises an `ArgumentError` on any status this build has never heard of,
+  /// and it raises inside `fromJson` — so the whole object fails to parse.
+  /// For a shift that means the provider's catch falls back to `inactive`,
+  /// the driver is shown "no shift assigned", and Start is offered again to
+  /// someone who has ALREADY started: the exact double-start the backend's
+  /// `optimizing` status exists to prevent, arriving through another door.
+  ///
+  /// Not hypothetical — that is what `optimizing` did to this app before it
+  /// was added to the enum. The backend can ship a new status without an app
+  /// release, so degrading beats crashing.
   @override
+  @JsonKey(unknownEnumValue: ShiftStatus.inactive)
   ShiftStatus get status;
 
   /// When the shift started

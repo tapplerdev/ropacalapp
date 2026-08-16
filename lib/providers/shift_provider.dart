@@ -73,6 +73,47 @@ class ShiftNotifier extends _$ShiftNotifier {
     });
   }
 
+  /// How often to re-check a shift that is still being solved.
+  static const _optimizingPollInterval = Duration(seconds: 2);
+
+  /// How long to wait before driving on whatever order exists.
+  ///
+  /// The server self-heals a stuck `optimizing` at 45s, so this is that plus
+  /// margin for the heal to be observed. It is a backstop, not a budget — a
+  /// normal solve finishes in seconds.
+  static const _optimizingMaxWait = Duration(seconds: 75);
+
+  /// Poll until the shift leaves `optimizing`, then stop. Never throws.
+  ///
+  /// **THE REGULAR POLLING TIMER DOES NOT COVER THIS.** `_startPolling` only
+  /// re-fetches while the status is `inactive` — it exists to notice a NEW
+  /// assignment — and it stops the moment a shift appears. So without this loop
+  /// the app fetches once, immediately after the 202, gets the pre-solve order,
+  /// and never asks again.
+  ///
+  /// **FALLING THROUGH IS CORRECT, NOT A FAILURE.** If the wait runs out the
+  /// driver drives the order the manager built: worse than the solver's answer
+  /// and perfectly drivable. Blocking them at a spinner would be worse than
+  /// both, which is the whole premise of the async design.
+  Future<void> _awaitOptimizedRoute() async {
+    final deadline = DateTime.now().add(_optimizingMaxWait);
+
+    await fetchCurrentShift();
+    while (state.status == ShiftStatus.optimizing &&
+        DateTime.now().isBefore(deadline)) {
+      await Future.delayed(_optimizingPollInterval);
+      await fetchCurrentShift();
+    }
+
+    if (state.status == ShiftStatus.optimizing) {
+      AppLogger.general(
+          '⚠️ Route still optimizing after ${_optimizingMaxWait.inSeconds}s — '
+          'driving the existing order');
+    } else {
+      AppLogger.general('✅ Got optimized task order (${state.status})');
+    }
+  }
+
   /// Stop polling timer
   void _stopPolling() {
     if (_pollingTimer != null) {
@@ -86,7 +127,12 @@ class ShiftNotifier extends _$ShiftNotifier {
   /// Subscribe when shift is active/ready, unsubscribe when inactive
   void _manageShiftSubscription() {
     final shiftId = state.shiftId;
+    // `optimizing` COUNTS AS STARTED. The driver has tapped and their clock is
+    // running; the route just is not back yet. Leaving it out unsubscribes them
+    // from their own shift's updates for exactly the window in which the server
+    // is about to publish one.
     final isActiveOrReady = state.status == ShiftStatus.active ||
+        state.status == ShiftStatus.optimizing ||
         state.status == ShiftStatus.ready;
 
     // Subscribe if shift is active/ready and we haven't subscribed yet
@@ -249,7 +295,12 @@ class ShiftNotifier extends _$ShiftNotifier {
         // saw a normal shift while the manager map showed nothing.
         // Idempotent: re-entry with the same shift is a no-op, and it
         // replaces background mode cleanly (stopTracking-first).
-        if (currentShift.status == ShiftStatus.active &&
+        // Same treatment as `active`, and for the same reason the comment
+        // above gives: the manager's map must show a driver who has started.
+        // `startTracking` is idempotent, so the flip to `active` a few seconds
+        // later re-enters harmlessly.
+        if ((currentShift.status == ShiftStatus.active ||
+                currentShift.status == ShiftStatus.optimizing) &&
             currentShift.shiftId != null) {
           AppLogger.general(
               '[DIAGNOSTIC] 📍 Active shift found — ensuring full location tracking');
@@ -550,12 +601,14 @@ class ShiftNotifier extends _$ShiftNotifier {
       final apiDuration = apiEndTime.difference(apiStartTime).inMilliseconds;
       AppLogger.general('✅ Shift started in ${apiDuration}ms');
 
-      // Fetch fresh tasks with optimized sequence order from backend
-      // The start API runs route optimization (OR-Tools) which reorders tasks,
-      // so we need the updated task list before the navigation page loads
-      AppLogger.general('📍 STEP 3.5: Fetching optimized task order...');
-      await fetchCurrentShift();
-      AppLogger.general('✅ Got optimized task order');
+      // Fetch fresh tasks with the optimized sequence order.
+      //
+      // THE START CALL NO LONGER DOES THE OPTIMIZING. It returns 202 with the
+      // shift already `optimizing`, and the solver runs on a queue — so a single
+      // fetch here lands BEFORE the answer and hands the navigation page the
+      // creation order, permanently. This waits for the status to change.
+      AppLogger.general('📍 STEP 3.5: Waiting for the optimized task order...');
+      await _awaitOptimizedRoute();
 
       AppLogger.general('');
       AppLogger.general('📍 STEP 4: Starting continuous location tracking...');

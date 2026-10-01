@@ -1,5 +1,7 @@
 import 'dart:async';
 import 'dart:math';
+import 'package:flutter/foundation.dart'
+    show defaultTargetPlatform, TargetPlatform;
 import 'package:fused_location/fused_location.dart' as fused;
 import 'package:fused_location/fused_location_provider.dart';
 import 'package:fused_location/fused_location_options.dart';
@@ -25,9 +27,21 @@ import 'package:ropacalapp/providers/auth_provider.dart';
 /// - START: When driver accepts shift
 /// - STOP: When driver ends shift or takes break
 class LocationTrackingService {
+  // One-shot pre-shift fix (see _oneShotLocation).
+  static const _oneShotTimeout = Duration(seconds: 20);
+  static const _oneShotFallbackTimeout = Duration(seconds: 15);
+  static const _lastKnownMaxAge = Duration(minutes: 2);
+  static const _lastKnownMaxAccuracyMeters = 100.0;
+
+  // How long the fused_location stream may stay silent before we replace it.
+  static const _streamWatchdogDelay = Duration(seconds: 15);
+
   final Ref _ref;
   final FusedLocationProvider _fusedLocation = FusedLocationProvider();
   StreamSubscription<fused.FusedLocation>? _locationSubscription;
+  StreamSubscription<geolocator.Position>? _geoSubscription;
+  Timer? _streamWatchdog; // See _armStreamWatchdog
+  bool _usingGeolocatorStream = false;
   Timer? _simulatorTimer; // For iOS simulator fake GPS stream
   String? _currentShiftId;
   bool _isTracking = false;
@@ -141,6 +155,7 @@ class LocationTrackingService {
 
   /// Internal method to configure and start location updates
   Future<void> _startLocationUpdates() async {
+    _usingGeolocatorStream = false;
 
     try {
       // Check and request location permissions BEFORE starting GPS
@@ -265,6 +280,9 @@ class LocationTrackingService {
         },
       );
 
+      // fused_location may never emit at all — watch for that and fail over.
+      _armStreamWatchdog();
+
       AppLogger.general('✅ Location tracking started with fused_location');
     } catch (e) {
       AppLogger.general(
@@ -348,30 +366,16 @@ class LocationTrackingService {
                            _lastLocation!.timestamp.millisecondsSinceEpoch;
         AppLogger.general('   📅 Location age: ${locationAge}ms (${(locationAge / 1000).toStringAsFixed(1)}s)');
       }
-      // OPTION 2: Start new stream (FALLBACK - slower on emulator)
+      // OPTION 2: One-shot fix via geolocator. This deliberately does NOT
+      // touch fused_location — see _oneShotLocation for why.
       else {
-        AppLogger.general('   🆕 No cached location - starting new GPS stream');
+        AppLogger.general('   🆕 No cached location - one-shot fix via geolocator');
 
-        // Start location updates temporarily to get current position
-        const options = FusedLocationProviderOptions(distanceFilter: 0);
-        await _fusedLocation.startLocationUpdates(options: options);
-        AppLogger.general('   ✅ Location updates started');
-
-        // Get the first location from the stream with 30s timeout (for iOS simulator)
-        AppLogger.general('   ⏳ Waiting for GPS location (30 second timeout)...');
-        location = await _fusedLocation.dataStream
-            .first
-            .timeout(
-              const Duration(seconds: 30),
-              onTimeout: () => throw Exception('GPS_TIMEOUT_NEW_STREAM'),
-            );
+        location = await _oneShotLocation();
 
         final gotLocationTime = DateTime.now();
         final gpsDuration = gotLocationTime.difference(startTime).inMilliseconds;
-        AppLogger.general('   ✅ Got GPS location from new stream in ${gpsDuration}ms');
-
-        // Stop the temporary location updates
-        await _fusedLocation.stopLocationUpdates();
+        AppLogger.general('   ✅ Got one-shot GPS location in ${gpsDuration}ms');
       }
 
       AppLogger.general(
@@ -394,6 +398,169 @@ class LocationTrackingService {
       // Rethrow to allow caller to handle (e.g., show permission modal)
       rethrow;
     }
+  }
+
+  /// Convert a geolocator [geolocator.Position] into the [fused.FusedLocation]
+  /// shape the rest of this service already speaks, so swapping the GPS source
+  /// changes nothing downstream of here.
+  ///
+  /// `course` carries geolocator's `heading`, which on Android is
+  /// `Location.getBearing()` — direction of TRAVEL, which is what
+  /// `_sendLocation` actually wants. `heading` gets the same value because
+  /// geolocator exposes no separate compass field; that slot is only read for
+  /// diagnostics and as a last-resort fallback.
+  fused.FusedLocation _positionToFused(geolocator.Position p) {
+    final bearing = p.heading.isNaN ? 0.0 : p.heading;
+    return fused.FusedLocation(
+      position: fused.Position(
+        latitude: p.latitude,
+        longitude: p.longitude,
+        accuracy: p.accuracy,
+      ),
+      elevation: fused.Elevation(ellipsoidal: p.altitude),
+      course: fused.Course(direction: bearing),
+      speed: fused.Speed(magnitude: p.speed),
+      heading: fused.Heading(direction: bearing, accuracy: p.headingAccuracy),
+      timestamp: p.timestamp,
+    );
+  }
+
+  /// One-shot position for the pre-shift update.
+  ///
+  /// Deliberately geolocator, NOT fused_location. The fused_location Android
+  /// plugin gates EVERY emission on a compass reading — notifySubscribers()
+  /// opens with `val orientation = lastOrientation ?: return`
+  /// (FusedLocationPlugin.kt:179) — so on a device whose magnetometer never
+  /// reports, that stream stays permanently silent even with a perfect GPS
+  /// lock. The old code here waited 30s on `dataStream.first` and threw
+  /// GPS_TIMEOUT_NEW_STREAM, which is what stopped drivers starting a shift.
+  ///
+  /// geolocator drives FusedLocationProviderClient over its own channel with
+  /// no orientation involvement, and throws typed errors — so a denied
+  /// permission or a disabled location service stops masquerading as a
+  /// timeout.
+  Future<fused.FusedLocation> _oneShotLocation() async {
+    // Permissions FIRST. The old fallback skipped this entirely, and the
+    // plugin's native side is annotated @SuppressLint("MissingPermission"), so
+    // a missing grant produced silence rather than an error.
+    final hasPermission = await _checkLocationPermissions();
+    if (!hasPermission) {
+      throw Exception('LOCATION_PERMISSION_DENIED');
+    }
+
+    // A recent cached fix is good enough to start a shift and costs nothing.
+    // Bounded on BOTH age and accuracy: preflight rejects accuracy > 100m, and
+    // a stale fix would start the route from wherever the phone last was.
+    try {
+      final last = await geolocator.Geolocator.getLastKnownPosition();
+      if (last != null) {
+        final age = DateTime.now().difference(last.timestamp);
+        final acc = last.accuracy;
+        if (age <= _lastKnownMaxAge &&
+            acc > 0 &&
+            acc <= _lastKnownMaxAccuracyMeters) {
+          AppLogger.general(
+            '   ⚡ Using last-known fix (${age.inSeconds}s old, '
+            '${acc.toStringAsFixed(1)}m)',
+          );
+          return _positionToFused(last);
+        }
+        AppLogger.general(
+          '   ↩ Ignoring last-known fix (${age.inSeconds}s old, '
+          '${acc.toStringAsFixed(1)}m) — outside bounds',
+        );
+      }
+    } catch (e) {
+      AppLogger.general('   ⚠️  getLastKnownPosition failed: $e');
+    }
+
+    // Live fix. timeLimit lives inside LocationSettings in geolocator 14 (the
+    // bare `timeLimit:` parameter is deprecated), and on timeout it cancels
+    // the native request instead of leaking it the way the old path did.
+    AppLogger.general(
+      '   ⏳ Requesting live fix (${_oneShotTimeout.inSeconds}s limit)...',
+    );
+    try {
+      final p = await geolocator.Geolocator.getCurrentPosition(
+        locationSettings: const geolocator.LocationSettings(
+          accuracy: geolocator.LocationAccuracy.high,
+          timeLimit: _oneShotTimeout,
+        ),
+      );
+      return _positionToFused(p);
+    } on TimeoutException {
+      // Documented workaround for devices where the Play Services fused
+      // provider never returns (Android 12, some Huawei builds): go around it
+      // to the platform LocationManager.
+      if (defaultTargetPlatform != TargetPlatform.android) rethrow;
+      AppLogger.general(
+        '   ⚠️  Fused one-shot timed out — retrying via LocationManager',
+        level: AppLogger.error,
+      );
+      final p = await geolocator.Geolocator.getCurrentPosition(
+        locationSettings: geolocator.AndroidSettings(
+          accuracy: geolocator.LocationAccuracy.high,
+          forceLocationManager: true,
+          timeLimit: _oneShotFallbackTimeout,
+        ),
+      );
+      return _positionToFused(p);
+    }
+  }
+
+  /// fused_location can go permanently silent (see _oneShotLocation), which
+  /// would mean a shift that starts fine but never puts the driver on the
+  /// manager's map. If no fix has arrived shortly after the stream starts,
+  /// abandon the plugin and run the rest of the session on geolocator.
+  void _armStreamWatchdog() {
+    _streamWatchdog?.cancel();
+    _streamWatchdog = Timer(_streamWatchdogDelay, () {
+      if (!_isTracking || _usingGeolocatorStream) return;
+      if (_lastLocation != null) return; // plugin is healthy — leave it alone
+      AppLogger.general(
+        '⚠️  No fused_location fix in ${_streamWatchdogDelay.inSeconds}s — '
+        'compass gate suspected. Switching to the geolocator stream.',
+        level: AppLogger.error,
+      );
+      _switchToGeolocatorStream();
+    });
+  }
+
+  /// Run live tracking off geolocator instead of fused_location.
+  ///
+  /// Nothing is lost by this: _sendLocation already derives the published
+  /// bearing from movement between successive fixes and explicitly distrusts
+  /// the plugin's compass heading, so the orientation data the plugin blocks
+  /// on was never actually used.
+  void _switchToGeolocatorStream() {
+    _usingGeolocatorStream = true;
+
+    _locationSubscription?.cancel();
+    _locationSubscription = null;
+    _fusedLocation.stopLocationUpdates();
+
+    _geoSubscription?.cancel();
+    _geoSubscription = geolocator.Geolocator.getPositionStream(
+      locationSettings: const geolocator.LocationSettings(
+        accuracy: geolocator.LocationAccuracy.high,
+        distanceFilter: 0,
+      ),
+    ).listen(
+      (geolocator.Position p) {
+        final location = _positionToFused(p);
+        _lastLocation = location;
+        _onLocationUpdate?.call(location);
+        _sendLocation(location);
+      },
+      onError: (Object error) {
+        AppLogger.general(
+          '❌ geolocator stream error: $error',
+          level: AppLogger.error,
+        );
+      },
+    );
+
+    AppLogger.general('✅ Live tracking now running on geolocator');
   }
 
   /// Resend the last cached GPS location immediately.
@@ -424,6 +591,11 @@ class LocationTrackingService {
 
     _locationSubscription?.cancel();
     _locationSubscription = null;
+    _geoSubscription?.cancel();
+    _geoSubscription = null;
+    _streamWatchdog?.cancel();
+    _streamWatchdog = null;
+    _usingGeolocatorStream = false;
     _simulatorTimer?.cancel(); // Stop simulator timer if active
     _simulatorTimer = null;
     _fusedLocation.stopLocationUpdates();

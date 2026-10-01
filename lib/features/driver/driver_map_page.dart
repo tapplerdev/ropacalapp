@@ -14,6 +14,7 @@ import 'package:ropacalapp/core/constants/bin_constants.dart';
 import 'package:ropacalapp/core/enums/bin_status.dart';
 import 'package:ropacalapp/core/theme/app_colors.dart';
 import 'package:ropacalapp/core/utils/app_logger.dart';
+import 'package:ropacalapp/features/driver/widgets/dialogs/shift_start_error.dart';
 import 'package:ropacalapp/core/utils/bin_helpers.dart';
 import 'package:ropacalapp/core/utils/responsive.dart';
 import 'package:ropacalapp/providers/bins_provider.dart';
@@ -780,12 +781,7 @@ class _ShiftReadyOverlay extends HookConsumerWidget {
                 isStarting.value = false;
 
                 if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text('Failed to start shift: $e'),
-                      backgroundColor: Colors.red,
-                    ),
-                  );
+                  await showShiftStartError(context, e);
                 }
               }
             },

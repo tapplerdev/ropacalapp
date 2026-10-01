@@ -5,9 +5,9 @@ import 'package:go_router/go_router.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:ropacalapp/core/utils/app_logger.dart';
+import 'package:ropacalapp/features/driver/widgets/dialogs/shift_start_error.dart';
 import 'package:ropacalapp/features/driver/driver_map_page.dart';
 import 'package:ropacalapp/features/driver/widgets/shift_acceptance_bottom_sheet.dart';
-import 'package:ropacalapp/features/driver/widgets/dialogs/location_permission_dialog.dart';
 import 'package:ropacalapp/models/shift_overview.dart';
 import 'package:ropacalapp/providers/shift_provider.dart';
 import 'package:ropacalapp/features/driver/widgets/warehouse_load_dialog.dart';
@@ -100,24 +100,8 @@ class ShiftAcceptancePage extends HookConsumerWidget {
                   AppLogger.general('❌ SHIFT START ERROR: $e');
                   isStarting.value = false;
 
-                  // Check if error is GPS/location related
                   if (context.mounted) {
-                    final errorString = e.toString();
-                    if (errorString.contains('GPS_TIMEOUT') ||
-                        errorString.contains('location') ||
-                        errorString.contains('Location') ||
-                        errorString.contains('GPS')) {
-                      // Show location permission dialog
-                      await showLocationPermissionDialog(context);
-                    } else {
-                      // Show generic error snackbar
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text('Failed to start shift: $e'),
-                          backgroundColor: Colors.red,
-                        ),
-                      );
-                    }
+                    await showShiftStartError(context, e);
                   }
                 }
               },

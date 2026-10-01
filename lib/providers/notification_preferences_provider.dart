@@ -126,7 +126,8 @@ class BackendNotificationPreferencesNotifier
 
     final api = ref.read(apiServiceProvider);
     try {
-      await api.put(
+      // PATCH: only the preferences sent change.
+      await api.patch(
         ApiConstants.notificationPreferencesEndpoint,
         updated.toJson(),
       );

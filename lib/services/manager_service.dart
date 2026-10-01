@@ -243,10 +243,10 @@ class ManagerService {
   /// Assign a move request to a specific user for manual completion
   Future<void> assignMoveToUser(String moveRequestId, String userId) async {
     try {
-      print('📤 REQUEST: PUT /api/manager/bins/move-requests/$moveRequestId/assign-to-user');
+      print('📤 REQUEST: POST /api/manager/bins/move-requests/$moveRequestId/assign-to-user');
       print('   User ID: $userId');
 
-      final response = await _apiService.put(
+      final response = await _apiService.post(
         '/api/manager/bins/move-requests/$moveRequestId/assign-to-user',
         {'user_id': userId},
       );
@@ -263,9 +263,9 @@ class ManagerService {
   /// Manually complete a move request
   Future<void> manuallyCompleteMoveRequest(String moveRequestId) async {
     try {
-      print('📤 REQUEST: PUT /api/manager/bins/move-requests/$moveRequestId/complete-manually');
+      print('📤 REQUEST: POST /api/manager/bins/move-requests/$moveRequestId/complete-manually');
 
-      final response = await _apiService.put(
+      final response = await _apiService.post(
         '/api/manager/bins/move-requests/$moveRequestId/complete-manually',
         {},
       );
@@ -338,9 +338,9 @@ class ManagerService {
   /// Cancel a move request
   Future<void> cancelMoveRequest(String moveRequestId) async {
     try {
-      print('📤 REQUEST: PUT /api/manager/bins/move-requests/$moveRequestId/cancel');
+      print('📤 REQUEST: POST /api/manager/bins/move-requests/$moveRequestId/cancel');
 
-      final response = await _apiService.put(
+      final response = await _apiService.post(
         '/api/manager/bins/move-requests/$moveRequestId/cancel',
         {},
       );
@@ -363,9 +363,9 @@ class ManagerService {
   /// history recording, WebSocket notification to driver
   Future<void> cancelShift(String shiftId) async {
     try {
-      print('📤 REQUEST: PUT /api/manager/shifts/$shiftId/cancel');
+      print('📤 REQUEST: POST /api/manager/shifts/$shiftId/cancel');
 
-      final response = await _apiService.put(
+      final response = await _apiService.post(
         '/api/manager/shifts/$shiftId/cancel',
         {},
       );

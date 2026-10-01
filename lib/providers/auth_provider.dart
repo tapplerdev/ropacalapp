@@ -312,6 +312,10 @@ class AuthNotifier extends _$AuthNotifier {
   /// login form needs the human-typeable slug. Both come from the same server
   /// response.
   static const _organizationIdKey = 'remembered_organization_id';
+  /// 'true' / 'false': the org's AirTag tracking flag, as the server last
+  /// said.
+  static const _organizationAirtagKey =
+      'remembered_organization_airtag_tracking';
 
   /// Reads the remembered organization UUID, or null if unknown.
   static Future<String?> currentOrganizationId() async {
@@ -346,6 +350,14 @@ class AuthNotifier extends _$AuthNotifier {
         await const FlutterSecureStorage()
             .write(key: _organizationIdKey, value: id);
       }
+      // Re-written on every launch (this runs on the auth-status restore too),
+      // so turning the flag on or off reaches drivers without a re-login.
+      final airtag = orgData['airtag_tracking'];
+      if (airtag is bool) {
+        await const FlutterSecureStorage().write(
+            key: _organizationAirtagKey, value: airtag ? 'true' : 'false');
+        ref.invalidate(airtagTrackingProvider);
+      }
     } catch (e) {
       AppLogger.general('⚠️  Could not persist organization slug: $e');
     }
@@ -358,6 +370,8 @@ class AuthNotifier extends _$AuthNotifier {
       const storage = FlutterSecureStorage();
       await storage.delete(key: _organizationKey);
       await storage.delete(key: _organizationIdKey);
+      await storage.delete(key: _organizationAirtagKey);
+      ref.invalidate(airtagTrackingProvider);
     } catch (e) {
       AppLogger.general('⚠️  Could not clear organization slug: $e');
     }
@@ -419,3 +433,21 @@ class AuthNotifier extends _$AuthNotifier {
     state = const AsyncValue.data(null);
   }
 }
+
+/// Whether the signed-in user's organization uses AirTag tracking
+/// (organizations.airtag_tracking — on for ropacal only, since the FindMy
+/// bridge serves one company). AirTag-only settings render only when this is
+/// true.
+///
+/// Read from what the server said at login or on the last launch's auth status.
+/// Unknown counts as off: nothing AirTag-related shows rather than showing to
+/// the wrong company.
+final airtagTrackingProvider = FutureProvider<bool>((ref) async {
+  try {
+    return await const FlutterSecureStorage()
+            .read(key: AuthNotifier._organizationAirtagKey) ==
+        'true';
+  } catch (_) {
+    return false;
+  }
+});

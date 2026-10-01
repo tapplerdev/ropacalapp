@@ -20,6 +20,9 @@ class NotificationSettingsPage extends HookConsumerWidget {
     final backendPrefsAsync =
         ref.watch(backendNotificationPreferencesProvider);
     final authState = ref.watch(authNotifierProvider);
+    // AirTag-only toggles are hidden for organizations without AirTag tracking.
+    final airtagTracking =
+        ref.watch(airtagTrackingProvider).valueOrNull ?? false;
     final isAdmin = authState.valueOrNull?.role == UserRole.admin;
 
     // Local device settings (SharedPreferences only)
@@ -141,20 +144,21 @@ class NotificationSettingsPage extends HookConsumerWidget {
                           .updatePreference(binCheckReports: v);
                     },
                   ),
-                  _ToggleItem(
-                    icon: Icons.battery_alert_rounded,
-                    iconColor: Colors.amber.shade700,
-                    title: 'Battery Alerts',
-                    subtitle:
-                        'Daily AirTag low battery reports',
-                    value: prefs.batteryAlerts,
-                    onChanged: (v) {
-                      ref
-                          .read(
-                              backendNotificationPreferencesProvider.notifier)
-                          .updatePreference(batteryAlerts: v);
-                    },
-                  ),
+                  if (airtagTracking)
+                    _ToggleItem(
+                      icon: Icons.battery_alert_rounded,
+                      iconColor: Colors.amber.shade700,
+                      title: 'Battery Alerts',
+                      subtitle:
+                          'Daily AirTag low battery reports',
+                      value: prefs.batteryAlerts,
+                      onChanged: (v) {
+                        ref
+                            .read(
+                                backendNotificationPreferencesProvider.notifier)
+                            .updatePreference(batteryAlerts: v);
+                      },
+                    ),
                 ]),
                 loading: () => _buildLoadingCard(2),
                 error: (_, __) => _buildErrorCard(2),
@@ -165,22 +169,23 @@ class NotificationSettingsPage extends HookConsumerWidget {
               const SizedBox(height: 8),
               backendPrefsAsync.when(
                 data: (prefs) => _buildCard([
-                  _ToggleItem(
-                    icon: Icons.gps_off_rounded,
-                    iconColor: Colors.red.shade600,
-                    title: 'Drift Alerts',
-                    subtitle:
-                        'Get alerted when bins move from their location',
-                    value: prefs.driftAlerts,
-                    onChanged: (v) {
-                      ref
-                          .read(
-                              backendNotificationPreferencesProvider.notifier)
-                          .updatePreference(driftAlerts: v);
-                      localPrefs.setChannelEnabled(
-                          NotificationChannels.binAlerts, v);
-                    },
-                  ),
+                  if (airtagTracking)
+                    _ToggleItem(
+                      icon: Icons.gps_off_rounded,
+                      iconColor: Colors.red.shade600,
+                      title: 'Drift Alerts',
+                      subtitle:
+                          'Get alerted when bins move from their location',
+                      value: prefs.driftAlerts,
+                      onChanged: (v) {
+                        ref
+                            .read(
+                                backendNotificationPreferencesProvider.notifier)
+                            .updatePreference(driftAlerts: v);
+                        localPrefs.setChannelEnabled(
+                            NotificationChannels.binAlerts, v);
+                      },
+                    ),
                   _ToggleItem(
                     icon: Icons.warning_amber_rounded,
                     iconColor: Colors.red.shade400,
